@@ -1072,7 +1072,7 @@ def test_pathological_bracket_input_completes_quickly(document: str) -> None:
     started = time.perf_counter()
     pairs = extractor.extract(document)
     elapsed = time.perf_counter() - started
-    assert elapsed < 5.0
+    assert elapsed < timing_budget(5.0)
     assert_spans_exact(document, pairs)
 
 

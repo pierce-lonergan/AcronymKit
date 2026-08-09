@@ -732,13 +732,13 @@ def test_a_phrase_of_repeated_words_does_not_stall_the_search() -> None:
     candidates = generator.align("NEXUS", repeated)
     elapsed = time.perf_counter() - started
     assert candidates
-    assert elapsed < 0.1, f"repeated words took {elapsed:.3f}s"
+    assert elapsed < timing_budget(0.1), f"repeated words took {elapsed:.3f}s"
 
     started = time.perf_counter()
     control = generator.align("NEXUS", distinct)
     control_elapsed = time.perf_counter() - started
     assert len(control) == Config().max_candidates
-    assert control_elapsed < 0.1
+    assert control_elapsed < timing_budget(0.1)
 
 
 @pytest.mark.slow
@@ -748,7 +748,7 @@ def test_synthesis_over_the_full_lexicon_stays_fast() -> None:
     started = time.perf_counter()
     candidates = generator.synthesize("ACRONYMKIT")
     assert candidates
-    assert time.perf_counter() - started < 0.5
+    assert time.perf_counter() - started < timing_budget(0.5)
 
 
 # ---------------------------------------------------------------------------

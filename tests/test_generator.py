@@ -34,7 +34,7 @@ from acronymkit.models import AcronymCandidate, LetterMapping, Token
 from acronymkit.phonetics import CharNGramModel, has_vowel
 from acronymkit.scoring import Scorer, build_mappings
 from acronymkit.tokenizer import Tokenizer
-from conftest import CANONICAL_ACRONYMS
+from conftest import CANONICAL_ACRONYMS, timing_budget
 
 # ---------------------------------------------------------------------------
 # Pipeline helpers
@@ -664,7 +664,7 @@ def test_twelve_eligible_tokens_generate_in_well_under_100ms() -> None:
         started = time.perf_counter()
         generator.generate(tokens)
         timings.append(time.perf_counter() - started)
-    assert min(timings) < 0.1
+    assert min(timings) < timing_budget(0.1)
 
 
 @pytest.mark.slow
