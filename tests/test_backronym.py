@@ -36,6 +36,7 @@ from acronymkit.models import BackronymCandidate, Token
 from acronymkit.phonetics import CharNGramModel
 from acronymkit.scoring import Scorer
 from acronymkit.tokenizer import Tokenizer
+from conftest import timing_budget
 
 # ---------------------------------------------------------------------------
 # Pipeline helpers
@@ -653,20 +654,53 @@ LONG_PHRASE = " ".join(
 )
 
 
+def _align_seconds(phrase: str, target: str = "NEXUS", repeats: int = 3) -> float:
+    """Fastest of ``repeats`` alignments, with the first call discarded as warm-up."""
+    tokenizer, generator = pipeline(Config())
+    tokens = tokenizer.tokenize(phrase)
+    generator.align(target, tokens)  # warm the caches the first call would pay for
+    best = float("inf")
+    for _ in range(repeats):
+        started = time.perf_counter()
+        candidates = generator.align(target, tokens)
+        best = min(best, time.perf_counter() - started)
+    assert candidates
+    return best
+
+
 @pytest.mark.slow
-def test_alignment_of_a_long_phrase_stays_fast() -> None:
-    """The suffix-optimum table keeps a 27-token phrase cheap per result."""
+def test_alignment_cost_grows_sub_quadratically_in_token_count() -> None:
+    """Doubling the phrase must not quadruple the alignment cost.
+
+    This is the machine-independent form of the guarantee: linear work doubles
+    and quadratic work quadruples, so a threshold between the two decides the
+    question on any hardware. A wall-clock ceiling would instead be a claim
+    about somebody else's CPU -- and was, in fact, the first thing to fail on a
+    shared CI runner.
+    """
+    single = _align_seconds(LONG_PHRASE)
+    double = _align_seconds(LONG_PHRASE + " " + LONG_PHRASE)
+    assert double < 3.0 * max(single, 0.005), (
+        f"alignment looks super-linear: {single:.4f}s for one copy, {double:.4f}s for two"
+    )
+
+
+@pytest.mark.slow
+def test_alignment_of_a_long_phrase_does_not_hang() -> None:
+    """A 27-token phrase completes within a calibrated budget.
+
+    The budget is scaled by :func:`conftest.machine_factor`, so this catches a
+    reintroduced blow-up without asserting a performance number the benchmark
+    suite is the proper home for.
+    """
     tokenizer, generator = pipeline(Config())
     tokens = tokenizer.tokenize(LONG_PHRASE)
     assert len(tokens) >= 25
-    generator.align("NEXUS", tokens)  # warm the caches the first call would pay for
-    timings = []
-    for _ in range(3):
-        started = time.perf_counter()
-        candidates = generator.align("NEXUS", tokens)
-        timings.append(time.perf_counter() - started)
+    started = time.perf_counter()
+    candidates = generator.align("NEXUS", tokens)
+    elapsed = time.perf_counter() - started
     assert candidates
-    assert min(timings) < 0.1
+    assert elapsed < timing_budget(0.1)
 
 
 #: Sixty copies of one word. Every letter of ``NEXUS`` occurs in it, so the

@@ -25,7 +25,7 @@ from acronymkit.extractor import (
     is_valid_short_form,
 )
 from acronymkit.models import AcronymPair
-from conftest import EXTRACTION_CASES
+from conftest import EXTRACTION_CASES, timing_budget
 
 # ---------------------------------------------------------------------------
 # Fixtures and helpers
@@ -1122,15 +1122,23 @@ def test_nested_regions_stay_sub_quadratic_across_a_doubling() -> None:
 
 
 @pytest.mark.slow
-def test_a_200kb_nested_document_completes_in_a_couple_of_seconds() -> None:
-    """A 200 KB nest of regions is linear work, not a hang."""
+def test_a_200kb_nested_document_does_not_hang() -> None:
+    """A 200 KB nest of regions is linear work, not a hang.
+
+    The ceiling is scaled by :func:`conftest.machine_factor` rather than fixed
+    at two seconds: the original constant was a claim about the development
+    machine's CPU and duly failed on slower shared runners while the code was
+    behaving correctly. The *shape* of the cost is asserted by
+    :func:`test_nested_regions_stay_sub_quadratic_across_a_doubling`, which is
+    machine-independent; this test only catches a genuine pathology.
+    """
     document = _nested_region_document(22_000)
     assert len(document) > 190_000
     extractor = AbbreviationExtractor(Config())
     started = time.perf_counter()
     pairs = extractor.extract(document)
     elapsed = time.perf_counter() - started
-    assert elapsed < 2.0
+    assert elapsed < timing_budget(2.0)
     assert_spans_exact(document, pairs)
 
 

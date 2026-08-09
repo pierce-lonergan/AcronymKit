@@ -35,6 +35,13 @@ coverage.xml
 .DS_Store
 Thumbs.db
 
+# Fetched evaluation assets. Downloaded by tools/fetch_data.py, verified by
+# SHA-256, never committed and never packaged -- some are non-commercial or
+# share-alike licensed and would contaminate the MIT wheel. See data/LICENSES.md
+# (which IS tracked) for the ledger.
+data/
+!data/LICENSES.md
+
 # Benchmarks & scratch output
 benchmarks/results/
 *.prof

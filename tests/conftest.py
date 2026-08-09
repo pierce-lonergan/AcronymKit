@@ -8,6 +8,8 @@ no-op once the package *is* installed — CI exercises both paths.
 from __future__ import annotations
 
 import sys
+import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Iterator
 
@@ -123,6 +125,75 @@ def _module_available(name: str) -> bool:
     import importlib.util
 
     return importlib.util.find_spec(name) is not None
+
+
+# --------------------------------------------------------------------------
+# Timing budgets
+# --------------------------------------------------------------------------
+# A hard-coded wall-clock threshold is not a measurement, it is a guess about
+# somebody else's hardware -- and it is how a green suite turns red on a shared
+# CI runner. Absolute performance numbers belong in the benchmark suite, where
+# the environment is pinned and dispersion is reported (see docs/BENCHMARKS.md).
+#
+# What belongs *here* is:
+#   * scaling assertions, which are machine-independent by construction -- if
+#     doubling the input less than triples the time, the path is not quadratic
+#     no matter how fast the box is; and
+#   * hang guards, expressed as a multiple of this machine's measured speed
+#     rather than as a constant.
+
+#: Seconds taken by :func:`_reference_workload` on the development machine
+#: (Python 3.13, Windows 11, x86-64). Recorded as the fastest of five runs.
+#: Used only as the denominator of :func:`machine_factor`.
+REFERENCE_WORKLOAD_SECONDS = 0.0421
+
+
+def _reference_workload() -> float:
+    """Time a fixed, allocation-free, pure-Python CPU loop.
+
+    Deliberately boring: an integer loop tracks interpreter dispatch speed,
+    which is what dominates every hot path in this library.
+
+    Returns:
+        Elapsed seconds for one run.
+    """
+    started = time.perf_counter()
+    total = 0
+    for index in range(2_000_000):
+        total += index % 7
+    assert total  # keep the loop from being optimised away
+    return time.perf_counter() - started
+
+
+@lru_cache(maxsize=1)
+def machine_factor() -> float:
+    """How much slower this machine is than the development baseline.
+
+    ``1.0`` means "as fast as the dev machine"; ``3.0`` means "three times
+    slower". Clamped below at ``1.0`` so a faster machine tightens nothing —
+    budgets are hang guards, not a race.
+
+    Returns:
+        A multiplier ``>= 1.0``, computed once per session.
+    """
+    observed = min(_reference_workload() for _ in range(3))
+    return max(observed / REFERENCE_WORKLOAD_SECONDS, 1.0)
+
+
+def timing_budget(dev_seconds: float, *, slack: float = 4.0) -> float:
+    """Scale a development-machine budget to the current machine.
+
+    Args:
+        dev_seconds: What the operation costs on the dev baseline.
+        slack: Multiplier absorbing scheduler noise, cold caches and the
+            general unfairness of shared CI runners. The default is
+            deliberately loose: these bounds exist to catch a pathology
+            (a hang, a reintroduced quadratic), not to police a percentage.
+
+    Returns:
+        The wall-clock ceiling to assert against, in seconds.
+    """
+    return dev_seconds * slack * machine_factor()
 
 
 requires_click = pytest.mark.skipif(
