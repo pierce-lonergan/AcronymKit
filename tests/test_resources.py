@@ -238,8 +238,14 @@ def test_read_lines_resource_returns_a_fresh_list() -> None:
     assert first is not second
     assert first == second
 
-    first.append("injected")
-    assert "injected" not in read_lines_resource("lexicon_en.txt")
+    # The sentinel must be a string the bundled lexicon cannot contain. The
+    # original sentinel here was "injected", which is a perfectly good English
+    # word and duly appeared once the real SCOWL lexicon replaced the
+    # model-authored one -- the test then failed for a reason that had nothing
+    # to do with cache aliasing.
+    sentinel = "\x00not-a-word-sentinel\x00"
+    first.append(sentinel)
+    assert sentinel not in read_lines_resource("lexicon_en.txt")
 
 
 @pytest.mark.parametrize("name", BAD_NAMES)

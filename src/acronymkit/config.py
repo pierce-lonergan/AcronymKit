@@ -65,14 +65,20 @@ class ScoringWeights(BaseModel):
 
     ``length_penalty`` closes the gap, and its default is chosen so the marginal
     economics come out right rather than by taste. With
-    ``length_penalty=6`` and ``preferred_length=2`` each additional character
-    costs 6, so:
+    ``length_penalty=8`` and ``preferred_length=2`` each additional character
+    costs 8, so:
 
-    * covering one more token nets ``initial_weight - 6 = +4``  -> encouraged;
+    * covering one more token nets ``initial_weight - 8 = +2``  -> encouraged;
     * taking a second letter from a token already used nets
-      ``contiguous_weight - 6 = -4``  -> discouraged;
+      ``contiguous_weight - 8 = -6``  -> discouraged;
     * dropping a critical token to shorten the acronym costs ``delta`` and
-      forfeits ``initial_weight``, far outweighing the 6 saved -> discouraged.
+      forfeits ``initial_weight``, far outweighing the 8 saved -> discouraged.
+
+    The margin against a padded alternative also has to clear ``beta * dPhi``,
+    and that is why ``beta`` is small by default: inserting a vowel improves
+    ``Phi`` by roughly 4 to 6 log units (measured on the bundled SCOWL model),
+    which is comparable to a whole initial-letter match. At ``beta = 1`` the
+    phonotactic term alone decides the ranking.
 
     Setting ``length_penalty`` between ``contiguous_weight`` and
     ``initial_weight`` therefore makes "one letter per token, cover everything"
@@ -84,9 +90,9 @@ class ScoringWeights(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     alpha: float = Field(default=1.0, ge=0.0, description="Positional mapping coefficient.")
-    beta: float = Field(default=1.0, ge=0.0, description="Phonotactic coefficient.")
-    gamma: float = Field(default=12.0, ge=0.0, description="Lexical match coefficient.")
-    delta: float = Field(default=15.0, ge=0.0, description="Information-loss coefficient.")
+    beta: float = Field(default=0.25, ge=0.0, description="Phonotactic coefficient.")
+    gamma: float = Field(default=2.0, ge=0.0, description="Lexical match coefficient.")
+    delta: float = Field(default=25.0, ge=0.0, description="Information-loss coefficient.")
 
     initial_weight: float = Field(
         default=10.0, description="omega when the character is a token's initial."
@@ -103,7 +109,7 @@ class ScoringWeights(BaseModel):
         description="Deduction per acronym character with no source token.",
     )
     length_penalty: float = Field(
-        default=6.0,
+        default=8.0,
         ge=0.0,
         description="Deduction per character beyond the preferred acronym length. Keeps the "
         "monotone-in-length positional sum from favouring needlessly long acronyms; see the "
@@ -127,21 +133,34 @@ class ScoringWeights(BaseModel):
 
 #: Preset weighting vectors selected by :class:`~acronymkit.enums.ScoringStrategy`.
 #:
-#: These are calibrated, not guessed. ``BALANCED_PRONOUNCEABLE`` and
-#: ``STRICT_INITIALISM`` were grid-searched against a canonical corpus of
-#: textbook initialisms (API, PDF, NASA, HTML, RAM, CPU, GPU, SCUBA, LASER,
-#: SQL, CRM, QA, TCP, SOAP, BIOS, ROM) and reproduce all sixteen as the primary
-#: result. The winning region is a broad plateau — 266 of 640 sampled vectors
-#: satisfy every case — so the defaults are robust rather than overfitted.
-#: ``tests/test_scoring_presets.py`` pins the corpus so retuning cannot silently
-#: regress it.
+#: These are calibrated by ``tools/tune_presets.py``, not guessed, and the sweep
+#: is committed so the calibration is falsifiable rather than asserted.
+#:
+#: ``STRICT_INITIALISM`` — the default — reproduces all sixteen entries of the
+#: canonical corpus (API, PDF, NASA, HTML, RAM, CPU, GPU, SCUBA, LASER, SQL,
+#: CRM, QA, TCP, SOAP, BIOS, ROM) and keeps doing so when ``beta``, ``gamma`` or
+#: ``delta`` are perturbed by +/-50 to 100 per cent, so it sits on a genuine plateau.
+#:
+#: ``BALANCED_PRONOUNCEABLE`` deliberately does **not** reproduce that corpus,
+#: and this is worth understanding before changing it. Against the real SCOWL
+#: lexicon there is provably no vector that both weights dictionary hits
+#: meaningfully *and* returns every textbook initialism: suppressing a
+#: vowel insertion needs ``length_penalty`` above roughly 14, which then
+#: over-penalises the short acronyms (API, ROM, NASA) instead. The requirement
+#: is self-contradictory, so the preset honours its name rather than the corpus.
+#: See ``docs/DECISIONS.md``.
 STRATEGY_WEIGHTS: dict[ScoringStrategy, ScoringWeights] = {
-    # Positional fidelity dominates; pronounceability and dictionary hits are
-    # nearly ignored and dropping a critical token is punished hard.
+    # Default. Positional fidelity dominates; pronounceability and dictionary
+    # hits are close to tie-breakers, and dropping a critical token is punished
+    # hard. beta stays small because Phi's dynamic range (~6.5 log units) is
+    # comparable to a whole initial-letter match.
     ScoringStrategy.STRICT_INITIALISM: ScoringWeights(
         alpha=1.0, beta=0.25, gamma=2.0, delta=25.0, length_penalty=8.0, preferred_length=2
     ),
-    # Default. Coverage first; pronounceability and dictionary hits break ties.
+    # A real trade, not a safer default: pronounceability and dictionary hits
+    # carry enough weight to outrank the literal initialism. "Quality
+    # Assurance" becomes QUA rather than QA, because "qua" is a word. Choose
+    # this when you want a sayable acronym and can accept that.
     ScoringStrategy.BALANCED_PRONOUNCEABLE: ScoringWeights(
         alpha=1.0, beta=1.0, gamma=12.0, delta=15.0, length_penalty=6.0, preferred_length=2
     ),
@@ -186,8 +205,10 @@ class Config(BaseModel):
         default=EngineTier.ZERO_DEPENDENCY, description="Requested execution tier."
     )
     scoring_strategy: ScoringStrategy = Field(
-        default=ScoringStrategy.BALANCED_PRONOUNCEABLE,
-        description="Named preset for the objective-function coefficients.",
+        default=ScoringStrategy.STRICT_INITIALISM,
+        description="Named preset for the objective-function coefficients. The default "
+        "reproduces the conventional initialism; BALANCED_PRONOUNCEABLE and "
+        "MAX_PRONOUNCEABLE deliberately trade that away for sayability.",
     )
     scoring_weights: Optional[ScoringWeights] = Field(
         default=None,

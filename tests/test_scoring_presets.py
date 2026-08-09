@@ -77,10 +77,17 @@ def test_strict_initialism_reproduces_the_canonical_acronym(phrase: str, expecte
     assert result.primary_acronym == expected
 
 
-def test_default_strategy_is_balanced_pronounceable() -> None:
-    """The corpus lock above is only meaningful if the default is what we think."""
-    assert Config().scoring_strategy is ScoringStrategy.BALANCED_PRONOUNCEABLE
-    assert Config().weights == STRATEGY_WEIGHTS[ScoringStrategy.BALANCED_PRONOUNCEABLE]
+def test_default_strategy_is_strict_initialism() -> None:
+    """The corpus lock above is only meaningful if the default is what we think.
+
+    The default was ``BALANCED_PRONOUNCEABLE`` in v0.1.0 and moved to
+    ``STRICT_INITIALISM`` once the real SCOWL lexicon landed: with 77k real
+    words there is provably no vector that both weights dictionary hits
+    meaningfully and returns every textbook initialism, and the default has to
+    be the one that returns "PDF".
+    """
+    assert Config().scoring_strategy is ScoringStrategy.STRICT_INITIALISM
+    assert Config().weights == STRATEGY_WEIGHTS[ScoringStrategy.STRICT_INITIALISM]
 
 
 # ---------------------------------------------------------------------------

@@ -193,9 +193,9 @@ def test_breakdown_total_includes_the_length_penalty(engine: AcronymEngine) -> N
     ``ScoreBreakdown`` records only the four terms of ``S(A, T)``, while
     ``Scorer.score`` also subtracts
     ``length_penalty * max(0, len(A) - preferred_length)``. For "PDF" under the
-    default weights that is ``6.0 * (3 - 2) == 6.0``, so the recorded terms sit
-    exactly ``6.0`` above ``total`` and ``ScoreBreakdown.explain()`` prints a
-    sum that does not balance.
+    default weights that is one character's worth of penalty, so the recorded
+    terms sit exactly that much above ``total`` and ``ScoreBreakdown.explain()``
+    prints a sum that does not balance.
     """
     candidate = engine.score("PDF", "Portable Document Format")
     breakdown = candidate.breakdown
@@ -209,7 +209,11 @@ def test_breakdown_total_includes_the_length_penalty(engine: AcronymEngine) -> N
         - weights.delta * breakdown.information_loss
     )
     expected_penalty = weights.length_penalty * max(0, len("PDF") - weights.preferred_length)
-    assert expected_penalty == pytest.approx(6.0)
+    # Derived from the shipped weights rather than hard-coded: the constant used
+    # to be 6.0 and became 8.0 when the default preset changed, which made this
+    # test fail for a reason unrelated to what it is checking.
+    assert expected_penalty == pytest.approx(weights.length_penalty * 1.0)
+    assert expected_penalty > 0.0, "the default weights must exercise the penalty path"
     assert four_terms - expected_penalty == pytest.approx(breakdown.total)
 
 

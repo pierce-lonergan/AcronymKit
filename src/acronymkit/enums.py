@@ -120,11 +120,15 @@ class ScoringStrategy(_StrEnum):
     Each preset re-balances the composite objective ``S(A, T)``:
 
     ``STRICT_INITIALISM``
-        Maximise positional fidelity. Effectively reproduces classic
-        first-letter initialisms ("Portable Document Format" -> "PDF").
+        **Default.** Maximise positional fidelity. Reproduces the classic
+        first-letter initialism ("Portable Document Format" -> "PDF") across
+        the whole canonical corpus, robustly.
     ``BALANCED_PRONOUNCEABLE``
-        Default. Trades a little positional fidelity for phonotactic quality
-        and rewards dictionary hits.
+        Trades positional fidelity for phonotactic quality and rewards
+        dictionary hits. This is a real trade, not a safer default: it will
+        return "QUA" for "Quality Assurance", because "qua" is a word and the
+        strategy values that over the literal initialism. Pick it when you want
+        a sayable acronym and can accept a deviation.
     ``MAX_PRONOUNCEABLE``
         Dominated by the phonotactic index; suitable for product naming.
     ``DICTIONARY_BACKRONYM``
