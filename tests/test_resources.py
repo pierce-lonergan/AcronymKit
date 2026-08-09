@@ -32,13 +32,22 @@ from acronymkit.resources import (
     read_text_resource,
     resource_path,
 )
+from conftest import LEXICON_LANGUAGES, NGRAM_LANGUAGES, STOPWORD_LANGUAGES
 
 KINDS = ["stopwords", "lexicon", "ngram"]
-BUNDLED_LANGUAGES = sorted(language.value for language in Language)
+# Per-resource-kind, because only English ships a lexicon and n-gram model;
+# stop words ship for every language. See conftest for why.
+BUNDLED_LANGUAGES = list(STOPWORD_LANGUAGES)
 
 STOPWORD_RESOURCES = [f"stopwords_{code}.json" for code in BUNDLED_LANGUAGES]
-LEXICON_RESOURCES = [f"lexicon_{code}.txt" for code in BUNDLED_LANGUAGES]
-NGRAM_RESOURCES = [f"ngram_{code}.json" for code in BUNDLED_LANGUAGES]
+LEXICON_RESOURCES = [f"lexicon_{code}.txt" for code in LEXICON_LANGUAGES]
+NGRAM_RESOURCES = [f"ngram_{code}.json" for code in NGRAM_LANGUAGES]
+
+_LANGUAGES_BY_KIND = {
+    "stopwords": STOPWORD_LANGUAGES,
+    "lexicon": LEXICON_LANGUAGES,
+    "ngram": NGRAM_LANGUAGES,
+}
 ALL_RESOURCES = STOPWORD_RESOURCES + LEXICON_RESOURCES + NGRAM_RESOURCES
 
 #: Names that must never resolve, either because they are absent or because
@@ -259,12 +268,22 @@ def test_read_lines_resource_raises_for_bad_names(name: str) -> None:
 # --------------------------------------------------------------------------
 @pytest.mark.parametrize("kind", KINDS)
 def test_available_languages_lists_every_bundled_language(kind: str) -> None:
-    assert available_languages(kind) == BUNDLED_LANGUAGES
+    assert available_languages(kind) == list(_LANGUAGES_BY_KIND[kind])
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_available_languages_matches_the_language_enum(kind: str) -> None:
-    assert set(available_languages(kind)) == {language.value for language in Language}
+def test_available_languages_reports_what_each_kind_actually_ships(kind: str) -> None:
+    """Not every Language has every resource, and the loader must say so.
+
+    Stop words ship for all four languages; lexicons and n-gram models ship for
+    English alone, because the French, Spanish and German word lists would have
+    to come from copyleft Hunspell dictionaries. Asserting equality with the
+    whole ``Language`` enum would re-encode the assumption this release removed.
+    """
+    reported = available_languages(kind)
+    assert reported == list(_LANGUAGES_BY_KIND[kind])
+    assert set(reported) <= {language.value for language in Language}
+    assert reported == sorted(reported)
 
 
 def test_available_languages_returns_a_fresh_list() -> None:
@@ -275,7 +294,7 @@ def test_available_languages_returns_a_fresh_list() -> None:
     assert first == second
 
     first.clear()
-    assert available_languages("lexicon") == BUNDLED_LANGUAGES
+    assert available_languages("lexicon") == list(LEXICON_LANGUAGES)
 
 
 @pytest.mark.parametrize("kind", ["", "words", "stopword", "LEXICON", "ngrams"])
@@ -327,7 +346,7 @@ def test_stopword_categories_are_sorted_deduped_and_lowercase(code: str) -> None
 # --------------------------------------------------------------------------
 # Structural validation: lexicons
 # --------------------------------------------------------------------------
-@pytest.mark.parametrize("code", BUNDLED_LANGUAGES)
+@pytest.mark.parametrize("code", LEXICON_LANGUAGES)
 def test_lexicon_is_sorted_unique_and_non_empty(code: str) -> None:
     words = read_lines_resource(f"lexicon_{code}.txt")
 
@@ -336,7 +355,7 @@ def test_lexicon_is_sorted_unique_and_non_empty(code: str) -> None:
     assert len(set(words)) == len(words), "lexicon must be deduplicated"
 
 
-@pytest.mark.parametrize("code", BUNDLED_LANGUAGES)
+@pytest.mark.parametrize("code", LEXICON_LANGUAGES)
 def test_lexicon_entries_are_lowercase_letters_only(code: str) -> None:
     for word in read_lines_resource(f"lexicon_{code}.txt"):
         assert word == word.strip()
@@ -359,7 +378,7 @@ NGRAM_REQUIRED_KEYS = {
 }
 
 
-@pytest.mark.parametrize("code", BUNDLED_LANGUAGES)
+@pytest.mark.parametrize("code", NGRAM_LANGUAGES)
 def test_ngram_header_fields(code: str) -> None:
     payload = read_json_resource(f"ngram_{code}.json")
 
@@ -372,7 +391,7 @@ def test_ngram_header_fields(code: str) -> None:
     assert payload["backoff_log_prob"] < 0.0
 
 
-@pytest.mark.parametrize("code", BUNDLED_LANGUAGES)
+@pytest.mark.parametrize("code", NGRAM_LANGUAGES)
 def test_ngram_alphabet_is_sorted_and_deduplicated(code: str) -> None:
     alphabet = read_json_resource(f"ngram_{code}.json")["alphabet"]
 
@@ -382,7 +401,7 @@ def test_ngram_alphabet_is_sorted_and_deduplicated(code: str) -> None:
     assert all(char.isalpha() and char == char.lower() for char in alphabet)
 
 
-@pytest.mark.parametrize("code", BUNDLED_LANGUAGES)
+@pytest.mark.parametrize("code", NGRAM_LANGUAGES)
 def test_ngram_log_probabilities_are_non_positive(code: str) -> None:
     """These are natural-log conditional probabilities, so every value is <= 0."""
     payload = read_json_resource(f"ngram_{code}.json")
@@ -392,7 +411,7 @@ def test_ngram_log_probabilities_are_non_positive(code: str) -> None:
             assert log_prob <= 0.0, f"log P({successor!r}|{context!r}) = {log_prob}"
 
 
-@pytest.mark.parametrize("code", BUNDLED_LANGUAGES)
+@pytest.mark.parametrize("code", NGRAM_LANGUAGES)
 def test_ngram_transitions_are_consistent_with_the_alphabet(code: str) -> None:
     payload = read_json_resource(f"ngram_{code}.json")
     alphabet = set(payload["alphabet"])
@@ -407,7 +426,7 @@ def test_ngram_transitions_are_consistent_with_the_alphabet(code: str) -> None:
         assert start not in row, "the start boundary is never a successor"
 
 
-@pytest.mark.parametrize("code", BUNDLED_LANGUAGES)
+@pytest.mark.parametrize("code", LEXICON_LANGUAGES)
 def test_ngram_alphabet_matches_the_lexicon_it_was_trained_on(code: str) -> None:
     """``CharNGramModel.train`` derives the alphabet from the case-folded corpus."""
     payload = read_json_resource(f"ngram_{code}.json")

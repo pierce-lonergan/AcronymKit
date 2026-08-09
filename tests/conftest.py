@@ -24,6 +24,30 @@ from acronymkit import AcronymEngine, Config  # noqa: E402
 from acronymkit.enums import EngineTier, Language  # noqa: E402
 from acronymkit.lexicon import Lexicon  # noqa: E402
 from acronymkit.phonetics import CharNGramModel  # noqa: E402
+from acronymkit.resources import available_languages  # noqa: E402
+
+# --------------------------------------------------------------------------
+# Which languages actually ship which resource
+# --------------------------------------------------------------------------
+# Not every Language member has every resource, and tests must not assume it
+# does. Only English has a bundled lexicon and n-gram model: the French,
+# Spanish and German word lists would have to come from copyleft Hunspell
+# dictionaries, which cannot be redistributed inside an MIT wheel (see
+# data/LICENSES.md). Shipping model-authored substitutes was the v0.1.0
+# approach and it is exactly what this release removes.
+#
+# Derived from the package rather than hard-coded, so adding a language to the
+# resource directory extends the parametrised tests automatically.
+STOPWORD_LANGUAGES: tuple[str, ...] = tuple(available_languages("stopwords"))
+LEXICON_LANGUAGES: tuple[str, ...] = tuple(available_languages("lexicon"))
+NGRAM_LANGUAGES: tuple[str, ...] = tuple(available_languages("ngram"))
+
+#: Languages the engine supports but ships no lexicon or n-gram model for. These
+#: must degrade honestly -- generation still works, but Lambda(A) is identically
+#: zero and Phi(A) is uniform, and the engine must say so in its warnings.
+UNBUNDLED_LANGUAGES: tuple[Language, ...] = tuple(
+    language for language in Language if language.value not in LEXICON_LANGUAGES
+)
 
 # --------------------------------------------------------------------------
 # Canonical corpus

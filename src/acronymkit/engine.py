@@ -254,21 +254,57 @@ class AcronymEngine:
 
     @property
     def lexicon(self) -> Lexicon:
-        """The language lexicon backing ``Lambda(A)``, loaded on first access."""
+        """The language lexicon backing ``Lambda(A)``, loaded on first access.
+
+        A language with no bundled lexicon degrades to an empty one rather than
+        raising, which keeps generation working — but it makes ``Lambda(A)``
+        identically zero, so a dictionary hit can never be reported. That is
+        recorded in :attr:`EngineMetadata.warnings` rather than left silent:
+        silently answering "not a word" for every candidate is exactly the kind
+        of degradation a caller needs to know about.
+        """
         lexicon = self._lexicon
         if lexicon is None:
             lexicon = Lexicon.load(self._config.language, path=self._config.lexicon_path)
             self._lexicon = lexicon
+            if not len(lexicon) and self._config.lexicon_path is None:
+                self._note_resource_gap(
+                    f"no bundled lexicon for language {self._config.language.value!r}: "
+                    "Lambda(A) is always 0, so no candidate can be reported as a "
+                    "dictionary word. Supply one with Config(lexicon_path=...); see "
+                    "tools/build_lexicons.py."
+                )
         return lexicon
 
     @property
     def ngram(self) -> CharNGramModel:
-        """The character n-gram model backing ``Phi(A)``, loaded on first access."""
+        """The character n-gram model backing ``Phi(A)``, loaded on first access.
+
+        With no bundled model the loader returns a uniform one, under which every
+        transition is equally likely and ``Phi(A)`` therefore carries no
+        information. Ranking still works — the positional term dominates — but
+        pronounceability stops discriminating, which is recorded as a warning.
+        """
         ngram = self._ngram
         if ngram is None:
             ngram = CharNGramModel.load(self._config.language, path=self._config.ngram_model_path)
             self._ngram = ngram
+            if ngram.is_uniform and self._config.ngram_model_path is None:
+                self._note_resource_gap(
+                    f"no bundled n-gram model for language "
+                    f"{self._config.language.value!r}: Phi(A) is uniform, so "
+                    "pronounceability cannot discriminate between candidates."
+                )
         return ngram
+
+    def _note_resource_gap(self, message: str) -> None:
+        """Record a missing-resource warning once, for every later result.
+
+        Args:
+            message: Human-readable description of what degraded and how to fix it.
+        """
+        if message not in self._warnings:
+            self._warnings = (*self._warnings, message)
 
     @property
     def scorer(self) -> Scorer:

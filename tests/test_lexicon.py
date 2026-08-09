@@ -20,7 +20,7 @@ from acronymkit import lexicon as lexicon_module
 from acronymkit.enums import Language
 from acronymkit.exceptions import LexiconError, ResourceNotFoundError
 from acronymkit.lexicon import Lexicon
-from conftest import CANONICAL_ACRONYMS
+from conftest import CANONICAL_ACRONYMS, LEXICON_LANGUAGES
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -359,7 +359,7 @@ def test_canonical_initialisms_are_not_dictionary_hits(
     assert acronym not in english_lexicon
 
 
-@pytest.mark.parametrize("language", list(Language))
+@pytest.mark.parametrize("language", [Language(code) for code in LEXICON_LANGUAGES])
 def test_every_bundled_language_loads_without_raising(language: Language) -> None:
     lexicon = Lexicon.load(language)
     assert lexicon.language is language

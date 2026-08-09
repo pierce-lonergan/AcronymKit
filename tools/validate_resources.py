@@ -77,6 +77,29 @@ DEFAULT_RESOURCE_DIR = SRC_DIR / "acronymkit" / "resources"
 #: Top-level keys permitted in a stop-word document (``description`` optional).
 STOPWORD_KEYS = frozenset({"language", "description", "categories"})
 
+#: ``(kind, language)`` pairs that are absent on purpose, so ``--require`` does
+#: not report them as gaps.
+#:
+#: Only English ships a lexicon and an n-gram model. The French, Spanish and
+#: German word lists would have to be derived from Hunspell dictionaries, and
+#: those are copyleft: German's only permissive arm is the OASIS licence, which
+#: grants distribution solely alongside ODF applications, and the French and
+#: Spanish MPL arms would make the wheel MIT-plus-MPL. See ``data/LICENSES.md``.
+#:
+#: Shipping model-authored substitutes was the v0.1.0 answer and is precisely
+#: what this release removed: an invented word list makes every ``Lambda(A)``
+#: claim unverifiable. The engine now degrades honestly instead, and says so in
+#: ``EngineMetadata.warnings``.
+#:
+#: Users who want real coverage run::
+#:
+#:     python tools/fetch_data.py hunspell-fr
+#:     python tools/build_lexicons.py --language fr --output ~/fr.txt
+#:     Config(language=Language.FR, lexicon_path=Path("~/fr.txt"))
+DELIBERATELY_ABSENT = frozenset(
+    (kind, language) for kind in ("lexicon", "ngram") for language in ("fr", "es", "de")
+)
+
 #: Top-level keys required in an n-gram document.
 NGRAM_REQUIRED_KEYS = (
     "language",
@@ -500,6 +523,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 if gzipped.is_file():
                     path = gzipped
                     name = gzipped.name
+                elif (kind, language) in DELIBERATELY_ABSENT:
+                    # Not a gap: see DELIBERATELY_ABSENT. --require must not
+                    # demand a file the project has decided it cannot ship.
+                    print(f"  n/a   {name:<24} not bundled by design")
+                    continue
                 elif args.require:
                     print(f"  FAIL  {name:<24} missing (required)")
                     failures.append((name, ["file is missing and --require was given"]))

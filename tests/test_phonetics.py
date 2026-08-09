@@ -44,7 +44,7 @@ from acronymkit.phonetics import (
     syllable_count,
     vowel_ratio,
 )
-from conftest import CANONICAL_ACRONYMS
+from conftest import CANONICAL_ACRONYMS, NGRAM_LANGUAGES
 
 START = CharNGramModel.BOUNDARY_START
 END = CharNGramModel.BOUNDARY_END
@@ -306,7 +306,7 @@ def test_train_rows_form_a_proper_conditional_distribution(
         assert emitted < 1.0
 
 
-@pytest.mark.parametrize("language", list(Language))
+@pytest.mark.parametrize("language", [Language(code) for code in NGRAM_LANGUAGES])
 def test_bundled_rows_form_a_proper_conditional_distribution(language: Language) -> None:
     """The same normalisation property, asserted on the shipped models.
 
@@ -329,7 +329,7 @@ def test_bundled_rows_form_a_proper_conditional_distribution(language: Language)
         assert mass == pytest.approx(1.0, abs=1.0 / vocabulary)
 
 
-@pytest.mark.parametrize("language", list(Language))
+@pytest.mark.parametrize("language", [Language(code) for code in NGRAM_LANGUAGES])
 def test_bundled_log_probabilities_are_bounded_by_zero_and_the_backoff(
     language: Language,
 ) -> None:
@@ -397,7 +397,7 @@ def test_train_is_order_independent() -> None:
 # ---------------------------------------------------------------------------
 # uniform(): usable without any resource
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("language", list(Language))
+@pytest.mark.parametrize("language", [Language(code) for code in NGRAM_LANGUAGES])
 def test_uniform_needs_no_resource_and_is_a_real_uniform_distribution(
     language: Language,
 ) -> None:
@@ -606,7 +606,7 @@ def test_longest_consonant_run(word: str, expected: int) -> None:
 # ---------------------------------------------------------------------------
 # serialisation round trips
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("language", list(Language))
+@pytest.mark.parametrize("language", [Language(code) for code in NGRAM_LANGUAGES])
 def test_to_dict_from_dict_preserves_every_score(language: Language) -> None:
     model = CharNGramModel.load(language)
     clone = CharNGramModel.from_dict(model.to_dict())
@@ -749,7 +749,7 @@ def test_load_with_a_path_is_cached_and_bypasses_the_bundle(tmp_path: Path) -> N
     assert first is not CharNGramModel.load(Language.EN)
 
 
-@pytest.mark.parametrize("language", list(Language))
+@pytest.mark.parametrize("language", [Language(code) for code in NGRAM_LANGUAGES])
 def test_every_bundled_model_loads_with_its_accented_alphabet(language: Language) -> None:
     model = CharNGramModel.load(language)
     assert model.language is language

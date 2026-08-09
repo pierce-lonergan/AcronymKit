@@ -19,10 +19,10 @@ from hypothesis import strategies as st
 import acronymkit
 from acronymkit import AcronymEngine, Config
 from acronymkit.disambiguation import ExpansionDictionary
-from acronymkit.enums import EngineTier, MappingKind
+from acronymkit.enums import EngineTier, Language, MappingKind
 from acronymkit.exceptions import EmptyPhraseError, NoCandidateError, TierUnavailableError
 from acronymkit.models import AcronymCandidate, AcronymResult
-from conftest import CANONICAL_ACRONYMS, HAS_NLP_BACKEND
+from conftest import CANONICAL_ACRONYMS, HAS_NLP_BACKEND, UNBUNDLED_LANGUAGES
 
 PHRASES = [phrase for phrase, _ in CANONICAL_ACRONYMS]
 
@@ -744,3 +744,43 @@ def test_token_offsets_index_back_into_the_original_text(
         assert token.index == position
         assert phrase[token.start : token.end] == token.text
         assert token.start < token.end
+
+
+# ---------------------------------------------------------------------------
+# Missing-resource degradation
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("language", UNBUNDLED_LANGUAGES, ids=lambda lang: lang.value)
+def test_a_language_without_a_bundled_lexicon_warns_rather_than_degrading_silently(
+    language: Language,
+) -> None:
+    """Generation still works, but the caller is told what stopped working.
+
+    French, Spanish and German ship no lexicon or n-gram model, because the
+    available sources are copyleft (see data/LICENSES.md). The engine degrades
+    -- Lambda(A) becomes identically zero and Phi(A) uniform -- which is the
+    honest outcome, but a caller who is never told would reasonably read
+    ``is_dictionary_word=False`` on every candidate as a fact about the words
+    rather than about the missing resource.
+    """
+    engine = AcronymEngine(Config(language=language))
+    result = engine.generate("Systeme de Gestion de Base de Donnees")
+
+    assert result.primary_acronym, "generation must still succeed"
+    joined = " ".join(result.metadata.warnings).lower()
+    assert "lexicon" in joined, result.metadata.warnings
+    assert "n-gram" in joined or "ngram" in joined, result.metadata.warnings
+    assert language.value in joined
+    # The degradation is real, not merely announced.
+    assert all(not candidate.is_dictionary_word for candidate in result.alternatives)
+
+
+def test_english_generates_without_any_resource_warning() -> None:
+    """The bundled-resource path must stay quiet, or the warning is just noise."""
+    result = AcronymEngine(Config(language=Language.EN)).generate("Portable Document Format")
+
+    resource_warnings = [
+        warning
+        for warning in result.metadata.warnings
+        if "lexicon" in warning.lower() or "n-gram" in warning.lower()
+    ]
+    assert resource_warnings == []
