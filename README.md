@@ -120,7 +120,7 @@ always holds) and a confidence estimate. Prose parentheticals such as `(see Figu
 enumerations such as `(1) … (2) …` are correctly rejected.
 
 **Measured, not asserted.** On the MED1250 gold standard (1,221 human-annotated pairs from the Ab3P
-corpus): **precision 92.20 %, recall 78.46 %, F1 84.78 %**, at ~3,100 documents/second. High
+corpus): **precision 92.07 %, recall 76.99 %, F1 83.85 %**, at 4,219 documents/second. High
 precision with recall the weak side is the expected shape for this algorithm — it refuses rather than
 guesses. The full breakdown, including where the misses come from and one optimisation that was tried
 and reverted, is in [docs/EVALUATION.md](docs/EVALUATION.md). Reproduce with:
@@ -196,7 +196,7 @@ Config(language=Language.FR, lexicon_path=Path("~/fr.txt").expanduser())
 
 | Tier | `EngineTier` | Dependencies | Latency | Use for |
 |---|---|---|---|---|
-| 0 | `ZERO_DEPENDENCY` | stdlib + Pydantic | **~95 µs/call** | Edge, high-throughput indexing, hot paths |
+| 0 | `ZERO_DEPENDENCY` | stdlib + Pydantic | **98 µs/call** | Edge, high-throughput indexing, hot paths |
 | 1 | `STATISTICAL_NLP` | spaCy **or** NLTK | single-digit ms | POS-aware generation on messy human text |
 | 1 | `HYBRID_NLP` | optional | either | Production default — degrades gracefully |
 | 2 | `NEURAL` | ONNX Runtime | — | **Phase 3, not in this release** |

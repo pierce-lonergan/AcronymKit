@@ -1,0 +1,14 @@
+# Numbers that look like performance claims but are not ours to measure.
+#
+# Format: <number>  <reason>
+# Checked by tools/check_claims.py. Keep this list short: if a number can be
+# measured, measure it instead of listing it here.
+
+# --- figures published by other authors, attributed, never presented as ours ---
+86   published Schwartz & Hearst F1 range quoted in DECISIONS.md, attributed
+89   published Schwartz & Hearst F1 range quoted in DECISIONS.md, attributed
+
+# --- bibliographic, not measurements ---
+2008 publication year of Sohn et al., BMC Bioinformatics 9:402
+2003 publication year of Schwartz & Hearst, PSB
+1250 corpus name (MED1250), not a measurement

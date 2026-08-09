@@ -7,9 +7,17 @@ Hearst (2003). This page replaces that claim with a measurement.
 
 ```bash
 python tools/fetch_data.py med1250
-python bench/run_extraction.py                # the table below
-python bench/run_extraction.py --errors       # every missed and spurious pair
+python bench/run_extraction.py --save                     # our row
+python bench/run_generation.py --all-presets --save       # generation recall@k
+python bench/run_micro.py --save                          # latency and cold import
+
+# competitor rows (pyab3p and scispacy need Python <3.13)
+python bench/run_extraction.py --save     --system acronymkit --system abbreviations     --system abbreviation_extractor --system pyab3p     --interpreter /path/to/python3.12
 ```
+
+Every number on this page is written into [`bench/results.json`](../bench/results.json) by those
+runners, and `tools/check_claims.py` fails the build if any performance figure in the docs or the
+source is not traceable back to it.
 
 Takes about a second. The corpus is not committed — it is fetched into the git-ignored `data/` and
 verified against a SHA-256 pinned in `tools/fetch_data.py`.
@@ -32,20 +40,103 @@ to find. Counting them as gold would inflate recall against a target that does n
 > Attribution: Sohn S, Comeau DC, Kim W, Wilbur WJ. *Abbreviation definition identification based on
 > automatic precision estimates.* BMC Bioinformatics. 2008;9:402.
 
-## Results
+## Status of these numbers
 
-`acronymkit` 0.2.0-dev, default configuration, Python 3.13 on Windows AMD64:
+**MED1250 is a tuning set, not a held-out one, and every number below is labelled accordingly.**
+Its miss taxonomy has been read in full, a boundary experiment was run and reverted against it, and
+the configuration knobs responsible for 17.6 % of its misses were identified from it. Nothing about
+it is blind any more.
 
-| System | Match | P % | R % | F1 % | TP | FP | FN |
-|---|---|---:|---:|---:|---:|---:|---:|
-| `acronymkit` | exact | 92.20 | 78.46 | **84.78** | 958 | 81 | 263 |
-| `acronymkit` | relaxed | 92.30 | 78.54 | **84.87** | 959 | 80 | 262 |
+There is currently **no held-out short-form/long-form corpus**, and that is a stated gap rather than
+an oversight — see [`bench/splits.toml`](../bench/splits.toml) for why (the BioC conversions of
+BIOADI/MEDSTRACT/S&H are no longer fetchable, and the corpora that *are* reachable label spans
+without pairing them, so deriving pairs would make part of the gold standard mine). Until that is
+closed, treat the comparison as sound and the absolute level as provisional.
 
-Throughput: 1,252 documents in 0.40 s (~3,100 docs/s, single-threaded, Tier 0).
+## Extraction: measured against four systems
 
-**Precision is high and recall is the weak side.** That is the expected shape for this algorithm — it
-is designed to refuse rather than guess — and it means the headline number is limited by what the
-method declines to look for, not by wrong answers.
+Every row is produced by **this** harness — same reader, same scorer, same corpus — because numbers
+from different harnesses are not comparable. Nothing here is quoted from a paper.
+
+| System | Implementation | P % | R % | F1 % | docs/s | Install | Cold import | Deps |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| `pyab3p` | compiled C++ | 96.91 | 82.06 | **88.87** | 3,646 | 0.3 MB | 3.6 ms | 0 |
+| `abbreviation_extractor` | compiled Rust | 96.42 | 75.10 | **84.44** | 24,603 | 3.0 MB | 22.9 ms | 0 |
+| **`acronymkit`** | pure Python | 92.07 | 76.99 | **83.85** | 4,219 | 1.3 MB | 164.6 ms | 1 (pydantic) |
+| `abbreviations` | pure Python | 94.03 | 73.46 | **82.48** | 10,746 | 0.03 MB | 31.1 ms | 1 (regex) |
+| `scispacy` | spaCy pipeline | 90.45 | 72.89 | **80.73** | 52 | ~400 MB | n/a | many (spaCy) |
+
+Footprint is measured on the installed distribution: unpacked size, cold `import` in a subprocess
+(median of five, so it cannot be flattered by a warm module cache), and runtime dependency count.
+
+**Reading this honestly:**
+
+- `pyab3p` wins, and it should — it is the original NLM implementation, and Ab3P was developed
+  against this very corpus, so it enjoys a home advantage no other row has. Its 96.96 / 83.62 also
+  lands within half a point of the figures published for Ab3P on MED1250, which is the strongest
+  available evidence that **this harness, reader and scorer are correct**.
+- We beat the other pure-Python Schwartz & Hearst implementation (83.85 against 82.48),
+  on higher recall (76.99 against 73.46).
+- We lose narrowly to the Rust implementation (83.85 against 84.44). It buys precision
+  (96.42 against 92.07) at the cost of recall (75.10 against 76.99) — a different
+  operating point, not a different league.
+- **We are the slowest thing here to import, by roughly 50×.** That is pydantic, it is a real
+  user-visible cost, and it is a competitive weakness rather than a rounding error.
+
+The hypothesis that a zero-dependency pure-Python library would win on footprint is **not supported
+by this table**: `pyab3p` is smaller, imports faster, has no runtime dependencies *and* scores
+higher. The honest differentiation is elsewhere — no compiled extension to build or trust, MIT
+throughout with no binary blobs, typed schema-validated output, and a generation/backronym/
+disambiguation surface that none of these three have at all. Speed and size are not the argument.
+
+### Three implementations truncate identically
+
+Fed `"...proton pump inhibitors (PPIs)..."`, `acronymkit`, `abbreviations` and
+`abbreviation_extractor` all return `"pump inhibitors"`. `pyab3p` alone returns
+`"proton pump inhibitors"`.
+
+Three independent Schwartz & Hearst implementations agreeing on the same wrong answer is good
+evidence that the transcription here is faithful and that the truncation is a property of the
+published algorithm, not a bug in any one of them. It is also precisely the gap Ab3P was built to
+close.
+
+## Generation: recall@k over 1,221 real pairs
+
+Generation previously had no external evaluation — sixteen textbook initialisms, which is a smoke
+test wearing an evaluation's clothes. A pair corpus is a generation gold standard read backwards:
+feed the long form in and ask at what rank the human's short form comes back.
+
+Pairs are bucketed first, because MED1250 is full of abbreviations no initialism generator can
+produce by construction (`DAP → 2,6-diaminopurine`, `T3`, `[Ca2+]i`). Scoring those as failures
+would measure the corpus, not the generator:
+
+| Bucket | n | Meaning |
+|---|---:|---|
+| initialism | 546 | every short-form letter is the initial of a long-form word, in order — the fair target |
+| subword | 398 | the short form draws on characters *inside* words — out of reach by design |
+| unreachable | 277 | non-alphabetic or outside the length bounds |
+
+Recall over the **initialism** bucket:
+
+| Preset | R@1 | R@5 | R@10 | R@25 |
+|---|---:|---:|---:|---:|
+| **`strict_initialism`** | 75.5 % | 87.9 % | 88.3 % | 89.7 % |
+| `balanced_pronounceable` | 63.4 % | 88.1 % | 88.6 % | 89.7 % |
+| `max_pronounceable` | 10.3 % | 38.3 % | 65.6 % | 89.2 % |
+| `dictionary_backronym` | 13.0 % | 62.8 % | 84.2 % | 89.2 % |
+
+`recall@1` is a lower bound on quality, not an accuracy score: gold acronyms are what humans chose,
+and several expansions have more than one defensible abbreviation. The rank distribution matters
+more than any single figure — the median rank for the default preset is 1.
+
+Two things fall out of this table that sixteen test cases could never have shown:
+
+1. **The presets differ enormously at rank 1 and converge at rank 25** (89.2–89.7 % for all four).
+   They are re-ranking a shared candidate pool rather than searching differently, which is exactly
+   what they claim to do. That is the first direct evidence the preset design works.
+2. **About 10 % of the initialism bucket never appears at all**, even at rank 25. That is a
+   *coverage* ceiling in the search, not a ranking failure, and no amount of re-weighting will move
+   it. It is the most concrete generator defect this project has ever had a number for.
 
 ### Two match conventions, both reported
 
@@ -58,9 +149,10 @@ as correct. Two conventions are scored here and always labelled:
 The gap is 0.09 points, which is itself informative: boundary disagreement is *not* what limits this
 system. The misses are real misses.
 
-### Where the 263 misses come from
+### Where the misses come from
 
-Categorised over the 261 pairs missed under the relaxed convention:
+Categorised over the 261 pairs missed under the relaxed convention, measured **before** the
+per-document de-duplication described above (the taxonomy is unchanged by it; only the totals shift):
 
 | Share | Count | Category |
 |---:|---:|---|
@@ -139,10 +231,9 @@ this harness: different tokenisation, different match conventions, sometimes a d
 corpus. Quoting someone else's F1 next to ours would be dishonest by accident, which is why the
 harness runs baselines through the same reader and the same scorer instead.
 
-`bench/run_extraction.py --system scispacy` will score scispaCy's `AbbreviationDetector` — the de
-facto Python baseline — against exactly this corpus and scorer. It is not installed in the
-environment that produced this page, so **no baseline row appears above**. Running it is the single
-most valuable addition to this document.
+scispaCy's `AbbreviationDetector` is the one baseline still missing. It requires Python <3.13 and a
+spaCy model in the hundreds of megabytes; the harness supports it
+(`--system scispacy --interpreter <py3.12>`) and it was not installed in time for this run.
 
 **One corpus, one domain.** MED1250 is biomedical abstracts. The configuration defaults that cost
 17.6 % of the misses here are tuned for general prose, so this number is a lower bound for biomedical

@@ -1,0 +1,83 @@
+# Train/test separation for evaluation corpora.
+#
+# Frozen deliberately and committed before any configuration sweep, because the
+# alternative is the failure mode this project has already paid for once: the
+# v0.1.0 scoring presets were tuned against a model-authored lexicon, scored
+# 16/16, and collapsed to 13/16 the moment real data arrived. Fitting to what
+# you can see is cheap to do and expensive to discover.
+#
+# MED1250 is *already* contaminated as a test set. Its miss taxonomy has been
+# read in detail (docs/EVALUATION.md categorises all 261 misses by cause), a
+# long-form boundary experiment was run against it, and its failures shaped the
+# roadmap. Nothing about it is blind any more. It is a tuning set now and it
+# cannot be un-tuned.
+
+[policy]
+# Every headline number must come from a held-out corpus. Numbers from the
+# tuning split are publishable but must be labelled "tuning split" wherever
+# they appear -- in docs, in the README, and in bench/results.json run ids.
+headline_requires = "held_out"
+label_tuning_numbers = true
+
+[corpora.med1250]
+role = "tuning"
+task = "extraction"
+pairs = 1221
+licence = "Public domain (United States Government Work)"
+contaminated = true
+contamination_reason = """
+Miss taxonomy analysed in full; a boundary-selection experiment was run and
+reverted against it; the configuration knobs that cost 17.6% of its misses were
+identified from it. Any future number reported on MED1250 is a tuning number.
+"""
+
+# ---------------------------------------------------------------------------
+# Held out: currently EMPTY, and saying so is the point.
+# ---------------------------------------------------------------------------
+# There is no held-out short-form/long-form pair corpus yet, so at the time of
+# writing NO number in this project satisfies `headline_requires`. That is a
+# stated gap, not an oversight, and the reason is worth recording because it is
+# not a matter of effort:
+#
+#   * BIOADI, MEDSTRACT and the original Schwartz & Hearst corpus are cited
+#     everywhere but are not fetchable. The NCBI BioC conversion endpoint
+#     (ftp.ncbi.nlm.nih.gov/pub/lu/ABBR/) returns 404 and BIOADI's SourceForge
+#     project page is gone. "One BioC reader covers all four" is not available.
+#
+#   * SDU@AAAI-21 (MIT) and PLOD (CC BY-SA) are both reachable, but both are
+#     BIO token-classification: they label short-form and long-form *spans*
+#     without pairing them. Deriving pairs requires an adjacency assumption,
+#     which would make part of the "gold standard" mine. A gold standard I
+#     partly invented cannot adjudicate my own system.
+#
+# Two honest routes forward, in preference order:
+#   1. Score span-level detection on SDU/PLOD -- the metric those corpora were
+#      actually built for -- which needs no pairing assumption. Different
+#      metric, no invention.
+#   2. Derive pairs by adjacency and label the corpus "derived pairing" in
+#      every table it appears in, never mixing it with annotator-pair corpora.
+#
+# Until one lands, docs/EVALUATION.md says the extraction number is a tuning
+# number.
+
+[corpora.sdu21_ai]
+role = "held_out"
+task = "span_detection"
+status = "reader_not_written"
+licence = "MIT"
+note = "BIO tags over scientific-paper sentences; no annotator pairing."
+
+[corpora.plod]
+role = "held_out"
+task = "span_detection"
+status = "reader_not_written"
+licence = "CC BY-SA 4.0"
+vendorable = false
+note = "Non-biomedical counterweight; the only domain-generalisation evidence available."
+
+[corpora.sdu21_ad]
+role = "held_out"
+task = "disambiguation"
+status = "reader_not_written"
+licence = "MIT"
+note = "Ships diction.json, a ready-made ExpansionDictionary for the Tier 1 disambiguator."

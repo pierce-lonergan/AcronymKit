@@ -38,6 +38,10 @@ jobs:
         run: python -m ruff format --check src tests tools
       - name: Mypy
         run: python -m mypy
+      - name: Every performance claim is backed by a measurement
+        # A docstring once claimed an F1 that had never been measured. This is
+        # the enforcement so the rule does not depend on catching it by hand.
+        run: python tools/check_claims.py
 
   resources:
     name: Validate bundled resources
