@@ -164,13 +164,13 @@ jobs:
           required = [
               "acronymkit/py.typed",
               "acronymkit/resources/acronym-engine-result.schema.json",
+              # Only English ships a lexicon and n-gram model; the other
+              # languages' sources are copyleft. See data/LICENSES.md.
+              "acronymkit/resources/lexicon_en.txt",
+              "acronymkit/resources/ngram_en.json",
           ]
           for lang in ("en", "fr", "es", "de"):
-              required += [
-                  f"acronymkit/resources/lexicon_{lang}.txt",
-                  f"acronymkit/resources/ngram_{lang}.json",
-                  f"acronymkit/resources/stopwords_{lang}.json",
-              ]
+              required.append(f"acronymkit/resources/stopwords_{lang}.json")
           missing = [r for r in required if r not in names]
           assert not missing, f"missing from wheel: {missing}"
           print(f"{wheel}: {len(names)} entries, all {len(required)} required resources present")
