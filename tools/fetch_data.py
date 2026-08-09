@@ -55,6 +55,10 @@ LEDGER_PATH = DATA_DIR / "LICENSES.md"
 #: place upstream and a moving pin makes our phonetic resource irreproducible.
 CMUDICT_COMMIT = "74790861f652b15e4ac49015a90074ad62a27690"
 
+#: Pinned Ab3P commit. MED1250 is the gold standard the published extraction
+#: F-scores are quoted against, so the pin is what makes our number comparable.
+AB3P_COMMIT = "41130cddfcba1449ba612905d4a51274f8f565a8"
+
 #: Pinned LibreOffice dictionaries commit for the Hunspell assets.
 LIBREOFFICE_DICTS_REF = "master"
 
@@ -143,6 +147,47 @@ ASSETS: tuple[Asset, ...] = (
         vendor_note="The licence text itself, retained so the notice can be reproduced verbatim.",
         purpose="Attribution text for the derived CMUdict resource.",
         attribution="Copyright (C) 1993-2015 Carnegie Mellon University.",
+    ),
+    Asset(
+        key="med1250",
+        filename="MED1250_labeled",
+        url=(f"https://raw.githubusercontent.com/ncbi-nlp/Ab3P/{AB3P_COMMIT}/MED1250_labeled"),
+        sha256="5093fa8f130ee250add0d0fbde7fc736478e18fbcc4447b00b4179db47f4cf53",
+        licence="Public domain (United States Government Work)",
+        licence_url=(f"https://raw.githubusercontent.com/ncbi-nlp/Ab3P/{AB3P_COMMIT}/README.md"),
+        vendorable=False,
+        vendor_note=(
+            "Public domain, so redistribution would be lawful -- the NLM notice "
+            "states the work 'cannot be copyrighted within the United States' and "
+            "that no restriction has been placed on its use or reproduction. It is "
+            "still fetch-only: it is a 1.6 MB evaluation corpus, not a runtime "
+            "resource, and nothing in the library reads it. Shipping it would "
+            "inflate every wheel for the benefit of the few people running "
+            "benchmarks."
+        ),
+        purpose=(
+            "Gold standard for extraction evaluation: 1,250 MEDLINE records with "
+            "1,221 manually annotated short-form/long-form pairs. This is the "
+            "corpus the published Schwartz & Hearst and Ab3P F-scores are quoted "
+            "against, which is what makes our number comparable to theirs."
+        ),
+        attribution=(
+            "Sohn S, Comeau DC, Kim W, Wilbur WJ. Abbreviation definition "
+            "identification based on automatic precision estimates. "
+            "BMC Bioinformatics. 2008;9:402. National Library of Medicine."
+        ),
+    ),
+    Asset(
+        key="ab3p-readme",
+        filename="Ab3P_README.md",
+        url=f"https://raw.githubusercontent.com/ncbi-nlp/Ab3P/{AB3P_COMMIT}/README.md",
+        sha256="756d5fa9a5900901f10b357c11230e55febe2af1f16f3fa3a5353af415f750eb",
+        licence="Public domain (United States Government Work)",
+        licence_url=f"https://raw.githubusercontent.com/ncbi-nlp/Ab3P/{AB3P_COMMIT}/README.md",
+        vendorable=False,
+        vendor_note="Retained alongside MED1250 because it defines the annotation format.",
+        purpose="Specification of the MED1250 annotation format and its comment conventions.",
+        attribution="National Library of Medicine.",
     ),
     Asset(
         key="hunspell-fr",

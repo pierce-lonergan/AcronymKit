@@ -51,6 +51,28 @@ The licence text itself, retained so the notice can be reproduced verbatim.
 Copyleft, share-alike or non-commercial. Fine to use on your own machine;
 shipping them would change the licence of the wheel. `data/` is git-ignored.
 
+### `med1250` — MED1250_labeled
+
+- **Licence:** Public domain (United States Government Work)
+- **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
+- **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/MED1250_labeled>
+- **SHA-256:** `5093fa8f130ee250add0d0fbde7fc736478e18fbcc4447b00b4179db47f4cf53`
+- **Used for:** Gold standard for extraction evaluation: 1,250 MEDLINE records with 1,221 manually annotated short-form/long-form pairs. This is the corpus the published Schwartz & Hearst and Ab3P F-scores are quoted against, which is what makes our number comparable to theirs.
+- **Attribution:** Sohn S, Comeau DC, Kim W, Wilbur WJ. Abbreviation definition identification based on automatic precision estimates. BMC Bioinformatics. 2008;9:402. National Library of Medicine.
+
+Public domain, so redistribution would be lawful -- the NLM notice states the work 'cannot be copyrighted within the United States' and that no restriction has been placed on its use or reproduction. It is still fetch-only: it is a 1.6 MB evaluation corpus, not a runtime resource, and nothing in the library reads it. Shipping it would inflate every wheel for the benefit of the few people running benchmarks.
+
+### `ab3p-readme` — Ab3P_README.md
+
+- **Licence:** Public domain (United States Government Work)
+- **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
+- **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
+- **SHA-256:** `756d5fa9a5900901f10b357c11230e55febe2af1f16f3fa3a5353af415f750eb`
+- **Used for:** Specification of the MED1250 annotation format and its comment conventions.
+- **Attribution:** National Library of Medicine.
+
+Retained alongside MED1250 because it defines the annotation format.
+
 ### `hunspell-fr` — fr.dic
 
 - **Licence:** MPL-2.0 (Dicollecte / Grammalecte)

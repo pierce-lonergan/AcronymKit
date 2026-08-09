@@ -9,6 +9,40 @@ Newest first.
 
 ---
 
+## D-008 — Boundary-maximising long-form selection: tried, measured, reverted
+
+**Status:** rejected · **Evidence:** `docs/EVALUATION.md`
+
+The largest single category of extraction misses (28.7 %) is the reference matcher truncating the
+long form: it walks right-to-left and accepts the first alignment it reaches, which is the shortest
+one. `IIEF` yields `"Index of Erectile Function"` rather than `"International Index of Erectile
+Function"`, because the second `I` and the `E` are consumed from inside `"Erectile"`. Each such case
+costs a false negative *and* a false positive.
+
+Tried: enumerate every plausible starting boundary, keep those the reference matcher validates from
+their first character, and pick the one maximising word-initial alignment.
+
+| Variant | Exact F1 on MED1250 |
+|---|---:|
+| Reference algorithm (kept) | **84.78** |
+| Maximise initial alignment, word + hyphen starts | 83.36 |
+| Same, count rather than fraction | 83.36 (identical — monotonically related) |
+| Same, hyphen starts restricted to alphabetic prefixes | 84.69 |
+
+Reverted: nothing beat the baseline.
+
+The diagnosis is worth more than the attempt. Hyphen-boundary starts fixed 3 pairs (`HDL →
+high-density lipoprotein`, where `non-` is a qualifier rather than part of the term) and broke 18,
+almost all chemical nomenclature (`2,6-diaminopurine → diaminopurine`). Locants belong to the
+compound's name; a `non-` prefix does not. Restricting hyphen starts to alphabetic prefixes separates
+those cases and recovers nearly all the loss — but "nearly" is not "beats", so it did not ship.
+
+Conclusion: the greedy match is a stronger baseline than its visible truncation suggests, and beating
+it probably needs what Ab3P actually did — per-candidate precision estimates learned from data — not
+a better boundary heuristic.
+
+---
+
 ## D-007 — `BALANCED_PRONOUNCEABLE` is not the default, and cannot reproduce the canonical corpus
 
 **Status:** decided · **Supersedes:** the v0.1.0 default

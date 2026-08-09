@@ -119,6 +119,16 @@ Both arrangements are supported — `Long Form (Short Form)` and the inverted
 always holds) and a confidence estimate. Prose parentheticals such as `(see Figure 3)` and
 enumerations such as `(1) … (2) …` are correctly rejected.
 
+**Measured, not asserted.** On the MED1250 gold standard (1,221 human-annotated pairs from the Ab3P
+corpus): **precision 92.20 %, recall 78.46 %, F1 84.78 %**, at ~3,100 documents/second. High
+precision with recall the weak side is the expected shape for this algorithm — it refuses rather than
+guesses. The full breakdown, including where the misses come from and one optimisation that was tried
+and reverted, is in [docs/EVALUATION.md](docs/EVALUATION.md). Reproduce with:
+
+```bash
+python tools/fetch_data.py med1250 && python bench/run_extraction.py
+```
+
 ### Contextual disambiguation
 
 ```python
@@ -333,6 +343,7 @@ python tools/fetch_data.py --verify      # re-check every checksum
 
 - [Architecture](docs/ARCHITECTURE.md) — subsystem map, tier policy, resource formats, extension points
 - [Contributing](CONTRIBUTING.md) — the invariants that are easy to break by accident
+- [Evaluation](docs/EVALUATION.md) — measured extraction accuracy against a gold standard
 - [Decisions](docs/DECISIONS.md) — what was tried and rejected, and why
 - [Security policy](SECURITY.md) — threat model and disclosure
 - [Changelog](CHANGELOG.md)
