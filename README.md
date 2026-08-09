@@ -4,6 +4,7 @@
 [![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://pypi.org/project/acronymkit/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Typed](https://img.shields.io/badge/typing-py.typed-informational)](https://peps.python.org/pep-0561/)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/pierce-lonergan/AcronymKit/badge)](https://scorecard.dev/viewer/?uri=github.com/pierce-lonergan/AcronymKit)
 
 **Bi-directional, multi-tiered acronym processing for production systems.**
 Generate acronyms from text, synthesise backronyms, extract abbreviations already defined in a
@@ -332,6 +333,8 @@ python tools/fetch_data.py --verify      # re-check every checksum
 
 - [Architecture](docs/ARCHITECTURE.md) — subsystem map, tier policy, resource formats, extension points
 - [Contributing](CONTRIBUTING.md) — the invariants that are easy to break by accident
+- [Decisions](docs/DECISIONS.md) — what was tried and rejected, and why
+- [Security policy](SECURITY.md) — threat model and disclosure
 - [Changelog](CHANGELOG.md)
 
 ## Extending
