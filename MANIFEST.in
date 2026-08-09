@@ -1,0 +1,31 @@
+# Source distribution contents.
+#
+# setuptools' default sdist rules pick up `tests/test*.py` but NOT conftest.py,
+# and skip top-level data directories entirely. Without this file the shipped
+# sdist cannot run its own test suite (every test module imports from conftest)
+# and omits the interchange schema, the resource tooling and the docs.
+
+include LICENSE
+include README.md
+include CHANGELOG.md
+include CONTRIBUTING.md
+include MANIFEST.in
+include pyproject.toml
+include .editorconfig
+
+recursive-include src/acronymkit *.py py.typed
+recursive-include src/acronymkit/resources *.json *.txt *.gz
+
+recursive-include tests *.py
+include tests/conftest.py
+
+recursive-include schemas *.json
+recursive-include tools *.py
+recursive-include docs *.md
+recursive-include .github/workflows *.yml
+
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+prune .github/ISSUE_TEMPLATE
+prune benchmarks/results

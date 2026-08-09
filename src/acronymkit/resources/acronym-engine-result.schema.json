@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/pierce-lonergan/AcronymKit/main/schemas/acronym-engine-result.schema.json",
+  "title": "AcronymEngineResult",
+  "description": "Canonical cross-language interchange payload emitted by acronymkit (Python) and acronym4j (Java) for forward acronym generation. Additional properties are permitted so that implementations may attach richer diagnostics without breaking consumers.",
+  "type": "object",
+  "properties": {
+    "source_phrase": {
+      "type": "string",
+      "description": "The input phrase exactly as supplied to the engine."
+    },
+    "primary_acronym": {
+      "type": "string",
+      "description": "Highest-ranked candidate under the active scoring strategy."
+    },
+    "score": {
+      "type": "number",
+      "description": "Composite score S(A, T) of the primary acronym."
+    },
+    "alternatives": {
+      "type": "array",
+      "description": "All retained candidates, ordered by descending score. The primary acronym is included as the first element when present.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "acronym": { "type": "string" },
+          "score": {
+            "type": "number",
+            "description": "Composite score S(A, T)."
+          },
+          "is_dictionary_word": {
+            "type": "boolean",
+            "description": "Lambda(A): whether the candidate is a recognised word in the target lexicon."
+          },
+          "pronounceability_score": {
+            "type": "number",
+            "description": "Phi(A) rescaled to the closed interval [0, 1]; higher is more word-like.",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "raw_phonotactic_score": {
+            "type": "number",
+            "description": "Unscaled Phi(A), the mean character-bigram log-likelihood (always <= 0).",
+            "maximum": 0
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Character count of the acronym."
+          },
+          "covered_token_indices": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "skipped_token_indices": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "mappings": {
+            "type": "array",
+            "description": "Per-character alignment trace backing the positional term of the score.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "character": { "type": "string", "minLength": 1, "maxLength": 1 },
+                "position": { "type": "integer", "minimum": 0 },
+                "token_index": { "type": ["integer", "null"], "minimum": 0 },
+                "char_offset": { "type": ["integer", "null"], "minimum": 0 },
+                "kind": {
+                  "type": "string",
+                  "enum": ["initial", "internal", "contiguous", "unmapped"]
+                },
+                "weight": { "type": "number" }
+              },
+              "required": ["character", "position", "kind", "weight"]
+            }
+          },
+          "breakdown": {
+            "type": ["object", "null"],
+            "description": "Per-term decomposition of S(A, T).",
+            "properties": {
+              "positional": { "type": "number" },
+              "phonotactic": { "type": "number" },
+              "lexical": { "type": "number" },
+              "information_loss": { "type": "number" },
+              "alpha": { "type": "number" },
+              "beta": { "type": "number" },
+              "gamma": { "type": "number" },
+              "delta": { "type": "number" },
+              "total": { "type": "number" }
+            },
+            "required": ["positional", "phonotactic", "lexical", "information_loss", "total"]
+          }
+        },
+        "required": ["acronym", "score"]
+      }
+    },
+    "tokens": {
+      "type": "array",
+      "description": "Tokenizer output retained for auditability.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "normalized": { "type": "string" },
+          "index": { "type": "integer", "minimum": 0 },
+          "start": { "type": "integer", "minimum": 0 },
+          "end": { "type": "integer", "minimum": 0 },
+          "role": {
+            "type": "string",
+            "enum": ["content", "function", "numeral", "symbol", "acronym", "unknown"]
+          },
+          "stop_word_category": {
+            "type": ["string", "null"],
+            "enum": [
+              "article",
+              "preposition",
+              "conjunction",
+              "pronoun",
+              "auxiliary",
+              "determiner",
+              "particle",
+              "other",
+              null
+            ]
+          },
+          "pos": { "type": ["string", "null"] },
+          "lemma": { "type": ["string", "null"] },
+          "is_critical": { "type": "boolean" },
+          "is_eligible": { "type": "boolean" },
+          "letters": { "type": "string" },
+          "subtokens": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["text", "normalized", "index", "start", "end"]
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "engine_tier": {
+          "type": "string",
+          "enum": ["zero_dependency", "statistical_nlp", "hybrid_nlp", "neural", "auto"]
+        },
+        "requested_tier": {
+          "type": ["string", "null"],
+          "enum": ["zero_dependency", "statistical_nlp", "hybrid_nlp", "neural", "auto", null]
+        },
+        "execution_time_ms": { "type": "number", "minimum": 0 },
+        "tokens_processed": { "type": "integer", "minimum": 0 },
+        "candidates_evaluated": { "type": "integer", "minimum": 0 },
+        "language": { "type": "string", "enum": ["en", "fr", "es", "de"] },
+        "library_version": { "type": "string" },
+        "nlp_backend": { "type": ["string", "null"] },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "truncated": { "type": "boolean" }
+      },
+      "required": ["engine_tier", "execution_time_ms", "tokens_processed"]
+    }
+  },
+  "required": ["source_phrase", "primary_acronym", "alternatives", "metadata"]
+}

@@ -1,0 +1,134 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acronymkit"
+version = "0.1.0"
+description = "Enterprise-grade text-to-acronym generation, extraction, and disambiguation engine."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Pierce Lonergan", email = "lonerganpierce@gmail.com" }]
+keywords = [
+    "acronym",
+    "abbreviation",
+    "backronym",
+    "nlp",
+    "text-processing",
+    "schwartz-hearst",
+    "disambiguation",
+    "naming",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Linguistic",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.0.0",
+    "typing-extensions>=4.0.0",
+]
+
+[project.optional-dependencies]
+cli = ["click>=8.0.0"]
+nlp = ["spacy>=3.5.0", "nltk>=3.8.0"]
+transformers = ["onnxruntime>=1.14.0", "transformers>=4.25.0"]
+all = ["acronymkit[cli,nlp,transformers]"]
+dev = [
+    "acronymkit[cli]",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "jsonschema>=4.17.0",
+    "hypothesis>=6.80.0",
+    "ruff>=0.5.0",
+    "mypy>=1.8.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
+]
+
+[project.scripts]
+acronymkit = "acronymkit.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/pierce-lonergan/AcronymKit"
+Documentation = "https://github.com/pierce-lonergan/AcronymKit#readme"
+Repository = "https://github.com/pierce-lonergan/AcronymKit.git"
+Issues = "https://github.com/pierce-lonergan/AcronymKit/issues"
+Changelog = "https://github.com/pierce-lonergan/AcronymKit/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+acronymkit = ["py.typed", "resources/*.json", "resources/*.txt", "resources/*.gz"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests that take a noticeable amount of wall-clock time",
+    "nlp: requires an optional Tier 1 NLP backend (spaCy or NLTK)",
+]
+
+[tool.coverage.run]
+source = ["acronymkit"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    "E501",   # line length is enforced by the formatter
+    "UP006",  # keep typing.Dict/List compatibility where deliberate
+    "UP007",  # Union[...] rather than X | Y for 3.9 support
+    "UP045",  # Optional[X] rather than X | None for 3.9 support (split out of UP007)
+    "UP035",
+    "B905",   # zip(strict=...) is 3.10+
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N806"]
+
+[tool.mypy]
+python_version = "3.9"
+files = ["src/acronymkit"]
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
