@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING — default `scoring_strategy` is now `STRICT_INITIALISM`** (was
+  `BALANCED_PRONOUNCEABLE`). Pass the old value explicitly to restore v0.1.0 ranking. Generated
+  acronyms may change for any caller using the default.
+- **BREAKING — French, Spanish and German no longer ship a lexicon or n-gram model.** Λ(A) is
+  identically zero and Φ(A) uniform for those languages; generation, extraction and disambiguation
+  still work. Restore full behaviour with `tools/fetch_data.py` + `tools/build_lexicons.py` and
+  `Config(lexicon_path=...)`.
+- The bundled English lexicon is now derived from SCOWL (76,879 entries, size cut ≤ 60) instead of
+  being model-authored. Every Λ(A) claim is now verifiable against a checksummed, permissively
+  licensed source.
+- `ScoringWeights` defaults follow the new default preset: β 1.0 → 0.25, γ 12.0 → 2.0, δ 15.0 → 25.0,
+  `length_penalty` 6.0 → 8.0.
+
+### Added
+
+- `tools/fetch_data.py` — pinned, checksum-verified asset acquisition with a generated licence ledger
+  (`data/LICENSES.md`). Assets are classified vendorable or fetch-only, with the reasoning recorded.
+- `tools/build_lexicons.py` — builds lexicons from SCOWL/Hunspell and refuses to write a
+  non-redistributable asset into the package. Also scores the syllable heuristic against CMUdict:
+  **84.1 % exact, 99.5 % within one syllable** over 117,485 entries.
+- `tools/tune_presets.py` — the coefficient sweep, committed so the calibration is reproducible.
+- `AcronymEngine` now records a warning when a language has no bundled lexicon or n-gram model,
+  instead of degrading silently.
+- `docs/DECISIONS.md` — what was tried and rejected, and why.
+
+### Fixed
+
+- Timing assertions in the correctness suite were absolute wall-clock ceilings and failed on shared
+  CI runners while the code was correct. They now assert scaling, with hang guards scaled by a
+  measured machine factor.
+- `.gitignore` used `data/` with a `!data/LICENSES.md` negation, which silently ignored the ledger:
+  git cannot re-include a file whose parent directory is excluded.
+
+### Notes
+
+- The preset weights did not survive the lexicon swap, which is the expected outcome of tuning
+  against invented data: `BALANCED_PRONOUNCEABLE` scored 16/16 on the canonical corpus against 9,282
+  invented words and 13/16 against 76,879 real ones. Against a real dictionary there is provably no
+  vector that both weights dictionary hits meaningfully and returns every textbook initialism, so the
+  default moved rather than the tuning. See `docs/DECISIONS.md` D-007.
+
 ## [0.1.0] — Unreleased
 
 Initial public release. Delivers roadmap **Phase 1** (Tier 0 engine and extractive foundation) and

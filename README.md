@@ -60,7 +60,7 @@ from acronymkit.enums import EngineTier, ScoringStrategy
 
 engine = AcronymEngine(Config(
     engine_tier=EngineTier.HYBRID_NLP,
-    scoring_strategy=ScoringStrategy.BALANCED_PRONOUNCEABLE,
+    scoring_strategy=ScoringStrategy.STRICT_INITIALISM,
     include_articles=False,
     min_word_length=2,
     max_acronym_length=6,
@@ -68,12 +68,12 @@ engine = AcronymEngine(Config(
 
 result = engine.generate("Application Programming Interface")
 result.primary_acronym                    # 'API'
-result.score                              # 20.912
+result.score                              # 21.297
 result.primary.breakdown.explain()
-# 'S = 1*30.000 + 1*-3.088 + 12*0.000 - 15*0.000 = 20.912'
+# 'S = 1*30.000 + 0.25*-2.811 + 2*0.000 - 25*0.000 = 21.297'
 
 [(c.acronym, round(c.score, 2)) for c in result.alternatives[:4]]
-# [('API', 20.91), ('APRI', 17.46), ('APIN', 17.42), ('APPI', 16.84)]
+# [('API', 21.3), ('APIN', 15.42), ('APRI', 15.38), ('APPI', 15.29)]
 ```
 
 Every candidate carries a per-character alignment trace and a term-by-term score decomposition, so a
@@ -138,15 +138,47 @@ engine.disambiguate("MS", "Peak intensity in the MS spectrum identified the ioni
 With no dictionary supplied, the engine builds one from the document's own inline definitions, so a
 term defined once on first use resolves everywhere afterwards.
 
-### Multilingual
+### Multilingual — English complete, others experimental
 
-Categorised stop-word taxonomies, lexicons and character models ship for English, French, Spanish and
-German:
+Categorised stop-word taxonomies ship for English, French, Spanish and German, and generation works
+for all four:
 
 ```python
 from acronymkit.enums import Language
 AcronymEngine(Config(language=Language.FR)).generate("Système de Gestion de Base de Données")  # SGBD
 AcronymEngine(Config(language=Language.DE)).generate("Allgemeine Deutsche Automobil Club")     # ADAC
+```
+
+**But only English ships a lexicon and a character model.** For fr/es/de, Λ(A) is identically zero
+(no candidate is ever reported as a dictionary word) and Φ(A) is uniform (pronounceability stops
+discriminating). Positional fidelity carries generation on its own, which is why the examples above
+are still correct — but treat those languages as experimental.
+
+This is deliberate. The v0.1.0 word lists for those languages were model-authored, which made every
+dictionary claim about them unverifiable, and unlike English there is no permissively licensed
+replacement to swap in: the available Hunspell dictionaries are copyleft, and German's only permissive
+arm grants distribution solely alongside ODF applications. Given the choice between invented data and
+no data, no data is correct — invented data produces confident wrong answers a caller cannot detect.
+
+The engine says so rather than degrading silently:
+
+```python
+result = AcronymEngine(Config(language=Language.FR)).generate("Système de Gestion de Base de Données")
+result.metadata.warnings
+# ["no bundled lexicon for language 'fr': Lambda(A) is always 0, ...",
+#  "no bundled n-gram model for language 'fr': Phi(A) is uniform, ..."]
+```
+
+To get real coverage, install a dictionary yourself — it stays on your machine, so its licence is
+your call, not ours:
+
+```bash
+python tools/fetch_data.py hunspell-fr
+python tools/build_lexicons.py --language fr --output ~/fr.txt
+```
+
+```python
+Config(language=Language.FR, lexicon_path=Path("~/fr.txt").expanduser())
 ```
 
 ## Execution tiers
@@ -176,7 +208,11 @@ $$S(A, T) = \alpha \sum_{i} \omega(c_i, w_{j(i)}) \;+\; \beta \, \Phi(A) \;+\; \
 | `Λ(A)` | **Lexical match** — 1 when `A` is a real word in the target lexicon (a successful backronym), else 0 |
 | `Ψ(T, A)` | **Information loss** — count of semantically critical tokens the acronym drops |
 
-`Φ` behaves the way you would hope: Φ("SCALE") = −2.36, Φ("PDF") = −6.74, Φ("XKCD") = −7.28.
+`Φ` behaves the way you would hope: Φ("SCALE") = −2.29, Φ("PDF") = −6.22, Φ("XKCD") = −7.46.
+
+The syllable heuristic underpinning it is measured, not asserted: against the 117,485 CMUdict
+entries it scores **84.1 % exact** and **99.5 % within one syllable** (mean absolute error 0.16).
+Reproduce with `python tools/build_lexicons.py --validate-syllables`.
 
 ### Presets
 
@@ -184,8 +220,8 @@ $$S(A, T) = \alpha \sum_{i} \omega(c_i, w_{j(i)}) \;+\; \beta \, \Phi(A) \;+\; \
 
 | Strategy | Behaviour |
 |---|---|
-| `STRICT_INITIALISM` | Positional fidelity dominates |
-| `BALANCED_PRONOUNCEABLE` | **Default.** Coverage first; pronounceability and dictionary hits break ties |
+| `STRICT_INITIALISM` | **Default.** Positional fidelity dominates; reproduces the textbook initialism |
+| `BALANCED_PRONOUNCEABLE` | A real trade: pronounceability and dictionary hits can outrank the literal initialism |
 | `MAX_PRONOUNCEABLE` | Phonotactics dominate — for product and project naming |
 | `DICTIONARY_BACKRONYM` | A real word outweighs almost everything else |
 | `CUSTOM` | You supply `ScoringWeights` |
@@ -199,17 +235,25 @@ MAX_PRONOUNCEABLE   -> 'SQULTP'  pronounceability 0.65
 DICTIONARY_BACKRONYM -> 'NEXUS'  (dictionary word, score 92.95)
 ```
 
-The defaults are calibrated rather than guessed: they were grid-searched against a corpus of textbook
-initialisms (API, PDF, NASA, HTML, RAM, CPU, GPU, SCUBA, LASER, SQL, CRM, QA, TCP, SOAP, BIOS, ROM)
-and reproduce **all sixteen** as the primary result. The winning region is a broad plateau — 266 of
-640 sampled vectors satisfy every case — and `tests/test_scoring_presets.py` pins the corpus so
-retuning cannot silently regress it.
+The defaults are calibrated rather than guessed, by a committed script
+(`tools/tune_presets.py`) so the claim is falsifiable. `STRICT_INITIALISM` reproduces **all sixteen**
+entries of a canonical corpus of textbook initialisms (API, PDF, NASA, HTML, RAM, CPU, GPU, SCUBA,
+LASER, SQL, CRM, QA, TCP, SOAP, BIOS, ROM), and keeps doing so when β, γ or δ are perturbed by
+50–100 % — a genuine plateau rather than a fitted point. `tests/test_scoring_presets.py` pins the
+corpus so retuning cannot silently regress it.
+
+`BALANCED_PRONOUNCEABLE` deliberately does *not* reproduce that corpus, and it is worth knowing why.
+Against the real 76,879-word lexicon there is provably no coefficient vector that both weights
+dictionary hits meaningfully and returns every textbook initialism: suppressing a vowel insertion
+needs a length penalty above ~14, which then over-penalises the short acronyms instead. So the preset
+honours its name — it returns `QUA` for "Quality Assurance", because "qua" is a word. See
+[docs/DECISIONS.md](docs/DECISIONS.md).
 
 > **One deliberate deviation from the published formulation.** The positional term is a *sum*, so it
 > grows monotonically with length — used unmodified as a generation objective it prefers `PODOFO` to
-> `PDF`. `ScoringWeights.length_penalty` (default 6.0) closes that gap, sitting between
-> `contiguous_weight` (2) and `initial_weight` (10) so that covering a new token nets +4 while taking
-> a second letter from a token already used nets −4. Set `length_penalty=0.0` to recover the
+> `PDF`. `ScoringWeights.length_penalty` (default 8.0) closes that gap, sitting between
+> `contiguous_weight` (2) and `initial_weight` (10) so that covering a new token nets +2 while taking
+> a second letter from a token already used nets −6. Set `length_penalty=0.0` to recover the
 > unmodified objective exactly.
 
 ## Command line
@@ -224,22 +268,22 @@ acronymkit generate "Self Contained Underwater Breathing Apparatus" --top 3
 
 ```
 Phrase:  Self Contained Underwater Breathing Apparatus
-Primary: SCUBA  (score 41.023)
+Primary: SCUBA  (score 27.264)
 
 RANK  ACRONYM   SCORE  PRONOUNCE  DICT
 ----  -------  ------  ---------  ----
-   1  SCUBA    41.023       0.70  yes
-   2  SCOUBA   25.353       0.72  no
-   3  SECUBA   25.213       0.71  no
+   1  SCUBA    27.264       0.75  yes
+   2  SCOUBA   19.352       0.77  no
+   3  SCUBRA   19.284       0.75  no
 
 Score breakdown for SCUBA:
   TERM               VALUE  COEFF  CONTRIBUTION
   ----------------  ------  -----  ------------
   positional        50.000      1        50.000
-  phonotactic       -2.977      1        -2.977
-  lexical            1.000     12        12.000
-  information_loss   0.000     15        -0.000
-  total                                  41.023
+  phonotactic       -2.943   0.25        -0.736
+  lexical            1.000      2         2.000
+  information_loss   0.000     25        -0.000
+  total                                  27.264
 ```
 
 Also available: `backronym`, `synthesize`, `extract`, `score`, `tokens`, `schema`, `version`. Every
@@ -266,6 +310,22 @@ the planned `acronym4j` Java port:
 ```python
 from acronymkit.serialization import validate_result
 validate_result(result.to_dict())      # raises if the payload drifts from the contract
+```
+
+## Data provenance
+
+The bundled English lexicon is derived from **SCOWL** (size cut ≤ 60, 76,879 entries) and the syllable
+validation from **CMUdict**. Both are permissively licensed and redistributed with their notices in the
+resource headers. Every asset is pinned to a commit or release tarball and verified by SHA-256, because
+a silent upstream edit to a word list changes Λ(A), which changes every score.
+
+[`data/LICENSES.md`](data/LICENSES.md) is the ledger: source, licence, checksum, and — for anything not
+redistributable — the reasoning for why not. `tools/build_lexicons.py` refuses to write a
+non-redistributable asset into the package, so the rule is enforced by code rather than by diligence.
+
+```bash
+python tools/fetch_data.py --list        # the registry
+python tools/fetch_data.py --verify      # re-check every checksum
 ```
 
 ## Documentation
