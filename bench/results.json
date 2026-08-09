@@ -1,6 +1,28 @@
 {
   "environment": "Python 3.13.4 on Windows AMD64",
   "runs": {
+    "analysis.med1250.miss_taxonomy": {
+      "config_attributable": 46,
+      "config_attributable_pct": 17.62,
+      "corpus": "med1250",
+      "n_brackets_inside_short_form": 29,
+      "n_characters_not_present_in_order": 38,
+      "n_digits_in_short_form": 49,
+      "n_long_form_boundary_disagreement": 75,
+      "n_long_form_exceeds_word_budget": 1,
+      "n_multi_word_short_form": 23,
+      "n_no_uppercase_in_short_form_config": 23,
+      "n_short_form_2_chars_config": 23,
+      "pct_brackets_inside_short_form": 11.11,
+      "pct_characters_not_present_in_order": 14.56,
+      "pct_digits_in_short_form": 18.77,
+      "pct_long_form_boundary_disagreement": 28.74,
+      "pct_long_form_exceeds_word_budget": 0.38,
+      "pct_multi_word_short_form": 8.81,
+      "pct_no_uppercase_in_short_form_config": 8.81,
+      "pct_short_form_2_chars_config": 8.81,
+      "total_misses": 261
+    },
     "extraction.med1250.abbreviation_extractor": {
       "corpus": "med1250",
       "docs_per_second": 24603.3,

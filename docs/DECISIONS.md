@@ -9,6 +9,28 @@ Newest first.
 
 ---
 
+## D-009 — A preset is a point on a frontier, not an answer
+
+**Status:** open · **Evidence:** [`notes/scoring-objective.md`](notes/scoring-objective.md)
+
+Section 2 of the technical note shows that no single coefficient vector can both
+weight dictionary hits meaningfully and reproduce conventional initialisms, once the lexicon is
+real. That is not a tuning problem to be solved; it is a trade-off to be exposed.
+
+Presenting one vector as *the* balanced answer hides that trade inside a constant. The successor API
+returns the **Pareto frontier** — the non-dominated operating points over (initialism fidelity,
+pronounceability) — and lets the caller pick. Someone naming a product wants a different point from
+someone indexing a document store, and neither is wrong.
+
+Not built yet. Recorded here so the design consequence of a proved result does not evaporate.
+
+The same reframing applies to the extraction configuration: we sit at 92.07 precision / 76.99 recall,
+which is precision to spend, and the knobs that cost 17.6 % of the misses are operating points rather
+than defects. An `ExtractionProfile` enum with published per-corpus numbers is the same idea applied
+to the other half of the library.
+
+---
+
 ## D-008 — Boundary-maximising long-form selection: tried, measured, reverted
 
 **Status:** rejected · **Evidence:** `docs/EVALUATION.md`

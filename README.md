@@ -343,6 +343,7 @@ python tools/fetch_data.py --verify      # re-check every checksum
 
 - [Architecture](docs/ARCHITECTURE.md) — subsystem map, tier policy, resource formats, extension points
 - [Contributing](CONTRIBUTING.md) — the invariants that are easy to break by accident
+- [Technical note: using a ranking function as a generation objective](docs/notes/scoring-objective.md)
 - [Evaluation](docs/EVALUATION.md) — measured extraction accuracy against a gold standard
 - [Decisions](docs/DECISIONS.md) — what was tried and rejected, and why
 - [Security policy](SECURITY.md) — threat model and disclosure

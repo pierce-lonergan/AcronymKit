@@ -151,19 +151,19 @@ system. The misses are real misses.
 
 ### Where the misses come from
 
-Categorised over the 261 pairs missed under the relaxed convention, measured **before** the
-per-document de-duplication described above (the taxonomy is unchanged by it; only the totals shift):
+Categorised over all 261 pairs missed under the relaxed convention. Regenerate with
+`python bench/analyse_misses.py --save`; the counts below come from `bench/results.json`:
 
 | Share | Count | Category |
 |---:|---:|---|
 | 28.7 % | 75 | long-form boundary chosen differently from the annotator |
 | 18.8 % | 49 | digits in the short form (`2D`, `T3`, `FEV(1.0)`) |
-| 14.2 % | 37 | short-form characters not present in order in the long form |
+| 14.6 % | 38 | short-form characters not present in order in the long form |
 | 11.1 % | 29 | brackets inside the short form (`[Ca2+]i`, `k(a)`, `P(2)/P(1)`) |
-| 8.8 % | 23 | no uppercase letter in the short form (`aa`, `h2`) — filtered by config |
+| 8.8 % | 23 | no uppercase letter in the short form (`aa`, `h2`) — **configuration** |
 | 8.8 % | 23 | multi-word short form (`MEF cells`) |
-| 8.8 % | 23 | short form shorter than two characters (`M`, `P`, `T`) — filtered by config |
-| 0.8 % | 2 | long form exceeds the algorithm's word budget |
+| 8.8 % | 23 | short form shorter than two characters (`M`, `P`, `T`) — **configuration** |
+| 0.4 % | 1 | long form exceeds the algorithm's word budget |
 
 Two of these are **configuration**, not algorithm: 46 pairs (17.6 % of misses) are rejected by
 `extraction_min_short_form_length=2` and by the requirement that a short form contain an uppercase
@@ -171,7 +171,7 @@ letter. Both defaults exist to protect precision on general prose, where single 
 brackets are almost never abbreviation definitions. Biomedical text is the case where that trade
 costs the most.
 
-The `//!ord`-style category (14.2 %) is out of scope by construction: the algorithm requires the
+The `//!ord`-style category (14.6 %) is out of scope by construction: the algorithm requires the
 short form's characters to appear *in order*.
 
 ## A negative result: long-form boundary selection
