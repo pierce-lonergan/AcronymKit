@@ -23,6 +23,48 @@
       "pct_short_form_2_chars_config": 8.81,
       "total_misses": 261
     },
+    "cascade.med1250_test.tier0": {
+      "exact_f1": 83.65,
+      "exact_precision": 92.32,
+      "exact_recall": 76.47,
+      "split_seed": 20260809,
+      "test_documents": 626
+    },
+    "cascade.med1250_test.tier1_t0.00": {
+      "abstention_threshold": 0.0,
+      "exact_f1": 79.63,
+      "exact_precision": 85.43,
+      "exact_recall": 74.56,
+      "split_seed": 20260809
+    },
+    "cascade.med1250_test.tier1_t0.50": {
+      "abstention_threshold": 0.5,
+      "exact_f1": 80.14,
+      "exact_precision": 86.83,
+      "exact_recall": 74.4,
+      "split_seed": 20260809
+    },
+    "cascade.med1250_test.tier1_t0.70": {
+      "abstention_threshold": 0.7,
+      "exact_f1": 81.04,
+      "exact_precision": 88.97,
+      "exact_recall": 74.4,
+      "split_seed": 20260809
+    },
+    "cascade.med1250_test.tier1_t0.80": {
+      "abstention_threshold": 0.8,
+      "exact_f1": 81.27,
+      "exact_precision": 90.94,
+      "exact_recall": 73.45,
+      "split_seed": 20260809
+    },
+    "cascade.med1250_test.tier1_t0.90": {
+      "abstention_threshold": 0.9,
+      "exact_f1": 81.24,
+      "exact_precision": 91.62,
+      "exact_recall": 72.97,
+      "split_seed": 20260809
+    },
     "extraction.med1250.abbreviation_extractor": {
       "corpus": "med1250",
       "docs_per_second": 24603.3,

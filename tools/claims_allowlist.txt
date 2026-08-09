@@ -12,3 +12,7 @@
 2008 publication year of Sohn et al., BMC Bioinformatics 9:402
 2003 publication year of Schwartz & Hearst, PSB
 1250 corpus name (MED1250), not a measurement
+
+# --- sizes of third-party files, observed via the GitHub API, not our measurements ---
+31   size in MB of Ab3P's SingTermFreq.dat, from the ncbi-nlp/Ab3P repository listing
+48   size in KB of Ab3P's Lf1chSf, from the ncbi-nlp/Ab3P repository listing

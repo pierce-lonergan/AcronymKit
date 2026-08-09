@@ -9,6 +9,70 @@ Newest first.
 
 ---
 
+## D-010 — Pseudo-precision estimator: shipped. Cascade built on it: not shipped.
+
+**Status:** estimator kept, cascade rejected · **Evidence:** `bench/run_cascade.py`, `bench/results.json`
+
+Phase B was to close the 5-point gap to Ab3P by doing what Ab3P does: apply many matching strategies,
+ordered by estimated reliability, and take the first that fits. Half of it worked.
+
+### The estimator works, and it is the part worth having
+
+`acronymkit._pseudo_precision` estimates each strategy's precision from **raw text with no
+annotation at all**, following Sohn et al. (2008): measure how often a rule fires on real candidates,
+subtract how often it fires on short forms paired with windows that cannot define them, and the
+remainder is the rate at which it fires for a reason.
+
+Three independent checks that it is doing something real:
+
+1. **The derived ordering matches Ab3P's published one.** Word-initial anchoring with word-initial
+   placement estimates at 1.000 on three-letter alphabetic short forms; the loosest rule
+   (any anchor, any placement, any skipping) estimates at 0.534. Ab3P's own table runs `FirstLet`
+   0.999 to `AnyLet` 0.681. Same shape, derived independently, no labels.
+2. **Reliability falls with shorter short forms** — max 0.962 at length 3 against 0.833 at length 2 —
+   which is the structure Ab3P's per-length table encodes.
+3. **The confidence is calibrated.** Sweeping the abstention threshold on held-out data moves
+   precision monotonically 85.43 -> 86.83 -> 88.97 -> 90.94 -> 91.62 while recall falls only
+   74.56 -> 72.97. Higher-confidence pairs really are more often right, which is the property that
+   makes abstention meaningful.
+
+That estimator is usable on any domain where no gold standard exists and never will — legal,
+financial, internal documentation. Nothing else in this library can be tuned that way.
+
+### The cascade does not beat the single greedy rule
+
+Held out (MED1250 test half, frozen split seed 20260809, estimated on the dev half):
+
+| System | P % | R % | F1 % |
+|---|---:|---:|---:|
+| **Tier 0, Schwartz & Hearst** | **92.32** | **76.47** | **83.65** |
+| Tier 1 cascade, no abstention | 85.43 | 74.56 | 79.63 |
+| Tier 1 cascade, abstain < 0.90 | 91.62 | 72.97 | 81.24 |
+
+Tier 0 dominates at every threshold — better precision *and* better recall. Not shipped.
+
+### Why, and it is the same mistake as D-008
+
+The first cascade preferred the **earliest** valid long-form start, on the theory that S&H's
+truncation is the thing to fix. It is not, or at least not by that route:
+
+    ARC   got "and arcuate nucleus"                              want "arcuate nucleus"
+    MPO   got "male rats following infusion into the medial ..." want "medial preoptic nucleus"
+
+`ARC` aligned its `a` to "**a**nd". Preferring longer spans buys a few genuine recoveries and pays
+for them many times over — which is exactly what the hyphen-boundary experiment in D-008 found.
+Switching to latest-start improved every abstention threshold — the shipped table below is
+that variant, the better of the two — and it still lost.
+
+The lesson is consistent across two independent attempts: **the greedy shortest-match rule is a much
+stronger baseline than its visible truncation suggests.** Beating it is not a matter of choosing
+better boundaries. Ab3P's advantage must come from somewhere else in its design — most likely its
+much larger curated resources (`SingTermFreq.dat` is 31 MB of subword-frequency data, `Lf1chSf`
+48 KB of long forms for one-character short forms), not from the cascade structure alone. That is
+testable and is the obvious next experiment.
+
+---
+
 ## D-009 — A preset is a point on a frontier, not an answer
 
 **Status:** open · **Evidence:** [`notes/scoring-objective.md`](notes/scoring-objective.md)
