@@ -39,7 +39,10 @@ Thumbs.db
 # SHA-256, never committed and never packaged -- some are non-commercial or
 # share-alike licensed and would contaminate the MIT wheel. See data/LICENSES.md
 # (which IS tracked) for the ledger.
-data/
+# Note: this must be `data/*`, not `data/`. Git will not re-include a file whose
+# parent directory is itself excluded, so `data/` + `!data/LICENSES.md` silently
+# ignores the ledger too.
+data/*
 !data/LICENSES.md
 
 # Benchmarks & scratch output
