@@ -9,6 +9,203 @@ Newest first.
 
 ---
 
+## D-017 — A second corpus at last, and it is not the corpus the roadmap promised
+
+**Status:** measured, shipped unchanged · **Evidence:** `spans.plod.*` in `bench/results.json`,
+`bench/run_spans.py`, `bench/corpora.py:read_plod_cw`
+
+Every extraction number in this project came from MED1250. PLOD was named in three places as the
+counterweight — `bench/splits.toml` reserved a slot for it, `docs/EVALUATION.md` called it "the
+natural counterweight", D-001 listed it beside Ab3P. It has now been fetched, read and scored, and
+the first thing to record is that **the premise was wrong**.
+
+### Correction: PLOD is not the non-biomedical corpus this project has been waiting for
+
+`bench/splits.toml` files PLOD as the "non-biomedical counterweight". The dataset card says
+otherwise, and so does the text. PLOD is built from PLOS journal articles and its own summary calls
+it scientific-domain; the test split is dominated by life-sciences prose — SDS-PAGE gels, shRNA
+knockdowns, eicosapentaenoic acid, `p53`. A handful of sentences are not (`VIP, ventilated improved
+pit`), and that is a handful.
+
+So PLOD is a genuinely different **corpus**, **genre** (article body text rather than abstracts),
+**annotation provenance** (semi-automatic, from PLOS's own abbreviation index, versus manual NLM
+annotation) and **task**. It is not a different **domain**. The domain-generalisation question —
+how does an extractor whose defaults are tuned for general prose behave on legal, financial or
+general-web text — remains open, and nothing below answers it. Claiming otherwise would be the
+easiest and most damaging sentence in this file.
+
+`bench/splits.toml` should be corrected on that point; the entry is not mine to edit here.
+
+### The task is different, and that decides everything else
+
+PLOD is BIO token classification. It tags abbreviation spans (`B-AC`) and long-form spans
+(`B-LF`/`I-LF`) and never pairs them. `bench/splits.toml` already ruled that deriving pairs from
+adjacency would make part of the gold standard ours, and a gold standard we partly invented cannot
+adjudicate our own system. That stands, so nothing was derived. The harness scores PLOD's own task:
+short-form span detection and long-form span detection, two separate scores, no pairing.
+
+The second difference is larger than the first and it is not a defect in either corpus. **PLOD tags
+every mention; we return every definition.** `SDS` is tagged in "a discontinuous SDS gel" with no
+expansion in sight, `wk` is tagged as an abbreviation of "week", `pY232` is tagged four times in one
+sentence. Of the 270 gold abbreviation spans in the test split, **125 (46.30 %)** stand in one of
+Schwartz & Hearst's two parenthetical arrangements. That is a ceiling on recall for any
+definition-based algorithm, imposed by the annotation convention rather than by the algorithm, and
+the looser of the two possible readings was used so as not to flatter the denominator.
+
+Read the recall column against 46.30, not against 100.
+
+### The result, PLOD-CW test split, 153 sentences
+
+Every system through the same reader, the same detokenisation and the same scorer. Exact = predicted
+token-index set equals gold; overlap = non-empty intersection, matched one-to-one.
+
+| System (test split, `tight` join) | SF exact P/R/F1 | SF overlap F1 | LF exact P/R/F1 | LF overlap F1 |
+|---|---|---:|---|---:|
+| **all-caps token, length 2+ (trivial)** | 60.13 / **69.26** / **64.37** | **64.37** | — | — |
+| **`acronymkit` `BIOMEDICAL`** | 93.52 / 37.41 / 53.44 | 53.44 | 83.33 / 59.21 / 69.23 | 73.85 |
+| **`acronymkit` `HIGH_PRECISION`** | **97.06** / 36.67 / 53.23 | 53.23 | 88.24 / **59.21** / **70.87** | **75.59** |
+| `acronymkit` `GENERAL` | 97.06 / 36.67 / 53.23 | 53.23 | 88.24 / 59.21 / 70.87 | 75.59 |
+| `pyab3p` | 95.15 / 36.30 / 52.55 | 52.55 | 85.44 / 57.89 / 69.02 | 74.51 |
+| `abbreviation_extractor` | 94.68 / 32.96 / 48.90 | 49.45 | 87.23 / 53.95 / 66.67 | 70.73 |
+| `abbreviations` | 95.65 / 32.59 / 48.62 | 48.62 | 90.22 / 54.61 / 68.03 | 70.49 |
+| `scispacy` | 95.65 / 32.59 / 48.62 | 48.62 | 84.78 / 51.32 / 63.93 | 69.67 |
+
+**A rule anyone could write in one line beats every real system on short-form F1: 64.37 against our
+53.23.** It gets there on recall (69.26 against 36.67) while giving up precision (60.13 against
+97.06), and it produces no long forms at all, so its long-form row is zero. That is the honest scale
+of the thing. On a corpus that asks "which tokens are abbreviations", a capitalisation heuristic is
+a better answer than a definition extractor, and no amount of framing changes it.
+
+Two things cut the other way and are worth as much:
+
+- **Among the definition extractors we lead on both labels**, including against `pyab3p`, which beat
+  us on MED1250 (88.87 against 83.85 F1 there). The ordering is not stable across corpora, which is
+  itself the first evidence this project has that one corpus was never enough.
+- **Precision is 97.06 %.** The highest precision any configuration of this library has ever
+  recorded, on a corpus it has never seen. When we do fire, we are almost always on a token PLOD
+  agrees is an abbreviation.
+
+### Confirming on four times the data
+
+153 sentences is a thin sample, so the pooled corpus — train + dev + test, 1,351 sentences, 2,869
+abbreviation spans — was run as well. Nothing in acronymkit is fitted to any of it; the split
+boundary carries no contamination meaning for a library that reads no training data.
+
+| System (pooled, `tight` join) | SF exact F1 | LF exact F1 |
+|---|---:|---:|
+| all-caps token (trivial) | **68.62** | — |
+| `acronymkit` `BIOMEDICAL` | 52.56 | 64.28 |
+| `acronymkit` `GENERAL` | 52.37 | 64.32 |
+| `acronymkit` `HIGH_PRECISION` | 52.31 | 64.25 |
+| `pyab3p` | 51.20 | **64.36** |
+| `scispacy` | 48.20 | 59.46 |
+| `abbreviation_extractor` | 47.70 | 60.14 |
+| `abbreviations` | 47.26 | 59.14 |
+
+Same ordering, same story, tighter estimates. The bracketed ceiling is 46.11 % here against the test
+split's 46.30 %, so the sampling is not what produced it.
+
+### Detokenisation is the honest difficulty, and it is measured rather than asserted
+
+PLOD ships tokens; our extractor takes prose. Text is reconstructed with each token's character
+offsets recorded, the extractor runs on it, and its character spans are mapped back to token index
+sets so the comparison happens in token space where the annotation lives. Two joins are implemented
+and **every system is reported under both**:
+
+- `spaced` — one space between every pair of tokens. Invents nothing, the same reasoning the
+  disambiguation harness gives, but it is not prose: it produces `( DTT )` and
+  `1,4 - dithiothreitol`.
+- `tight` — punctuation, brackets, clitics, hyphens and slashes welded back on. The inverse of what
+  spaCy did to produce these tokens.
+
+`tight` is primary, on reconstruction fidelity, and the cost of that choice is the following table
+rather than a paragraph of reassurance:
+
+| Short-form exact F1, test split | `tight` | `spaced` |
+|---|---:|---:|
+| `acronymkit` `HIGH_PRECISION` | 53.23 | 53.76 |
+| `pyab3p` | 52.55 | 52.69 |
+| `scispacy` | 48.62 | 48.75 |
+| `abbreviation_extractor` | 48.90 | **0.74** |
+| `abbreviations` | 48.62 | **0.74** |
+
+**Two of the five baselines are destroyed by the join alone.** `abbreviations` and
+`abbreviation_extractor` require the bracket to abut the abbreviation, so under a space join they
+return essentially nothing — 1 pair out of 153 sentences. That settles the choice: a join that
+zeroes two systems is measuring the join. It also shows the choice was not made in our favour, since
+our own figure is *higher* under the join that was rejected (53.76 against 53.23).
+
+What the approximation can still cost, stated because it is not measurable from inside: the tight
+join welds a compound the author may have spaced, and drops any whitespace the original had around
+an em dash. It cannot be validated, because PLOD ships no source text to validate against.
+
+### Two conventions, and the localiser, both quantified rather than assumed
+
+Short-form exact and overlap are identical for most rows because every `AC` span in this release is
+a single token and our predicted short forms are single tokens too. Long-form spans are where the
+conventions separate: 70.87 exact against 75.59 overlap for the defaults, so roughly a fifth of our
+long-form successes are boundary-approximate. Quoting the overlap figure alone would be five points
+of flattery.
+
+The external baselines return `(short, long)` strings and no offsets, so their spans must be located
+in the text by string search. Our headline rows go through **the same localiser**, because scoring
+our own row through a privileged path would flatter it, and the native-offset rows are recorded
+beside them to price the difference:
+
+| Pooled corpus, `HIGH_PRECISION` | SF exact P | SF exact R | SF exact F1 |
+|---|---:|---:|---:|
+| native character offsets | 93.66 | 36.53 | 52.56 |
+| string localiser (headline) | 93.21 | 36.35 | 52.31 |
+
+Not zero, and small. `unlocated_pairs` is 0 in every run recorded, so the localiser never loses a
+prediction; the gap is entirely about which occurrence of a repeated form it attributes a prediction
+to. The headline uses the pessimistic path.
+
+### The profile question was asked and cannot be answered here
+
+The interesting test would have been whether `BIOMEDICAL` underperforms on non-biomedical text —
+which would mean the profile names carry information. PLOD is not non-biomedical, so that test was
+not run. What the corpus does show is that the profiles behave *consistently*: `BIOMEDICAL` buys
+recall with precision here (37.41 / 93.52) exactly as it does on MED1250 (79.65 / 86.23), and
+`HIGH_PRECISION` and `GENERAL` are numerically identical on the test split, separating only on the
+pooled corpus (52.31 against 52.37). A distinction that needs 1,351 sentences to become visible is
+a distinction worth being modest about.
+
+**Nothing was tuned.** No file in `src/acronymkit` changed, no default moved, no threshold was
+swept. The numbers above are what ships.
+
+### Deliberately not done
+
+- **No pairs derived.** The route `bench/splits.toml` lists second — derive by adjacency, label it
+  "derived pairing" — is still available and still not taken.
+- **PLOD-filtered not fetched.** The larger variant would give a better estimate, but the pooled CW
+  corpus already carries 2,869 abbreviation spans, the ordering is identical between the 270-span
+  and 2,869-span arms, and the finding is a task mismatch rather than a decimal. Fetch it when
+  someone needs the decimal.
+- **The share-alike consequence is registered, and it reaches further than the wheel.** PLOD is
+  CC BY-SA 4.0, verified from the repository's own `LICENSE` file rather than from the card's badge
+  — the SDU-21 entry in this file is the standing reminder of why that matters. Fetch-only, like
+  every other corpus. The clause worth noting is that BY-SA travels to *Adapted Material*: a
+  term-frequency table derived from PLOD, of exactly the shape D-016 concluded the extractor would
+  need, would inherit BY-SA. So PLOD is barred from the "derive statistics from a large unlabelled
+  corpus" route as well, not merely from the wheel. Whoever runs experiment eight should pick a
+  differently licensed corpus.
+
+### What this actually establishes
+
+1. **The extraction number was never one number.** Two corpora, two orderings. `pyab3p`'s MED1250
+   lead is at least partly a home-field effect, and this is the first evidence of that from
+   measurement rather than from argument.
+2. **A trivial baseline is the incumbent on the span task**, exactly as `most_frequent` turned out
+   to be the incumbent for disambiguation in D-015. Two subsystems, two corpora, the same lesson:
+   measure against the stupid thing first.
+3. **Domain generalisation is still unevidenced.** The gap `docs/EVALUATION.md` names is narrower
+   than it was — we now know how the extractor behaves on a different genre, a different annotation
+   convention and a different task — and it is not closed. A general-prose or legal-text corpus is
+   the thing still missing, and PLOD was not it.
+
+---
+
 ## D-016 — Derived term statistics: the signal is right, the corpus is far too small
 
 **Status:** rejected · **Evidence:** `bench/run_termfreq.py`, `termfreq.med1250_test.*` in

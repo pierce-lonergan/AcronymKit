@@ -326,6 +326,50 @@ because tuning to a benchmark is how a number stops meaning anything.
 exists precisely because a bag-of-words overlap was never expected to be competitive here; this
 quantifies by how much.
 
+## PLOD: a second corpus, and a premise of mine that was wrong
+
+PLOD was added to close the domain-generalisation gap. **It does not, because PLOD is not
+non-biomedical.** It is PLOS journal text dominated by the life sciences — SDS-PAGE, shRNA,
+eicosapentaenoic acid. It is a different corpus, genre, annotation provenance and task, and that is
+worth having, but it is not a different domain. Every place this project called it a
+"non-biomedical counterweight" — including `bench/splits.toml` — was wrong and has been corrected.
+**The domain-generalisation gap remains open.**
+
+Evaluated on PLOD's *own* task. It labels short-form and long-form spans without pairing them, and a
+gold standard we partly invented cannot adjudicate our own system, so no pairing was derived. Two
+independent span-detection scores instead, in token space, PLOD-CW test split:
+
+| System | SF exact P / R / F1 | LF exact P / R / F1 | LF overlap F1 |
+|---|---|---|---:|
+| `allcaps` | 60.13 / 69.26 / **64.37** | — | — |
+| **`acronymkit HIGH_PRECISION`** | 97.06 / 36.67 / **53.23** | 88.24 / 59.21 / 70.87 | 75.59 |
+| `acronymkit BIOMEDICAL` | 93.52 / 37.41 / **53.44** | 83.33 / 59.21 / 69.23 | 73.85 |
+| `pyab3p` | 95.15 / 36.30 / **52.55** | 85.44 / 57.89 / 69.02 | 74.51 |
+| `abbreviation_extractor` | 94.68 / 32.96 / **48.90** | 87.23 / 53.95 / 66.67 | 70.73 |
+| `abbreviations` | 95.65 / 32.59 / **48.62** | 90.22 / 54.61 / 68.03 | 70.49 |
+| `scispacy` | 95.65 / 32.59 / **48.62** | 84.78 / 51.32 / 63.93 | 69.67 |
+
+**A one-line all-caps rule beats every definition extractor on short forms**, 64.37 against our
+53.23. On PLOD's task a capitalisation heuristic is simply a better answer, and the reason is
+structural: PLOD annotates every *mention* of an abbreviation while a Schwartz & Hearst extractor
+returns every *definition*. Only 37.78 % of gold short-form spans are reachable by any
+definition-based method at all. That is the same lesson as the disambiguation result — measure
+against the stupid baseline first, because sometimes it wins.
+
+Two findings cut the other way and are real:
+
+- **Among definition extractors we lead on both labels — including against `pyab3p`**, which beats
+  us 88.87 to 83.85 on MED1250. The cross-system ordering is *corpus-dependent*. That is the first
+  measured evidence that one corpus was never enough to rank these systems, and it applies to our
+  own MED1250 table as much as to anyone's.
+- 97.06 % short-form precision is the highest any configuration of this library has recorded, on a
+  corpus it had never seen.
+
+Detokenisation is the honest difficulty and it was priced rather than assumed. PLOD ships tokens;
+our extractor takes text. Two join styles were measured: under a space join, two of the baselines
+collapse to near-zero (they emit one pair across 153 sentences), so the tight join is primary — and
+our own figure is *higher* under the join that was rejected, so the choice is not self-serving.
+
 ## Operating points, not a single setting
 
 At roughly 92 % precision against 76 % recall there is precision available to spend, and a
@@ -370,8 +414,8 @@ spaCy model in the hundreds of megabytes; the harness supports it
 
 **One corpus, one domain.** MED1250 is biomedical abstracts. The configuration defaults that cost
 17.6 % of the misses here are tuned for general prose, so this number is a lower bound for biomedical
-text and says little about legal, financial or general-web text. PLOD (CC BY-SA, non-biomedical) is
-the natural counterweight and has a reader slot waiting in `bench/corpora.py`.
+text and says little about legal, financial or general-web text. PLOD has now been evaluated (below) — but it turned out **not** to be the
+non-biomedical counterweight it was assumed to be, so the domain gap is still open.
 
 **Extraction only.** Generation, backronym alignment and disambiguation have no external evaluation
 at all. The generation presets are pinned against a 16-phrase canonical corpus

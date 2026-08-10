@@ -73,7 +73,19 @@ task = "span_detection"
 status = "reader_not_written"
 licence = "CC BY-SA 4.0"
 vendorable = false
-note = "Non-biomedical counterweight; the only domain-generalisation evidence available."
+status = "evaluated (span detection)"
+note = """
+CORRECTION. This entry called PLOD a "non-biomedical counterweight". It is not.
+PLOD is drawn from PLOS journal text and is dominated by the life sciences
+(SDS-PAGE, shRNA, eicosapentaenoic acid). It is a different corpus, genre,
+annotation provenance and task -- but it is not a different domain, and the
+domain-generalisation gap this project keeps citing remains OPEN.
+
+Evaluated on its own task (span detection, no derived pairing) rather than
+forced into a pair format. Share-alike travels to Adapted Material, so a
+statistics table derived from PLOD would inherit BY-SA -- which rules PLOD out
+of the derived-term-frequency route as well as out of the wheel.
+"""
 
 [corpora.sdu21_ad]
 role = "tuning"

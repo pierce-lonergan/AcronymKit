@@ -351,10 +351,14 @@ python tools/fetch_data.py --verify      # re-check every checksum
 
 ## Honest scope
 
-- **Extraction is evaluated on one corpus in one domain.** MED1250 is biomedical abstracts, and it
-  is a *tuning* set — its miss taxonomy has been read in full. There is no held-out
-  short-form/long-form corpus, for reasons recorded in [`bench/splits.toml`](bench/splits.toml).
-  Treat the comparison as sound and the absolute level as provisional.
+- **Extraction is evaluated on two corpora, both biomedical.** MED1250 is biomedical abstracts and
+  is a *tuning* set — its miss taxonomy has been read in full. PLOD was added to close the
+  domain-generalisation gap and turned out not to: it is PLOS journal text, also dominated by the
+  life sciences. **No evidence exists for legal, financial or general-web text.** Treat the
+  comparison as sound and the absolute level as provisional.
+- **System rankings are corpus-dependent, and we have measured that.** `pyab3p` beats us on
+  MED1250; we beat it on PLOD's span-detection task. Any single-corpus ranking, including ours,
+  should be read with that in mind.
 - **14.01 % of that corpus is found by no system at all**, ours or anyone's. The practical
   ceiling is 85.99 %, not 100 %, and every figure here should be read against it.
 - **English only.** French, Spanish and German ship no lexicon; those languages degrade honestly and

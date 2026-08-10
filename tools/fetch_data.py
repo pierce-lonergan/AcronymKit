@@ -99,6 +99,46 @@ _SDU21_AD_ATTRIBUTION = (
     "Dataset licensed CC BY-NC-SA 4.0."
 )
 
+#: Pinned PLOD-CW dataset revision on the Hugging Face Hub. ``resolve/main`` is
+#: a branch, not a pin: a dataset repository can be force-pushed and a teaching
+#: subset is edited between cohorts. Resolving the commit SHA once and pinning it
+#: is what makes the span numbers reproducible.
+PLOD_CW_REVISION = "c40ba1976a749d30fda147e11ed9030e1cd29354"
+
+_PLOD_CW_RAW = f"https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/{PLOD_CW_REVISION}"
+
+_PLOD_CW_LICENCE = "CC-BY-SA-4.0"
+
+#: Read from the repository's own ``LICENSE`` file, whose first line is
+#: "Attribution-ShareAlike 4.0 International", and corroborated by the dataset
+#: card's ``license: cc-by-sa-4.0`` and its "Licensing Information: CC-BY-SA
+#: 4.0" section. Both are pinned below so the claim is checkable rather than
+#: taken on trust.
+_PLOD_CW_NOTE = (
+    "NOT vendorable, and share-alike is the reason rather than the usual "
+    "size argument. CC BY-SA 4.0 grants redistribution freely, but section "
+    "3(b) requires that Adapted Material be released under BY-SA or a "
+    "compatible licence. Putting the corpus in the wheel would either force "
+    "BY-SA terms onto a distribution that advertises itself as MIT, or "
+    "require a per-file licence carve-out that every downstream redistributor "
+    "then has to track -- the same disproportion that ruled out the French and "
+    "Spanish Hunspell dictionaries in D-006. The share-alike clause also "
+    "reaches further than the corpus file itself: a resource *derived* from "
+    "PLOD -- a term-frequency table, a subword index, anything of the shape "
+    "D-016 said the extractor would need -- is Adapted Material and would "
+    "inherit BY-SA, so this asset is barred from that route as well and not "
+    "only from the wheel. It would be fetch-only regardless, on the med1250 "
+    "precedent: an evaluation corpus is not a runtime resource and nothing in "
+    "the library reads it."
+)
+
+_PLOD_CW_ATTRIBUTION = (
+    "Zilio L, Saadany H, Sharma P, Kanojia D, Orasan C. PLOD: An Abbreviation "
+    "Detection Dataset for Scientific Documents. Proceedings of LREC 2022. "
+    "arXiv:2204.12061. PLOD-CW subset prepared by Shenbin Qian, University of "
+    "Surrey. Licensed CC BY-SA 4.0."
+)
+
 #: Pinned LibreOffice dictionaries commit for the Hunspell assets.
 LIBREOFFICE_DICTS_REF = "master"
 
@@ -324,6 +364,100 @@ ASSETS: tuple[Asset, ...] = (
             "metric, and the licence split between data and scripts."
         ),
         attribution="Amir Pouran Ben Veyseh and contributors.",
+    ),
+    Asset(
+        key="plod-cw-test",
+        filename="plod_cw_test.conll",
+        url=f"{_PLOD_CW_RAW}/data/data_test.conll",
+        sha256="87e81ad0061a6ff384fd207ced1ecbdb26a81910950b6d0b59dee79a58044c04",
+        licence=_PLOD_CW_LICENCE,
+        licence_url=f"{_PLOD_CW_RAW}/LICENSE",
+        vendorable=False,
+        vendor_note=_PLOD_CW_NOTE,
+        purpose=(
+            "The evaluation split for bench/run_spans.py: 153 sentences from "
+            "PLOS journal articles, 5,000 tokens, 270 abbreviation spans and "
+            "150 long-form spans in BIO tags. The first corpus in this project "
+            "that is neither MEDLINE abstracts nor a shared-task JSON, and the "
+            "only evidence available about how the extractor behaves on a "
+            "different genre and a different annotation convention."
+        ),
+        attribution=_PLOD_CW_ATTRIBUTION,
+    ),
+    Asset(
+        key="plod-cw-dev",
+        filename="plod_cw_dev.conll",
+        url=f"{_PLOD_CW_RAW}/data/data_dev.conll",
+        sha256="3feb27cc423bbd5e290b7cef6947c5570a2dcc8f6d486fec8f757e425bc5b0cd",
+        licence=_PLOD_CW_LICENCE,
+        licence_url=f"{_PLOD_CW_RAW}/LICENSE",
+        vendorable=False,
+        vendor_note=_PLOD_CW_NOTE,
+        purpose=(
+            "Validation split, 126 sentences. Nothing is selected on it -- "
+            "acronymkit reads no training data and nothing was tuned against "
+            "PLOD -- so it is fetched only to make the pooled 'all' arm "
+            "possible, which exists because 153 sentences is a thin sample."
+        ),
+        attribution=_PLOD_CW_ATTRIBUTION,
+    ),
+    Asset(
+        key="plod-cw-train",
+        filename="plod_cw_train.conll",
+        url=f"{_PLOD_CW_RAW}/data/data_train.conll",
+        sha256="ba2e94e60920d764f4e0220e61a740eee4921103cac49406dee1f97fd6897743",
+        licence=_PLOD_CW_LICENCE,
+        licence_url=f"{_PLOD_CW_RAW}/LICENSE",
+        vendorable=False,
+        vendor_note=_PLOD_CW_NOTE,
+        purpose=(
+            "Training split, 1,072 sentences. Used for exactly one thing: the "
+            "pooled 1,351-sentence arm that checks whether the test-split "
+            "figures are sample noise. No parameter of this library is fitted "
+            "to any of it."
+        ),
+        attribution=_PLOD_CW_ATTRIBUTION,
+    ),
+    Asset(
+        key="plod-cw-license",
+        filename="plod_cw.LICENSE",
+        url=f"{_PLOD_CW_RAW}/LICENSE",
+        sha256="7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297",
+        licence=_PLOD_CW_LICENCE,
+        licence_url=f"{_PLOD_CW_RAW}/LICENSE",
+        vendorable=False,
+        vendor_note=(
+            "The licence text itself, pinned so the share-alike finding above "
+            "rests on the deed rather than on a badge. Its first line is "
+            "'Attribution-ShareAlike 4.0 International'. The SDU-21 entry "
+            "below is the standing reminder of why this file is fetched: that "
+            "repository's MIT badge was wrong about its own data."
+        ),
+        purpose="Verbatim CC BY-SA 4.0 deed governing the PLOD-CW corpus files.",
+        attribution=_PLOD_CW_ATTRIBUTION,
+    ),
+    Asset(
+        key="plod-cw-readme",
+        filename="plod_cw_README.md",
+        url=f"{_PLOD_CW_RAW}/README.md",
+        sha256="e82dff3a0dd1edf20dddfd72910868799f3e4839eefeb8bc2293c2d92cd859cd",
+        licence=f"{_PLOD_CW_LICENCE} (dataset card)",
+        licence_url=f"{_PLOD_CW_RAW}/LICENSE",
+        vendorable=False,
+        vendor_note=(
+            "Retained for the same reason as ab3p-readme and sdu21-ad-readme: "
+            "it is the normative description of the record format and of the "
+            "label set, and it is where the corpus states its own provenance "
+            "-- 'collected for research from the PLOS journals indexing of "
+            "abbreviations and long-forms in the text'. That sentence is the "
+            "reason bench/run_spans.py treats PLOD's conventions as a "
+            "different target rather than as a better MED1250."
+        ),
+        purpose=(
+            "Specification of the PLOD-CW CoNLL format, its AC/LF label set, "
+            "its split sizes, and its licensing statement."
+        ),
+        attribution=_PLOD_CW_ATTRIBUTION,
     ),
     Asset(
         key="hunspell-fr",

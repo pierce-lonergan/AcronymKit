@@ -2,17 +2,31 @@
 #
 # Format: <number>  <reason>
 # Checked by tools/check_claims.py. Keep this list short: if a number can be
-# measured, measure it instead of listing it here.
+# measured, measure it instead of listing it here, and if it can be cited say
+# so with {{claim:<run-id>.<field>}} rather than hoping the value is unique.
+#
+# The check reports entries that back nothing any more. An entry that has gone
+# quiet is either a claim that was fixed or a scanner that stopped looking, and
+# both are worth noticing -- so prune it and say which, as below.
 
 # --- figures published by other authors, attributed, never presented as ours ---
 86   published Schwartz & Hearst F1 range quoted in DECISIONS.md, attributed
 89   published Schwartz & Hearst F1 range quoted in DECISIONS.md, attributed
 
-# --- bibliographic, not measurements ---
-2008 publication year of Sohn et al., BMC Bioinformatics 9:402
-2003 publication year of Schwartz & Hearst, PSB
-1250 corpus name (MED1250), not a measurement
-
-# --- sizes of third-party files, observed via the GitHub API, not our measurements ---
-31   size in MB of Ab3P's SingTermFreq.dat, from the ncbi-nlp/Ab3P repository listing
-48   size in KB of Ab3P's Lf1chSf, from the ncbi-nlp/Ab3P repository listing
+# --- REMOVED, because they are no longer detected as claims at all ---
+#
+# Five entries were dropped when the scanner stopped treating digits welded
+# into an identifier as free-standing numbers. Each was a workaround for a
+# false positive, and none of them is a claim any reader would recognise:
+#
+#   2008   the "2008;9:402" of a BMC Bioinformatics citation -- one token, not
+#          a number, so it is no longer read as one.
+#   2003   the year in "Schwartz & Hearst (2003)".
+#   1250   the "1250" of MED1250, a corpus name.
+#   31     the size of Ab3P's SingTermFreq.dat. Its line was flagged only
+#          because the filename "Lf1chSf" contains the letters "f1"; keywords
+#          are now matched as words, so the line carries no metric keyword.
+#   48     the size of Ab3P's Lf1chSf, same line, same cause.
+#
+# They are recorded here rather than deleted silently: if any of them starts
+# being flagged again, the scanner regressed and this is the note that says so.
