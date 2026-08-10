@@ -152,6 +152,7 @@ def test_build_cli_returns_a_memoised_group() -> None:
     assert build_cli() is group
     assert sorted(group.commands) == [
         "backronym",
+        "doctor",
         "extract",
         "generate",
         "schema",

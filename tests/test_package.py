@@ -72,6 +72,7 @@ EXPECTED_ALL = [
     "MappingKind",
     "NoCandidateError",
     "NumeralPolicy",
+    "OfflineError",
     "ResourceNotFoundError",
     "STRATEGY_WEIGHTS",
     "ScoreBreakdown",
@@ -83,6 +84,8 @@ EXPECTED_ALL = [
     "TokenRole",
     "TokenizationError",
     "__version__",
+    "capabilities",
+    "format_report",
 ]
 
 #: Every module a user may import directly. ``nlp`` is the sub-package.

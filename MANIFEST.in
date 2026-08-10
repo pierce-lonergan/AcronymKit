@@ -19,6 +19,15 @@ recursive-include src/acronymkit/resources *.json *.txt *.gz
 recursive-include tests *.py
 include tests/conftest.py
 
+# `recursive-include tests *.py` already carries `tests/airgap_socket_guard.py`,
+# the pytest plugin the `air-gap` CI job runs the suite under (verified against
+# a built sdist, not assumed). That is deliberate rather than incidental: an
+# enterprise that has to satisfy itself the library performs no network I/O
+# should be able to re-run the proof on their own hardware, under their own
+# kernel, from the artifact they were given -- shipping the assertion without
+# the means to check it is exactly the pattern this project keeps refusing.
+#   PYTHONPATH=tests python -m pytest -p airgap_socket_guard
+
 recursive-include schemas *.json
 recursive-include tools *.py
 recursive-include docs *.md
@@ -33,6 +42,17 @@ recursive-include docs *.md
 include bench/results.json
 include tools/claims_allowlist.txt
 recursive-include .github/workflows *.yml
+
+# The provenance and licence terms of every third-party data asset. SECURITY.md
+# cites this file as the evidence behind "third-party data assets are pinned and
+# checksummed", and README/conftest cite it for why only English ships a lexicon
+# -- so leaving it out made those links unresolvable for anyone holding a
+# distribution rather than a checkout, which is the audience the claim is aimed
+# at. Only the ledger ships. The corpora it describes stay out: `data/` measures
+# 34,482,534 B here, several of its assets are copyleft, and
+# `tools/fetch_data.py` re-fetches every one of them against the SHA-256 digests
+# recorded in the source.
+include data/LICENSES.md
 
 global-exclude __pycache__
 global-exclude *.py[cod]

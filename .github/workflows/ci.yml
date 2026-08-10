@@ -148,6 +148,271 @@ jobs:
           print("Tier 0 purity OK")
           PY
 
+  air-gap:
+    name: No network, and a build that fails if that changes
+    runs-on: ubuntu-latest
+    # `zero-dependency` above proves a negative about sys.modules. This proves
+    # a negative about sockets, which is a harder claim: a package can be
+    # import-pure and still phone home, so the assertion has to be made against
+    # the network primitives themselves rather than against the import graph.
+    #
+    # Three independent mechanisms, because each one alone has a hole:
+    #
+    #   1. an offline install from a local wheelhouse, so the artifact is
+    #      proven usable by someone who has no package index at all;
+    #   2. the entire test suite under tests/airgap_socket_guard.py, which
+    #      fails the run the moment anything reaches for a socket -- including
+    #      during collection and module import, which is when a phone-home
+    #      would actually fire; and
+    #   3. the public API and every CLI subcommand inside a real network
+    #      namespace with no route, where being wrong about (1) or (2) surfaces
+    #      as ENETUNREACH instead of as a quiet success.
+    #
+    # (2) and (3) are not redundant. The guard can only block calls that go
+    # through the CPython entry points it patched; the namespace blocks
+    # everything, including a C extension that opens a socket without asking
+    # Python first. Neither one subsumes the other, so both run.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Prove the network namespace really has no route
+        # A positive control for the harness, run before anything depends on
+        # it. `sudo unshare -n` is only evidence if the namespace it creates is
+        # actually empty, so the same connection has to succeed outside it and
+        # fail inside it. Without this step, a runner where `unshare` silently
+        # did nothing would turn every later step into a tautology that passes.
+        run: |
+          python - <<'PY'
+          import socket
+          import subprocess
+          import sys
+
+          with socket.create_connection(("pypi.org", 443), timeout=15):
+              print("outside the namespace: connected to pypi.org:443")
+
+          inside = (
+              "import socket, sys\n"
+              "try:\n"
+              "    socket.create_connection(('pypi.org', 443), timeout=15).close()\n"
+              "except OSError as exc:\n"
+              "    print('inside the namespace:', type(exc).__name__, exc)\n"
+              "    sys.exit(0)\n"
+              "sys.exit('the namespace still has a route, so this job proves nothing')\n"
+          )
+          done = subprocess.run(
+              ["sudo", "unshare", "-n", "--", sys.executable, "-c", inside],
+              capture_output=True,
+              text=True,
+          )
+          sys.stdout.write(done.stdout)
+          sys.stderr.write(done.stderr)
+          sys.exit(done.returncode)
+          PY
+
+      - name: Build the wheel and stage every dependency, while the network is up
+        # Ordering is the whole trick. Everything that may legitimately touch an
+        # index happens here, once, in the open: the build backend fetches its
+        # own dependencies and pip resolves the dev extras. From the next step
+        # onwards nothing is allowed to, and that is what is being tested.
+        #
+        # --only-binary is not a preference. A source distribution would have to
+        # be *built* during the offline install, a build needs build
+        # dependencies, and fetching those needs an index -- so admitting one
+        # sdist would quietly reintroduce the requirement this job exists to
+        # rule out. If this ever fails, a dependency has stopped publishing a
+        # wheel. That is the finding, not a flake.
+        run: |
+          python -m pip install build
+          python -m build --wheel --outdir dist
+          version=$(basename "$(ls dist/acronymkit-*.whl)" | cut -d- -f2)
+          python -m pip download --dest wheelhouse --only-binary=:all: \
+            --find-links dist "acronymkit[dev]==${version}"
+          # acronymkit itself must come from the artifact just built. pip is
+          # free to have pulled a same-version copy off an index while resolving
+          # the self-referential `dev -> acronymkit[cli]` extra; deleting it
+          # leaves dist/ as the only possible source and removes the ambiguity.
+          rm -f wheelhouse/acronymkit-*
+          echo "staged $(ls wheelhouse | wc -l) third-party wheels for acronymkit ${version}"
+
+      - name: Install with no index and no route
+        # The install is part of the claim, not a prerequisite to testing it: an
+        # air-gapped operator has a wheelhouse and nothing else. --no-index
+        # removes an index as a possibility and the namespace removes it as a
+        # fact, so a dependency that quietly needs one fails here rather than in
+        # their environment.
+        #
+        # `sudo unshare` must start as root to create the namespace; setpriv
+        # drops straight back to the unprivileged runner user inside it, so
+        # nothing here runs with privileges it would not have in production.
+        # HOME points at a path that does not exist because "it just caches to
+        # ~/.cache on first use" is the most common way a library turns out to
+        # need the network after all -- with an unwritable HOME that fails
+        # loudly instead of succeeding quietly.
+        run: |
+          python -m venv .airgap-venv
+          sudo unshare -n -- \
+            setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
+            env HOME=/nonexistent PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_INPUT=1 \
+            .airgap-venv/bin/python -m pip install --no-cache-dir --no-index \
+              --find-links=dist --find-links=wheelhouse "acronymkit[dev]"
+
+      - name: Show that the socket guard actually blocks
+        # A guard with no positive control proves nothing: a renamed patch
+        # target yields a green suite that checks nothing, which is worse than
+        # no gate because it reads as evidence. This runs the guard's own
+        # probes -- a real connect() to RFC 5737 TEST-NET-1 among them -- and
+        # prints which primitives refused, so the log carries the proof next to
+        # the suite it qualifies.
+        run: .airgap-venv/bin/python tests/airgap_socket_guard.py
+
+      - name: Run the full test suite with every socket primitive patched to raise
+        # `-p` loads the guard before conftest is imported and before a single
+        # test module is collected. That is the point of the flag: a package
+        # that phones home does it at import time, and pytest-socket -- the
+        # off-the-shelf answer -- patches in pytest_runtest_setup, which is
+        # after collection. tests/airgap_socket_guard.py records the rest of
+        # that reasoning, including the one documented exemption (asyncio's
+        # Windows self-pipe is a loopback socketpair) and why it is narrow.
+        #
+        # Scope, stated so it is not read as more than it is: the wheelhouse is
+        # built from `acronymkit[dev]`, which does not pull spaCy, NLTK or
+        # onnxruntime, so the `nlp` tests skip here. What this proves is that
+        # acronymkit and its Tier 0 / CLI path touch no socket. It says nothing
+        # about what a third-party NLP backend does once installed, and it
+        # cannot: staging those wheels offline would also have to stage their
+        # models, which is the download this project refuses to make on a
+        # user's behalf. `acronymkit.diagnostics.capabilities()` reports which
+        # backends are present so an operator can make that call themselves.
+        run: PYTHONPATH=tests .airgap-venv/bin/python -m pytest -p airgap_socket_guard
+
+      - name: Exercise the whole public API with no route to anywhere
+        # A path that is never called proves nothing about that path, so this
+        # calls all of them: generation, scoring, tokenisation, extraction,
+        # disambiguation (inferred and supplied dictionaries), backronyms,
+        # synthesis, batch, async, schema load and validation, capabilities()
+        # and every CLI subcommand including `doctor --offline`. It runs from
+        # $RUNNER_TEMP so the checkout's src/ cannot shadow the installed wheel.
+        run: |
+          cat > "$RUNNER_TEMP/airgap_probe.py" <<'PY'
+          """Call every public entry point with no route to anywhere.
+
+          Run by the `air-gap` job inside `unshare -n`. Assertions are about
+          behaviour, not smoke: each one would fail if the call had silently
+          degraded rather than worked.
+          """
+
+          import asyncio
+          import json
+          import os
+          from pathlib import Path
+
+          # The harness, asserted rather than assumed.
+          assert os.geteuid() != 0, "the probe must not run as root"
+          home = os.environ.get("HOME", "")
+          assert home, "HOME is unset, so nothing is being proven about writes to it"
+          assert not os.access(home, os.W_OK), f"HOME={home!r} is writable"
+
+          import acronymkit
+          from acronymkit import (
+              AcronymEngine,
+              Config,
+              ExpansionDictionary,
+              capabilities,
+              format_report,
+          )
+          from acronymkit.cli import main as cli_main
+          from acronymkit.serialization import load_schema, validate_result
+
+          installed = Path(acronymkit.__file__).resolve()
+          assert "site-packages" in installed.parts, f"imported a checkout: {installed}"
+
+          # The evidence, in the log, produced on a host with no route.
+          print(format_report())
+          print()
+
+          DOCUMENT = (
+              "The National Aeronautics and Space Administration (NASA) launched it. "
+              "Blood pressure (BP) was elevated at admission."
+          )
+
+          engine = AcronymEngine()
+
+          result = engine.generate("Portable Document Format")
+          assert result.primary_acronym == "PDF", result.primary_acronym
+          validate_result(result.to_dict())
+          assert load_schema()["title"] == "AcronymEngineResult"
+
+          candidate = engine.score("PDF", "Portable Document Format")
+          assert candidate.acronym == "PDF", candidate.acronym
+          assert engine.tokenize("Portable Document Format")
+
+          pairs = engine.extract_definitions(DOCUMENT)
+          assert any(pair.short_form == "NASA" for pair in pairs), pairs
+          assert engine.extract(DOCUMENT).pairs
+
+          inferred = engine.disambiguate("BP", DOCUMENT)
+          assert inferred.primary_expansion == "Blood pressure", inferred.primary_expansion
+          supplied = ExpansionDictionary({"ML": ["machine learning", "maximum likelihood"]})
+          guided = engine.disambiguate("ML", "The ML model was trained on labelled data.", supplied)
+          assert guided.primary_expansion in supplied.candidates("ML"), guided.primary_expansion
+
+          backronym = engine.generate_backronym(
+              "Next Generation High Performance Storage System", "NEXUS"
+          )
+          assert backronym.target_word == "NEXUS"
+          assert engine.synthesize_backronym("NEXUS").target_word == "NEXUS"
+
+          batch = engine.batch_generate(["Portable Document Format", "Random Access Memory"])
+          assert batch.failure_count == 0, batch.errors
+          assert asyncio.run(engine.agenerate("Portable Document Format")).primary_acronym == "PDF"
+          async_batch = asyncio.run(
+              engine.abatch_generate(["Portable Document Format", "Read Only Memory"])
+          )
+          assert async_batch.failure_count == 0, async_batch.errors
+
+          report = capabilities()
+          assert report["network"]["performs_network_io"] is False
+          assert report["resources"]["count"] > 0, report["resources"]
+          json.dumps(report)  # other people's CI is meant to assert on this
+
+          document = Path(os.environ["RUNNER_TEMP"]) / "airgap_document.txt"
+          document.write_text(DOCUMENT, encoding="utf-8")
+          invocations = [
+              ["version"],
+              ["generate", "Portable Document Format"],
+              ["generate", "Portable Document Format", "--format", "json"],
+              ["score", "PDF", "Portable Document Format"],
+              ["tokens", "Portable Document Format"],
+              ["backronym", "Next Generation High Performance Storage System", "NEXUS"],
+              ["synthesize", "NEXUS"],
+              ["extract", str(document)],
+              ["schema"],
+              ["doctor"],
+              ["doctor", "--offline"],
+              ["doctor", "--offline", "--format", "json"],
+          ]
+          for argv in invocations:
+              code = cli_main(argv)
+              assert code == 0, f"acronymkit {' '.join(argv)} exited {code}"
+
+          # Strict offline mode, last, because it is process-wide: the env var
+          # can only tighten, and a Config built under it must still work.
+          os.environ["ACRONYMKIT_OFFLINE"] = "1"
+          offline = AcronymEngine(Config())
+          assert offline.config.offline is True
+          assert offline.generate("Random Access Memory").primary_acronym == "RAM"
+
+          print(f"air gap OK: {len(invocations)} CLI invocations and the full public API, no route")
+          PY
+          cd "$RUNNER_TEMP"
+          sudo unshare -n -- \
+            setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
+            env HOME=/nonexistent PYTHONDONTWRITEBYTECODE=1 "RUNNER_TEMP=$RUNNER_TEMP" \
+            "$GITHUB_WORKSPACE/.airgap-venv/bin/python" "$RUNNER_TEMP/airgap_probe.py"
+
   import-time:
     name: Cold import stays under its ceiling
     runs-on: ubuntu-latest
@@ -250,6 +515,58 @@ jobs:
         run: python -m build
       - name: Check metadata
         run: python -m twine check dist/*
+      - name: Enforce the wheel size budget
+        run: |
+          python - <<'PY'
+          import glob
+          import os
+          import sys
+          import zipfile
+
+          # Why 512 KiB.
+          #
+          # Measured on this repository: the wheel is 404,392 B on disk, and
+          # acronymkit/resources/lexicon_en.txt is 51.6% of its compressed
+          # payload -- so the budget is really a budget on how much word list
+          # ships, and everything else is noise against it. That figure is
+          # current, not forecast: diagnostics.py, offline mode and `doctor`
+          # are already inside it, and the licence ledger and the docs ship in
+          # the sdist only, so they never reach this number at all.
+          #
+          # 524,288 B therefore leaves 119,896 B of headroom, with the wheel at
+          # 77.1% of budget. Loose enough to absorb ordinary growth -- the
+          # largest .py in the wheel compresses to 13,448 B, so the headroom is
+          # eight more modules that size -- and tight enough that the one
+          # change which would blow the size up fails by construction: an
+          # LRABR-derived expansion dictionary, measured during the offline
+          # audit at 402.7 KB to 1.4 MB gzipped. A budget only does work if
+          # something realistic can fail it.
+          #
+          # The 10 MB originally proposed was rejected on exactly that ground.
+          # 10 MiB is 25.9x this wheel; nothing anyone has proposed could reach
+          # it. A ceiling that cannot be hit is not a budget, it is a permission
+          # slip, and it would have admitted every dictionary above in silence.
+          #
+          # Raising this number is a decision about what may ship. Read the
+          # largest entries printed below before making it.
+          BUDGET_BYTES = 524_288
+
+          wheel = glob.glob("dist/*.whl")[0]
+          size = os.path.getsize(wheel)
+          entries = sorted(
+              zipfile.ZipFile(wheel).infolist(), key=lambda item: -item.compress_size
+          )
+          print(f"{wheel}: {size} B of {BUDGET_BYTES} B ({size / BUDGET_BYTES:.1%} of budget)")
+          print("largest entries, compressed:")
+          for item in entries[:5]:
+              print(f"  {item.compress_size:>9} B  {item.filename}")
+          if size > BUDGET_BYTES:
+              sys.exit(
+                  f"wheel is {size} B, over the {BUDGET_BYTES} B budget by "
+                  f"{size - BUDGET_BYTES} B."
+              )
+          print("wheel size OK")
+          PY
       - name: Verify bundled resources are present in the wheel
         run: |
           python - <<'PY'
@@ -293,6 +610,8 @@ jobs:
           test -f /tmp/sdist/tests/conftest.py || { echo "conftest.py missing from sdist"; exit 1; }
           test -f /tmp/sdist/schemas/acronym-engine-result.schema.json || { echo "schemas/ missing from sdist"; exit 1; }
           test -f /tmp/sdist/bench/results.json || { echo "bench/results.json missing from sdist: the shipped docs make claims the shipped checker then cannot back"; exit 1; }
+          test -f /tmp/sdist/data/LICENSES.md || { echo "data/LICENSES.md missing from sdist: README.md and SECURITY.md link to it as the evidence for the pinned-and-checksummed asset claim, so without it that link resolves to nothing for anyone holding a distribution"; exit 1; }
+          test -f /tmp/sdist/tests/airgap_socket_guard.py || { echo "tests/airgap_socket_guard.py missing from sdist: the point of shipping the air-gap proof is that an enterprise can re-run it in their own environment"; exit 1; }
           cd /tmp/sdist && python -m pip install --quiet ".[dev]" && python -m pytest -q -x
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

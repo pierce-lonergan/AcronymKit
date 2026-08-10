@@ -23,9 +23,66 @@ from .enums import (
     ScoringStrategy,
     StopWordCategory,
 )
-from .exceptions import ConfigurationError
+from .exceptions import ConfigurationError, OfflineError
 
 __all__ = ["EXTRACTION_PROFILES", "STRATEGY_WEIGHTS", "Config", "ScoringWeights"]
+
+
+def _enforce_offline(config: Config) -> None:
+    """Reject a configuration that strict offline mode cannot honour.
+
+    Nothing in ``acronymkit`` reaches the network, so this function never
+    prevents the library from making a request. It exists because "we do not
+    make requests" is only two thirds of what an air-gapped operator needs.
+    The other third is: refuse, at start-up, the two things this process can
+    see that would break the promise.
+
+    1. **The neural tier.** ``EngineTier.NEURAL`` is not implemented, and when
+       it is, it will load a model from a local path. Under
+       :attr:`Config.strict` it already raises — but at first use of a
+       disambiguator, not here. Offline mode moves it to construction, because
+       an enterprise needs to learn at config time what it has rather than
+       discover it later in output quality.
+    2. **Third-party ``pydantic`` plugins.** ``pydantic`` imports whatever is
+       advertised under the ``pydantic`` entry-point group while building a
+       model — which happens while building *this* object. That code runs
+       inside the promise and can do anything, including open a socket, and it
+       was demonstrated doing exactly that during the offline audit.
+
+    **The second check is detection, not prevention, and the difference is
+    worth stating plainly.** By the time this runs, ``pydantic`` has already
+    imported the plugin — importing it is what building this model *does*.
+    Refusing here stops the process from continuing under a promise that has
+    already been broken; it does not un-break it. The only real prevention is
+    ``PYDANTIC_DISABLE_PLUGINS=1`` in the environment, which is why that is
+    the remedy in the message rather than something this library does on the
+    caller's behalf. Setting it from inside would mean mutating global state
+    that every other ``pydantic`` user in the process shares, to fix a problem
+    they may not have.
+
+    Args:
+        config: The freshly constructed configuration.
+
+    Raises:
+        OfflineError: If either condition holds.
+    """
+    from .diagnostics import pydantic_plugins
+
+    if config.engine_tier is EngineTier.NEURAL:
+        raise OfflineError(
+            "engine_tier=NEURAL requires a model this package does not ship and will not fetch",
+            "Use EngineTier.ZERO_DEPENDENCY, which runs entirely from the wheel, or "
+            "EngineTier.STATISTICAL_NLP if spaCy or NLTK is installed locally.",
+        )
+    plugins = pydantic_plugins()
+    if plugins:
+        raise OfflineError(
+            f"{len(plugins)} third-party pydantic plugin(s) are installed and "
+            f"pydantic imports them while building this Config: {', '.join(plugins)}",
+            "Set PYDANTIC_DISABLE_PLUGINS=1 in the container, or uninstall them. "
+            "acronymkit cannot disable them from inside the process without "
+            "changing global state that other libraries depend on.",
+        )
 
 
 def _describe_validation_error(exc: PydanticValidationError) -> str:
@@ -242,6 +299,13 @@ class Config(BaseModel):
         default=False,
         description="Raise TierUnavailableError instead of degrading to a lower tier.",
     )
+    offline: bool = Field(
+        default=False,
+        description=(
+            "Refuse, at construction time, anything that could require the network. "
+            "Also set by ACRONYMKIT_OFFLINE=1, which can only turn it on."
+        ),
+    )
 
     # -- token filtering ---------------------------------------------------
     include_articles: bool = Field(
@@ -364,13 +428,25 @@ class Config(BaseModel):
         Raises:
             ConfigurationError: If any field is invalid or the combination of
                 fields is internally inconsistent.
+            OfflineError: If offline mode is in force and this configuration
+                cannot be honoured without it. A subclass of
+                ``ConfigurationError``, so the single-except contract holds.
         """
+        # The environment may only *tighten*. Folding it in here rather than at
+        # each use site means `config.offline` is the effective value, so the
+        # object cannot disagree with the process it was built in, and
+        # model_dump() round-trips to a config that behaves identically.
+        from .diagnostics import offline_requested
+
+        data["offline"] = bool(data.get("offline", False)) or offline_requested()
         try:
             super().__init__(**data)
         except ConfigurationError:
             raise
         except PydanticValidationError as exc:
             raise ConfigurationError(_describe_validation_error(exc)) from exc
+        if self.offline:
+            _enforce_offline(self)
 
     # ---------------------------------------------------------------------
     @property

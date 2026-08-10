@@ -968,6 +968,60 @@ def build_cli() -> Any:
         else:
             _emit(click, [f"{PROG_NAME} {__version__}"])
 
+    @group.command(
+        "doctor",
+        help="Report what this installation can do, and exit non-zero if it cannot.",
+    )
+    @click.option(
+        "--offline",
+        is_flag=True,
+        help="Require an air-gap-ready installation; exit non-zero if anything would need the network.",
+    )
+    @output_options
+    def doctor_command(offline: bool, **options: Any) -> None:
+        """Print the capability report and set an exit status from it.
+
+        Built for a container start-up probe and for an enterprise's own CI,
+        which is why the exit status matters more than the text: a report
+        nobody can assert on is a README with extra steps.
+
+        With ``--offline``, the command is a gate rather than a description.
+        It fails when this process could be made to reach the network by
+        something other than ``acronymkit`` — today that means installed
+        ``pydantic`` entry-point plugins, which ``pydantic`` imports while
+        building any model. See :func:`acronymkit.config._enforce_offline`.
+
+        Args:
+            offline: Treat network-capable findings as failures.
+            **options: The shared output options.
+        """
+        from .diagnostics import capabilities, format_report
+
+        report = capabilities()
+        problems: list[str] = []
+        if offline:
+            plugins = report["network"]["third_party_import_hooks"]["pydantic_entry_point_plugins"]
+            if plugins:
+                problems.append(
+                    f"third-party pydantic plugins are installed and will be imported "
+                    f"while building a Config: {', '.join(plugins)}. "
+                    f"Set PYDANTIC_DISABLE_PLUGINS=1 or uninstall them."
+                )
+        report["problems"] = problems
+        report["ok"] = not problems
+
+        if options["output_format"] == "json":
+            _emit_json(click, report, options["indent"])
+        else:
+            lines = [format_report(report)]
+            if problems:
+                lines += ["", "PROBLEMS"] + [f"  - {problem}" for problem in problems]
+            elif offline:
+                lines += ["", "offline check: OK"]
+            _emit(click, lines)
+        if problems:
+            raise SystemExit(1)
+
     _GROUP = group
     return group
 

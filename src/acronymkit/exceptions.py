@@ -15,6 +15,7 @@ __all__ = [
     "GenerationError",
     "LexiconError",
     "NoCandidateError",
+    "OfflineError",
     "ResourceNotFoundError",
     "TierUnavailableError",
     "TokenizationError",
@@ -27,6 +28,37 @@ class AcronymKitError(Exception):
 
 class ConfigurationError(AcronymKitError, ValueError):
     """Raised when a :class:`~acronymkit.config.Config` is internally inconsistent."""
+
+
+class OfflineError(ConfigurationError):
+    """Raised when strict offline mode cannot be honoured.
+
+    Strict offline mode is a promise that this process will not reach the
+    network. ``acronymkit`` itself keeps that promise unconditionally — it
+    contains no network code on any path — so this exception is never about
+    something the library was about to do. It is about something the library
+    can *see* and cannot prevent: a configuration that would require a
+    capability offline mode forbids, or third-party code that another package
+    has arranged to have imported.
+
+    It derives from :class:`ConfigurationError`, and therefore from
+    :class:`ValueError`, because it is raised where a configuration is
+    rejected: at :class:`~acronymkit.config.Config` construction, not part-way
+    through an inference. Discovering at 2 a.m. that a container cannot do
+    what it was asked is the failure this exists to move to start-up.
+
+    Args:
+        reason: What cannot be honoured, in one sentence.
+        remedy: The concrete thing to do about it, if there is one.
+    """
+
+    def __init__(self, reason: str, remedy: Optional[str] = None) -> None:
+        self.reason = reason
+        self.remedy = remedy
+        message = f"Strict offline mode cannot be honoured: {reason}"
+        if remedy:
+            message = f"{message} {remedy}"
+        super().__init__(message)
 
 
 class TierUnavailableError(AcronymKitError, RuntimeError):

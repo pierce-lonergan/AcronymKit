@@ -40,7 +40,9 @@ from ..exceptions import ResourceNotFoundError
 
 __all__ = [
     "available_languages",
+    "bundled_resources",
     "has_resource",
+    "read_binary_resource",
     "read_json_resource",
     "read_lines_resource",
     "read_text_resource",
@@ -218,6 +220,54 @@ def _iter_resource_names() -> tuple[str, ...]:
         except (OSError, AttributeError, ValueError, NotADirectoryError):
             continue
     return tuple(sorted(names))
+
+
+#: Names that live in the resource directory but are not data: the package
+#: machinery itself. Everything else is a shipped data file.
+_NON_DATA = ("__init__.py", "__pycache__", "py.typed")
+
+
+@cache
+def bundled_resources() -> tuple[str, ...]:
+    """Return the names of every bundled *data* resource, sorted.
+
+    Excludes the package machinery (``__init__.py`` and friends), so what
+    comes back is the list of files this distribution ships as content. Used
+    by :func:`acronymkit.capabilities.capabilities` to report — and checksum —
+    exactly what an installation is carrying.
+
+    Returns:
+        Flat file names, e.g. ``("lexicon_en.txt", "ngram_en.json", ...)``.
+
+    Example:
+        >>> "stopwords_en.json" in bundled_resources()
+        True
+    """
+    return tuple(
+        name
+        for name in _iter_resource_names()
+        if name not in _NON_DATA and not name.endswith((".py", ".pyc"))
+    )
+
+
+def read_binary_resource(name: str) -> bytes:
+    """Return the raw bytes of a bundled resource, exactly as shipped.
+
+    No decompression and no decoding: a ``.gz`` resource comes back
+    compressed. That is the point — these are the bytes a wheel's ``RECORD``
+    hashes, so a checksum taken here is comparable with one taken by ``pip``
+    or by a security scanner that never imported Python.
+
+    Args:
+        name: Flat resource file name.
+
+    Returns:
+        The resource contents.
+
+    Raises:
+        ResourceNotFoundError: If the resource is missing or unreadable.
+    """
+    return _read_bytes(_check_name(name))
 
 
 # ---------------------------------------------------------------------------

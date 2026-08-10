@@ -9,6 +9,76 @@ Newest first.
 
 ---
 
+## D-018 — `load_schema()` read from directories this package does not own
+
+**Status:** fixed, shipped · **Evidence:** `src/acronymkit/serialization.py`,
+`tests/test_serialization.py::test_schema_path_points_at_the_checkout_copy`
+
+`load_schema()` used to look for `acronym-engine-result.schema.json` in a `schemas/` directory under
+two ancestors of the package directory — `parents[1]` first, then `parents[0]` — falling back to the
+copy bundled in `acronymkit.resources` only if neither was a readable file. In a checkout those two
+are `<repo>/schemas/` and `<repo>/src/schemas/`: the developer's own files. In an installed wheel
+they are `<venv>/Lib/schemas/` (`<venv>/lib/pythonX.Y/schemas/` on POSIX) and
+`<site-packages>/schemas/`.
+
+Three facts turn that from untidy into a supply-chain hole:
+
+- This package owns neither directory, and a file placed in either carries no hash in any
+  distribution's `RECORD`. Such a file is not a modified `acronymkit`; it is a document
+  `acronymkit` chose to prefer over its own.
+- Either directory can be created by a dependency. Any distribution that ships a top-level
+  `schemas` package materialises `<site-packages>/schemas/` on install, and that is the candidate
+  reached whenever the first one is empty, which is the ordinary case. Owning it on a target
+  machine therefore does not require write access to the machine — it requires one line in a
+  requirements file. (The distribution name `schemas` is already taken on PyPI by an unrelated
+  validation library, so an attacker would publish under some other name. That costs nothing: the
+  directory a distribution creates has no connection to the name it is installed under.)
+- A JSON Schema may carry a remote `$ref`, and `jsonschema` resolves those by fetching them.
+
+The audit ran the chain end to end. A planted schema was returned by `load_schema()` in preference
+to the bundled copy; `jsonschema` then made a real outbound HTTP GET to resolve the remote `$ref`;
+and `validate_result` reported the attacker's document as valid. A library that authors no network
+code of its own issued a request to a host chosen by whoever populated that directory.
+
+### Resolution
+
+The search is gone. `load_schema()` reads the bundled resource and nothing else — the same document
+in a checkout, a wheel and an sdist, and once installed it carries a hash in the distribution's
+`RECORD` like every other packaged file. `SCHEMA_PATH` still names the checkout copy, because the
+tooling and the planned `acronym4j` port need something to point at, but no load path consults it.
+
+The second half is a refusal rather than a statement about today's file: `_remote_refs()` walks the
+decoded schema and `validate_result` raises `AcronymKitError` if any `$ref` names a remote scheme.
+"Our schema happens to contain no remote reference" is an accident, and `validate_result` is the
+place where an accident would have become a request.
+
+### The second-order finding, which is the more useful half
+
+The invariant that the two copies agree was never actually being checked. It was asserted by
+
+    assert json.loads(SCHEMA_PATH.read_text(encoding="utf-8")) == load_schema()
+
+and under the old lookup `load_schema()` preferred `SCHEMA_PATH`, so that line compared the checkout
+copy with itself and passed unconditionally. Removing the search is what gave the assertion a
+second operand; the line is unchanged and now genuinely cross-checks the two copies.
+
+**CORRECTION, and it is a correction of this file's own first draft.** That draft said the two
+copies "had already drifted", citing 6,569 bytes against 6,408. They had not. Both blobs are 6,408
+bytes in git with the same SHA-256, and have never differed. The 161-byte gap was 161 CRLF pairs in
+a Windows working copy under `core.autocrlf=true` — an artefact of the machine the measurement was
+taken on, not a property of the repository. `git show HEAD:<path>` for both paths returns identical
+bytes, which is the check that should have been run before the claim was written.
+
+The irony is the point. This entry is about a lookup that could not see what it was falling back
+to, and the first draft of it reported a difference that existed only in the observer's checkout.
+**Measure the artefact, not your copy of it** — for line endings that means comparing git blobs or
+normalising first, and it is the same class of error as trusting a stale `dist/`.
+
+**A lookup with a fallback cannot be used to test the thing it falls back to.** That is the rule
+worth carrying forward, and it is not specific to schemas.
+
+---
+
 ## D-017 — A second corpus at last, and it is not the corpus the roadmap promised
 
 **Status:** measured, shipped unchanged · **Evidence:** `spans.plod.*` in `bench/results.json`,
@@ -538,8 +608,10 @@ threshold sweeps. It remains valuable as *calibrated confidence*, which is what 
 **Status:** decided · **Evidence:** `bench/run_oracle.py`, `oracle.med1250` in `bench/results.json`
 
 After four failed attempts to close the gap to `pyab3p`, I predicted the remainder lived in Ab3P's
-curated resources — 31 MB of subword-frequency data and a table of long forms for one-character short
-forms — rather than in the algorithm. **That was wrong**, and one measurement settles it.
+curated resources — 31 MB of subword-frequency data and `Lf1chSf`, which I described at the time as
+a table of long forms for one-character short forms — rather than in the algorithm. **That was
+wrong**, and one measurement settles it. The description of `Lf1chSf` was wrong too; it is a word
+list, not a table of long forms, and the correction is recorded under D-010.
 
 ### Cross-system ceiling
 
@@ -603,8 +675,35 @@ Three independent checks that it is doing something real:
 
 1. **The derived ordering matches Ab3P's published one.** Word-initial anchoring with word-initial
    placement estimates at 1.000 on three-letter alphabetic short forms; the loosest rule
-   (any anchor, any placement, any skipping) estimates at 0.534. Ab3P's own table runs `FirstLet`
-   0.999 to `AnyLet` 0.681. Same shape, derived independently, no labels.
+   (any anchor, any placement, any skipping) estimates at 0.534. Over the same bucket, Ab3P's own
+   table runs from `Al 3 FirstLet 0.999808` down to `Al 3 AnyLet 0.303503`. Same ordering, derived
+   independently, no labels.
+
+   **CORRECTION.** This bullet used to end "Ab3P's own table runs `FirstLet` 0.999 to `AnyLet`
+   0.681", and the second figure is not in the file. `WordData/Ab3P_prec.dat` was re-fetched from
+   the Ab3P commit `tools/fetch_data.py` pins — 4,050 bytes, 145 rows, no blank lines, four
+   whitespace-separated fields each (character class, short-form length, strategy name, estimate):
+
+       sha256 77903769069451f67095b8aa677ac19b4074e86cf165519c3cd1cb02734db5c3
+
+   The string `0.681` does not occur anywhere in it. What does occur is eight `AnyLet` rows, and
+   their unweighted mean is `0.680631`. So the figure was an average taken across three character
+   classes (`Al`, `Num`, `Spec`) and short-form lengths 3 to 5 — eight of those nine combinations,
+   since `Spec 3 AnyLet` has no row — written as though it were a published row, and then set
+   against a figure of ours measured on three-letter alphabetic short forms alone.
+
+   The `FirstLet` half checks out: `Al 3 FirstLet 0.999808` is a real row, and it is the maximum of
+   the `Al 3` bucket exactly as `Al 3 AnyLet 0.303503` is its minimum, so "runs from … down to" is
+   literal rather than a figure of speech. The quoted `0.999` was that row truncated, not rounded —
+   0.999808 rounds to 1.000 at three decimals — which is why the bullet now carries the full values
+   instead of shortened ones.
+
+   Two things the corrected numbers still do not say. Ab3P's `AnyLet` and our "any anchor, any
+   placement, any skipping" are not the same rule, so the distance between 0.534 and `0.303503`
+   measures a difference in rule definitions as much as anything else — a numeric comparison at the
+   bottom of the range was never sound and is not being repaired here. And the check this bullet
+   makes is about *rank*: a rule derived from unlabelled text lands where Ab3P's labelled estimate
+   lands relative to its neighbours. That is what stands.
 2. **Reliability falls with shorter short forms** — max 0.962 at length 3 against 0.833 at length 2 —
    which is the structure Ab3P's per-length table encodes.
 3. **The confidence is calibrated.** Sweeping the abstention threshold on held-out data moves
@@ -644,8 +743,30 @@ The lesson is consistent across two independent attempts: **the greedy shortest-
 stronger baseline than its visible truncation suggests.** Beating it is not a matter of choosing
 better boundaries. Ab3P's advantage must come from somewhere else in its design — most likely its
 much larger curated resources (`SingTermFreq.dat` is 31 MB of subword-frequency data, `Lf1chSf`
-48 KB of long forms for one-character short forms), not from the cascade structure alone. That is
+48 KB of vocabulary used as a membership gate), not from the cascade structure alone. That is
 testable and is the obvious next experiment.
+
+**CORRECTION.** This paragraph used to call `Lf1chSf` "long forms for one-character short forms",
+which reads as a short-form-to-long-form table. It is not one, and anyone who went looking for
+pairs in it would find none. The file was fetched and read: 48,126 bytes, 4,991 lines, exactly one
+whitespace-free token per line, all lower-case, ASCII, sorted ascending, no duplicates, no
+delimiter and no second column. 350 of the 4,991 entries are not purely alphabetic — they carry a
+hyphen, slash, digit or trailing punctuation (`long-wavelength-sensitive`, `al(2)o(3)`, `aims:`,
+`analysis,`), which is what an automatically harvested word list looks like rather than a curated
+mapping.
+
+It is consumed as a **set**. Ab3P's `Makefile` target `data` runs
+`./make_wordSet WordData/Lf1chSf Lf1chSf`, and `make_wordSet.C` opens with the comment "make a hash
+set for a set of strings" and builds a hash table with no values attached. Exactly one strategy
+consults it: `FirstLetOneChSF` in `lib/AbbrStra.C`, which lower-cases the final token of the text
+preceding the short form and gives up if that token is absent from the set —
+`if(!wData->lfs.find(phrl)) return 0;`. That is the file's whole role, a gate on one rule, and
+`Ab3P_prec.dat` carries exactly one row for the rule it gates: `Al 1 FirstLetOneChSF 0.967224`.
+
+The misreading came from upstream's own wording — Ab3P's `README.md` says "Long forms for
+1-character short forms are in the file `Lf1chSf`" — so it is an easy one to repeat. The
+consequence for D-011's "`Lf1chSf` may still help the single-character bucket" is that adopting it
+means adopting a vocabulary filter, not importing anyone's answers.
 
 ---
 

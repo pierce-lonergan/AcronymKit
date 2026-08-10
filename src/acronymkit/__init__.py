@@ -78,6 +78,7 @@ if TYPE_CHECKING:
     # to both mypy and the interpreter, so ``tests/test_package.py`` reads this
     # block with ``ast`` and asserts all three agree.
     from .config import STRATEGY_WEIGHTS, Config, ScoringWeights
+    from .diagnostics import capabilities, format_report
     from .disambiguation import ExpansionDictionary
     from .engine import AcronymEngine
     from .enums import (
@@ -98,6 +99,7 @@ if TYPE_CHECKING:
         GenerationError,
         LexiconError,
         NoCandidateError,
+        OfflineError,
         ResourceNotFoundError,
         TierUnavailableError,
         TokenizationError,
@@ -133,6 +135,8 @@ _FALLBACK_VERSION = "0.1.0"
 #: for ``__version__``, which is computed rather than imported.
 _EXPORT_SOURCES = {
     "STRATEGY_WEIGHTS": "config",
+    "capabilities": "diagnostics",
+    "format_report": "diagnostics",
     "Config": "config",
     "ScoringWeights": "config",
     "ExpansionDictionary": "disambiguation",
@@ -152,6 +156,7 @@ _EXPORT_SOURCES = {
     "GenerationError": "exceptions",
     "LexiconError": "exceptions",
     "NoCandidateError": "exceptions",
+    "OfflineError": "exceptions",
     "ResourceNotFoundError": "exceptions",
     "TierUnavailableError": "exceptions",
     "TokenizationError": "exceptions",
@@ -181,6 +186,7 @@ _SUBMODULES = frozenset(
         "backronym",
         "batch",
         "config",
+        "diagnostics",
         "disambiguation",
         "engine",
         "enums",
@@ -226,6 +232,7 @@ __all__ = [
     "MappingKind",
     "NoCandidateError",
     "NumeralPolicy",
+    "OfflineError",
     "ResourceNotFoundError",
     "ScoreBreakdown",
     "ScoringStrategy",
@@ -236,6 +243,8 @@ __all__ = [
     "TokenRole",
     "TokenizationError",
     "__version__",
+    "capabilities",
+    "format_report",
 ]
 
 

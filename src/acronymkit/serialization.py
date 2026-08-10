@@ -7,21 +7,37 @@ contract testable from inside the library.
 
 Locating the schema
 -------------------
-The ``schemas/`` directory lives at the repository root and is deliberately
-*not* packaged into the wheel — it is a specification shared with other
-implementations, versioned independently of either. :func:`load_schema`
-therefore resolves in two steps:
+**The bundled resource is the only source, and that is a security property
+rather than a convenience.**
 
-1. the checkout location, ``<repo>/schemas/acronym-engine-result.schema.json``,
-   found relative to this module's own path (this is :data:`SCHEMA_PATH`);
-2. failing that, a copy bundled as an ``acronymkit.resources`` data file, which
-   a distributor may add without touching any code.
+This module used to search the filesystem first: ``<repo>/schemas/`` and the
+same directory under each of two ancestors of the package directory, falling
+back to the bundled copy only if none existed. In an installed wheel those
+ancestors are ``<site-packages>/schemas/`` and ``<venv>/Lib/schemas/`` — paths
+this package does not own, that carry no ``RECORD`` hash, and that any other
+distribution can create. ``schemas`` is a real, installable name on PyPI, so
+claiming that directory does not even require write access to the machine:
+it requires one line in a requirements file.
 
-When neither exists — the normal state of a plain wheel install —
-:class:`~acronymkit.exceptions.ResourceNotFoundError` is raised naming both
-locations, because "there is no schema here" is a real answer rather than a
-bug: validation is a development-time and CI concern, not a runtime dependency
-of generation.
+An audit demonstrated the full chain. A planted document was returned by
+:func:`load_schema` in preference to the bundled one, and because a JSON Schema
+may contain a remote ``$ref``, ``jsonschema`` then issued a real outbound HTTP
+GET to fetch it — turning a library with no network code of its own into one
+that makes a request, on a machine chosen by whoever owned that directory,
+while :func:`validate_result` reported the attacker's document as valid.
+
+So the search is gone. The schema ships inside the wheel as an
+``acronymkit.resources`` data file, hashed in ``RECORD`` like every other
+module, and that copy is the one that is read — in a checkout, in a wheel, in
+an sdist, identically. :data:`SCHEMA_PATH` still names the checkout copy
+because tooling and the cross-language port need to point at it, but nothing
+in the load path consults it.
+
+Two invariants keep it honest, both enforced by tests: the checkout copy and
+the bundled copy must agree, and the schema must contain no remote ``$ref``.
+The second is checked at validation time as well, because "our schema happens
+to contain no remote reference today" is an accident, and
+:func:`validate_result` is where an accident would become a request.
 
 Dependency policy
 -----------------
@@ -62,32 +78,12 @@ _SCHEMA_DIRECTORY = "schemas"
 #: Directory holding this module (``<repo>/src/acronymkit`` in a checkout).
 _MODULE_DIRECTORY = Path(__file__).resolve().parent
 
-#: How many ancestors of the package directory are searched for ``schemas/``.
-#: Two covers both supported checkout shapes: ``src/acronymkit`` (the layout
-#: this project uses) and a flat ``acronymkit`` at the repository root.
-_SEARCH_DEPTH = 2
 
-
-def _ancestor(depth: int) -> Path:
-    """Return the ``depth``-th ancestor of the package directory.
-
-    Args:
-        depth: ``0`` is the parent of the package directory, ``1`` its
-            grandparent, and so on. Depths beyond the filesystem root clamp to
-            the root rather than raising.
-
-    Returns:
-        The resolved ancestor directory.
-    """
-    parents = _MODULE_DIRECTORY.parents
-    return parents[min(depth, len(parents) - 1)]
-
-
-#: Canonical checkout location of the schema (``<repo>/schemas/...`` for the
-#: ``src/`` layout this project uses). It does **not** necessarily exist: an
-#: installed wheel has no ``schemas/`` directory, which is why
-#: :func:`load_schema` also consults the bundled-resource fallback.
-SCHEMA_PATH: Path = _ancestor(1) / _SCHEMA_DIRECTORY / SCHEMA_FILENAME
+#: Checkout location of the schema, for tooling and for the cross-language
+#: port that shares this contract. **Not consulted when loading** — see the
+#: module docstring. In an installed wheel this path does not exist, and that
+#: is now unremarkable rather than the reason for a filesystem search.
+SCHEMA_PATH: Path = _MODULE_DIRECTORY.parents[1] / _SCHEMA_DIRECTORY / SCHEMA_FILENAME
 
 #: Message shown when ``jsonschema`` is not importable.
 _JSONSCHEMA_MISSING = (
@@ -97,56 +93,73 @@ _JSONSCHEMA_MISSING = (
 )
 
 
-def _candidate_paths() -> tuple[Path, ...]:
-    """Return the checkout locations searched for the schema, in order.
+#: URI schemes that would make resolving a ``$ref`` a network operation.
+_REMOTE_REF_SCHEMES = ("http://", "https://", "ftp://", "ftps://", "file://")
+
+
+def _remote_refs(node: Any, pointer: str = "#") -> list[str]:
+    """Return every ``$ref`` in ``node`` that would need to be fetched.
+
+    A ``$ref`` is local when it is a fragment (``#/$defs/Foo``) or a bare
+    relative name resolved against a base URI the caller already holds. It is
+    remote when it names a scheme, and resolving one is an outbound request.
+
+    Args:
+        node: Any decoded-JSON value; dictionaries and lists are walked.
+        pointer: JSON Pointer of ``node``, used to report where a hit is.
 
     Returns:
-        :data:`SCHEMA_PATH` first, followed by the same file under the nearer
-        ancestors of the package directory, de-duplicated and order-preserving.
+        ``["<pointer> -> <uri>", ...]``, empty when the document is local-only.
     """
-    candidates: list[Path] = [SCHEMA_PATH]
-    for depth in range(_SEARCH_DEPTH):
-        candidate = _ancestor(depth) / _SCHEMA_DIRECTORY / SCHEMA_FILENAME
-        if candidate not in candidates:
-            candidates.append(candidate)
-    return tuple(candidates)
+    found: list[str] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "$ref" and isinstance(value, str):
+                if value.lower().startswith(_REMOTE_REF_SCHEMES):
+                    found.append(f"{pointer} -> {value}")
+            else:
+                found.extend(_remote_refs(value, f"{pointer}/{key}"))
+    elif isinstance(node, list):
+        for position, value in enumerate(node):
+            found.extend(_remote_refs(value, f"{pointer}/{position}"))
+    return found
 
 
 @lru_cache(maxsize=1)
 def _schema_source() -> str:
     """Return the raw JSON text of the interchange schema.
 
-    Cached because the value is immutable and the lookup touches the
-    filesystem. Failures are not cached: :func:`functools.lru_cache` does not
-    memoise exceptions, so a schema added after a failed call is picked up.
+    Read from the bundled ``acronymkit.resources`` copy and nowhere else. The
+    filesystem search this function used to perform is gone; the module
+    docstring records why, and :data:`SCHEMA_PATH` is no longer consulted.
+
+    Cached because the value is immutable. Failures are not cached:
+    :func:`functools.lru_cache` does not memoise exceptions.
 
     Returns:
         The UTF-8 text of the schema document.
 
     Raises:
-        ResourceNotFoundError: If the schema is in neither the checkout nor the
-            bundled resources.
+        ResourceNotFoundError: If the bundled resource is missing, which means
+            the installation is damaged rather than merely unusual.
     """
-    for candidate in _candidate_paths():
-        try:
-            if candidate.is_file():
-                return candidate.read_text(encoding="utf-8")
-        except OSError:  # pragma: no cover - unreadable path, try the next one
-            continue
     if has_resource(SCHEMA_FILENAME):
         return read_text_resource(SCHEMA_FILENAME)
-    searched = ", ".join(str(candidate) for candidate in _candidate_paths())
     raise ResourceNotFoundError(
-        f"The interchange schema {SCHEMA_FILENAME!r} could not be located. It is "
-        f"published in the repository under {_SCHEMA_DIRECTORY}/ and is not shipped "
-        f"inside the wheel. Searched: {searched}; and the bundled resource "
-        f"'acronymkit.resources/{SCHEMA_FILENAME}'. Run from a source checkout, or "
-        f"copy the schema into the acronymkit/resources directory."
+        f"The interchange schema {SCHEMA_FILENAME!r} is missing from the installed "
+        f"package. It ships inside the wheel as 'acronymkit.resources/"
+        f"{SCHEMA_FILENAME}' and is listed in RECORD, so its absence means the "
+        f"installation is damaged — reinstall acronymkit. A copy in "
+        f"{_SCHEMA_DIRECTORY}/ next to a checkout is deliberately not consulted."
     )
 
 
 def load_schema() -> dict[str, Any]:
     """Load the ``AcronymEngineResult`` JSON Schema.
+
+    Read from the bundled resource, which is hashed in the wheel's ``RECORD``.
+    A ``schemas/`` directory next to the installation is never consulted; see
+    the module docstring for the hijack that established the rule.
 
     The source text is cached but re-parsed on every call, so callers receive a
     private, freely mutable document.
@@ -155,8 +168,7 @@ def load_schema() -> dict[str, Any]:
         The decoded JSON Schema.
 
     Raises:
-        ResourceNotFoundError: If the schema is available neither in a source
-            checkout nor as a bundled resource.
+        ResourceNotFoundError: If the bundled resource is missing.
 
     Example:
         >>> load_schema()["title"]
@@ -195,7 +207,8 @@ def validate_result(payload: Any) -> None:
         quietly or raises.
 
     Raises:
-        AcronymKitError: If ``jsonschema`` is not installed.
+        AcronymKitError: If ``jsonschema`` is not installed, or if the schema
+            contains a remote ``$ref`` — see below.
         ResourceNotFoundError: If the schema could not be located.
         jsonschema.exceptions.ValidationError: If ``payload`` does not conform.
             The exception carries the failing JSON pointer and the violated
@@ -210,7 +223,24 @@ def validate_result(payload: Any) -> None:
         import jsonschema
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise AcronymKitError(_JSONSCHEMA_MISSING) from exc
-    jsonschema.validate(instance=_as_payload(payload), schema=load_schema())
+    schema = load_schema()
+    # This is the only place in the package where a document we did not write
+    # could become an outbound request: `jsonschema` resolves remote `$ref`s
+    # by fetching them, and it still does so in current versions. Loading the
+    # schema from the bundled resource already removes the realistic way a
+    # foreign document gets here, but "our schema happens to have no remote
+    # ref" is a property of today's file rather than a guarantee, and this is
+    # the line where that accident would turn into a socket. Check, and say so.
+    remote = _remote_refs(schema)
+    if remote:
+        raise AcronymKitError(
+            "Refusing to validate: the interchange schema contains "
+            f"{len(remote)} remote $ref(s), which jsonschema resolves by "
+            f"fetching them over the network. Found: {'; '.join(remote)}. "
+            "acronymkit performs no network I/O, and validation is not an "
+            "exception to that."
+        )
+    jsonschema.validate(instance=_as_payload(payload), schema=schema)
 
 
 def export_model_schema(model: Optional[type] = None) -> dict[str, Any]:
