@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-09
+
+Evidence release. v0.1.0 shipped a library; this one ships the measurements that
+say whether it works.
+
+### Headline numbers
+
+- **Extraction, MED1250 gold standard:** precision 92.07 %, recall 76.99 %,
+  F1 **83.85 %** — measured against four competing systems through one harness.
+  `pyab3p` leads at 88.87 F1; we sit third of five and ahead of the other pure-Python
+  Schwartz & Hearst implementation.
+- **Generation, first evaluation ever:** recall@1 **75.5 %** over
+  546 human-authored pairs, recall@25 89.7 %.
+- **Calibrated confidence with no labels:** abstention sweeps precision
+  85.43 → 91.62 monotonically.
+
 ### Changed
 
 - **BREAKING — default `scoring_strategy` is now `STRICT_INITIALISM`** (was
@@ -127,5 +143,6 @@ Initial public release. Delivers roadmap **Phase 1** (Tier 0 engine and extracti
 - The Tier 2 neural disambiguation engine (Phase 3) and the `acronym4j` Java port (Phase 4) are not
   part of this release.
 
-[Unreleased]: https://github.com/pierce-lonergan/AcronymKit/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/pierce-lonergan/AcronymKit/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/pierce-lonergan/AcronymKit/releases/tag/v0.2.0
 [0.1.0]: https://github.com/pierce-lonergan/AcronymKit/releases/tag/v0.1.0
