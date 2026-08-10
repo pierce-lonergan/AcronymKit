@@ -9,6 +9,61 @@ Newest first.
 
 ---
 
+## D-012 — Pseudo-precision cannot select. It rates rules, not spans.
+
+**Status:** decided, and it closes a line of attack · **Evidence:** `bench/run_rerank.py`
+
+D-011 established that selection, not coverage, is the problem: our own candidate space holds
+88.49 % of gold while the greedy rule returns 78.40 %, so the right span is present and
+discarded 121 times. This is the experiment that tried to capture that, holding the candidate
+space fixed at exactly the set the oracle measured and changing only the selection rule.
+
+| System | P % | R % | F1 % |
+|---|---:|---:|---:|
+| **Tier 0 greedy (Schwartz & Hearst)** | 92.32 | **76.47** | **83.65** |
+| Re-rank by pseudo-precision, min 0.95 | **95.15** | 71.70 | 81.78 |
+
+Not shipped as a default: F1 loses. But note it is **not dominated** — 95.15 % precision is the
+highest any pure-Python configuration in this project has reached, above Tier 0 and above every
+competitor except `pyab3p`. It is a real Pareto point on the precision axis, recorded rather than
+shipped because nobody has asked for it and it costs an estimator in the extraction path.
+
+### Why it cannot work, measured
+
+For every bracket where the gold span *is* in the candidate space:
+
+    gold span ties with the top-scoring span : 518 of 537   (96.5 %)
+    gold span scores strictly below the top  :  19 of 537   ( 3.5 %)
+
+**96.5 % ties.** Pseudo-precision estimates the reliability of a *strategy*. Every span the same
+strategy explains receives the same score, so within a rule the estimator is blind — and the
+competing spans in the cases we get wrong are almost always explained by the same rule.
+`"International Index of Erectile Function"` and `"Index of Erectile Function"` are both plain
+word-initial alignments; no per-strategy number can separate them, because there is no per-strategy
+difference between them.
+
+That is a category error, and it is the same one twice: the cascade (D-010) and this re-ranker both
+consume a per-rule signal to make a per-span decision.
+
+### What this actually implies
+
+The selection headroom from D-011 is real and remains unclaimed, but capturing it requires a
+**per-candidate** feature — something that differs between two spans the same rule explains. Length,
+head-noun agreement, and above all *how often the span's words actually co-occur in the language*
+are all per-candidate.
+
+That is precisely what Ab3P's `SingTermFreq.dat` is: 31 MB of subword and term-frequency statistics,
+consulted per candidate. So the resource hypothesis returns — but for a sharper reason than the one I
+gave when I first raised it. It is not that coverage is missing (D-011 disproved that). It is that
+per-candidate discrimination needs per-candidate evidence, and frequency statistics are the cheapest
+source of it. Deriving such a table from unlabelled text is the same shape of problem the
+pseudo-precision estimator already solves.
+
+**Closed:** pseudo-precision as a selection mechanism, in any arrangement. Two implementations, four
+threshold sweeps. It remains valuable as *calibrated confidence*, which is what it actually is.
+
+---
+
 ## D-011 — The gap is selection, not data. My prediction was wrong.
 
 **Status:** decided · **Evidence:** `bench/run_oracle.py`, `oracle.med1250` in `bench/results.json`
