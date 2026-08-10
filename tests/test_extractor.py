@@ -14,7 +14,7 @@ import time
 from typing import Optional
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from acronymkit.config import Config
@@ -986,9 +986,65 @@ def _definition_documents(draw: st.DrawFn) -> tuple[str, str]:
     words = draw(st.lists(st.text(alphabet=_LOWER, min_size=3, max_size=9), min_size=2, max_size=5))
     long_form = " ".join(words)
     short_form = "".join(word[0] for word in words).upper()
+    # Exclude the one input shape for which the templated definition provably
+    # does NOT resolve, so that the property below is true rather than usually
+    # true. Hypothesis found it as `("aaa aaa aaa (AAA)", "AAA")`.
+    #
+    # Schwartz & Hearst matches right to left and stops at the first alignment
+    # whose leading character sits on a word boundary, so it returns the
+    # *shortest* qualifying suffix -- here the final "aaa" rather than the whole
+    # phrase. `is_valid_long_form` then rejects it for not being longer than the
+    # abbreviation, and because the scan does not backtrack to a longer
+    # alignment the pair is dropped outright.
+    #
+    # The exclusion is exact, not a guess. Any candidate spanning two or more
+    # words contains a space in addition to the short form's letters, so it is
+    # always longer than the short form and always survives the length filter.
+    # Only a single-word candidate can be too short, and a single word carrying
+    # the short form's letters in order is too short exactly when it *is* the
+    # short form. So the drop happens if and only if the final word upper-cases
+    # to the short form -- confirmed against 4,000 random three-letter-alphabet
+    # documents, chosen to maximise collisions, with zero counterexamples.
+    #
+    # `test_a_long_form_whose_final_word_is_the_abbreviation_is_dropped` pins
+    # the excluded behaviour, so this narrows the generator without hiding what
+    # it stopped covering.
+    assume(words[-1].upper() != short_form)
     lead = draw(st.sampled_from(_LEAD_INS))
     tail = draw(st.sampled_from(_TAIL_OUTS))
     return f"{lead}{long_form} ({short_form}){tail}", short_form
+
+
+def test_a_long_form_whose_final_word_is_the_abbreviation_is_dropped() -> None:
+    """The one shape ``_definition_documents`` excludes, pinned rather than hidden.
+
+    "aaa aaa aaa (AAA)" is a legitimate definition that this extractor does not
+    recover, and the reason is structural rather than a slip. Schwartz & Hearst
+    scans right to left and stops at the first alignment beginning on a word
+    boundary, so it proposes the final "aaa"; that candidate is not longer than
+    "AAA", :func:`is_valid_long_form` rejects it, and nothing backtracks to the
+    longer alignment that would have worked.
+
+    Returning nothing is the better of the two available answers -- the
+    alternative the greedy rule can reach is the truncated "aaa", and this
+    project has measured repeatedly (D-011, D-012) that the rule's willingness
+    to discard rather than over-extend is where its precision comes from.
+    Fixing it means adding backtracking to the matcher, which is a change to
+    the selection rule and would have to be measured against MED1250 before it
+    could ship.
+
+    This test exists so that a future change to any of that fails loudly here
+    instead of quietly widening what the property test covers.
+    """
+    extractor = AbbreviationExtractor(Config())
+
+    assert extractor.extract("aaa aaa aaa (AAA)") == []
+    assert extractor.extract("aa aa (AA)") == []
+
+    # One letter different in the final word and the same document resolves,
+    # which is what makes this a boundary rather than a general failure.
+    recovered = extractor.extract("aaa aaa aab (AAA)")
+    assert [pair.short_form for pair in recovered] == ["AAA"]
 
 
 @given(_definition_documents())

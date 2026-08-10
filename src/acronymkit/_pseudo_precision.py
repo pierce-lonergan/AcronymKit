@@ -41,6 +41,17 @@ Estimating λ
 makes on them is a false positive by construction. Randomisation is seeded and
 recorded, so an estimate is reproducible.
 
+Two ways to get a table
+-----------------------
+:func:`estimate_precisions` derives one from **your** text. That is the route
+this module exists for and the only one that yields a calibration for your
+domain.
+
+:func:`bundled_table` loads one derived once by a maintainer and shipped with
+the package, so that an installation with no corpus and no network still has
+somewhere to start. It is a **prior**, not a calibration — the distinction is
+spelled out on that function and it is not a formality.
+
 Tier 0 pure: standard library only.
 """
 
@@ -52,17 +63,27 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
+from typing import Any, Iterable, Optional, Sequence
 
 from ._strategies import STRATEGIES, Strategy, best_match, split_long_form
+from .resources import read_json_resource
 
 __all__ = [
+    "BUNDLED_TABLE_RESOURCE",
     "Candidate",
     "PrecisionTable",
+    "best_alignment",
+    "bundled_table",
+    "bundled_table_provenance",
     "estimate_precisions",
     "harvest_candidates",
     "short_form_group",
 ]
+
+#: The shipped table, built by ``tools/build_reliability_table.py``. Named here
+#: rather than inlined so that a caller auditing an installation can check the
+#: same file :func:`acronymkit.capabilities` reports a digest for.
+BUNDLED_TABLE_RESOURCE = "pseudo_precision_en.json"
 
 #: A parenthetical short form, plus the text preceding it.
 _PAREN = re.compile(r"\(([^()]{1,30})\)")
@@ -167,15 +188,25 @@ class PrecisionTable:
 
         Returns:
             Strategy names in descending estimated precision, ties broken by
-            structural strictness so the order is deterministic.
+            structural strictness so the order is deterministic. A name this
+            build does not define is still returned — :func:`best_alignment`
+            skips it — but sorts last among its ties rather than raising. That
+            mattered less when every table was built in the same process that
+            consumed it; a table now arrives from a file, possibly written by an
+            older build, and a strategy renamed since then must not turn a
+            lookup into a ``KeyError``.
         """
         strictness = {s.name: s.strictness for s in STRATEGIES}
+        unknown = (len(strictness),) * 4
         eligible = [
             name
             for name, value in self.values.get(group, {}).items()
             if self.support.get(group, {}).get(name, 0) >= minimum_support and value > 0.0
         ]
-        return sorted(eligible, key=lambda n: (-self.values[group][n], strictness[n], n))
+        return sorted(
+            eligible,
+            key=lambda n: (-self.values[group][n], strictness.get(n, unknown), n),
+        )
 
     def to_dict(self) -> dict:
         """JSON-ready representation."""
@@ -207,6 +238,96 @@ class PrecisionTable:
     def load(cls, path: Path) -> PrecisionTable:
         """Read a table written by :meth:`save`."""
         return cls.from_dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+def bundled_table() -> PrecisionTable:
+    """Load the reliability table shipped inside the package.
+
+    This is the zero-argument, zero-corpus, zero-network route to a usable
+    table. Nothing is downloaded and nothing is fitted at import time; the file
+    is a bundled resource and reading it is the whole operation.
+
+    What it is a table *of*, stated plainly because the alternative is a user
+    trusting a number that does not describe their text:
+
+    * It was derived from the development half of MED1250 — MEDLINE abstracts —
+      with the estimator in this module, reading raw text and no annotation.
+    * It is therefore a **prior on English biomedical prose**. On a contract, a
+      filing or an internal wiki the strategies may fire at quite different
+      rates, and how different has not been measured. Treat the confidences as
+      an ordering you inherited rather than as probabilities you verified.
+    * :func:`estimate_precisions` remains the route that yields a calibration.
+      If you have a corpus, use it: that path is why this module exists, and a
+      table built from your own text is strictly better evidence about your own
+      text than this one can be.
+
+    The provenance travels with the data — see :func:`bundled_table_provenance`
+    — so the source corpus, its licence and the split seed are inspectable at
+    run time rather than only in the repository.
+
+    Returns:
+        A freshly constructed :class:`PrecisionTable`. Not shared or cached:
+        the table is mutable, so handing out one instance would let one caller's
+        edits reach another's.
+
+    Raises:
+        ResourceNotFoundError: If the resource is missing from the installation
+            or is not the document this function expects.
+
+    Example:
+        >>> table = bundled_table()
+        >>> table.precision("al:3", "anchInit_placeInit_skipNone") > 0.9
+        True
+    """
+    return PrecisionTable.from_dict(_bundled_document())
+
+
+def bundled_table_provenance() -> dict[str, Any]:
+    """Describe where :func:`bundled_table` came from.
+
+    Carried as data because the resource is JSON and JSON has no comment
+    syntax: every other bundled resource states its source in a header comment,
+    and this one would too if the format allowed. Keys include the source
+    asset's URL, SHA-256 and licence, the corpus half and split seed it was
+    derived from, and the caveat repeated on :func:`bundled_table`.
+
+    Returns:
+        A fresh, mutable mapping. Empty only if a future resource drops the
+        block, which callers should treat as "unknown", not as "none".
+
+    Example:
+        >>> bundled_table_provenance()["source_licence"]
+        'Public domain (United States Government Work)'
+    """
+    provenance = _bundled_document().get("provenance", {})
+    return provenance if isinstance(provenance, dict) else {}
+
+
+def _bundled_document() -> dict[str, Any]:
+    """Read and shape-check the bundled resource.
+
+    Returns:
+        The decoded document.
+
+    Raises:
+        ResourceNotFoundError: If the document is not an object carrying the
+            ``values`` and ``support`` mappings the table is built from. A
+            wrong-shaped resource is indistinguishable from a missing one as far
+            as a caller can act on it, so it is reported the same way.
+    """
+    from .exceptions import ResourceNotFoundError
+
+    document = read_json_resource(BUNDLED_TABLE_RESOURCE)
+    if not isinstance(document, dict) or not isinstance(document.get("values"), dict):
+        raise ResourceNotFoundError(
+            f"Bundled resource {BUNDLED_TABLE_RESOURCE!r} is not a pseudo-precision "
+            "table: expected an object with 'values' and 'support' mappings"
+        )
+    if not isinstance(document.get("support"), dict):
+        raise ResourceNotFoundError(
+            f"Bundled resource {BUNDLED_TABLE_RESOURCE!r} is missing its 'support' counts"
+        )
+    return document
 
 
 def estimate_precisions(
@@ -275,7 +396,7 @@ def estimate_precisions(
 def best_alignment(
     short_form: str,
     words: Sequence[str],
-    table: PrecisionTable,
+    table: Optional[PrecisionTable] = None,
     *,
     strategies: Sequence[Strategy] = STRATEGIES,
     minimum_precision: float = 0.0,
@@ -289,7 +410,11 @@ def best_alignment(
     Args:
         short_form: Case-folded short form.
         words: Case-folded long-form words.
-        table: Estimated precisions.
+        table: Estimated precisions. Omit it to fall back on
+            :func:`bundled_table`, which makes the cascade usable with no
+            corpus — at the cost of an ordering derived from someone else's
+            domain. Pass a table from :func:`estimate_precisions` whenever you
+            have text of your own.
         strategies: Rules available.
         minimum_precision: Refuse to match below this confidence — the
             abstention threshold.
@@ -298,6 +423,8 @@ def best_alignment(
         ``(strategy, positions, confidence)``, or ``None`` if nothing matched
         above the threshold.
     """
+    if table is None:
+        table = bundled_table()
     group = short_form_group(short_form)
     by_name = {strategy.name: strategy for strategy in strategies}
     for name in table.ordered(group):

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Audit result, stated plainly: `acronymkit` authors no network-reachable code path.** Nothing in
+  `src/` opens a socket, resolves a name or issues a request. The audit found two paths it had
+  *inherited* rather than written, and both are closed below. The base runtime dependency set is
+  exactly `pydantic` + `typing-extensions`, five packages resolved. NLTK and spaCy raise rather than
+  downloading when their data is missing — measured, not assumed. `docs/OFFLINE.md` is the long form,
+  written for a security reviewer.
+- **`load_schema()` loaded JSON Schema documents from directories this package does not own.** It
+  searched `schemas/` under two ancestors of the package directory before falling back to the bundled
+  copy — in an installed wheel, `<venv>/Lib/schemas/` and `<site-packages>/schemas/`. Neither is
+  owned by this distribution, neither carries a hash in any `RECORD`, and either can be created by an
+  unrelated dependency that ships a top-level `schemas` package. Since a JSON Schema may carry a
+  remote `$ref` and `jsonschema` resolves those by fetching them, the audit ran the chain end to end:
+  a planted schema was preferred over the bundled copy, `jsonschema` made a real outbound HTTP GET,
+  and `validate_result` reported the attacker's document as valid. The search is gone —
+  `load_schema()` reads the bundled resource and nothing else. `SCHEMA_PATH` still names the checkout
+  copy for tooling, but no load path consults it. See `docs/DECISIONS.md` D-018.
+- **`validate_result` now refuses a schema containing a remote `$ref`**, rather than relying on the
+  fact that ours contains none. "Our document happens to be safe" is an accident, and this is where
+  the accident would have become a request.
+- **Strict offline mode.** `Config(offline=True)` and the `ACRONYMKIT_OFFLINE` environment variable
+  put the library in a state where anything that could reach a network raises `OfflineError` instead.
+  The environment variable can only *tighten* the setting, never loosen it, so an operator's
+  hardening cannot be undone by a caller's argument.
+- **CI now proves the offline claim rather than asserting it.** A new `air-gap` job installs the
+  wheel from a local wheelhouse with `--no-index`, runs the whole suite under
+  `tests/airgap_socket_guard.py` — which fails any test that constructs a socket — and exercises the
+  public API under `unshare -n`. The guard documents one exemption: on Windows, `agenerate()` and
+  `abatch_generate()` create loopback AF_INET sockets, because that is how asyncio's
+  `ProactorEventLoop` builds its self-pipe.
+
 ### Added
 
 - **First disambiguation evaluation.** SDU@AAAI-21 task 2, scored with a faithful reimplementation
@@ -21,6 +53,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ceiling is configuration defaults rather than the algorithm, and a search budget four orders of
   magnitude larger moves recall@25 by 0.00. The ceiling is tokenisation.
 - `bench/run_micro.py`, `bench/run_rerank.py`, `bench/run_termfreq.py`, `bench/run_profiles.py`.
+- **`acronymkit.capabilities()` and `acronymkit doctor`.** A stdlib-only report of which tier
+  resolved, which optional backends are importable, which bundled resources are present with their
+  digests, whether offline mode is in force, and which `pydantic` entry-point plugins are installed.
+  `doctor --format json` makes it machine-readable for an install-time check.
+- **A bundled pseudo-precision table**, so the estimator is usable with no corpus. New public
+  surface: `bundled_table()`, `bundled_table_provenance()`, `BUNDLED_TABLE_RESOURCE`, and a `table=`
+  argument on `best_alignment`. `estimate_precisions()` is unchanged and remains the documented route
+  for anyone with their own text. The table is derived from the development half of MED1250 — a US
+  Government Work — and it is a **prior on English biomedical prose, not a calibration**; how far it
+  transfers to other domains has not been measured, and the docstring, the JSON provenance block and
+  `bundled_table_provenance()` all say so.
+- **`tools/build_reliability_table.py`.** Builds that resource, with `--check` to prove the shipped
+  bytes match a fresh build and `--cross-check` to compare our derived spread per bucket against
+  Ab3P's published table.
+- **`tools/make_offline_bundle.py`.** Self-contained offline install bundles, one per platform target,
+  each carrying the wheel, every runtime dependency wheel, a hash-pinned `requirements.txt`,
+  `SHA256SUMS`, a manifest and a stdlib-only `verify.py`. Install is
+  `pip install --no-index --find-links=. acronymkit`. Seven targets are served, and every bundle is
+  re-resolved offline once per served interpreter before the build will pass.
+- **`docs/INSTALL.md`.** Four routes that do not go through PyPI — release-asset wheel, git at a tag
+  or full SHA, source checkout, offline bundle — plus the spaCy/NLTK model problem a wheel bundle does
+  not solve, and three kinds of verification.
+- **`docs/ENTERPRISE.md` and `docs/SUPPORT_MATRIX.md`.** The decision page for someone approving the
+  package, and capability × tier × "works offline" × "what it needs" for the engineer who has to
+  live with the answer. Linked from the README.
+- **`docs/notes/pydantic-cost.md`.** What the pydantic dependency costs, measured four ways.
+- **The wheel has a size budget in CI**, currently 524,288 bytes, so a resource cannot be added
+  without someone noticing what it costs.
+- **`.github/workflows/publish.yml` now builds the release's whole artifact set**: bundles for every
+  target, a CycloneDX SBOM and an SPDX SBOM (both checked to actually describe this distribution), one
+  `SHA256SUMS` over everything, and a build-provenance attestation over that file. Signing and writing
+  are separate jobs, so neither holds the other's powers.
+- `tools/fetch_data.py` assets gain `derivable` — may a resource *derived* from this asset ship, when
+  the asset itself may not — and `size_bytes`. `derivable` denies by default and is enforced by a
+  guard, mirroring the vendoring guard in `tools/build_lexicons.py`.
 
 ### Changed
 
@@ -30,6 +97,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   removing it.
 - README leads with generation, states scope limits explicitly, and the competitive table gains a
   Python-support column.
+- `best_alignment` no longer requires a `PrecisionTable` argument; called without one it uses the
+  bundled table.
+- `data/LICENSES.md` is regenerated with source URL, pinned commit, licence, SHA-256, size and
+  vendor-or-derive reasoning for all 20 registered assets, plus a section covering the derived
+  resources that actually ship in the wheel.
 
 ### Fixed
 
@@ -39,6 +111,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The D-011 selection headroom was overstated. Measuring the full chain gives 615 gold, 525 among
   enumerated starts, 488 admissible, 477 already returned — so the realistic prize is far smaller
   than the 121 pairs first reported.
+- `PrecisionTable.ordered()` raised a bare `KeyError` from inside a sort key when the table named a
+  strategy the current strategy family no longer defines. That could not happen while every table was
+  built in the process that consumed it; it became reachable the moment a table could arrive from a
+  file, so tables and the strategy family are now versioned separately.
 
 ### Notes
 
@@ -47,6 +123,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   close the extraction gap, with converging diagnoses recorded in `docs/DECISIONS.md`. The most
   useful of them: pseudo-precision rates the matching *rule*, not the *span*, so for 96.5 % of
   brackets the correct span ties with the top score.
+- **Ab3P's `Lf1chSf` word list was measured and refused.** Used the way Ab3P uses it — a membership
+  gate on the head word of a one-character definition — it moves the MED1250 score by less than a
+  fifth of a point, and only in a configuration that admits one-character short forms, which is not
+  the default. It was rejected on the control measurement rather than the gain: the list is far
+  denser on MED1250's one-character gold definitions than on the rest of the corpus, and Ab3P's gold
+  standard *is* MED1250, so the improvement is an upper bound of unknown tightness. Registered,
+  pinned and fetch-only. The licence was never the objection; it is public domain and would have fit
+  the budget. See `docs/DECISIONS.md` D-019.
+- **No permissively-licensed source of acronym expansion *frequency counts* exists.** Ten were
+  checked; each fails on licence, on redistribution, or on not actually holding counts. Nothing was
+  shipped and nothing was invented, which is the deliverable. One route does clear the licence bar —
+  deriving counts from the PMC Open Access commercial-use collection — and it is costed in D-020,
+  where the binding constraint turns out to be the wheel budget rather than the licence.
+- **The pydantic dependency is measured and a migration is recommended, not executed.** It accounts
+  for the large majority of `from acronymkit import AcronymEngine`, and a frozen-dataclass shadow of
+  the DTO layer emits an identical payload while running the warm path faster. No code has changed;
+  D-023 records the decision, what it would break, and the order to do it in. The portability
+  argument often made for such a migration is refuted there rather than used.
 
 ## [0.2.0] — 2026-08-09
 

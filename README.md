@@ -379,6 +379,15 @@ python tools/fetch_data.py --verify      # re-check every checksum
 - [Technical note: using a ranking function as a generation objective](docs/notes/scoring-objective.md)
 - [Evaluation](docs/EVALUATION.md) — measured extraction accuracy against a gold standard
 - [Decisions](docs/DECISIONS.md) — what was tried and rejected, and why
+- [Enterprise review](docs/ENTERPRISE.md) — the short answer for someone deciding whether to allow
+  this package: air-gapped install, security posture with each claim's proof named, and the exact
+  error text when something is missing
+- [Support matrix](docs/SUPPORT_MATRIX.md) — capability by tier by "works offline" by "what it
+  needs", including what English ships that fr/es/de do not
+- [Offline and air-gap review](docs/OFFLINE.md) — the long form: how the no-network claim was
+  measured, what the measurements cannot see, and how to reproduce them
+- [Installing without PyPI](docs/INSTALL.md) — release-asset wheel, git tag, source checkout, or a
+  per-platform offline bundle that installs with `--no-index` and needs no package index at all
 - [Security policy](SECURITY.md) — threat model and disclosure
 - [Changelog](CHANGELOG.md)
 

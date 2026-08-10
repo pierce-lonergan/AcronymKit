@@ -1,5 +1,12 @@
 name: Publish to PyPI
 
+# The GitHub release is not a souvenir of the PyPI upload. It is a complete
+# alternative to it: the wheel, the sdist, an offline install bundle for every
+# supported platform, both SBOM formats, and a SHA256SUMS covering all of them.
+# A site that cannot reach PyPI -- blocked by policy, air-gapped, or unlucky on
+# the day -- installs from the release page instead. docs/INSTALL.md is the
+# user-facing half of that promise; this file is what makes it true.
+
 on:
   release:
     types: [published]
@@ -20,6 +27,11 @@ jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
+    # Building seven bundles downloads roughly 80 MB of third-party wheels and
+    # re-resolves each one offline, so this job is minutes rather than seconds.
+    # The ceiling is here to turn a hung index into a failed run rather than a
+    # six-hour one.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -39,10 +51,163 @@ jobs:
           assert version == tag, f"tag {tag!r} does not match built version {version!r}"
           print(f"version {version} matches tag")
           PY
+      - name: Record the packaged version
+        # Separate from the assertion above rather than folded into it, because
+        # the assertion only runs on a release and the SBOM filenames need the
+        # version on every run. The two-line regex is duplicated on purpose;
+        # merging them would put a conditional exit inside a step whose stdout is
+        # redirected into $GITHUB_ENV, which is harder to read than the repeat.
+        run: |
+          python - <<'PY' >> "$GITHUB_ENV"
+          import glob, os, re
+          wheel = os.path.basename(glob.glob("dist/*.whl")[0])
+          print("VERSION=" + re.match(r"acronymkit-([^-]+)-", wheel).group(1))
+          PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist
           path: dist/
+          if-no-files-found: error
+
+      - name: Build one offline install bundle per platform
+        # This is the step that needs the network, and it is the only one that
+        # ever will: the bundles it writes install with --no-index. --wheel
+        # points at the artifact just built rather than letting the script build
+        # its own, so the wheel inside every bundle is byte-identical to the one
+        # uploaded to PyPI and attached to the release.
+        #
+        # The script re-resolves each finished bundle offline, once per served
+        # interpreter, and fails the job if any of those resolutions does not
+        # succeed. A dependency that stops publishing a wheel for one of the
+        # declared targets therefore breaks the release here, loudly, rather
+        # than breaking an air-gapped install six months later.
+        run: |
+          mkdir -p release
+          python tools/make_offline_bundle.py --all \
+            --wheel "$(ls dist/acronymkit-*.whl)" \
+            --output-dir release
+
+      - name: Install the wheel into a clean environment for the SBOM tools
+        # --without-pip and an outside `pip --python` are deliberate: an SBOM of
+        # this distribution should list this distribution's dependencies, and a
+        # venv created the ordinary way also contains pip, which would appear as
+        # a component of a library that does not depend on it. `--python` has to
+        # come before the subcommand; pip rejects it anywhere else.
+        #
+        # The directory is not dot-prefixed because syft scans it by path below,
+        # and a hidden directory is one more thing that would have to be true.
+        run: |
+          python -m venv sbom-env --without-pip
+          python -m pip --python sbom-env/bin/python install --quiet "$(ls dist/acronymkit-*.whl)"
+
+      - name: Generate the CycloneDX SBOM
+        # --output-reproducible drops the serial number and timestamps, so two
+        # builds of the same inputs produce the same document and a diff means
+        # the dependency set actually changed.
+        run: |
+          python -m pip install --quiet "cyclonedx-bom==7.3.1"
+          cyclonedx-py environment \
+            --pyproject pyproject.toml \
+            --output-reproducible \
+            --of JSON \
+            -o "release/acronymkit-${VERSION}.cdx.json" \
+            sbom-env/bin/python
+
+      - name: Generate the SPDX SBOM
+        # Syft rather than a Python generator, and the reason is availability
+        # rather than preference: the maintained Python SPDX generator
+        # (sbom4python) depends on libmagic through python-magic, which is a
+        # native library, so it is not runnable on every machine a contributor
+        # might want to reproduce this on. Both the action and the syft binary
+        # it fetches are pinned. Uploading is switched off here so that this job
+        # keeps `contents: read`; the release-assets job does every upload.
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: sbom-env
+          format: spdx-json
+          output-file: release/acronymkit-${{ env.VERSION }}.spdx.json
+          syft-version: v1.50.0
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Check that both SBOMs actually describe this distribution
+        # An SBOM generator that scans the wrong directory produces a valid,
+        # well-formed document describing nothing, and a release asset that is
+        # valid and empty is worse than a missing one -- it reads as evidence.
+        # This asserts the shape of both documents rather than their existence.
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          version = os.environ["VERSION"]
+          problems = []
+
+          def names(values):
+              return {value.replace("_", "-").lower() for value in values}
+
+          with open(f"release/acronymkit-{version}.cdx.json", encoding="utf-8") as handle:
+              cdx = json.load(handle)
+          cdx_root = cdx.get("metadata", {}).get("component", {}).get("name", "")
+          cdx_names = names(component["name"] for component in cdx.get("components", []))
+          if cdx_root != "acronymkit":
+              problems.append(f"CycloneDX root component is {cdx_root!r}, not 'acronymkit'")
+
+          with open(f"release/acronymkit-{version}.spdx.json", encoding="utf-8") as handle:
+              spdx = json.load(handle)
+          spdx_names = names(package.get("name", "") for package in spdx.get("packages", []))
+          if "acronymkit" not in spdx_names:
+              problems.append("SPDX lists no acronymkit package")
+
+          # The runtime dependency set, which is the thing an SBOM exists to
+          # report. pydantic-core is the one that matters most: it is the only
+          # compiled component and the only one with a CVE surface of its own.
+          for required in ("pydantic", "pydantic-core", "typing-extensions"):
+              if required not in cdx_names:
+                  problems.append(f"CycloneDX lists no {required}")
+              if required not in spdx_names:
+                  problems.append(f"SPDX lists no {required}")
+
+          if problems:
+              sys.exit("SBOM check failed:\n  " + "\n  ".join(problems))
+          print(f"CycloneDX {cdx['specVersion']}: {len(cdx_names)} components")
+          print(f"SPDX: {len(spdx_names)} packages")
+          PY
+
+      - name: Collect everything the release page will carry, and check-sum it
+        run: |
+          cp dist/* release/
+          python - <<'PY'
+          import hashlib
+          import pathlib
+
+          # Sorted by name rather than by Path so the file reads the same
+          # wherever it was produced, and skipping itself so a re-run is
+          # idempotent rather than self-referential.
+          paths = sorted(
+              (
+                  path
+                  for path in pathlib.Path("release").iterdir()
+                  if path.is_file() and path.name != "SHA256SUMS"
+              ),
+              key=lambda path: path.name,
+          )
+          lines = [
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n" for path in paths
+          ]
+          # newline="\n" explicitly: `sha256sum -c` reports every line of a CRLF
+          # file as a missing file, so the ending is a property of the artefact
+          # and not of whichever machine happens to run this.
+          with open("release/SHA256SUMS", "w", encoding="utf-8", newline="\n") as handle:
+              handle.write("".join(lines))
+          print("".join(lines))
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release
+          path: release/
           if-no-files-found: error
 
   publish-testpypi:
@@ -79,5 +244,59 @@ jobs:
         with:
           name: dist
           path: dist/
-      # Trusted publishing (OIDC) — no API token stored in the repository.
+      # Trusted publishing (OIDC) -- no API token stored in the repository. The
+      # action generates PEP 740 attestations by default, which PyPI serves from
+      # its Integrity API; that is provenance for the *PyPI* copy. The GitHub
+      # copy gets its own, from the attest job below, because they are separate
+      # claims about separate downloads.
       - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+
+  attest:
+    name: Attest the release assets
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    # Signing identity, and nothing else. This job cannot write to the
+    # repository; the job that can write cannot sign. Neither can do the other's
+    # damage.
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release
+          path: release/
+      - name: Generate build provenance for everything in SHA256SUMS
+        # subject-checksums takes the same file the release page publishes, so
+        # the set of attested artifacts and the set of published digests cannot
+        # drift apart -- there is only one list.
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: release/SHA256SUMS
+
+  release-assets:
+    name: Attach the assets to the release
+    needs: attest
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    # The only job in this workflow that can write to the repository, and it
+    # holds no signing identity. It runs after `attest`, so nothing reaches the
+    # release page without provenance.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release
+          path: release/
+      - name: Upload
+        # --clobber so re-running the workflow on a release replaces the assets
+        # rather than failing on the first name collision.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l release/
+          gh release upload "$GITHUB_REF_NAME" release/* \
+            --clobber --repo "$GITHUB_REPOSITORY"

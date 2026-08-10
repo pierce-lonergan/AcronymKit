@@ -9,6 +9,635 @@ Newest first.
 
 ---
 
+## D-023 — pydantic is 84.6 % of the engine import. Migrate, and before the package is published.
+
+**Status:** decided, not executed · **Evidence:**
+[`notes/pydantic-cost.md`](notes/pydantic-cost.md)
+
+D-013 ended with "Not attempted: moving the DTO layer off pydantic. That is a breaking change to the
+public type surface and needs its own decision." This is that decision, and it is taken on a note
+rather than on `bench/results.json` — see the last section, which is the reason to read the rest with
+one eye half closed.
+
+### How it was measured, because two confounds decided the answer
+
+Windows 11 Pro (26200), CPython 3.13.4, `pydantic` 2.11.7 / `pydantic-core` 2.33.2. Medians over
+fresh interpreters — 15 for import arms, 9 for steady-state arms — one arm and one metric per
+interpreter, every (arm, metric) pair interleaved before any repeat.
+
+Both restrictions are load-bearing rather than fastidious. Measuring the two arms in one process
+produced a **reversed** result, because CPython 3.11+ specialises call sites per code object and the
+second arm inherited call sites adapted to the first arm's classes. Measuring several metrics per
+process let machine drift settle into the later ones, and the pydantic arm has an extra metric.
+
+The counterfactual is end-to-end, not a projection. Every module on the generation path binds its
+models with `from .models import X`, so rebinding those globals swaps the whole DTO layer for frozen
+dataclasses without touching an algorithm — and the swapped engine emits an **identical payload**. A
+third arm carries every `Field` constraint on that path in `__post_init__`; it costs 2.1 %, so this
+is not pydantic measured against no validation at all.
+
+| | pydantic | dataclasses, constraints kept |
+|---|---:|---:|
+| `from acronymkit import AcronymEngine` | 139.60 ms | — |
+| — importing `pydantic` and its dependencies | 30.09 ms (21.6 %) | |
+| — pydantic's one-time model-building machinery | 87.96 ms (63.0 %) | |
+| — everything this library itself does | 21.55 ms (15.4 %) | |
+| `import acronymkit.config`, pydantic already resident | 89.08 ms | 9.21 ms |
+| warm `generate()`, `Config()` | 347.60 µs | 269.80 µs (−22.4 %) |
+| warm `generate()` + `to_dict()`, `Config()` | 422.80 µs | 298.70 µs (−29.4 %) |
+| installed footprint of the dependency stack | 7,573,125 B | — |
+| wheel bytes downloaded to install it | 2,473,817 B | — |
+
+**The largest single line item is not importing pydantic.** The first `BaseModel` subclass built in a
+process costs 87.96 ms; the second costs 0.26 ms; a frozen dataclass costs 0.35 ms. That toll is
+fixed and independent of how many models this library declares — one would cost what sixteen cost.
+The 21.55 ms attributed to us is an upper bound, since roughly 7.6 ms of it is pydantic building
+`models.py`.
+
+### The counterweight was tested in both directions and does not save it
+
+Asked for a Python dict, pydantic is **2.65× slower** than a hand-written walker (67.50 µs against
+25.50 µs). Asked for JSON text, its Rust serialiser is **2.24× faster** than dict-then-`json.dumps`
+(56.80 µs against 127.30 µs). End to end the two nearly cancel: `generate()` + `model_dump_json()` is
+412.60 µs against 406.20 µs for the dataclass arm. Pydantic loses by 1.6 %, which is a tie.
+
+Two by-products worth keeping whichever way the decision goes:
+
+- `_Frozen.to_json` takes the slow half of both worlds. It is `json.dumps(self.to_dict(), ...)`,
+  169.40 µs, where `model_dump_json()` produces the same document in 56.80 µs — **2.98× on a public
+  method**. The text differs only in separators, and `json.dumps(payload, separators=(",", ":"))`
+  reproduces the Rust output byte for byte, so it is a small and declarable break.
+- `model_construct()` is **slower** than validating construction (236.70 µs against 180.80 µs).
+  "Keep pydantic, skip validation in the hot path" is therefore not an available option.
+
+An earlier measurement, cited in the phase-4 mandate, put `generate` + `to_dict` about 30 % *slower*
+under dataclasses. Nothing in this repository records it, so it could not be inspected before being
+contradicted at the same magnitude and the opposite sign. If it exists elsewhere, the in-process arm
+ordering described above is exactly the method that produces that reversal.
+
+### The portability argument for migrating is wrong and is not being used
+
+The mandate's premise included "works anywhere". **That part does not survive contact with PyPI.**
+`pydantic-core` 2.33.2 publishes 98 wheels across 20 platform tags — musl on x86-64/aarch64/armv7l,
+glibc on s390x/ppc64le/armv7l/i686, Windows on ARM, both macOS architectures — for CPython 3.9–3.13
+and PyPy. The current release adds riscv64, Emscripten and GraalPy. Alpine, ARM and s390x are
+covered; anyone migrating for portability alone is migrating on a misconception.
+
+What remains is a long tail with a severe failure mode. No wheel means the sdist, whose build backend
+is `maturin>=1,<2` with `rust-version = "1.75"` and 93 packages in `Cargo.lock` — a Rust toolchain
+plus reachable crates.io, neither of which the hash-pinned offline wheelhouse of `docs/OFFLINE.md`
+can supply. `acronymkit`'s own wheel is `py3-none-any` and installs anywhere Python runs; its
+dependency decides where it actually can. The narrower gaps are real: musl on three architectures
+only, no BSD/illumos/AIX ever, three wheels for free-threaded 3.13t, `win_arm64` only from cp311, and
+`pydantic-core` 2.48.0 declares `requires-python >=3.10`, so this project's 3.9 floor is being
+dropped upstream (fine today — `pydantic` 2.13.4 pins core 2.46.4, which still has cp39 wheels).
+
+### The migration is smaller than D-013 assumed, and the reason is a surprise
+
+`schemas/acronym-engine-result.schema.json` is **hand-written, not generated**. It differs from
+`export_model_schema()` in title, `$id`, `$defs` and `required`, and that function exists to *diff*
+against the contract rather than to produce it. So the cross-language interchange contract — the
+thing that keeps the `acronym4j` port possible, and the reason D-013 called this risky — does not
+depend on pydantic at all. The swap experiment then demonstrated it by emitting an identical
+document.
+
+The rest of the surface is small: 16 `BaseModel` subclasses, 136 fields, 27 constraints (26 range
+bounds and one length bound), one `computed_field`, one cross-field validator, no aliases, no custom
+`field_validator`, no discriminated unions. 44 of 930 test functions touch a pydantic API.
+
+### Decision
+
+**Migrate to dataclasses with explicit validation, and do it before the package is published.** The
+decisive fact is not a measurement: PyPI returns 404 for the name, because D-001 cut publishing
+deliberately. Every breakage listed below is a cost paid by users who do not exist yet, and that cost
+rises monotonically from the first successful `pip install`. A 22.4 % steady-state regression is also
+far larger than the differences that got seven experiments in this file reverted; applying the same
+standard to a dependency rather than only to our own code gives one answer.
+
+**Rejected: optional pydantic with a stdlib fallback.** Not on cost — it is the only option that
+makes the public type surface a function of what else is installed. `isinstance(result, BaseModel)`
+and `result.model_dump()` would work or not depending on whether an unrelated package pulled pydantic
+in. For a project shipping an air-gap review document, that is worse than either fixed choice.
+
+**Keeping pydantic remains defensible.** Hand-written validation is where bugs live, and these DTOs
+are the public contract. What is not defensible is keeping it silently: the honest form of that
+option requires `docs/ARCHITECTURE.md`'s "Pydantic is a hard dependency, but nothing else is" to
+carry the import attribution and the platform gaps beside it.
+
+### What breaks, and in what order it should be done
+
+Breaks: `model_dump()`, `model_dump_json()`, `model_validate()`, `model_copy()`, `model_fields` and
+`model_json_schema()` on 15 public classes — `model_copy(update=...)` is recommended in `models.py`'s
+own module docstring, so it is a documented promise; `isinstance(result, pydantic.BaseModel)`, which
+is how a DTO reaches a FastAPI `response_model` and is not shimmable; `export_model_schema()`, which
+has no meaning without pydantic; constructor coercion (`"3"` → `3`, `5` → `5.0`, `list` →
+`frozenset`, `str` → `Path`, none of them documented); and constraint enforcement moving from "always,
+at construction" to wherever `validate()` is called. Enum coercion gets *wider* rather than narrower,
+since `_StrEnum.coerce` already accepts names, mixed case and hyphens where pydantic accepts only the
+exact value. `model_dump` and `model_copy` are three-line shims and should live for one minor
+release.
+
+One consequence is easy to miss: the `pydantic` entry-point plugin hole disappears, and with it
+`_enforce_offline`'s plugin check, the `OfflineError` it raises, and `docs/OFFLINE.md`'s only
+"detection, not prevention" caveat.
+
+Order: (1) land the `to_json` → `model_dump_json()` change on its own, because it is a win if
+pydantic stays and wasted if it goes, which is what keeps the decision honest should the migration
+slip; (2) migrate `models.py` alone — it carries 10 of the 27 constraints and all of the
+serialisation, while `config.py` carries the other 17 and all of the coercion; (3)
+`python bench/run_micro.py --save --only import` after each half, and stop if the import figure does
+not move as predicted, which is the rule that reverted the other seven experiments; (4) migrate
+`Config`, routing enum coercion through `_StrEnum.coerce`.
+
+### Noticed in passing, not fixed
+
+Assigning to a frozen field raises raw `pydantic.ValidationError`, not an `AcronymKitError`.
+`config.py` takes real trouble to unwrap validation errors at *construction* so that one
+`except AcronymKitError` at a service boundary catches everything; the assignment path leaks around
+it. Pydantic is already visible in the public error surface in a way the docstrings say it is not.
+
+### What this record is not
+
+**None of these figures is gate-backed.** Nothing was written to `bench/results.json` and no arm was
+added to `bench/run_micro.py`, deliberately: the comparison arm is a throwaway shadow DTO layer, and
+a runner that benchmarks code the project does not ship is dead weight the moment the decision is
+executed. The consequence is that these numbers must not escape into user-facing prose, where the
+claims gate could not check them. They are one machine, one operating system, one interpreter, and
+session-to-session drift on that machine is larger than several of the differences being attributed:
+`from acronymkit import AcronymEngine` measured 134.7, 139.6, 150.4 and 154.7 ms across four sessions
+on the same day, against the 128.1 ms in `bench/results.json`. Only ratios carry the argument, which
+is why the whole import table comes from one interleaved session and `bench/results.json` remains the
+figure of record.
+
+The shadow covers the generation path only — 6 of the 15 public classes and only the fields those
+classes carry. Extraction, backronym, disambiguation and batch results were never shadowed, so a real
+migration is larger than what was priced. And no effort estimate in the note comes from a
+measurement; "mechanical" is a judgement sized from the inventory.
+
+---
+
+## D-022 — The buyer-facing pair, and how to measure around a tier the host cannot run
+
+**Status:** shipped · **Evidence:** [`ENTERPRISE.md`](ENTERPRISE.md),
+[`SUPPORT_MATRIX.md`](SUPPORT_MATRIX.md)
+
+`docs/OFFLINE.md` answers a security reviewer. It does not answer the two people who arrive before
+one: the manager deciding whether the package may be installed at all, and the engineer asking
+whether the capability they need survives an air gap. Folding those into OFFLINE.md would have made a
+41 KB document longer and served none of the three readers better. So `ENTERPRISE.md` is the
+decision, `SUPPORT_MATRIX.md` is the capability detail, `OFFLINE.md` stays the method; each links the
+other two and none restates them.
+
+### The problem the matrix ran into
+
+`SUPPORT_MATRIX.md` has four tier columns and the measurement host could run exactly one. spaCy is
+not installed; NLTK is installed with no `averaged_perceptron_tagger` corpus.
+
+Three options. **Download a model** — rejected: a network fetch made on a user's machine to make a
+document look more complete is the wrong trade in a repository whose whole discipline is that a
+number is either measured or absent. **Train a perceptron tagger locally on a hand-made corpus** —
+rejected for a worse reason: it produces *real* measurements of a *fabricated* backend, which reads
+as evidence and is not. **Mark the Tier 1 columns unknown** — rejected as needlessly weak, because
+most of what a reader needs about Tier 1 is measurable without a tagger.
+
+What was done instead is to split each Tier 1 cell along the line the host can actually see. Which
+backend resolves, what is raised when it cannot, what warning is emitted, and *whether the annotator
+is consulted at all* — measured. The content of a real tagger's output — not measured, said so in the
+cell, with the six `nlp`-marked assertions that do cover it named by full node id and the note that
+all six skipped here. A reader who needs that evidence now knows which command produces it.
+
+### The measurement that made the rest of the matrix decidable
+
+Wrapping the resolved backend's `annotate()` with a counter and driving each public method once:
+
+```
+tokenize 1 · generate 1 · score 1 · generate_backronym 1 · agenerate 1
+batch_generate 2 · abatch_generate 2
+synthesize_backronym 0 · extract_definitions 0 · extract 0 · disambiguate 0
+```
+
+A method that never consults the annotator cannot be changed by which annotator was resolved. That
+turns four of the eleven rows from "presumably the same at Tier 1" into "the same code, and the tier
+changes only the metadata envelope" — cheaply, on a host with no Tier 1 runtime at all. It also
+answers plainly a question the docs had never answered: **installing spaCy does not improve
+extraction or disambiguation.** That is worth knowing before an image admits that dependency closure.
+
+The general rule is the part worth carrying: when you cannot run the configuration you are
+documenting, look for the property of the *call graph* that makes the configuration irrelevant. It is
+often measurable when the configuration is not.
+
+### Two claims deliberately narrowed
+
+**"No compiled extension"** would have been false as written. `acronymkit`'s own wheel is
+`py3-none-any` with `Root-Is-Purelib: true` and no `.so`/`.pyd`/`.dll`/`.dylib` among its entries —
+but `pydantic-core` is a base dependency and does ship a compiled Rust extension. The row states both
+in the same breath and says the consequence out loud: a "no binaries in the image" policy is a policy
+against pydantic, not against this package. A reviewer who discovers that unaided, after reading a
+page that did not mention it, discounts everything else on the page.
+
+**"No `pickle`"** was narrowed the same way. `src/acronymkit/` imports no `pickle` and calls none, and
+the word appears twice, both in comments — but the result DTOs are pydantic models and are therefore
+picklable if a caller chooses, which
+`tests/test_package.py::test_results_and_config_survive_a_pickle_round_trip` exists to prove. The
+honest claim is about what the library does, not about what its types permit.
+
+### The suite total is not quoted, on purpose
+
+Both documents originally carried a pass count. It moved from 3,392 to 3,395 to 3,423 during the
+hours they were being written, while other work landed on the same tree. Both now report "green, 10
+skipped" and say why the total is omitted. The 10 is the load-bearing figure: those skips are exactly
+the Tier 1 real-backend tests, so the skip count is a structural consequence of the host rather than
+an accident of the day. This is OFFLINE.md section 9's own lesson — on an unpinned tree, a test count
+is a timestamp — applied one step earlier, by not writing the number down.
+
+### Left open
+
+`docs/INSTALL.md` did not exist when these two pages were finished, so `ENTERPRISE.md` carries a
+conditional forward reference to it rather than duplicating install mechanics. D-021 has since landed
+that file, and the reference reads correctly; what is still missing is a link from `README.md` and a
+sibling cross-reference from `docs/OFFLINE.md`.
+
+`--require-hashes` is documented in `ENTERPRISE.md` and labelled as an operator step CI does not
+exercise, because the `air-gap` job tests `--no-index --find-links` and nothing here tests hash
+pinning. Presenting the two as equally proven would have been the error these pages exist to prevent.
+
+Neither Tier 1 column is fully measured, and that is the single largest limitation of the deliverable.
+`SUPPORT_MATRIX.md` carries a "What is not measured here" section naming the six skipped tests where
+that evidence lives; filling the columns means staging a spaCy model or `averaged_perceptron_tagger`,
+re-running those six, and re-deriving the tokenisation and scoring rows. One string in
+`ENTERPRISE.md` — spaCy's "model not installed" message — is quoted from source rather than from a
+run, because it cannot be produced on a host without spaCy, and the sentence after it says so. Every
+other quoted failure message came from an actual run.
+
+---
+
+## D-021 — Installable without PyPI: per-platform bundles, and the checks that make them worth trusting
+
+**Status:** shipped · **Evidence:** `tools/make_offline_bundle.py`, [`INSTALL.md`](INSTALL.md),
+`.github/workflows/publish.yml`
+
+PyPI is a single point of failure this project's users do not control, and D-001 cut publishing
+anyway, so for now it is the *only* point of failure that does not exist yet. The release page now
+carries a complete alternative: wheel, sdist, an offline install bundle per platform, both SBOM
+formats, and one `SHA256SUMS` covering all of them. What follows is the decisions inside that, and
+the two bugs found by taking them seriously.
+
+### Per-platform bundles, with the target in the filename
+
+`pydantic-core` is a compiled Rust extension published as one wheel per (CPython minor × operating
+system × architecture × libc), and it is not `abi3`, so it does not even carry across CPython minor
+versions. A single universal bundle is therefore impossible, and the alternative — one bundle whose
+target is implicit — is worse than no bundle, because it fails on the user's machine rather than on
+ours.
+
+So: seven declared targets (`linux-x86_64`, `linux-aarch64`, `linux-musl-x86_64`, `macos-arm64`,
+`macos-x86_64`, `windows-amd64`, `windows-arm64`), each named in the archive filename, each carrying
+one `pydantic-core` wheel per CPython minor version it serves. `--target host` is the escape hatch for
+anything outside the registry: it passes no `--platform` to pip at all, so the running interpreter's
+own tag set — the ground truth a hand-written platform tag can only approximate — decides what is
+downloaded.
+
+**`windows-arm64` serves CPython 3.11 to 3.13 and not 3.9 or 3.10, and how that was discovered is the
+part to keep.** `pip download pydantic-core --platform win_arm64 --python-version 3.9` does not fail.
+It resolves all the way back to a `0.0.1` placeholder release and reports success, leaving a bundle
+that installs a package containing nothing. Rooting every download at `acronymkit[cli]==<version>`
+closes it, because pydantic pins its core with `==` and pip then has no version to backtrack to: the
+same request becomes a loud `ResolutionImpossible`. The narrowing is written into the target registry
+so nobody rediscovers it from a bug report.
+
+The same trap explains why `linux-musl-x86_64` names several tags: `--platform` disables pip's
+automatic tag-compatibility expansion, so `musllinux_1_2_x86_64` alone matches nothing even where
+`musllinux_1_1` wheels would install. Each target lists its tags least-demanding first, because pip
+treats the order as a preference and the wheel with the lowest platform floor runs on the most
+machines.
+
+### The bundle is re-resolved offline, not merely assembled
+
+A directory of wheels somebody hoped were the right ones is not a bundle. After staging, every
+archive is re-resolved with `pip install --dry-run --no-index --find-links=<bundle>`, once per served
+interpreter, twice over — the documented install command, and the hash-pinned requirements file — and
+the build fails if any resolution does not succeed. A dependency that stops publishing a wheel for a
+declared target therefore breaks a release, loudly, rather than breaking an air-gapped install six
+months later.
+
+### Two bugs found by taking the checks seriously
+
+**pip evaluates requirements-file markers against the running interpreter, not against
+`--python-version`.** A bundle spanning CPython 3.9 to 3.13 genuinely contains several versions of
+some dependencies — `annotated-types` 0.7.0 for 3.9 and 0.8.0 above it — and one `requirements.txt`
+expresses that with disjoint `python_version` markers. Asked to dry-run a 3.9 target from a 3.13
+host, pip reported `Ignoring typing-inspection: markers 'python_version == "3.9"' don't match your
+environment` and then failed on a `Requires-Python` conflict it had created itself. `--python-version`
+governs wheel selection and `Requires-Python`; requirement markers are evaluated against the
+interpreter actually running. That is not a defect in the shipped file — a user installing into an
+interpreter always runs pip under it — but it makes the file uncheckable cross-target, so the build
+pre-evaluates markers per interpreter for its own verification and exercises the shipped file only
+for the interpreter it is running on.
+
+**`Path.write_text` translates `\n` to `\r\n` on Windows, and `sha256sum -c` reports every line of a
+CRLF file as a *missing file*** — it looks for a name ending in a carriage return. The bundle's own
+README tells the reader to run that command, so every bundle built on Windows would have shipped a
+verification step that failed completely on the machine it was aimed at, and the bundle's `verify.py`
+would not have caught it, because `splitlines()` absorbs the difference. All generated text is now
+written with an explicit `newline="\n"`.
+
+That second one is D-018's lesson in another costume: **measure the artefact, not your copy of it.**
+The artefact is for someone else's machine, so its line endings are a property of the artefact rather
+than of the machine that produced it.
+
+### SBOMs from two tools, for two different reasons
+
+CycloneDX comes from `cyclonedx-bom==7.3.1` run against a `--without-pip` virtual environment holding
+only the built wheel: an SBOM of this distribution should list this distribution's dependencies, and
+an ordinary venv also contains pip, which would appear as a component of a library that does not
+depend on it.
+
+SPDX comes from `anchore/sbom-action`, pinned by commit SHA with `syft-version` pinned too. The Python
+alternative, `sbom4python`, was tried and rejected on availability rather than preference: it reaches
+`libmagic` through `python-magic` and does not run on Windows at all, and choosing a tool a maintainer
+cannot execute locally is a choice never to check its output by hand.
+
+Because the SPDX step cannot be run locally, a step that can was added: both documents are parsed and
+asserted to name `acronymkit` as the root component and to list `pydantic`, `pydantic-core` and
+`typing-extensions`. An SBOM generator pointed at the wrong directory produces a valid, well-formed
+document describing nothing, and a release asset that is valid and empty is worse than a missing one,
+because it reads as evidence.
+
+### Signing and writing are separate jobs
+
+`attest` holds `id-token: write` and `attestations: write` and cannot write to the repository;
+`release-assets` holds `contents: write` and holds no signing identity. Neither can do the other's
+damage, and `release-assets` runs after `attest`, so nothing reaches the release page without
+provenance. The attestation covers `subject-checksums: release/SHA256SUMS` — the same file the release
+publishes — so the set of attested artifacts and the set of published digests cannot drift apart,
+because there is only one list.
+
+### What is not solved, and what is not proven
+
+spaCy and NLTK **models**. A wheel bundle solves distributions; language data is not a distribution.
+The library does not paper over it — it raises rather than fetching — and `docs/INSTALL.md` gives the
+two separate recipes, including the measured detail that NLTK 3.10.2 rejects its own `-d <directory>`
+flag with `Security Violation ... Unauthorized path` and needs `NLTK_DATA` instead.
+
+Nothing in `publish.yml` has been executed. Every action is pinned by SHA and every pinned action's
+input names were checked against its `action.yml` at that SHA, and the local equivalents of the shell
+steps were run — version extraction, the `SHA256SUMS` block verified afterwards with `sha256sum -c`,
+the SBOM assertion against real CycloneDX output including its failure path, the `--without-pip`
+install. What was not run: the `anchore/sbom-action` step, `gh release upload`, and the attestation
+step. **Treat the first release under this workflow as the real test.** `gh attestation verify` has
+never returned a success here — run against the current release wheel it correctly returns HTTP 404
+for the digest — and `docs/INSTALL.md` says so in place rather than implying the check works today.
+The PEP 740 section is likewise documented and not demonstrated: `pypi-attestations` could not
+complete on this host, failing to refresh Sigstore's TUF trust root for a local and unidentified
+reason.
+
+Three costs accepted rather than solved. The seven bundles total roughly 78 MB per release and add
+several minutes plus a comparable download to every publish run; `--all` fails the whole release if
+any single target loses upstream wheel coverage, which is deliberate, since a silently skipped target
+is the failure mode the design exists to prevent, but it does make releases depend on other people's
+publishing decisions; and the `colorama` wheel is staged into every bundle including the Linux ones,
+because a cross-platform `pip download` cannot evaluate `platform_system == "Windows"`. It is pure
+Python and inert off Windows, it is named in the manifest, and both the module docstring and the
+generated README say so.
+
+`DEFAULT_PYTHON_VERSIONS` mirrors the classifiers in `pyproject.toml` as a constant with a comment
+rather than a value derived from it, because deriving it needs `tomllib` and this project's floor is
+3.9. If the project starts claiming 3.14, that tuple must be updated or the bundles quietly
+under-serve.
+
+---
+
+## D-020 — There is no permissively-licensed source of expansion frequency counts. Ten were checked.
+
+**Status:** closed as unavailable; one route costed and blocked on the wheel · **Evidence:**
+`tools/fetch_data.py`, `data/LICENSES.md`
+
+D-015 ended by naming a frequency prior as the obvious next experiment, because always picking the
+most common expansion scores 72.84 where our context scorer scores 41.65. The gap is real. This entry
+records that the fix is unavailable, and that the unavailability is a licence fact rather than an
+engineering one.
+
+| Source | Has counts | Licence | Fails on |
+|---|---|---|---|
+| SDU@AAAI-21 `train.json` | yes | CC BY-NC-SA 4.0 | non-commercial **and** share-alike |
+| ADAM | yes | non-commercial, no redistribution | *"you will not distribute the software to anyone else"* |
+| NLM SPECIALIST `LRABR` | **no** | permissive (US Government terms) | five fields, none of them a count |
+| UMLS Metathesaurus | not established | UMLS licence agreement | per-user agreement; constituent vocabularies keep their own copyrights |
+| MSH WSD | capped per sense | UMLS licence agreement | *"cannot be redistributed"* |
+| CASI (UMN) | yes | mixed | aligned to UMLS, ADAM and Stedman's; inherits all three |
+| MED1250 | yes | public domain | too sparse to carry a prior |
+| Ab3P `SingTermFreq.dat` | yes | public domain | the wrong statistic |
+| Wikipedia / Wiktionary | senses, not counts | CC BY-SA 4.0 | share-alike bars the corpus *and* anything derived from it |
+| PLOD-CW | no | CC BY-SA 4.0 | span annotation; no expansion frequency at all |
+
+Three of those deserve a sentence, because two look like the answer and the third is the one already
+on disk.
+
+**`LRABR` is permissive and large and has no counts.** NLM's own field documentation gives it five
+columns — `EUI`, `BAS`, `ABR`, `EUI`, `BAS` — identifiers and surface forms, nothing statistical. It
+can tell you that `DM` expands to `diabetes mellitus`; it cannot tell you that it usually does, which
+is the entire content of a prior. Stated with its limit: the file could not be re-fetched for this
+audit, because `lsg3.nlm.nih.gov` answers HTTP 403 to an unauthenticated client on both HEAD and
+ranged GET, so the column list comes from NLM's published table definition rather than from bytes on
+disk. That settles the question asked here — a column absent from the specification is absent from
+the file — but the row count and coverage figure recorded previously are deliberately **not** repeated
+as though they had been re-measured.
+
+**`SingTermFreq.dat` is public domain, is a frequency table, and is still the wrong one.** It is
+`word|count` over MEDLINE, 30,991,015 bytes:
+
+```
+'lacz|10
+'s|1912
+000bp|4
+```
+
+It answers "how common is this word", not "which expansion of this short form is meant here". D-012
+wanted it for per-candidate extraction evidence and that remains open; it is no help to
+disambiguation.
+
+**MED1250 has counts and they are empty of information:**
+
+```
+gold pairs                                                1221
+distinct short forms                                      1010
+short forms occurring exactly once                         867
+short forms with more than one distinct expansion     76 of 997
+```
+
+Nothing was shipped and nothing was invented. That is the deliverable.
+
+### The one route that clears the licence bar, costed
+
+**Derive the counts ourselves from the PMC Open Access commercial-use collection.** Every article in
+it carries a machine-readable CC BY or CC0 licence, neither share-alike, and CC BY permits Adapted
+Material under other terms provided attribution is given — an MIT wheel with a corpus-level notice,
+exactly the shape `lexicon_en.txt` already has for SCOWL. Measured against the 2026-06-17 baseline on
+the NCBI FTP host:
+
+```
+oa_comm plain-text baseline packages                          14
+total compressed                                        ~80.6 GB
+per-article licence column in the shipped filelist.csv       yes
+licence mix, 30,546-article sample of the two smallest ranges
+  CC BY                                                   28,285
+  CC0                                                      2,261
+  anything else                                                0
+```
+
+Four things stand between that and a shipped prior, in order of how likely each is to stop it:
+
+1. **The output must fit the wheel, and that is the binding constraint** — not the licence, not the
+   compute. Headroom today is 113,269 bytes and SDU-21's own candidate dictionary is 76,910 bytes for
+   732 acronyms, so a prior scoped to a comparable inventory fits and a general one does not. A prior
+   that ships is therefore a prior that has already decided which acronyms it covers, and nobody has
+   proposed how.
+2. **The compute is not measured.** 80 GB, once, by a maintainer, with our own Schwartz & Hearst
+   matcher run over full texts rather than abstracts. Nobody has timed that, so it is recorded as
+   untimed rather than guessed at. It is not what would stop this.
+3. **The pin has a deadline.** PMC retires this FTP service on 24 August 2026 in favour of an
+   AWS-hosted distribution, so the pinned-URL-plus-digest pattern `tools/fetch_data.py` relies on has
+   to be re-established against the new host.
+4. **Attribution at corpus scale.** CC BY 4.0 permits attribution by reference to a resource, so
+   citing the collection and shipping the filelist reference is workable — but it is a term of the
+   grant rather than a courtesy, and the wheel would carry an obligation it does not carry today.
+
+**Open, with a precondition:** worth doing only if item 1 is answered first. Downloading 80 GB to
+build a table that cannot ship is D-016's mistake one order of magnitude larger.
+
+---
+
+## D-019 — A reliability table now ships. `Lf1chSf` was measured, helps, and was refused.
+
+**Status:** table shipped, `Lf1chSf` rejected · **Evidence:** `tools/build_reliability_table.py`,
+`src/acronymkit/resources/pseudo_precision_en.json`, `tests/test_pseudo_precision.py`,
+`data/LICENSES.md`
+
+### The table
+
+D-012 closed pseudo-precision as a *selection* mechanism and kept it as *calibrated confidence*.
+Calibrated confidence still cost the user a corpus: `estimate_precisions` was the only route to a
+table, so an air-gapped installation had an estimator and nothing to put in it.
+`acronymkit/resources/pseudo_precision_en.json` is that table — loadable with
+`_pseudo_precision.bundled_table()`, used automatically when `best_alignment` is called without one,
+and `estimate_precisions` is untouched and remains the documented route for anyone with text.
+
+**Which corpus, and may we?** The estimator reads raw text, so a derived table inherits that text's
+licence. Two of the three corpora on disk are barred: SDU-21 is CC BY-NC-SA (D-015), and PLOD-CW is
+CC BY-SA whose section 3(b) reaches Adapted Material (D-017). MED1250 is a United States Government
+Work whose notice places no restriction on use or reproduction, so it is the one that can be used.
+
+**Ab3P's published `Ab3P_prec.dat` was therefore not needed as the shipped table, and would not have
+worked as one.** It is keyed by Ab3P's seventeen rule names; our matching rules are a parameterised
+family with names of their own, so every lookup would miss, and bridging the two taxonomies means
+inventing a mapping no measurement backs. It is registered and fetched as the `--cross-check`
+yardstick instead, which compares our derived *spread* per bucket against Ab3P's — only the spread,
+because a rule-against-rule comparison at the bottom of the range is the error D-010 already
+corrected. The buckets with real support agree and the thin ones do not:
+
+```
+group     ours max  ours min  Ab3P max  Ab3P min   rules ours/Ab3P
+al:3        1.0000    0.5221    0.9998    0.3035          30/15
+al:4        1.0000    0.6835    1.0000    0.6965          30/15
+al:5        1.0000    0.7273    1.0000    0.7386          30/15
+num:4       1.0000    0.9630    0.9999    0.9531          30/13
+spec:5      1.0000    0.7500    0.9999    0.7456          30/13
+al:1        0.8000    0.0000    0.9672    0.9672           30/1
+spec:2      0.1667    0.0000    0.8544    0.6575           18/3
+```
+
+A second, independent argument backs the licence reading, and it is the one that survives if the
+reading is ever disputed: **the shipped table contains no text from the corpus.** Every key is one of
+our own short-form group labels or one of our own strategy names; every value is a count or a float.
+`tests/test_pseudo_precision.py` asserts that rather than trusting it.
+
+**Which half.** The development half only, under `bench/run_cascade.py`'s frozen split seed, imported
+from that module rather than copied. Deriving from the whole corpus would have been easier and would
+have poisoned every MED1250 figure this project publishes. Because it is the dev half, the shipped
+table *is* the table D-010's sweep describes: driving `predict_cascade` from the file reproduces that
+recorded run, 85.43 / 74.56 / 79.63 at no abstention through 91.62 / 72.97 / 81.24 at 0.90, and
+rounding the estimates to six decimals changes no strategy ordering in any bucket.
+`tools/build_reliability_table.py --check` rebuilds the table from the fetched corpus and diffs it
+against the shipped bytes, which is how a hand edit is caught.
+
+**What it is not.** A prior on English biomedical prose, not a calibration for the reader's domain,
+and how far it transfers is unmeasured. The docstring says so; the JSON says so in a provenance block
+— JSON has no comment syntax, so the header every other bundled resource carries is data here — and
+`bundled_table_provenance()` puts the source URL, digest, licence and split seed in reach at run time.
+
+Bundling exposed a latent defect and it is the kind worth recording. `PrecisionTable.ordered()` did a
+bare `strictness[name]` lookup, so a table written by a build with a since-renamed strategy raised
+`KeyError` from inside a sort key. That could not happen while every table was built in the same
+process that consumed it; it becomes possible the moment a table arrives from a file, so tables and
+the strategy family are versioned separately now.
+
+### `Lf1chSf` helps by a fifth of a point, on a corpus it is probably contaminated by
+
+Public domain, 48,126 bytes, 4,991 lower-case words consumed as a set. Ab3P's `FirstLetOneChSF` uses
+it to gate the head word of a one-character short form's definition (D-010's correction). Applied the
+same way, as a post-filter over one-character predictions:
+
+```
+MED1250, exact match          P %     R %    F1 %    TP    FP    FN
+--------------------------------------------------------------------
+full corpus, 1,221 gold
+  default (min length 2)    92.07   76.99   83.85   940    81   281
+  min length 1, no gate     90.47   78.54   84.09   959   101   262
+  min length 1, gated       91.32   78.38   84.35   957    91   264
+test half, 629 gold
+  default (min length 2)    92.32   76.47   83.65   481    40   148
+  min length 1, no gate     91.11   78.22   84.17   492    48   137
+  min length 1, gated       91.93   77.90   84.34   490    43   139
+```
+
+It works — the gate removes 12 of 41 one-character predictions, 10 of them false positives — and the
+larger move is admitting one-character short forms at all, not the gate.
+
+The reason it is not shipped is the control measurement:
+
+```
+share whose head word is in Lf1chSf
+  MED1250 one-character gold definitions      21 /    23  = 91.3 %
+  MED1250 multi-character gold definitions   591 /  1198  = 49.3 %
+  MED1250 distinct word types               2938 / 19215  = 15.3 %
+```
+
+A general biomedical word list has no reason to be twice as dense on exactly the pairs it is meant to
+help. Ab3P's gold standard *is* MED1250 and the same authors built both, so the list overlaps the pool
+MED1250 was drawn from, every figure in the first block is an upper bound of unknown tightness rather
+than an estimate of what a user's corpus would see, and a fifth of a point resting on evidence that
+leaky does not buy a permanent 48 KB resource. Registered, pinned, checksummed and fetch-only,
+following the med1250 precedent; the note in `data/LICENSES.md` records plainly that **the licence was
+never the objection** — the same public-domain notice covers it, and it would have fitted the budget.
+
+### A registry field that used to be answered from memory
+
+`Asset` gains `derivable`: may a resource *derived* from this asset ship, when the asset itself may
+not? It comes apart from `vendorable` in both directions — MED1250 is public domain and fetch-only for
+size alone, PLOD-CW is freely redistributable and taints anything derived — and
+`tools/build_reliability_table.py` enforces it the way `tools/build_lexicons.py` enforces
+`vendorable`. It denies by default, because an asset added without a licence reading must not silently
+become the source of a shipped resource; a wrong `True` is how share-alike gets into an MIT wheel.
+`Asset` also gains `size_bytes`, recorded rather than read from `data/`, so the ledger says the same
+thing on a machine that has fetched nothing and the wheel budget can be argued from the registry.
+
+`data/LICENSES.md` is regenerated with source URL, pinned commit, licence, SHA-256, size and
+vendor-or-derive reasoning for all 20 assets, plus a new section covering the three derived files that
+actually ship in the wheel.
+
+### Costs and limits
+
+The wheel is 411,019 bytes of the 524,288-byte budget (78.4 %), leaving 113,269 bytes; the new
+resource is 34,096 bytes on disk and costs 3,779 compressed. The figures in the two code blocks above
+are **not** in `bench/results.json` — no bench runner writes them — so they live here and in
+`data/LICENSES.md` and nowhere a claims gate can check them. If they should become citable, a runner
+has to be written. And `tools/build_reliability_table.py --check` is not wired into CI, because the
+check needs a fetched MED1250 and the `resources` job fetches no corpora; today only a maintainer
+running it locally catches a hand-edited resource, while `tests/test_pseudo_precision.py` carries the
+weaker corpus-free half.
+
+---
+
 ## D-018 — `load_schema()` read from directories this package does not own
 
 **Status:** fixed, shipped · **Evidence:** `src/acronymkit/serialization.py`,
@@ -479,7 +1108,10 @@ D-011 stands — the problem is selection rather than coverage — but its magni
   exists to measure it against". It exists. Any neural disambiguator must clear 72.84 %, not
   41.65 %, because the trivial baseline is the real incumbent.
 - **A frequency prior is the obvious next experiment**, and it is cheap: the shipped blend has no
-  slot for one, so adding it is an API question before it is an accuracy question.
+  slot for one, so adding it is an API question before it is an accuracy question. **D-020 searched
+  for the counts and found none that may be redistributed**, so the cheap version of this experiment
+  does not exist; the one route that clears the licence bar is costed there and blocked on the wheel
+  budget.
 - **This is a tuning corpus from now on.** The breakdown above has been read. Anything selected
   against it must be reported on `test.json`, which is fetchable from the same pin and deliberately
   not fetched here.
@@ -512,7 +1144,8 @@ Rejected inside the same task: deferring `from importlib import import_module` t
 form and the docstring claiming the win was deleted.
 
 Not attempted: moving the DTO layer off pydantic. That is a breaking change to the public type
-surface and needs its own decision.
+surface and needs its own decision. **It has one now: D-023**, which measures what the remaining
+128.1 ms is made of and recommends the migration.
 
 ---
 
@@ -651,7 +1284,8 @@ the leader is available without one byte of new data.
   it now has a measured ceiling to aim at rather than a hope.
 - **Move 3 (vendoring or deriving Ab3P's resources) is deprioritised.** It was predicated on a
   coverage story the data does not support. `Lf1chSf` may still help the single-character bucket
-  specifically, but it is no longer the main event.
+  specifically, but it is no longer the main event. **D-019 measured that: it does help, by a fifth
+  of a point, on evidence too contaminated to trust, and it was refused.**
 - Any future selection experiment should report against 88.49 %, not 100 %, because that is what a
   perfect selector over this candidate space would actually achieve.
 

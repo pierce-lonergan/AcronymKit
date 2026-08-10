@@ -8,6 +8,12 @@ it may be redistributed inside the wheel.
 `tools/build_lexicons.py` refuses to vendor anything marked **fetch-only**, so
 the split below is enforced by code rather than by diligence.
 
+Each entry also answers a second, independent question: whether a resource
+*derived* from the asset may ship even when the asset itself may not. The two
+answers come apart in both directions, so they are recorded separately and
+`tools/build_reliability_table.py` enforces the derived-work answer the way
+`tools/build_lexicons.py` enforces the redistribution answer.
+
 ## Vendored into the wheel
 
 Permissively licensed. Redistributed in derived form with the notice preserved
@@ -19,6 +25,9 @@ in the resource file header.
 - **Licence text:** <https://raw.githubusercontent.com/en-wl/wordlist/master/scowl/Copyright>
 - **Source:** <https://downloads.sourceforge.net/wordlist/scowl-2020.12.07.tar.gz>
 - **SHA-256:** `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc`
+- **Size:** 2,569,810 bytes
+- **Ships in the wheel:** yes
+- **Derived resources may ship:** yes
 - **Used for:** Bundled English lexicon backing the lexical match indicator Lambda(A).
 - **Attribution:** Copyright 2000-2018 by Kevin Atkinson. Portions copyright by others; see the SCOWL Copyright file.
 
@@ -30,6 +39,9 @@ Kevin Atkinson's notice grants permission to 'use, copy, modify, distribute and 
 - **Licence text:** <https://raw.githubusercontent.com/cmusphinx/cmudict/74790861f652b15e4ac49015a90074ad62a27690/LICENSE>
 - **Source:** <https://raw.githubusercontent.com/cmusphinx/cmudict/74790861f652b15e4ac49015a90074ad62a27690/cmudict.dict>
 - **SHA-256:** `81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22`
+- **Size:** 3,618,488 bytes
+- **Ships in the wheel:** yes
+- **Derived resources may ship:** yes
 - **Used for:** Ground-truth pronunciations: calibrates and validates the syllable heuristic and supplies real syllable counts for dictionary words.
 - **Attribution:** Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.
 
@@ -41,6 +53,9 @@ Two-clause BSD from Carnegie Mellon University: redistribution in source and bin
 - **Licence text:** <https://raw.githubusercontent.com/cmusphinx/cmudict/74790861f652b15e4ac49015a90074ad62a27690/LICENSE>
 - **Source:** <https://raw.githubusercontent.com/cmusphinx/cmudict/74790861f652b15e4ac49015a90074ad62a27690/LICENSE>
 - **SHA-256:** `bd4ce8e44170a5f9f481310ca85c51de3c4f851a65e679b40e603b143bd3542a`
+- **Size:** 1,754 bytes
+- **Ships in the wheel:** yes
+- **Derived resources may ship:** yes
 - **Used for:** Attribution text for the derived CMUdict resource.
 - **Attribution:** Copyright (C) 1993-2015 Carnegie Mellon University.
 
@@ -57,10 +72,41 @@ shipping them would change the licence of the wheel. `data/` is git-ignored.
 - **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
 - **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/MED1250_labeled>
 - **SHA-256:** `5093fa8f130ee250add0d0fbde7fc736478e18fbcc4447b00b4179db47f4cf53`
-- **Used for:** Gold standard for extraction evaluation: 1,250 MEDLINE records with 1,221 manually annotated short-form/long-form pairs. This is the corpus the published Schwartz & Hearst and Ab3P F-scores are quoted against, which is what makes our number comparable to theirs.
+- **Size:** 1,613,108 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** yes
+- **Used for:** Gold standard for extraction evaluation: 1,250 MEDLINE records with 1,221 manually annotated short-form/long-form pairs. This is the corpus the published Schwartz & Hearst and Ab3P F-scores are quoted against, which is what makes our number comparable to theirs. Its raw text -- not its annotations -- is also the source of the bundled pseudo-precision table.
 - **Attribution:** Sohn S, Comeau DC, Kim W, Wilbur WJ. Abbreviation definition identification based on automatic precision estimates. BMC Bioinformatics. 2008;9:402. National Library of Medicine.
 
-Public domain, so redistribution would be lawful -- the NLM notice states the work 'cannot be copyrighted within the United States' and that no restriction has been placed on its use or reproduction. It is still fetch-only: it is a 1.6 MB evaluation corpus, not a runtime resource, and nothing in the library reads it. Shipping it would inflate every wheel for the benefit of the few people running benchmarks.
+Public domain, so redistribution would be lawful -- the NLM notice states the work 'cannot be copyrighted within the United States' and that no restriction has been placed on its use or reproduction. It is still fetch-only: it is a 1.6 MB evaluation corpus, not a runtime resource, and nothing in the library reads it. Shipping it would inflate every wheel for the benefit of the few people running benchmarks. Derivable, and that is a separate answer from the one above rather than a softening of it: the public-domain grant is what settles the licence, and 'too big and nobody reads it' is what makes the corpus itself fetch-only. A statistics table derived from it is small and is read at run time, so neither objection survives the derivation. resources/pseudo_precision_en.json is built from the development half of this corpus by tools/build_reliability_table.py; it carries counts and estimates keyed by our own strategy names and reproduces no text from the corpus at all.
+
+### `ab3p-prec` — Ab3P_prec.dat
+
+- **Licence:** Public domain (United States Government Work)
+- **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
+- **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/WordData/Ab3P_prec.dat>
+- **SHA-256:** `77903769069451f67095b8aa677ac19b4074e86cf165519c3cd1cb02734db5c3`
+- **Size:** 4,050 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** yes
+- **Used for:** Ab3P's published reliability table: 145 rows of '<character class> <short-form length> <strategy> <estimate>'. Read by tools/build_reliability_table.py --cross-check to compare our derived strategy ordering against theirs.
+- **Attribution:** Sohn S, Comeau DC, Kim W, Wilbur WJ. Abbreviation definition identification based on automatic precision estimates. BMC Bioinformatics. 2008;9:402. National Library of Medicine.
+
+Public domain and small enough that the size argument used against med1250 does not apply, so this one is fetch-only for a different reason: nothing could read it. It is keyed by Ab3P's seventeen strategy names (FirstLet, WithinWrdFLetSkp, AnyLet, ...) and acronymkit's matching rules are a parameterised family with names of its own, so loading this file into a PrecisionTable would produce a table whose every key fails strategy lookup. Making it usable would mean inventing a name-to-name mapping that no measurement backs, which is the kind of resource this project reverts. It is fetched instead as the independent yardstick for --cross-check: our table is derived from unlabelled text, theirs was published from labelled work, and rank agreement between them is evidence the estimator is measuring something real.
+
+### `ab3p-lf1chsf` — Lf1chSf
+
+- **Licence:** Public domain (United States Government Work)
+- **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
+- **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/WordData/Lf1chSf>
+- **SHA-256:** `93322990b04d6b5027e4d6e2b6a3da91ee76ed1d1b9b170ce8a5cc48e8084651`
+- **Size:** 48,126 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** yes
+- **Used for:** The vocabulary Ab3P's FirstLetOneChSF rule consults: 4,991 lower-case words, one per line, consumed as a set. Fetched for the one-character-short-form experiment recorded in docs/DECISIONS.md; not read by anything in src/.
+- **Attribution:** Sohn S, Comeau DC, Kim W, Wilbur WJ. Abbreviation definition identification based on automatic precision estimates. BMC Bioinformatics. 2008;9:402. National Library of Medicine.
+
+NOT vendorable, and for once the licence is not the reason at all: the same public-domain notice that covers MED1250 covers this file, and at 48,126 bytes it would fit the wheel budget. It is fetch-only because it was measured and did not earn its place. Used as Ab3P uses it -- a membership gate on the head word of a one-character short form's definition -- it moves the MED1250 score by less than a fifth of a point, and only in a configuration that admits one-character short forms, which is not the default. The figures are in the decision record; this note is about the data. 21 of the 23 one-character gold definitions in MED1250 have their head word in this list, against 49.3% for multi-character gold definitions and 15.3% of the corpus vocabulary at large. A general-purpose biomedical word list has no reason to be twice as dense on exactly the pairs it is supposed to help, so the list overlaps the harvest pool MED1250 was drawn from and the gain above is an upper bound of unknown tightness rather than a measurement of what a user's corpus would see. A gain of that size resting on that evidence does not justify a permanent resource.
 
 ### `ab3p-readme` — Ab3P_README.md
 
@@ -68,10 +114,13 @@ Public domain, so redistribution would be lawful -- the NLM notice states the wo
 - **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
 - **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
 - **SHA-256:** `756d5fa9a5900901f10b357c11230e55febe2af1f16f3fa3a5353af415f750eb`
-- **Used for:** Specification of the MED1250 annotation format and its comment conventions.
+- **Size:** 4,540 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** yes
+- **Used for:** Specification of the MED1250 annotation format and its comment conventions, the role of each WordData file, and the Public Domain Notice governing all of them.
 - **Attribution:** National Library of Medicine.
 
-Retained alongside MED1250 because it defines the annotation format.
+Retained alongside MED1250 because it defines the annotation format. It is also where the Public Domain Notice quoted by every other Ab3P entry actually lives, so pinning it is what makes those licence claims checkable rather than asserted.
 
 ### `sdu21-ad-diction` — sdu21_ad_diction.json
 
@@ -79,6 +128,9 @@ Retained alongside MED1250 because it defines the annotation format.
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/dataset/diction.json>
 - **SHA-256:** `58e3450b5d77b4d791045c74cb0f487fdfbdd5c58d8d4c270d0fda4e2d2b12f5`
+- **Size:** 76,910 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** The shared task's own expansion dictionary: 732 ambiguous acronyms mapped to their candidate long forms. Loaded straight into an acronymkit ExpansionDictionary, which is what makes the Tier 1 disambiguator evaluable at all -- it is the first ready-made dictionary this project has had that it did not build itself.
 - **Attribution:** Veyseh APB, Dernoncourt F, Tran QH, Nguyen TH. What Does This Acronym Mean? Introducing a New Dataset for Acronym Identification and Disambiguation. Proceedings of COLING 2020. Dataset licensed CC BY-NC-SA 4.0.
 
@@ -90,6 +142,9 @@ NOT vendorable, and the reason is a licence trap worth spelling out. The reposit
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/dataset/dev.json>
 - **SHA-256:** `3980517288fd7f79d489edbc2cefd66a63bd97f91390fb419d6fad3752f414c7`
+- **Size:** 2,140,335 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Development set for acronym disambiguation: 6,189 sentences, each with one ambiguous acronym token index and its gold expansion. The evaluation set for bench/run_disambiguation.py.
 - **Attribution:** Veyseh APB, Dernoncourt F, Tran QH, Nguyen TH. What Does This Acronym Mean? Introducing a New Dataset for Acronym Identification and Disambiguation. Proceedings of COLING 2020. Dataset licensed CC BY-NC-SA 4.0.
 
@@ -101,6 +156,9 @@ NOT vendorable, and the reason is a licence trap worth spelling out. The reposit
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/dataset/train.json>
 - **SHA-256:** `bcc5c855c9c408ff76998db1d5c785c2ecbb694b7311ccb8bc6f2cfe7051266a`
+- **Size:** 17,354,149 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Training set (50,034 instances). acronymkit reads no training data, so this is used solely to build the most-frequent-expansion baseline the shared task defines -- the prior our context scoring has to beat to be worth anything.
 - **Attribution:** Veyseh APB, Dernoncourt F, Tran QH, Nguyen TH. What Does This Acronym Mean? Introducing a New Dataset for Acronym Identification and Disambiguation. Proceedings of COLING 2020. Dataset licensed CC BY-NC-SA 4.0.
 
@@ -112,6 +170,9 @@ NOT vendorable, and the reason is a licence trap worth spelling out. The reposit
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/LICENSE>
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/scorer.py>
 - **SHA-256:** `2b68c764780dcd43821feb4d03ba6a9747a9017875ce22d569be173a8e3cdd38`
+- **Size:** 2,935 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** The shared task's official scorer. Defines the convention our disambiguation numbers are quoted under: exact string equality against the gold expansion, headline metric macro-averaged P/R/F1 over gold expansion classes, accuracy reported separately.
 - **Attribution:** Amir Pouran Ben Veyseh and contributors; MIT licensed.
 
@@ -123,6 +184,9 @@ Genuinely MIT -- the README's carve-out puts the evaluation script and baseline 
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
 - **SHA-256:** `12277bc8eb443b9e495e5a7ce08e7bd9e40dbcfada9cfd94260f278a63c31246`
+- **Size:** 6,958 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Specification of the SDU@AAAI-21 AD record format, the official metric, and the licence split between data and scripts.
 - **Attribution:** Amir Pouran Ben Veyseh and contributors.
 
@@ -134,6 +198,9 @@ Retained for the same reason as ab3p-readme: it is the normative description of 
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/data/data_test.conll>
 - **SHA-256:** `87e81ad0061a6ff384fd207ced1ecbdb26a81910950b6d0b59dee79a58044c04`
+- **Size:** 72,652 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** The evaluation split for bench/run_spans.py: 153 sentences from PLOS journal articles, 5,000 tokens, 270 abbreviation spans and 150 long-form spans in BIO tags. The first corpus in this project that is neither MEDLINE abstracts nor a shared-task JSON, and the only evidence available about how the extractor behaves on a different genre and a different annotation convention.
 - **Attribution:** Zilio L, Saadany H, Sharma P, Kanojia D, Orasan C. PLOD: An Abbreviation Detection Dataset for Scientific Documents. Proceedings of LREC 2022. arXiv:2204.12061. PLOD-CW subset prepared by Shenbin Qian, University of Surrey. Licensed CC BY-SA 4.0.
 
@@ -145,6 +212,9 @@ NOT vendorable, and share-alike is the reason rather than the usual size argumen
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/data/data_dev.conll>
 - **SHA-256:** `3feb27cc423bbd5e290b7cef6947c5570a2dcc8f6d486fec8f757e425bc5b0cd`
+- **Size:** 72,802 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Validation split, 126 sentences. Nothing is selected on it -- acronymkit reads no training data and nothing was tuned against PLOD -- so it is fetched only to make the pooled 'all' arm possible, which exists because 153 sentences is a thin sample.
 - **Attribution:** Zilio L, Saadany H, Sharma P, Kanojia D, Orasan C. PLOD: An Abbreviation Detection Dataset for Scientific Documents. Proceedings of LREC 2022. arXiv:2204.12061. PLOD-CW subset prepared by Shenbin Qian, University of Surrey. Licensed CC BY-SA 4.0.
 
@@ -156,6 +226,9 @@ NOT vendorable, and share-alike is the reason rather than the usual size argumen
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/data/data_train.conll>
 - **SHA-256:** `ba2e94e60920d764f4e0220e61a740eee4921103cac49406dee1f97fd6897743`
+- **Size:** 586,595 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Training split, 1,072 sentences. Used for exactly one thing: the pooled 1,351-sentence arm that checks whether the test-split figures are sample noise. No parameter of this library is fitted to any of it.
 - **Attribution:** Zilio L, Saadany H, Sharma P, Kanojia D, Orasan C. PLOD: An Abbreviation Detection Dataset for Scientific Documents. Proceedings of LREC 2022. arXiv:2204.12061. PLOD-CW subset prepared by Shenbin Qian, University of Surrey. Licensed CC BY-SA 4.0.
 
@@ -167,6 +240,9 @@ NOT vendorable, and share-alike is the reason rather than the usual size argumen
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
 - **SHA-256:** `7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297`
+- **Size:** 20,131 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Verbatim CC BY-SA 4.0 deed governing the PLOD-CW corpus files.
 - **Attribution:** Zilio L, Saadany H, Sharma P, Kanojia D, Orasan C. PLOD: An Abbreviation Detection Dataset for Scientific Documents. Proceedings of LREC 2022. arXiv:2204.12061. PLOD-CW subset prepared by Shenbin Qian, University of Surrey. Licensed CC BY-SA 4.0.
 
@@ -178,6 +254,9 @@ The licence text itself, pinned so the share-alike finding above rests on the de
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/README.md>
 - **SHA-256:** `e82dff3a0dd1edf20dddfd72910868799f3e4839eefeb8bc2293c2d92cd859cd`
+- **Size:** 8,371 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Specification of the PLOD-CW CoNLL format, its AC/LF label set, its split sizes, and its licensing statement.
 - **Attribution:** Zilio L, Saadany H, Sharma P, Kanojia D, Orasan C. PLOD: An Abbreviation Detection Dataset for Scientific Documents. Proceedings of LREC 2022. arXiv:2204.12061. PLOD-CW subset prepared by Shenbin Qian, University of Surrey. Licensed CC BY-SA 4.0.
 
@@ -189,6 +268,9 @@ Retained for the same reason as ab3p-readme and sdu21-ad-readme: it is the norma
 - **Licence text:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/fr_FR/dictionaries/README_dict_fr.txt>
 - **Source:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/fr_FR/dictionaries/fr.dic>
 - **SHA-256:** `b78a868e31dd6e373b6c3217969afb898a9acde828a5e7ef97308da42218c88c`
+- **Size:** 1,236,490 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Optional real French lexicon, installed locally by the user.
 - **Attribution:** Dicollecte / Grammalecte French dictionary contributors.
 
@@ -200,6 +282,9 @@ MPL is file-level copyleft: an MPL file may sit inside a larger work under other
 - **Licence text:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/es/LICENSE.md>
 - **Source:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/es/es_ES.dic>
 - **SHA-256:** `6975dddec3d5d2c676069537bc67b4b5f786c65c5d4cf6703a82acf779ac9ec1`
+- **Size:** 715,989 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Optional real Spanish lexicon, installed locally by the user.
 - **Attribution:** RLA-ES / Santiago Bosio and contributors.
 
@@ -211,10 +296,48 @@ Disjunctive tri-licence; the MPL-1.1 arm would technically permit inclusion in a
 - **Licence text:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/de/COPYING_OASIS.txt>
 - **Source:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/de/de_DE_frami.dic>
 - **SHA-256:** `4ca3c958b0e5545910999bc246f668840bf8ede3df8e5e6790d05edd5a586c38`
+- **Size:** 4,356,903 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
 - **Used for:** Optional real German lexicon, installed locally by the user.
 - **Attribution:** igerman98 / Bjoern Jacke and the Frami contributors.
 
 NOT vendorable, and this one is not a judgement call. The permissive arm (OASIS 0.1) is conditional: it only permits distribution 'with programs that support the OASIS Open Document Format ... and whose PRIMARY format for saving documents is the Open Document Format'. acronymkit is not an ODF application, so that grant does not reach us and the fallback is GPL/LGPL, which is incompatible with vendoring into an MIT wheel.
+
+## Derived resources shipped in the wheel
+
+What a wheel actually carries is not the assets above but these files, each
+computed from one of them. A derived resource is only permitted where its
+source asset is marked **Derived resources may ship: yes**; share-alike
+sources are barred from this table by construction, because CC BY-SA 4.0
+section 3(b) reaches Adapted Material.
+
+### `lexicon_en.txt`
+
+- **Derived from:** `scowl` (SCOWL (MIT-style permissive))
+- **Built by:** `python tools/build_lexicons.py --language en`
+- **Size in the source tree:** 730,496 bytes
+- **Attribution:** Copyright 2000-2018 by Kevin Atkinson. Portions copyright by others; see the SCOWL Copyright file.
+
+A filtered word list. Carries SCOWL vocabulary, so SCOWL's notice is reproduced verbatim in the file's header comment.
+
+### `ngram_en.json`
+
+- **Derived from:** `scowl` (SCOWL (MIT-style permissive))
+- **Built by:** `python tools/build_ngram_model.py`
+- **Size in the source tree:** 14,357 bytes
+- **Attribution:** Copyright 2000-2018 by Kevin Atkinson. Portions copyright by others; see the SCOWL Copyright file.
+
+Character transition probabilities over the lexicon above. Second order removed from the source: no SCOWL word can be read back out of it, though it is still a statistical summary of SCOWL and is attributed as one.
+
+### `pseudo_precision_en.json`
+
+- **Derived from:** `med1250` (Public domain (United States Government Work))
+- **Built by:** `python tools/build_reliability_table.py`
+- **Size in the source tree:** 34,096 bytes
+- **Attribution:** Sohn S, Comeau DC, Kim W, Wilbur WJ. Abbreviation definition identification based on automatic precision estimates. BMC Bioinformatics. 2008;9:402. National Library of Medicine.
+
+Estimated reliability per (short-form group, matching strategy), derived from the raw text of MED1250's development half with the estimator in acronymkit._pseudo_precision. Reproduces no text from the corpus: every key is one of this library's own group labels or strategy names and every value is a count or a float, which tests/test_pseudo_precision.py asserts rather than assumes. Two independent grounds permit it -- the public-domain licence, and the absence of any source content to license -- and the second is the one that would still stand if the first were disputed. Its own provenance block records the source URL, digest, licence and split seed, because JSON has no comment syntax to put a header in.
 
 ## Adding an asset
 
@@ -223,3 +346,7 @@ NOT vendorable, and this one is not a judgement call. The permissive arm (OASIS 
 3. Run `python tools/fetch_data.py <key> --record` and paste the digest in.
 4. Run `python tools/fetch_data.py --write-ledger`.
 5. If you marked it vendorable, say in `vendor_note` *why* the licence permits it.
+6. Answer `derivable` too. It denies by default, so an asset added without
+   reading the licence cannot silently become the source of a shipped
+   resource -- but a wrong `True` is how a share-alike obligation gets into
+   an MIT wheel, and CC BY-SA reaches Adapted Material specifically.

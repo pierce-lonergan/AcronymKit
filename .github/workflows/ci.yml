@@ -525,7 +525,7 @@ jobs:
 
           # Why 512 KiB.
           #
-          # Measured on this repository: the wheel is 404,392 B on disk, and
+          # Measured on this repository: the wheel is 411,019 B on disk, and
           # acronymkit/resources/lexicon_en.txt is 51.6% of its compressed
           # payload -- so the budget is really a budget on how much word list
           # ships, and everything else is noise against it. That figure is
