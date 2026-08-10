@@ -118,13 +118,20 @@ def _entry_point_names(group: str) -> tuple[str, ...]:
     Returns:
         Sorted names, empty when nothing advertises the group.
     """
-    from importlib.metadata import entry_points
+    from importlib import metadata
 
+    # Bound through an ``Any`` rather than called directly, and deliberately.
+    # ``entry_points(group=...)`` exists from 3.10; on 3.9 the function takes no
+    # arguments and returns a mapping. A ``type: ignore`` for the 3.9 typeshed
+    # is reported as *unused* against a newer one, so the comment that silences
+    # one checker fails the other. Erasing the call site is the only form that
+    # is correct under both, and the TypeError branch is the real 3.9 path.
+    select: Any = metadata.entry_points
     found: Any
     try:
-        found = entry_points(group=group)  # type: ignore[call-arg]
+        found = select(group=group)
     except TypeError:  # pragma: no cover - Python 3.9 returns a plain mapping
-        found = entry_points().get(group, [])
+        found = select().get(group, [])
     return tuple(sorted(str(entry.name) for entry in found))
 
 

@@ -123,7 +123,19 @@ ignore = [
 "tests/*" = ["N802", "N806"]
 
 [tool.mypy]
-python_version = "3.9"
+# 3.10, not 3.9, and the difference is that this line now does something.
+# mypy dropped support for `python_version = "3.9"`: current versions print
+# "Python 3.9 is not supported (must be 3.10 or higher)" and carry on against
+# the running interpreter's typeshed. So the setting read as if the codebase
+# were being checked against its own floor while it silently was not -- and it
+# broke a build, because a `type: ignore` written for the 3.9 typeshed is an
+# *unused* ignore against the newer one.
+#
+# 3.9 support is real and stays; it is enforced where it can be, by the 3.9
+# cells of the CI test matrix, which run the suite on the interpreter itself.
+# A type checker asserting a floor it refuses to model is worse than one that
+# says plainly which version it is modelling.
+python_version = "3.10"
 files = ["src/acronymkit"]
 strict = false
 warn_unused_ignores = true
