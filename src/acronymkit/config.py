@@ -16,6 +16,7 @@ from pydantic import ValidationError as PydanticValidationError
 from .enums import (
     CaseStyle,
     EngineTier,
+    ExtractionProfile,
     HyphenPolicy,
     Language,
     NumeralPolicy,
@@ -24,7 +25,7 @@ from .enums import (
 )
 from .exceptions import ConfigurationError
 
-__all__ = ["STRATEGY_WEIGHTS", "Config", "ScoringWeights"]
+__all__ = ["EXTRACTION_PROFILES", "STRATEGY_WEIGHTS", "Config", "ScoringWeights"]
 
 
 def _describe_validation_error(exc: PydanticValidationError) -> str:
@@ -130,6 +131,28 @@ class ScoringWeights(BaseModel):
             }
         )
 
+
+#: Extraction settings per :class:`~acronymkit.enums.ExtractionProfile`.
+#:
+#: Selected on the development half of MED1250 and reported on the held-out half,
+#: so the numbers in the enum docstring are not the numbers these were chosen by.
+EXTRACTION_PROFILES: dict[ExtractionProfile, dict[str, Any]] = {
+    ExtractionProfile.HIGH_PRECISION: {
+        "extraction_min_short_form_length": 2,
+        "extraction_max_short_form_length": 10,
+        "extraction_require_uppercase": True,
+    },
+    ExtractionProfile.GENERAL: {
+        "extraction_min_short_form_length": 2,
+        "extraction_max_short_form_length": 14,
+        "extraction_require_uppercase": True,
+    },
+    ExtractionProfile.BIOMEDICAL: {
+        "extraction_min_short_form_length": 1,
+        "extraction_max_short_form_length": 14,
+        "extraction_require_uppercase": False,
+    },
+}
 
 #: Preset weighting vectors selected by :class:`~acronymkit.enums.ScoringStrategy`.
 #:
@@ -295,6 +318,12 @@ class Config(BaseModel):
     # -- extraction --------------------------------------------------------
     extraction_max_short_form_length: int = Field(default=10, ge=1)
     extraction_min_short_form_length: int = Field(default=2, ge=1)
+    extraction_require_uppercase: bool = Field(
+        default=True,
+        description="Require an uppercase letter in a candidate short form. True is right for "
+        "general prose; biomedical text uses lowercase abbreviations ('aa', 'h2') and pays for "
+        "this. See ExtractionProfile and docs/EVALUATION.md for the measured trade.",
+    )
     extraction_capture_sentences: bool = Field(
         default=False, description="Attach the enclosing sentence to each extracted pair."
     )
@@ -379,6 +408,22 @@ class Config(BaseModel):
     def preset(cls, strategy: ScoringStrategy, **overrides: Any) -> Config:
         """Build a config from a named strategy preset."""
         return cls(scoring_strategy=ScoringStrategy.coerce(strategy), **overrides)
+
+    @classmethod
+    def for_profile(cls, profile: ExtractionProfile, **overrides: Any) -> Config:
+        """Build a config at a named extraction operating point.
+
+        Args:
+            profile: The operating point; see
+                :class:`~acronymkit.enums.ExtractionProfile` for the measured
+                precision/recall of each.
+            **overrides: Any further Config fields, applied on top.
+
+        Returns:
+            The configured instance.
+        """
+        settings = EXTRACTION_PROFILES[ExtractionProfile.coerce(profile)]
+        return cls(**{**settings, **overrides})
 
     @classmethod
     def fast(cls, **overrides: Any) -> Config:

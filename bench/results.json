@@ -272,6 +272,36 @@
       "cold_import_ms": 164.6,
       "iterations": 5
     },
+    "profile.med1250_test.biomedical": {
+      "dev_exact_f1": 83.07,
+      "exact_f1": 82.81,
+      "exact_precision": 86.23,
+      "exact_recall": 79.65,
+      "extraction_max_short_form_length": 14,
+      "extraction_min_short_form_length": 1,
+      "extraction_require_uppercase": false,
+      "profile": "biomedical"
+    },
+    "profile.med1250_test.general": {
+      "dev_exact_f1": 84.17,
+      "exact_f1": 83.78,
+      "exact_precision": 92.18,
+      "exact_recall": 76.79,
+      "extraction_max_short_form_length": 14,
+      "extraction_min_short_form_length": 2,
+      "extraction_require_uppercase": true,
+      "profile": "general"
+    },
+    "profile.med1250_test.high_precision": {
+      "dev_exact_f1": 84.07,
+      "exact_f1": 83.65,
+      "exact_precision": 92.32,
+      "exact_recall": 76.47,
+      "extraction_max_short_form_length": 10,
+      "extraction_min_short_form_length": 2,
+      "extraction_require_uppercase": true,
+      "profile": "high_precision"
+    },
     "validation.syllables_cmudict": {
       "exact_match_pct": 84.06,
       "mean_absolute_error": 0.1649,

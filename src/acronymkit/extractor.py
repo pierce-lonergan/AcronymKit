@@ -474,7 +474,9 @@ def _confidence(short_form: str, long_form: str) -> float:
 # ---------------------------------------------------------------------------
 
 
-def is_valid_short_form(text: str, *, min_length: int = 2, max_length: int = 10) -> bool:
+def is_valid_short_form(
+    text: str, *, min_length: int = 2, max_length: int = 10, require_uppercase: bool = True
+) -> bool:
     """Report whether ``text`` may act as a short form (abbreviation).
 
     Applies the Schwartz & Hearst admissibility rules: the candidate must be
@@ -486,6 +488,12 @@ def is_valid_short_form(text: str, *, min_length: int = 2, max_length: int = 10)
         text: Candidate short form; surrounding whitespace is ignored.
         min_length: Minimum admissible length in characters.
         max_length: Maximum admissible length in characters.
+        require_uppercase: Demand at least one uppercase letter. This is the
+            single most precision-protective rule in general prose, where a
+            lowercase parenthetical is almost never a definition -- and the
+            most expensive one in biomedical text, where ``aa`` and ``h2`` are
+            real abbreviations. Exposed so the trade can be chosen rather than
+            inherited.
 
     Returns:
         ``True`` when the candidate is an admissible short form.
@@ -501,6 +509,8 @@ def is_valid_short_form(text: str, *, min_length: int = 2, max_length: int = 10)
         return False
     if len(candidate.split()) > 2:
         return False
+    if not require_uppercase:
+        return True
     return any(char.isupper() for char in candidate) or candidate == candidate.upper()
 
 
@@ -939,6 +949,7 @@ class AbbreviationExtractor:
             candidate,
             min_length=self._config.extraction_min_short_form_length,
             max_length=self._config.extraction_max_short_form_length,
+            require_uppercase=self._config.extraction_require_uppercase,
         )
 
     # -- sentence capture --------------------------------------------------

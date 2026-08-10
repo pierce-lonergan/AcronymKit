@@ -224,6 +224,37 @@ truncation is visible and annoying, and the obvious fix does not pay for itself.
 needs what Ab3P actually did — per-candidate precision estimates learned from data — rather than a
 better boundary heuristic.
 
+## Operating points, not a single setting
+
+At roughly 92 % precision against 76 % recall there is precision available to spend, and a
+sixth of the misses come from configuration rather than from the algorithm. Those knobs are named
+rather than silently retuned, and each one's cost is published. Selected on the development half,
+reported on the held-out half:
+
+| Profile | dev F1 | test P % | test R % | test F1 % |
+|---|---:|---:|---:|---:|
+| `HIGH_PRECISION` (defaults) | 84.07 | 92.32 | 76.47 | 83.65 |
+| `GENERAL` | 84.17 | 92.18 | 76.79 | **83.78** |
+| `BIOMEDICAL` | 83.07 | 86.23 | **79.65** | 82.81 |
+
+```python
+from acronymkit import AcronymEngine, Config
+from acronymkit.enums import ExtractionProfile
+
+engine = AcronymEngine(Config.for_profile(ExtractionProfile.BIOMEDICAL))
+```
+
+`BIOMEDICAL` trades precision for recall (86.23 / 79.65 against the defaults' 92.32 / 76.47) by
+admitting single-character and lowercase short forms — `aa`, `h2`, `M`, `T` are real abbreviations in this domain. Whether that is
+a good trade depends entirely on what happens downstream, which is the caller's information, not
+ours.
+
+**The defaults did not move.** `GENERAL` edges them on held-out data (83.78 against 83.65), a gap
+inside the noise this project has previously reverted changes for, and consistency matters more than
+a tenth of a point. There is also no `HIGH_RECALL` profile: the sweep produced no point that beat
+`BIOMEDICAL` on recall, and inventing one would mean shipping a distinction the measurements do not
+support.
+
 ## What is deliberately not claimed
 
 **No comparison to published figures.** Numbers lifted from papers are not comparable to numbers from

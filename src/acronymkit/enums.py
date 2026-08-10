@@ -16,6 +16,7 @@ _E = TypeVar("_E", bound="_StrEnum")
 __all__ = [
     "CaseStyle",
     "EngineTier",
+    "ExtractionProfile",
     "HyphenPolicy",
     "Language",
     "MappingKind",
@@ -288,3 +289,37 @@ def coerce_optional(enum_cls: Type[_E], value: object) -> Optional[_E]:
     if value is None:
         return None
     return enum_cls.coerce(value)
+
+
+class ExtractionProfile(_StrEnum):
+    """Named operating point for abbreviation extraction.
+
+    The extractor sits at roughly 92 % precision and 77 % recall under its
+    defaults, which means there is precision available to spend and no single
+    setting is right for everyone. Rather than pick one and hide the trade inside
+    a constant, the trade is named and its cost published.
+
+    Every figure below is measured on the held-out half of MED1250 with the
+    frozen split in ``bench/splits.toml``; regenerate with
+    ``python bench/run_profiles.py --save``.
+
+    ``HIGH_PRECISION``
+        Defaults. Highest precision of the four; the right choice when a wrong
+        expansion is worse than a missing one — indexing, knowledge-graph
+        construction, anything that writes into a store.
+    ``GENERAL``
+        Widens the short-form length bound. Best F1 on the development half,
+        which is how it was selected.
+    ``BIOMEDICAL``
+        Drops the uppercase requirement and admits single-character short forms.
+        Biomedical text really does define ``aa``, ``h2``, ``M`` and ``T``, and
+        those alone account for a sixth of the misses under the defaults. Costs
+        precision to buy them.
+    There is deliberately no ``HIGH_RECALL`` member. The configuration sweep
+    produced no operating point that beat ``BIOMEDICAL`` on recall, so adding one
+    would mean inventing a distinction the measurements do not support.
+    """
+
+    HIGH_PRECISION = "high_precision"
+    GENERAL = "general"
+    BIOMEDICAL = "biomedical"
