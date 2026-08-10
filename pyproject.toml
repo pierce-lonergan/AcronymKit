@@ -55,8 +55,22 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "jsonschema>=4.17.0",
     "hypothesis>=6.80.0",
-    "ruff>=0.5.0",
-    "mypy>=1.8.0",
+    # The two linters are pinned to a minor range, and everything else is not,
+    # because they are the only dev dependencies whose *new releases change
+    # whether the build passes*. Both have now reded CI for a rule that did not
+    # exist when the code was written and that no local run could have caught:
+    # mypy dropped `python_version = "3.9"` and turned a needed `type: ignore`
+    # into an unused one, and ruff added RUF036 and flagged a union written
+    # months earlier. In both cases the failing commit had nothing to do with
+    # the failure.
+    #
+    # This repository already pins every GitHub Action by commit SHA for the
+    # same reason. Letting the linters float was the same decision made the
+    # other way by omission. New rules are worth adopting -- deliberately, in a
+    # commit that says so and fixes what they find, not in whatever commit
+    # happens to be pushed the morning a release lands.
+    "ruff>=0.14.8,<0.15",
+    "mypy>=1.19.0,<2",
     "build>=1.0.0",
     "twine>=4.0.0",
 ]

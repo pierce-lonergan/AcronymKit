@@ -246,7 +246,7 @@ def _parametrize(name: str) -> Any:
     )
 
 
-def _policy(spec: Union[None, str, dict[str, Any]]) -> Optional[NamingPolicy]:
+def _policy(spec: Union[str, dict[str, Any], None]) -> Optional[NamingPolicy]:
     """Resolve a golden file's ``policy`` field.
 
     Args:
