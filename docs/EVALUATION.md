@@ -284,6 +284,48 @@ Pool recall over the 398 subword pairs is 5.78 %. `MappingKind.CONTIGUOUS` exist
 token donate several characters, and on this corpus it recovers very little — worth knowing before
 anyone invests further in sub-word matching for generation.
 
+## Disambiguation: measured for the first time, and it loses to a trivial baseline
+
+A third of this library's surface had no evidence behind it for three rounds. It does now, and the
+number is bad.
+
+SDU@AAAI-21 shared task 2, dev split: 6,189 instances, 2,212 instances/second.
+Scored with a faithful reimplementation of the shared task's own `scorer.py` — exact string equality,
+macro-averaged P/R/F1 as the headline, accuracy alongside.
+
+| System | Accuracy % | macro P | macro R | macro F1 |
+|---|---:|---:|---:|---:|
+| ceiling (gold always among the candidates) | 100.00 | | | |
+| **`most_frequent`** (shared task baseline) | **72.84** | 89.03 | 44.94 | 59.73 |
+| `acronymkit`, stock `Config()` | 41.65 | 68.07 | 44.85 | 54.07 |
+| random, seeded | 31.72 | 55.73 | 32.40 | 40.98 |
+
+**Simply always picking the most common expansion beats our context scoring by a wide margin**
+(72.84 % against 41.65 %). We are above random, so the context signal is not nothing — but on
+this benchmark it is worth less than ignoring the context entirely and memorising frequencies.
+
+Accuracy by number of candidate expansions:
+
+| candidates | 2 | 3 | 4 | 5 | 6–9 | 10+ |
+|---|---:|---:|---:|---:|---:|---:|
+| `most_frequent` | 82.1 | 79.7 | 78.6 | 66.3 | 61.7 | 39.1 |
+| `acronymkit` | 55.3 | 44.4 | 35.1 | 35.1 | 25.6 | 27.1 |
+| random | 50.3 | 34.2 | 23.9 | 20.8 | 13.6 | 7.7 |
+
+**Harness validated.** Our reimplementation of the shared task's own most-frequent baseline
+reproduces its published official scores to the digit (89.03 / 44.94 / 59.73) — the same role
+`pyab3p` plays for the extraction harness. The result is about the system, not the scoring.
+
+Two diagnostics recorded rather than acted on: inline definitions take top-1 on 158 instances and
+override a correct dictionary candidate on 29 of them, because an inline expansion is copied
+verbatim from the sentence and cannot exact-match a lower-cased dictionary key. That is the right
+default for a caller reading a document and the wrong one for this benchmark; it was left alone,
+because tuning to a benchmark is how a number stops meaning anything.
+
+**Nothing was tuned to produce this table.** Stock defaults, measured once. `EngineTier.NEURAL`
+exists precisely because a bag-of-words overlap was never expected to be competitive here; this
+quantifies by how much.
+
 ## Operating points, not a single setting
 
 At roughly 92 % precision against 76 % recall there is precision available to spend, and a

@@ -359,8 +359,11 @@ python tools/fetch_data.py --verify      # re-check every checksum
   ceiling is 85.99 %, not 100 %, and every figure here should be read against it.
 - **English only.** French, Spanish and German ship no lexicon; those languages degrade honestly and
   say so in `metadata.warnings`.
-- **Disambiguation is the least evidenced part of the library.** See the evaluation doc for what is
-  and is not measured.
+- **Disambiguation is measured and it loses.** On SDU@AAAI-21 it scores 41.65 % accuracy against
+  72.84 % for simply always picking the most common expansion. It beats random, so the context
+  signal is real, but on that benchmark it is worth less than memorising frequencies. Use it for
+  document-local resolution, where inline definitions carry it; do not expect it to win a
+  disambiguation benchmark.
 - Every number in this README is generated from [`bench/results.json`](bench/results.json), and CI
   fails the build if a performance claim anywhere in the docs or the source cannot be traced back
   to a benchmark run.

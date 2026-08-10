@@ -76,8 +76,22 @@ vendorable = false
 note = "Non-biomedical counterweight; the only domain-generalisation evidence available."
 
 [corpora.sdu21_ad]
-role = "held_out"
+role = "tuning"
 task = "disambiguation"
-status = "reader_not_written"
-licence = "MIT"
-note = "Ships diction.json, a ready-made ExpansionDictionary for the Tier 1 disambiguator."
+status = "evaluated"
+licence = "CC BY-NC-SA 4.0 (data); MIT (scorer and baseline only)"
+vendorable = false
+note = """
+CORRECTION. This entry previously said "MIT", and that was wrong. The repository
+root ships an MIT LICENSE, but its README narrows the grant: MIT covers "the
+evaluation script and the baseline", while "the dataset provided for this shared
+task is licensed under CC BY-NC-SA 4.0". So the AD data carries exactly the same
+non-commercial share-alike terms as the SDU-22 data it was supposed to be a
+better alternative to. Fetch-only, benchmark use, never vendored, never
+committed.
+
+Role is "tuning" rather than "held_out" because its per-candidate-count
+breakdown has now been read (docs/EVALUATION.md). test.json is fetchable from the
+same pin and is deliberately NOT fetched, so a genuinely blind split remains
+available for anyone who improves the disambiguator.
+"""

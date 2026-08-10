@@ -9,6 +9,216 @@ Newest first.
 
 ---
 
+## D-016 — Derived term statistics: the signal is right, the corpus is far too small
+
+**Status:** rejected · **Evidence:** `bench/run_termfreq.py`, `termfreq.med1250_test.*` in
+`bench/results.json`
+
+Experiment seven on the same gap, and the first one to carry a signal of the shape D-012 said was
+required: **per-candidate**, so it can differ between two spans the same matching rule explains.
+`acronymkit._term_stats` derives three such statistics from raw text with no annotation — document
+frequency, adjacent-word association (normalised PMI with a count floor), and left-branching entropy
+as a boundary statistic. Built on the dev half, reported on the test half, over
+`bench/run_rerank.py`'s candidate enumeration unchanged.
+
+| System (MED1250 test half) | dev F1 % | P % | R % | F1 % |
+|---|---:|---:|---:|---:|
+| **Tier 0 greedy (Schwartz & Hearst)** | **84.07** | 92.32 | **76.47** | **83.65** |
+| `shortest` — the gate alone, no statistics | 81.81 | 93.35 | 75.83 | 83.68 |
+| `extend/association ≥ 0.25` — dev-selected | 81.81 | 93.15 | 75.68 | 83.51 |
+| `extend/content-word` — stop list, no statistics | 43.89 | 50.97 | 41.97 | 46.03 |
+| `argmax/cohesion` | 32.35 | 42.03 | 34.82 | 38.09 |
+| `argmax/contrast` | 27.39 | 36.85 | 30.52 | 33.39 |
+| `argmax/full` — all three statistics | 24.63 | 28.49 | 23.69 | 25.87 |
+
+Nothing beats the baseline on either half, and the dev-selected arm loses on the half it was selected
+on. Reverted. Nothing in the extraction path changed.
+
+### The measurement that actually matters, and it is not the F1 table
+
+Three ceilings over the test half, which have been conflated until now:
+
+    gold pairs                                          615
+    gold present among the enumerated start boundaries  525    <- what D-011 measured
+    gold that also survives the admissibility gate      488
+    gold that IS already the shortest admissible span   477    <- what greedy returns for free
+
+**The headroom for any rule that only moves the left edge is 488 against 477.** D-011's
+121-pair figure is real, but the overwhelming majority of it is *not* reachable by choosing a
+different start: 525 against 488 is gold that no alignment anchored on that span's own head word can
+explain, so no rule respecting the matching constraint may return it at all. Every future selection
+experiment should be reported against 488, not against 525, and certainly not against 615.
+
+### Why it fails, and the cause is not the idea
+
+The extension rule moves the left edge outward while every adjacency it introduces clears a
+threshold. On the test half it made **zero** moves that reached gold at any threshold, while
+destroying answers that were already right. The junction counts say why:
+
+```
+IIEF   want "International Index of Erectile Function"   international|index   seen 0 times   0.0000
+PPIs   want "proton pump inhibitors"                     proton|pump           seen 1 time    0.0000
+MPO    want "medial preoptic nucleus", not more          the|medial            seen 3 times   0.0688
+                                                         into|the             seen 32 times   0.1950
+```
+
+**The thresholds are in the wrong order.** Admitting the truncation fixes needs a threshold at or
+below 0.0000; holding off the over-extension needs one above 0.0688. There is no value that does
+both, so the two error shapes cannot be fixed by one setting of this signal — which is the failure
+mode D-008 and D-010 each hit by a different route.
+
+And the reason is corpus size, not signal design. On the dev half only 22 brackets need a left
+extension to reach gold at all, and for 19 of them the weakest adjacency the extension would
+introduce has **no observation whatsoever**. 626 abstracts contain the function-word collocations
+that drive over-extension (`into|the`, 32 observations) dozens of times over, and contain the
+technical collocations that would drive correct extension either once or never. The statistic is
+measuring the wrong half of the language because that is the only half a corpus this size holds.
+
+That is the sharpest available argument for why Ab3P ships 31 MB rather than deriving from its
+evaluation set — and it narrows the open question rather than closing it. What is refuted is
+*self-derivation from the dev half of the evaluation corpus*. Deriving the same statistics from a
+large unlabelled corpus is untested, and is the obvious experiment eight, with a concrete
+precondition: it is worth running only if the corpus is large enough that pairs like `proton|pump`
+clear the evidence floor.
+
+### A methodological trap worth recording
+
+The first implementation gated candidates with `extractor.find_best_long_form(sf, span) == span`,
+reading it as "the reference matcher validates this span from its own head". It does not. That
+function is the *greedy* matcher — it returns the first alignment it reaches walking right-to-left —
+so the test actually asks "is the greedy answer this span", and used as a gate it discards every
+candidate longer than the greedy one. That is exactly the set a truncation fix must choose from:
+`proton pump inhibitors` and `International Index of Erectile Function` were absent from the
+candidate set entirely, and no signal could have recovered them.
+
+It did not look broken. It beat the baseline on the test half — on five recovered pairs that were
+all chemical nomenclature — while losing to it on the dev half, and that arm would have been
+reported had the two named error shapes not been checked case by case and found still wrong. Its
+figures are deliberately not quoted here and were never written to `bench/results.json`: they
+measure a gate that discards most of the candidate space, so they are not a result about anything.
+The gate is now the strategy matcher anchored at the span's head
+(`anchInit_placeWithin_skipAny`), and the lesson is the standing one: an arm that wins on the
+reported half and loses on the half it was selected on is a bug until proven otherwise.
+
+---
+
+## D-015 — Disambiguation now has evidence, and the evidence is bad
+
+**Status:** measured, shipped unchanged · **Evidence:** `disambiguation.sdu21.*` in
+`bench/results.json`, `bench/run_disambiguation.py`
+
+A third of the public surface — `LexicalDisambiguator`, `ExpansionDictionary` — had no external
+evaluation and had been deferred three times. It has one now. SDU@AAAI-21 shared task 2 ships
+`diction.json`, a candidate set per acronym, so the task is pure *selection*: no pairing assumption,
+no derived gold, nothing invented. That is the objection `bench/splits.toml` raised against the span
+corpora, and it is why this corpus was the one to use.
+
+### The result
+
+Development set, 6,189 instances, 611 distinct acronyms, mean 4.57 candidates. Exact string equality
+against the gold expansion, which is the shared task's own convention.
+
+| System | accuracy % | macro P % | macro R % | macro F1 % |
+|---|---:|---:|---:|---:|
+| ceiling (gold is always among the candidates) | **100.00** | | | |
+| most-frequent expansion (shared task baseline) | **72.84** | 89.03 | 44.94 | 59.73 |
+| **`acronymkit` `LexicalDisambiguator`** | **41.65** | 68.07 | 44.85 | 54.07 |
+| random choice, seed 20260809 | 31.72 | 55.73 | 32.40 | 40.98 |
+
+**We lose to the majority-class prior, badly: 41.65 % against 72.84 %.** That was the question worth
+asking and it has the unflattering answer. It is recorded rather than tuned away, and nothing in
+`src/` changed as a result of running it.
+
+Two qualifications, both of which cut the other way from each other:
+
+- The context scoring is **not** doing nothing. Random choice scores 31.72 % (analytic expectation
+  31.62 %), so bag-of-words overlap is genuinely above chance.
+- But it is doing least where the decision is easiest. On two-way acronyms it scores 55.28 % against
+  a coin-flip's 50.32 %; on ten-or-more-way acronyms it scores 27.11 % against a random 7.72 %. The
+  lexical signal separates a wide field slightly, and a narrow one barely at all.
+
+### What the breakdown by candidate count is for
+
+One accuracy hides two different problems. Ours falls 55.28 % → 44.43 % → 35.13 % → 35.14 % →
+25.63 % → 27.11 % across arities 2, 3, 4, 5, 6–9, 10+; the most-frequent baseline falls
+82.09 % → 79.74 % → 78.57 % → 66.27 % → 61.70 % → 39.14 %. The baseline's advantage is largest
+exactly where the candidate set is small, which is where a prior is most informative and a
+one-sentence context least so.
+
+### Diagnosis, and it is a design fact rather than a bug
+
+The disambiguator has **no prior at all**. Its blend is `0.55·overlap + 0.30·initials +
+0.15·register`, and every term is a property of the *pair* (acronym, expansion) or of the context.
+Nothing in it knows that "support vector machine" is a hundred times more common than "state vector
+machine". A frequency table is exactly the per-candidate evidence D-012 concluded was missing for
+extraction selection, and this is the same conclusion reached independently on the other half of the
+library: **per-candidate discrimination needs per-candidate evidence, and frequency is the cheapest
+source of it.** Two subsystems, two corpora, one finding.
+
+A second, smaller defect is real and measured: an inline definition takes the top slot for 158 of
+the 6,189 instances, and in 29 of them it overrides a dictionary candidate that was correct. Inline
+expansions are copied verbatim out of the sentence, so under exact-match scoring against a
+lower-cased dictionary key they nearly always miss. Preferring them is the right default for a
+caller reading a document and the wrong one for this benchmark; the cost is quantified above and the
+default is unchanged, because a benchmark is not a caller.
+
+### The harness is validated, which is why the numbers above are worth reading
+
+The shared task publishes official scores for its own most-frequent baseline. Reimplementing that
+baseline and scoring it with our reimplementation of `scorer.py` reproduces them to the digit:
+89.03 / 44.94 / 59.73. That is the same kind of check `pyab3p` provides for the extraction harness —
+if the reader or the scorer were wrong, this would not land.
+
+Two conventions of the official scorer are reproduced deliberately rather than corrected. The
+headline metric is *macro*-averaged over gold expansion classes, and a gold class that was never
+predicted is credited with a precision of 1.0. That is why a baseline can post 89.03 % precision at
+44.94 % recall. Silently fixing someone else's metric would make our numbers incomparable with every
+published one.
+
+The one arbitrary choice in the harness is how to turn the corpus's token list back into a string.
+Space-joining scores 41.65 %; attaching punctuation instead scores 41.57 %. The choice does not
+carry the result, which is why it is stated rather than assumed.
+
+### The licence claim in `bench/splits.toml` is wrong, and this is how
+
+`splits.toml` records `corpora.sdu21_ad` as MIT. The repository root does ship an MIT `LICENSE`
+file — and the README narrows it explicitly: the MIT grant covers "the evaluation script and the
+baseline", while "the dataset provided for this shared task is licensed under CC BY-NC-SA 4.0". The
+specific statement governs. `tools/fetch_data.py` records the data files as CC BY-NC-SA-4.0 and the
+scorer as MIT, with the discrepancy written into `vendor_note` so nobody re-derives it from the
+badge. Practically nothing changes — an evaluation corpus is fetch-only regardless, per the med1250
+precedent — but "SDU-21 is the MIT alternative to the non-commercial SDU-22 data" is not a true
+sentence and should not be repeated. The README is pinned as an asset so the finding is checkable.
+
+### Correction to the headroom figure (added after D-016)
+
+The 121-pair headroom counts gold spans present among the enumerated starts. Experiment seven
+measured the chain more carefully on the test half:
+
+    gold                                        615
+    among the enumerated starts                 525
+    surviving the admissibility gate            488
+    already the shortest admissible span        477
+
+So most of the apparent headroom is **not** addressable by a selection rule: the step from 525 to
+488 is gold that no alignment anchored on the span's own head can explain, and 477 of the remaining
+488 are already what the greedy rule returns. Future selection experiments should be reported
+against **488**, not 525, and the realistic prize is far smaller than 121 pairs. The conclusion of
+D-011 stands — the problem is selection rather than coverage — but its magnitude was overstated.
+
+### Consequences
+
+- **The Tier 2 seam from D-001 is now measurable.** The line item said "revisit when an eval harness
+  exists to measure it against". It exists. Any neural disambiguator must clear 72.84 %, not
+  41.65 %, because the trivial baseline is the real incumbent.
+- **A frequency prior is the obvious next experiment**, and it is cheap: the shipped blend has no
+  slot for one, so adding it is an API question before it is an accuracy question.
+- **This is a tuning corpus from now on.** The breakdown above has been read. Anything selected
+  against it must be reported on `test.json`, which is fetchable from the same pin and deliberately
+  not fetched here.
+
+---
+
 ## D-013 — Lazy import: kept, with the flattering comparison refused
 
 **Status:** kept · **Evidence:** `micro.import` in `bench/results.json`

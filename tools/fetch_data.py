@@ -59,6 +59,46 @@ CMUDICT_COMMIT = "74790861f652b15e4ac49015a90074ad62a27690"
 #: F-scores are quoted against, so the pin is what makes our number comparable.
 AB3P_COMMIT = "41130cddfcba1449ba612905d4a51274f8f565a8"
 
+#: Pinned SDU@AAAI-21 shared task 2 commit (acronym disambiguation). Pinned to
+#: the SHA rather than ``master`` for the usual reason and one extra: the task's
+#: own ``scorer.py`` defines the evaluation convention our numbers are quoted
+#: under, so a moving pin could change what our accuracy *means* without
+#: changing our code.
+SDU21_AD_COMMIT = "b9197428521f8fcf8c8d452eee2c6379050ceaea"
+
+#: Repeated in five asset entries; kept here so the pin appears once.
+_SDU21_AD_RAW = (
+    f"https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/{SDU21_AD_COMMIT}"
+)
+
+#: The dataset's licence is *not* the repository's licence, and the difference
+#: is the whole point of reading the actual text. The repository root carries an
+#: MIT ``LICENSE`` file, but ``README.md`` narrows it explicitly: "The dataset
+#: provided for this shared task is licensed under CC BY-NC-SA 4.0 international
+#: license, and the evaluation script and the baseline are licensed under MIT
+#: license." The narrower, more specific statement governs the data files.
+_SDU21_AD_DATA_LICENCE = "CC BY-NC-SA-4.0 (dataset files only; see README.md)"
+
+_SDU21_AD_DATA_NOTE = (
+    "NOT vendorable, and the reason is a licence trap worth spelling out. The "
+    "repository root ships an MIT LICENSE, which is what a badge or a casual "
+    "look reports. README.md contradicts the inference: the MIT grant covers "
+    "'the evaluation script and the baseline', while 'the dataset provided for "
+    "this shared task is licensed under CC BY-NC-SA 4.0'. Share-alike plus "
+    "non-commercial is incompatible with an MIT wheel, so the data files could "
+    "not be vendored even if we wanted to. They would be fetch-only regardless: "
+    "the med1250 precedent is that an evaluation corpus stays out of the wheel "
+    "however permissive its licence, because nothing in the library reads it "
+    "and every wheel would pay for the few people running benchmarks."
+)
+
+_SDU21_AD_ATTRIBUTION = (
+    "Veyseh APB, Dernoncourt F, Tran QH, Nguyen TH. What Does This Acronym "
+    "Mean? Introducing a New Dataset for Acronym Identification and "
+    "Disambiguation. Proceedings of COLING 2020. "
+    "Dataset licensed CC BY-NC-SA 4.0."
+)
+
 #: Pinned LibreOffice dictionaries commit for the Hunspell assets.
 LIBREOFFICE_DICTS_REF = "master"
 
@@ -188,6 +228,102 @@ ASSETS: tuple[Asset, ...] = (
         vendor_note="Retained alongside MED1250 because it defines the annotation format.",
         purpose="Specification of the MED1250 annotation format and its comment conventions.",
         attribution="National Library of Medicine.",
+    ),
+    Asset(
+        key="sdu21-ad-diction",
+        filename="sdu21_ad_diction.json",
+        url=f"{_SDU21_AD_RAW}/dataset/diction.json",
+        sha256="58e3450b5d77b4d791045c74cb0f487fdfbdd5c58d8d4c270d0fda4e2d2b12f5",
+        licence=_SDU21_AD_DATA_LICENCE,
+        licence_url=f"{_SDU21_AD_RAW}/README.md",
+        vendorable=False,
+        vendor_note=_SDU21_AD_DATA_NOTE,
+        purpose=(
+            "The shared task's own expansion dictionary: 732 ambiguous acronyms "
+            "mapped to their candidate long forms. Loaded straight into an "
+            "acronymkit ExpansionDictionary, which is what makes the Tier 1 "
+            "disambiguator evaluable at all -- it is the first ready-made "
+            "dictionary this project has had that it did not build itself."
+        ),
+        attribution=_SDU21_AD_ATTRIBUTION,
+    ),
+    Asset(
+        key="sdu21-ad-dev",
+        filename="sdu21_ad_dev.json",
+        url=f"{_SDU21_AD_RAW}/dataset/dev.json",
+        sha256="3980517288fd7f79d489edbc2cefd66a63bd97f91390fb419d6fad3752f414c7",
+        licence=_SDU21_AD_DATA_LICENCE,
+        licence_url=f"{_SDU21_AD_RAW}/README.md",
+        vendorable=False,
+        vendor_note=_SDU21_AD_DATA_NOTE,
+        purpose=(
+            "Development set for acronym disambiguation: 6,189 sentences, each "
+            "with one ambiguous acronym token index and its gold expansion. The "
+            "evaluation set for bench/run_disambiguation.py."
+        ),
+        attribution=_SDU21_AD_ATTRIBUTION,
+    ),
+    Asset(
+        key="sdu21-ad-train",
+        filename="sdu21_ad_train.json",
+        url=f"{_SDU21_AD_RAW}/dataset/train.json",
+        sha256="bcc5c855c9c408ff76998db1d5c785c2ecbb694b7311ccb8bc6f2cfe7051266a",
+        licence=_SDU21_AD_DATA_LICENCE,
+        licence_url=f"{_SDU21_AD_RAW}/README.md",
+        vendorable=False,
+        vendor_note=_SDU21_AD_DATA_NOTE,
+        purpose=(
+            "Training set (50,034 instances). acronymkit reads no training data, "
+            "so this is used solely to build the most-frequent-expansion "
+            "baseline the shared task defines -- the prior our context scoring "
+            "has to beat to be worth anything."
+        ),
+        attribution=_SDU21_AD_ATTRIBUTION,
+    ),
+    Asset(
+        key="sdu21-ad-scorer",
+        filename="sdu21_ad_scorer.py",
+        url=f"{_SDU21_AD_RAW}/scorer.py",
+        sha256="2b68c764780dcd43821feb4d03ba6a9747a9017875ce22d569be173a8e3cdd38",
+        licence="MIT",
+        licence_url=f"{_SDU21_AD_RAW}/LICENSE",
+        vendorable=False,
+        vendor_note=(
+            "Genuinely MIT -- the README's carve-out puts the evaluation script "
+            "and baseline under the repository licence, and only the data under "
+            "CC BY-NC-SA. Still not vendored: it is a benchmark script, and "
+            "bench/run_disambiguation.py reimplements its metric rather than "
+            "importing it so the numbers can be produced without a download. "
+            "Pinned so that reimplementation stays auditable against the "
+            "original, which is the only reason this file is in the registry."
+        ),
+        purpose=(
+            "The shared task's official scorer. Defines the convention our "
+            "disambiguation numbers are quoted under: exact string equality "
+            "against the gold expansion, headline metric macro-averaged P/R/F1 "
+            "over gold expansion classes, accuracy reported separately."
+        ),
+        attribution="Amir Pouran Ben Veyseh and contributors; MIT licensed.",
+    ),
+    Asset(
+        key="sdu21-ad-readme",
+        filename="sdu21_ad_README.md",
+        url=f"{_SDU21_AD_RAW}/README.md",
+        sha256="12277bc8eb443b9e495e5a7ce08e7bd9e40dbcfada9cfd94260f278a63c31246",
+        licence="MIT (the document), describing a CC BY-NC-SA-4.0 dataset",
+        licence_url=f"{_SDU21_AD_RAW}/README.md",
+        vendorable=False,
+        vendor_note=(
+            "Retained for the same reason as ab3p-readme: it is the normative "
+            "description of the data format. It is also the *only* place the "
+            "dataset's real licence is stated, so pinning it is what makes the "
+            "CC BY-NC-SA finding reproducible rather than a claim in a note."
+        ),
+        purpose=(
+            "Specification of the SDU@AAAI-21 AD record format, the official "
+            "metric, and the licence split between data and scripts."
+        ),
+        attribution="Amir Pouran Ben Veyseh and contributors.",
     ),
     Asset(
         key="hunspell-fr",

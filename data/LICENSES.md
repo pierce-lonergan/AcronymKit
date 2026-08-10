@@ -73,6 +73,61 @@ Public domain, so redistribution would be lawful -- the NLM notice states the wo
 
 Retained alongside MED1250 because it defines the annotation format.
 
+### `sdu21-ad-diction` — sdu21_ad_diction.json
+
+- **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/dataset/diction.json>
+- **SHA-256:** `58e3450b5d77b4d791045c74cb0f487fdfbdd5c58d8d4c270d0fda4e2d2b12f5`
+- **Used for:** The shared task's own expansion dictionary: 732 ambiguous acronyms mapped to their candidate long forms. Loaded straight into an acronymkit ExpansionDictionary, which is what makes the Tier 1 disambiguator evaluable at all -- it is the first ready-made dictionary this project has had that it did not build itself.
+- **Attribution:** Veyseh APB, Dernoncourt F, Tran QH, Nguyen TH. What Does This Acronym Mean? Introducing a New Dataset for Acronym Identification and Disambiguation. Proceedings of COLING 2020. Dataset licensed CC BY-NC-SA 4.0.
+
+NOT vendorable, and the reason is a licence trap worth spelling out. The repository root ships an MIT LICENSE, which is what a badge or a casual look reports. README.md contradicts the inference: the MIT grant covers 'the evaluation script and the baseline', while 'the dataset provided for this shared task is licensed under CC BY-NC-SA 4.0'. Share-alike plus non-commercial is incompatible with an MIT wheel, so the data files could not be vendored even if we wanted to. They would be fetch-only regardless: the med1250 precedent is that an evaluation corpus stays out of the wheel however permissive its licence, because nothing in the library reads it and every wheel would pay for the few people running benchmarks.
+
+### `sdu21-ad-dev` — sdu21_ad_dev.json
+
+- **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/dataset/dev.json>
+- **SHA-256:** `3980517288fd7f79d489edbc2cefd66a63bd97f91390fb419d6fad3752f414c7`
+- **Used for:** Development set for acronym disambiguation: 6,189 sentences, each with one ambiguous acronym token index and its gold expansion. The evaluation set for bench/run_disambiguation.py.
+- **Attribution:** Veyseh APB, Dernoncourt F, Tran QH, Nguyen TH. What Does This Acronym Mean? Introducing a New Dataset for Acronym Identification and Disambiguation. Proceedings of COLING 2020. Dataset licensed CC BY-NC-SA 4.0.
+
+NOT vendorable, and the reason is a licence trap worth spelling out. The repository root ships an MIT LICENSE, which is what a badge or a casual look reports. README.md contradicts the inference: the MIT grant covers 'the evaluation script and the baseline', while 'the dataset provided for this shared task is licensed under CC BY-NC-SA 4.0'. Share-alike plus non-commercial is incompatible with an MIT wheel, so the data files could not be vendored even if we wanted to. They would be fetch-only regardless: the med1250 precedent is that an evaluation corpus stays out of the wheel however permissive its licence, because nothing in the library reads it and every wheel would pay for the few people running benchmarks.
+
+### `sdu21-ad-train` — sdu21_ad_train.json
+
+- **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/dataset/train.json>
+- **SHA-256:** `bcc5c855c9c408ff76998db1d5c785c2ecbb694b7311ccb8bc6f2cfe7051266a`
+- **Used for:** Training set (50,034 instances). acronymkit reads no training data, so this is used solely to build the most-frequent-expansion baseline the shared task defines -- the prior our context scoring has to beat to be worth anything.
+- **Attribution:** Veyseh APB, Dernoncourt F, Tran QH, Nguyen TH. What Does This Acronym Mean? Introducing a New Dataset for Acronym Identification and Disambiguation. Proceedings of COLING 2020. Dataset licensed CC BY-NC-SA 4.0.
+
+NOT vendorable, and the reason is a licence trap worth spelling out. The repository root ships an MIT LICENSE, which is what a badge or a casual look reports. README.md contradicts the inference: the MIT grant covers 'the evaluation script and the baseline', while 'the dataset provided for this shared task is licensed under CC BY-NC-SA 4.0'. Share-alike plus non-commercial is incompatible with an MIT wheel, so the data files could not be vendored even if we wanted to. They would be fetch-only regardless: the med1250 precedent is that an evaluation corpus stays out of the wheel however permissive its licence, because nothing in the library reads it and every wheel would pay for the few people running benchmarks.
+
+### `sdu21-ad-scorer` — sdu21_ad_scorer.py
+
+- **Licence:** MIT
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/LICENSE>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/scorer.py>
+- **SHA-256:** `2b68c764780dcd43821feb4d03ba6a9747a9017875ce22d569be173a8e3cdd38`
+- **Used for:** The shared task's official scorer. Defines the convention our disambiguation numbers are quoted under: exact string equality against the gold expansion, headline metric macro-averaged P/R/F1 over gold expansion classes, accuracy reported separately.
+- **Attribution:** Amir Pouran Ben Veyseh and contributors; MIT licensed.
+
+Genuinely MIT -- the README's carve-out puts the evaluation script and baseline under the repository licence, and only the data under CC BY-NC-SA. Still not vendored: it is a benchmark script, and bench/run_disambiguation.py reimplements its metric rather than importing it so the numbers can be produced without a download. Pinned so that reimplementation stays auditable against the original, which is the only reason this file is in the registry.
+
+### `sdu21-ad-readme` — sdu21_ad_README.md
+
+- **Licence:** MIT (the document), describing a CC BY-NC-SA-4.0 dataset
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
+- **SHA-256:** `12277bc8eb443b9e495e5a7ce08e7bd9e40dbcfada9cfd94260f278a63c31246`
+- **Used for:** Specification of the SDU@AAAI-21 AD record format, the official metric, and the licence split between data and scripts.
+- **Attribution:** Amir Pouran Ben Veyseh and contributors.
+
+Retained for the same reason as ab3p-readme: it is the normative description of the data format. It is also the *only* place the dataset's real licence is stated, so pinning it is what makes the CC BY-NC-SA finding reproducible rather than a claim in a note.
+
 ### `hunspell-fr` — fr.dic
 
 - **Licence:** MPL-2.0 (Dicollecte / Grammalecte)
