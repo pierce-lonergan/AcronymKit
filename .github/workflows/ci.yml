@@ -292,6 +292,7 @@ jobs:
           mkdir -p /tmp/sdist && tar -xzf dist/*.tar.gz -C /tmp/sdist --strip-components=1
           test -f /tmp/sdist/tests/conftest.py || { echo "conftest.py missing from sdist"; exit 1; }
           test -f /tmp/sdist/schemas/acronym-engine-result.schema.json || { echo "schemas/ missing from sdist"; exit 1; }
+          test -f /tmp/sdist/bench/results.json || { echo "bench/results.json missing from sdist: the shipped docs make claims the shipped checker then cannot back"; exit 1; }
           cd /tmp/sdist && python -m pip install --quiet ".[dev]" && python -m pytest -q -x
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -22,6 +22,16 @@ include tests/conftest.py
 recursive-include schemas *.json
 recursive-include tools *.py
 recursive-include docs *.md
+
+# The evidence for the numbers in the shipped docs. `docs/` and `src/` carry
+# accuracy claims and `tools/check_claims.py` is the gate that backs every one
+# of them, so an sdist that ships the assertions without `bench/results.json`
+# and the allowlist ships a checker that cannot pass -- which is how it first
+# broke. Anyone who downloads the sdist can now re-verify every published
+# number offline. The rest of `bench/` stays out: the runners need fetched
+# corpora and optional dependencies that an sdist has no business assuming.
+include bench/results.json
+include tools/claims_allowlist.txt
 recursive-include .github/workflows *.yml
 
 global-exclude __pycache__

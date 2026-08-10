@@ -37,6 +37,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from fnmatch import fnmatch
 from pathlib import Path
 from types import ModuleType
 from typing import Optional
@@ -641,3 +642,42 @@ class TestThisRepository:
         paths = check_claims.scan_paths(check_claims.Project.at(REPO_ROOT))
         assert paths, "the scan globs match nothing, so the gate guards nothing"
         assert all(path.is_file() for path in paths)
+
+    def test_the_sdist_ships_the_evidence_for_the_docs_it_ships(self) -> None:
+        # The sdist ships `docs/` and `src/`, which make accuracy claims, and
+        # `tools/check_claims.py`, which is the gate that backs them. It once
+        # shipped all three without `bench/results.json`, so the gate could not
+        # pass inside the artifact and CI caught it only after a push. Checking
+        # the manifest here makes the invariant fail in the local suite instead.
+        manifest = REPO_ROOT / "MANIFEST.in"
+        if not manifest.is_file():
+            pytest.skip("no MANIFEST.in; not a source checkout")
+
+        includes: list[tuple[str, tuple[str, ...]]] = []
+        for line in manifest.read_text(encoding="utf-8").splitlines():
+            fields = line.split()
+            if fields[:1] == ["include"]:
+                includes.append(("", tuple(fields[1:])))
+            elif fields[:1] == ["recursive-include"] and len(fields) > 2:
+                includes.append((fields[1], tuple(fields[2:])))
+
+        def shipped(path: Path) -> bool:
+            relative = path.relative_to(REPO_ROOT).as_posix()
+            return any(
+                any(
+                    fnmatch(relative, f"{prefix}/{pattern}" if prefix else pattern)
+                    for pattern in patterns
+                )
+                or (
+                    bool(prefix)
+                    and relative.startswith(f"{prefix}/")
+                    and any(fnmatch(path.name, pattern) for pattern in patterns)
+                )
+                for prefix, patterns in includes
+            )
+
+        for needed in (check_claims.RESULTS_PATH, check_claims.ALLOWLIST_PATH):
+            assert shipped(needed), (
+                f"{needed.relative_to(REPO_ROOT).as_posix()} is not in MANIFEST.in, so the "
+                "sdist ships claims the shipped checker cannot back"
+            )
