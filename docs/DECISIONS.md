@@ -9,6 +9,58 @@ Newest first.
 
 ---
 
+## D-011 — The gap is selection, not data. My prediction was wrong.
+
+**Status:** decided · **Evidence:** `bench/run_oracle.py`, `oracle.med1250` in `bench/results.json`
+
+After four failed attempts to close the gap to `pyab3p`, I predicted the remainder lived in Ab3P's
+curated resources — 31 MB of subword-frequency data and a table of long forms for one-character short
+forms — rather than in the algorithm. **That was wrong**, and one measurement settles it.
+
+### Cross-system ceiling
+
+| | correct | recall % | exclusive |
+|---|---:|---:|---:|
+| `pyab3p` | 1002 | 83.57 | 33 |
+| `acronymkit` | 940 | 78.40 | 7 |
+| `abbreviation_extractor` | — | 76.48 | 0 |
+| `abbreviations` | — | 74.81 | 6 |
+| `scispacy` | — | 74.23 | 0 |
+| **oracle union** | 1031 | **85.99** | |
+| universal miss | 168 | 14.01 | |
+
+Two things fall straight out. **14.01 % of gold pairs are found by no system at all** — that is
+the corpus's irreducible floor and every headline should be read against 85.99 %, not 100 %.
+And we find 7 pairs **no other system finds**, so we are not strictly dominated —
+while `abbreviation_extractor` and `scispacy` find 0 and 0 such pairs respectively, and are.
+
+### The measurement that actually decides it
+
+A cross-system union conflates selection with generation: a pair only `pyab3p` finds may be outside
+our reach entirely. So the decisive quantity is our *own* candidate space — every long-form span our
+Schwartz & Hearst matcher could legitimately return, which is exactly the set its greedy walk picks
+one element from.
+
+    gold reachable in our own candidate space : 1061 of 1199  (88.49 %)
+    we currently return                       : 940  (78.40 %)
+    headroom for a better selector            : 121 pairs (10.09 points)
+
+**Our candidate space already contains 88.49 % of gold — more than `pyab3p` actually returns
+(83.57 %).** The right answer is being generated and then discarded. Every point of the gap to
+the leader is available without one byte of new data.
+
+### Consequences
+
+- **Move 2 (pseudo-precision as a re-ranker over the fixed candidate space) is the correct shot**, and
+  it now has a measured ceiling to aim at rather than a hope.
+- **Move 3 (vendoring or deriving Ab3P's resources) is deprioritised.** It was predicated on a
+  coverage story the data does not support. `Lf1chSf` may still help the single-character bucket
+  specifically, but it is no longer the main event.
+- Any future selection experiment should report against 88.49 %, not 100 %, because that is what a
+  perfect selector over this candidate space would actually achieve.
+
+---
+
 ## D-010 — Pseudo-precision estimator: shipped. Cascade built on it: not shipped.
 
 **Status:** estimator kept, cascade rejected · **Evidence:** `bench/run_cascade.py`, `bench/results.json`
