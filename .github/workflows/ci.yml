@@ -148,6 +148,93 @@ jobs:
           print("Tier 0 purity OK")
           PY
 
+  import-time:
+    name: Cold import stays under its ceiling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Install base package only (no extras)
+        # Not editable: an editable install adds a path finder of its own, and
+        # what is being measured is what a user actually installs.
+        run: python -m pip install .
+      - name: Measure cold import in a subprocess and enforce the ceiling
+        run: |
+          python - <<'PY'
+          import json
+          import statistics
+          import subprocess
+          import sys
+
+          # Why 30 ms.
+          #
+          # `import acronymkit` measures 2.3 ms on the development box
+          # (bench/results.json, micro.import.cold_import_ms), nearly all of it
+          # `typing`; the package __init__ is a lookup table and two functions.
+          # The regression this gate exists to catch is the Pydantic DTO layer
+          # being re-exported eagerly again, which measures 128.1 ms on that
+          # same box (micro.import.cold_import_engine_ms) and would be worse on
+          # a shared runner.
+          #
+          # So the ceiling only has to separate ~2 ms from ~130 ms, and 30 ms
+          # sits in the middle of that two-order-of-magnitude gap: 13x headroom
+          # over what we achieve -- enough to absorb a slow runner, a cold page
+          # cache and first-import bytecode compilation -- and still 4x below
+          # the regression. It is deliberately *not* a certification of the
+          # measured figure; that is bench/run_micro.py's job, and its numbers
+          # live in bench/results.json where claims can cite them.
+          #
+          # If this ever fires, read the median printed below before touching
+          # the ceiling: a real regression lands near 130 ms, not near 31.
+          CEILING_MS = 30.0
+          REPEATS = 9
+
+          timed = (
+              "import time;"
+              "t = time.perf_counter();"
+              "import acronymkit;"
+              "print(time.perf_counter() - t)"
+          )
+          samples = []
+          for _ in range(REPEATS):
+              out = subprocess.run(
+                  [sys.executable, "-c", timed], capture_output=True, text=True, check=True
+              )
+              samples.append(float(out.stdout.strip()) * 1000)
+          samples.sort()
+          median = statistics.median(samples)
+          print("samples (ms): " + ", ".join(f"{s:.2f}" for s in samples))
+          print(f"median {median:.2f} ms, ceiling {CEILING_MS:.0f} ms")
+
+          # The structural half of the gate, which cannot be flaky: a bare
+          # import must not have built a single Pydantic schema.
+          probe = (
+              "import sys, json;"
+              "import acronymkit;"
+              "print(json.dumps(sorted(m for m in sys.modules"
+              " if m == 'pydantic' or m.startswith('acronymkit.'))))"
+          )
+          out = subprocess.run(
+              [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+          )
+          eager = json.loads(out.stdout.strip())
+          print(f"bound by a bare import: {eager}")
+
+          if eager:
+              sys.exit(
+                  f"`import acronymkit` eagerly bound {eager}. The package __init__ must "
+                  "resolve its re-exports lazily; see its Import policy docstring."
+              )
+          if median > CEILING_MS:
+              sys.exit(
+                  f"cold import regressed to {median:.2f} ms, over the {CEILING_MS:.0f} ms "
+                  "ceiling. Something was added to acronymkit/__init__.py at module scope."
+              )
+          print("cold import OK")
+          PY
+
   build:
     name: Build distribution
     runs-on: ubuntu-latest

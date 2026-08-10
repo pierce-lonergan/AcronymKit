@@ -1,11 +1,16 @@
 """Packaging and import-purity contract for the ``acronymkit`` distribution.
 
-Three promises are pinned here, all of which are invisible to the functional
+Four promises are pinned here, all of which are invisible to the functional
 tests and all of which are easy to break by accident:
 
 * **The public surface is stable.** ``acronymkit.__all__`` is asserted as an
   exact sorted list, so removing or renaming an export is a failing test rather
   than a silent downstream ``ImportError``.
+* **The lazy and the eager surfaces are the same surface.** The package
+  ``__init__`` resolves its re-exports through :pep:`562`, with the real
+  imports living in an ``if TYPE_CHECKING:`` block for static analysis. Two
+  parallel lists is two lists that can drift, and drift between them is
+  invisible to both mypy and the runtime — so the drift itself is asserted.
 * **Tier 0 is pure.** Importing the package and running the four headline
   operations must not pull in ``click``, spaCy, NLTK, ONNX Runtime,
   ``transformers`` or NumPy. Asserted in a *subprocess* so that no other test in
@@ -14,13 +19,21 @@ tests and all of which are easy to break by accident:
 * **Every module stands alone.** Each public module is imported by itself in a
   fresh interpreter, which is what catches an import cycle that the package
   ``__init__`` would otherwise paper over.
+
+Nothing here asserts a wall-clock threshold. Laziness is checked structurally —
+which modules a bare import binds — because that is the property, and because a
+hard-coded millisecond ceiling in the correctness suite is a claim about
+somebody else's CPU (see ``docs/DECISIONS.md``, D-003). The timing lives in
+``bench/run_micro.py`` and the CI ``import-time`` job.
 """
 
 from __future__ import annotations
 
+import ast
 import importlib
 import json
 import os
+import pickle
 import subprocess
 import sys
 from pathlib import Path
@@ -173,6 +186,157 @@ def test_version_is_reported_on_engine_metadata() -> None:
     """The package version is the single source of truth for result metadata."""
     result = acronymkit.AcronymEngine().generate("Portable Document Format")
     assert result.metadata.library_version == acronymkit.__version__
+
+
+# ---------------------------------------------------------------------------
+# lazy re-export
+# ---------------------------------------------------------------------------
+def static_export_surface() -> tuple[dict[str, str], set[str]]:
+    """Read the package ``__init__``'s ``if TYPE_CHECKING:`` block with ``ast``.
+
+    That block is what mypy, IDEs and :pep:`561` consumers resolve; the runtime
+    lookup table beside it is what an actual attribute access resolves. Reading
+    the source rather than importing it is the point — importing tells you about
+    the runtime path only, and it is the *static* path that would otherwise rot
+    unobserved.
+
+    Returns:
+        ``({name: source submodule}, {statically annotated name, ...})``. The
+        second set exists for ``__version__``, which is declared rather than
+        imported because it is computed from the distribution metadata.
+    """
+    tree = ast.parse((SRC / "acronymkit" / "__init__.py").read_text(encoding="utf-8"))
+    imported: dict[str, str] = {}
+    annotated: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If):
+            continue
+        if not (isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING"):
+            continue
+        for child in ast.walk(node):
+            if isinstance(child, ast.ImportFrom) and child.module:
+                for alias in child.names:
+                    imported[alias.asname or alias.name] = child.module
+            elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+                annotated.add(child.target.id)
+    return imported, annotated
+
+
+def test_the_lazy_path_and_the_eager_path_expose_identical_names() -> None:
+    """The runtime lookup table and the type-checker imports are one surface.
+
+    Three lists describe the same set of exports — ``__all__``, the
+    ``TYPE_CHECKING`` imports and the runtime ``_EXPORT_SOURCES`` table — and
+    nothing but this test notices when one of them drifts. Adding an export to
+    the runtime table alone type-checks and runs; adding it to the
+    ``TYPE_CHECKING`` block alone type-checks and raises ``AttributeError``.
+    """
+    imported, annotated = static_export_surface()
+    assert sorted(set(imported) | annotated) == EXPECTED_ALL
+    assert annotated == {"__version__"}, "only __version__ is computed rather than imported"
+    assert imported == acronymkit._EXPORT_SOURCES, (
+        "the TYPE_CHECKING imports and the runtime lazy table disagree; "
+        "a name resolves for mypy but not at runtime, or the reverse"
+    )
+
+
+def test_every_lazy_export_is_the_object_its_own_module_defines() -> None:
+    """Attribute access returns the very object an eager import would have bound."""
+    imported, _ = static_export_surface()
+    for name, module in imported.items():
+        source = importlib.import_module(f"acronymkit.{module}")
+        assert getattr(acronymkit, name) is getattr(source, name), (
+            f"acronymkit.{name} is not acronymkit.{module}.{name}"
+        )
+
+
+def test_a_bare_import_binds_no_submodule_and_no_pydantic(tmp_path: Path) -> None:
+    """``import acronymkit`` costs nothing because it does nothing.
+
+    This is the structural form of the import-time budget: the package
+    ``__init__`` must not have imported a single submodule, and therefore must
+    not have built a single Pydantic core schema, which is where essentially all
+    of this package's import cost used to go.
+    """
+    script = _PREAMBLE.format(src=str(SRC)) + (
+        "import json\n"
+        "import acronymkit\n"
+        "print(json.dumps(sorted(m for m in sys.modules\n"
+        "                        if m == 'pydantic' or m.startswith('acronymkit.'))))\n"
+    )
+    completed = run_in_subprocess(script, tmp_path, "lazy_import.py")
+    assert completed.returncode == 0, completed.stderr
+    bound = json.loads(completed.stdout.strip().splitlines()[-1])
+    assert bound == [], f"a bare import of acronymkit eagerly bound {bound}"
+
+
+def test_resolving_one_export_imports_only_the_module_that_defines_it(tmp_path: Path) -> None:
+    """Naming an enum must not drag in the Pydantic DTO layer behind it."""
+    script = _PREAMBLE.format(src=str(SRC)) + (
+        "import json\n"
+        "import acronymkit\n"
+        "assert acronymkit.Language.EN.value == 'en'\n"
+        "print(json.dumps(sorted(m for m in sys.modules\n"
+        "                        if m == 'pydantic' or m.startswith('acronymkit.'))))\n"
+    )
+    completed = run_in_subprocess(script, tmp_path, "lazy_one_export.py")
+    assert completed.returncode == 0, completed.stderr
+    bound = json.loads(completed.stdout.strip().splitlines()[-1])
+    assert bound == ["acronymkit.enums"], f"resolving Language bound {bound}"
+
+
+def test_a_resolved_name_is_cached_in_the_module_globals() -> None:
+    """The second access is a plain dict hit, not another ``__getattr__`` call."""
+    module = importlib.import_module("acronymkit")
+    name = "ScoringWeights"
+    vars(module).pop(name, None)
+    assert name not in vars(module)
+    first = getattr(module, name)
+    assert name in vars(module), "__getattr__ did not memoise the resolved export"
+    assert vars(module)[name] is first
+
+
+def test_submodules_stay_reachable_as_package_attributes() -> None:
+    """``import acronymkit; acronymkit.tokenizer`` worked before and still does.
+
+    Every submodule listed here used to be bound as a side effect of the eager
+    re-exports. Losing that silently would break callers for no reason.
+    """
+    for name in sorted(acronymkit._SUBMODULES):
+        assert getattr(acronymkit, name) is importlib.import_module(f"acronymkit.{name}")
+
+
+def test_an_unknown_attribute_fails_like_any_other_module() -> None:
+    """A lazy miss is indistinguishable from an ordinary one, message included."""
+    missing = "definitely_not_exported"
+    with pytest.raises(AttributeError, match=r"module 'acronymkit' has no attribute"):
+        getattr(acronymkit, missing)
+
+
+def test_dir_lists_the_whole_surface() -> None:
+    """``dir()`` must not depend on which names happen to have been resolved yet."""
+    listed = dir(acronymkit)
+    assert listed == sorted(set(listed)), "dir() is neither sorted nor de-duplicated"
+    for name in EXPECTED_ALL:
+        assert name in listed
+    for name in acronymkit._SUBMODULES:
+        assert name in listed
+
+
+def test_results_and_config_survive_a_pickle_round_trip() -> None:
+    """Pickle resolves classes through their defining module, not the package.
+
+    Worth pinning explicitly: lazy re-export changes what ``acronymkit``
+    *itself* holds, and a naive implementation that rebound classes onto the
+    package would break ``pickle``, which looks them up by ``__module__``.
+    """
+    config = acronymkit.Config(max_candidates=3)
+    assert pickle.loads(pickle.dumps(config)) == config
+
+    result = acronymkit.AcronymEngine(config).generate("Portable Document Format")
+    restored = pickle.loads(pickle.dumps(result))
+    assert restored.primary_acronym == result.primary_acronym
+    assert restored.to_dict() == result.to_dict()
 
 
 # ---------------------------------------------------------------------------

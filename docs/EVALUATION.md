@@ -80,8 +80,13 @@ Footprint is measured on the installed distribution: unpacked size, cold `import
 - We lose narrowly to the Rust implementation (83.85 against 84.44). It buys precision
   (96.42 against 92.07) at the cost of recall (75.10 against 76.99) — a different
   operating point, not a different league.
-- **We are the slowest thing here to import, by roughly 50×.** That is pydantic, it is a real
-  user-visible cost, and it is a competitive weakness rather than a rounding error.
+- **† The import column needs a caveat, and refusing it would be dishonest.** `import acronymkit`
+  now costs 2.3 ms because the package resolves its re-exports lazily. But
+  `from acronymkit import AcronymEngine` still costs 128.1 ms, and import-plus-first-result is
+  196.0 ms — essentially unchanged. Lazy re-export **moves** the pydantic cost to first use; it
+  does not remove it. Quoting 2.3 ms against `pyab3p`'s 3.6 ms would compare their working API
+  against our shell. The honest reading is that we no longer punish a process that merely imports
+  the package, and that our time-to-first-answer is still the slowest here.
 
 The hypothesis that a zero-dependency pure-Python library would win on footprint is **not supported
 by this table**: `pyab3p` is smaller, imports faster, has no runtime dependencies *and* scores
@@ -223,6 +228,55 @@ What this shows is that the greedy right-to-left match is a stronger baseline th
 truncation is visible and annoying, and the obvious fix does not pay for itself. Beating it likely
 needs what Ab3P actually did — per-candidate precision estimates learned from data — rather than a
 better boundary heuristic.
+
+## The generation coverage ceiling is tokenisation, not search
+
+All four presets converge to about 89.74 % recall@25, which means a slice of the initialism
+bucket is never produced *at any rank by any preset*. Diagnosing that is the generation analogue of
+the extraction miss taxonomy.
+
+Measured with the candidate pool opened to depth 100,000, so "produced" means *present in the pool*
+rather than *in the top 25*:
+
+- **51 of 546 pairs (9.34 %) are never generated at all.** That is the ceiling.
+- A further 5 are generated but sit beyond rank 25 under every preset. That is ranking, not
+  coverage, and is deliberately excluded from the ceiling.
+- **All four presets have an identical pool** (90.66 % each, union 90.66 %). That is direct
+  confirmation of the claim the presets have always made and never demonstrated: they re-rank one
+  shared candidate set rather than searching differently.
+
+### Cause taxonomy
+
+| Share | n | Cause |
+|---:|---:|---|
+| 31.4 % | 16 | compound capped by `max_letters_per_token` — `NMDA ← N-methyl-D-aspartate` |
+| 25.5 % | 13 | one-letter word dropped by `min_word_length` — `HBV ← hepatitis B virus` |
+| 21.6 % | 11 | word suppressed as a stop word — `QOL ← quality of life` |
+| 7.8 % | 4 | compound donates prefixes only — `ERK ← extracellular signal-related kinase` |
+| 5.9 % | 3 | existing acronym is atomic — `hTR ← human telomerase RNA` |
+| 2.0 % | 1 | **search budget / beam pruning** |
+| 0.0 % | 0 | unrepresentable from any token stream |
+
+**82.3 % of the ceiling is configuration defaults, not the algorithm.** Beam width accounts for
+exactly 1 pair, and nothing at all is genuinely unrepresentable.
+
+### The experiment that settles it
+
+| Arm (`strict_initialism`) | recall@25 | pool recall |
+|---|---:|---:|
+| control | 89.74 % | 90.66 % |
+| beam 100,000 / 5 M nodes / bounds 1–12 | 89.74 % | 90.84 % |
+| the same, plus relaxed tokenisation | 91.58 % | **98.90 %** |
+
+A search budget four orders of magnitude larger moves recall@25 by **0.00**. Relaxing tokenisation
+moves pool recall by **8.24 points**. The ceiling is tokenisation, and no amount of search
+will touch it.
+
+### The subword bucket, reported separately for the first time
+
+Pool recall over the 398 subword pairs is 5.78 %. `MappingKind.CONTIGUOUS` exists to let one
+token donate several characters, and on this corpus it recovers very little — worth knowing before
+anyone invests further in sub-word matching for generation.
 
 ## Operating points, not a single setting
 

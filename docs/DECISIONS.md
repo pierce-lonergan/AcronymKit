@@ -9,6 +9,68 @@ Newest first.
 
 ---
 
+## D-013 — Lazy import: kept, with the flattering comparison refused
+
+**Status:** kept · **Evidence:** `micro.import` in `bench/results.json`
+
+`import acronymkit` cost 149.3 ms, against `pyab3p`'s 3.6 ms. For a library whose positioning is
+"Tier 0, pure Python, no compiled extension", being the slowest import in its own comparison table
+contradicted the pitch. `__init__.py` now resolves its re-exports lazily (:pep:`562`).
+
+| | before | after |
+|---|---:|---:|
+| `import acronymkit` | 149.3 ms | **2.3 ms** |
+| `from acronymkit import AcronymEngine` | 149.3 ms | 128.1 ms |
+| import + construct + first `generate()` | 191.3 ms | 196.0 ms |
+
+**The third row is why this is written down.** Lazy re-export *moves* the pydantic cost to first use;
+it does not remove it, and time-to-first-answer is unchanged. Quoting 2.3 ms next to `pyab3p`'s
+3.6 ms would compare their working API against our shell, so the docs carry all three figures and
+say so. The genuine win is narrower than the headline: a process that imports the package without
+using the engine — for `__version__`, for a `TYPE_CHECKING` reference, or because a dependency pulls
+it in — no longer pays 149 ms.
+
+Rejected inside the same task: deferring `from importlib import import_module` to a helper. A/B over
+31 fresh interpreters × 2 alternating rounds put it inside noise, so it went back to the simpler
+form and the docstring claiming the win was deleted.
+
+Not attempted: moving the DTO layer off pydantic. That is a breaking change to the public type
+surface and needs its own decision.
+
+---
+
+## D-014 — The generation ceiling is tokenisation, and it is mostly configuration
+
+**Status:** decided · **Evidence:** `generation.med1250.coverage.*` in `bench/results.json`
+
+All four presets converge to ~89.7 % recall@25, so a slice of the initialism bucket is never produced
+at any rank. With the pool opened to depth 100,000: **51 of 546 pairs (42 of them, 82.3 %,
+attributable to configuration defaults rather than the algorithm)**.
+
+The decisive experiment:
+
+- Beam 100,000 and 5 M nodes — four orders of magnitude more search — moves recall@25 by
+  **0.00**.
+- Relaxing tokenisation moves pool recall by **8.24 points** (90.66 % to 98.90 %).
+
+So the ceiling is **tokenisation**, not search, and the largest single cause is
+`max_letters_per_token` capping compounds such as `NMDA ← N-methyl-D-aspartate`. Beam width accounts
+for one pair; nothing is genuinely unrepresentable.
+
+Two by-products worth keeping:
+
+- **All four presets have an identical candidate pool.** That is the first direct confirmation of a
+  claim the preset design has always made and never demonstrated — they re-rank one shared set
+  rather than searching differently.
+- Pool recall over the subword bucket is only 5.78 %, which is a caution against investing further
+  in sub-word matching for generation before someone has a reason to.
+
+The fix is deliberately *not* bundled with the diagnosis: relaxing tokenisation defaults would trade
+precision for recall across every caller, and this project's rule is that such a trade becomes a
+named operating point with published costs, not a silent default change.
+
+---
+
 ## D-012 — Pseudo-precision cannot select. It rates rules, not spans.
 
 **Status:** decided, and it closes a line of attack · **Evidence:** `bench/run_rerank.py`
