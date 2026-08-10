@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **First disambiguation evaluation.** SDU@AAAI-21 task 2, scored with a faithful reimplementation
+  of the shared task's own `scorer.py`. `acronymkit` scores 41.65 % accuracy against 72.84 % for
+  always picking the most common expansion. It beats random, so the context signal is real, but on
+  that benchmark it is worth less than memorising frequencies. A third of the public API had no
+  evidence behind it for three releases; it now has a number, and the number is bad.
+- **Oracle ceiling analysis** (`bench/run_oracle.py`). 14.01 % of MED1250 is found by no system at
+  all, so the practical ceiling is 85.99 %, not 100 %. We find 7 pairs no other system
+  does and are therefore not strictly dominated.
+- **Generation coverage diagnosis** (`bench/run_generation.py --coverage`). 82.3 % of the
+  ceiling is configuration defaults rather than the algorithm, and a search budget four orders of
+  magnitude larger moves recall@25 by 0.00. The ceiling is tokenisation.
+- `bench/run_micro.py`, `bench/run_rerank.py`, `bench/run_termfreq.py`, `bench/run_profiles.py`.
+
+### Changed
+
+- **`import acronymkit` costs 2.3 ms**, down from 149.3 ms, via lazy PEP 562 re-exports.
+  Note honestly: `from acronymkit import AcronymEngine` still costs 128.1 ms and
+  time-to-first-result is 196.0 ms — this moves the Pydantic cost to first use rather than
+  removing it.
+- README leads with generation, states scope limits explicitly, and the competitive table gains a
+  Python-support column.
+
+### Fixed
+
+- `bench/splits.toml` recorded SDU-21 AD as MIT. It is not: the MIT licence covers the scorer and
+  baseline, while the dataset is CC BY-NC-SA 4.0. Corrected, and the upstream README is pinned as an
+  asset so the finding stays checkable.
+- The D-011 selection headroom was overstated. Measuring the full chain gives 615 gold, 525 among
+  enumerated starts, 488 admissible, 477 already returned — so the realistic prize is far smaller
+  than the 121 pairs first reported.
+
+### Notes
+
+- Four further experiments were run and reverted: a pseudo-precision cascade, a pseudo-precision
+  re-ranker, derived term statistics, and a hyphen-boundary rule. Seven attempts have now failed to
+  close the extraction gap, with converging diagnoses recorded in `docs/DECISIONS.md`. The most
+  useful of them: pseudo-precision rates the matching *rule*, not the *span*, so for 96.5 % of
+  brackets the correct span ties with the top score.
+
 ## [0.2.0] — 2026-08-09
 
 Evidence release. v0.1.0 shipped a library; this one ships the measurements that
