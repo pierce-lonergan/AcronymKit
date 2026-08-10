@@ -19,6 +19,16 @@ engine.generate("Application Programming Interface").primary_acronym   # 'API'
 engine.generate("Portable Document Format").primary_acronym            # 'PDF'
 ```
 
+**Generation is measured, and nothing else measures it.** Fed the 1,221 human-authored
+short-form/long-form pairs of the MED1250 gold standard *backwards*, `acronymkit` returns the
+abbreviation the human actually chose at **rank 1 for 75.5 %** of the 546 pairs an initialism
+generator can address, and within the top 25 for 89.7 %. No competing library has a number
+here, because no competing library generates.
+
+Extraction is measured too, against four other systems through one harness: precision
+92.07 %, recall 76.99 %, F1 **83.85 %**. We are third of five there, and the table showing
+exactly that is in [docs/EVALUATION.md](docs/EVALUATION.md) — including where we lose.
+
 ## Why
 
 The open-source acronym ecosystem is split in two, with nothing in between:
@@ -196,7 +206,7 @@ Config(language=Language.FR, lexicon_path=Path("~/fr.txt").expanduser())
 
 | Tier | `EngineTier` | Dependencies | Latency | Use for |
 |---|---|---|---|---|
-| 0 | `ZERO_DEPENDENCY` | stdlib + Pydantic | **98 µs/call** | Edge, high-throughput indexing, hot paths |
+| 0 | `ZERO_DEPENDENCY` | stdlib + Pydantic | **98 µs/call**, 2.3 ms to import | Edge, high-throughput indexing, hot paths |
 | 1 | `STATISTICAL_NLP` | spaCy **or** NLTK | single-digit ms | POS-aware generation on messy human text |
 | 1 | `HYBRID_NLP` | optional | either | Production default — degrades gracefully |
 | 2 | `NEURAL` | ONNX Runtime | — | **Phase 3, not in this release** |
@@ -338,6 +348,22 @@ non-redistributable asset into the package, so the rule is enforced by code rath
 python tools/fetch_data.py --list        # the registry
 python tools/fetch_data.py --verify      # re-check every checksum
 ```
+
+## Honest scope
+
+- **Extraction is evaluated on one corpus in one domain.** MED1250 is biomedical abstracts, and it
+  is a *tuning* set — its miss taxonomy has been read in full. There is no held-out
+  short-form/long-form corpus, for reasons recorded in [`bench/splits.toml`](bench/splits.toml).
+  Treat the comparison as sound and the absolute level as provisional.
+- **14.01 % of that corpus is found by no system at all**, ours or anyone's. The practical
+  ceiling is 85.99 %, not 100 %, and every figure here should be read against it.
+- **English only.** French, Spanish and German ship no lexicon; those languages degrade honestly and
+  say so in `metadata.warnings`.
+- **Disambiguation is the least evidenced part of the library.** See the evaluation doc for what is
+  and is not measured.
+- Every number in this README is generated from [`bench/results.json`](bench/results.json), and CI
+  fails the build if a performance claim anywhere in the docs or the source cannot be traced back
+  to a benchmark run.
 
 ## Documentation
 

@@ -58,13 +58,13 @@ closed, treat the comparison as sound and the absolute level as provisional.
 Every row is produced by **this** harness — same reader, same scorer, same corpus — because numbers
 from different harnesses are not comparable. Nothing here is quoted from a paper.
 
-| System | Implementation | P % | R % | F1 % | docs/s | Install | Cold import | Deps |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| `pyab3p` | compiled C++ | 96.91 | 82.06 | **88.87** | 3,646 | 0.3 MB | 3.6 ms | 0 |
-| `abbreviation_extractor` | compiled Rust | 96.42 | 75.10 | **84.44** | 24,603 | 3.0 MB | 22.9 ms | 0 |
-| **`acronymkit`** | pure Python | 92.07 | 76.99 | **83.85** | 4,219 | 1.3 MB | 164.6 ms | 1 (pydantic) |
-| `abbreviations` | pure Python | 94.03 | 73.46 | **82.48** | 10,746 | 0.03 MB | 31.1 ms | 1 (regex) |
-| `scispacy` | spaCy pipeline | 90.45 | 72.89 | **80.73** | 52 | ~400 MB | n/a | many (spaCy) |
+| System | Implementation | P % | R % | F1 % | docs/s | Install | Cold import | Deps | Python |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| `pyab3p` | compiled C++ | 96.91 | 82.06 | **88.87** | 3,646 | 0.3 MB | 3.6 ms | 0 | **≤ 3.12** |
+| `abbreviation_extractor` | compiled Rust | 96.42 | 75.10 | **84.44** | 24,603 | 3.0 MB | 22.9 ms | 0 | 3.8+ |
+| **`acronymkit`** | pure Python | 92.07 | 76.99 | **83.85** | 4,219 | 1.3 MB | 2.3 ms † | 1 (pydantic) | **3.9 – 3.13** |
+| `abbreviations` | pure Python | 94.03 | 73.46 | **82.48** | 10,746 | 0.03 MB | 31.1 ms | 1 (regex) | 3.x |
+| `scispacy` | spaCy pipeline | 90.45 | 72.89 | **80.73** | 52 | ~400 MB | n/a | many (spaCy) | **< 3.13** |
 
 Footprint is measured on the installed distribution: unpacked size, cold `import` in a subprocess
 (median of five, so it cannot be flattered by a warm module cache), and runtime dependency count.
@@ -87,6 +87,12 @@ Footprint is measured on the installed distribution: unpacked size, cold `import
   does not remove it. Quoting 2.3 ms against `pyab3p`'s 3.6 ms would compare their working API
   against our shell. The honest reading is that we no longer punish a process that merely imports
   the package, and that our time-to-first-answer is still the slowest here.
+
+**The Python column is the one row where we are alone.** `pyab3p` publishes no wheels past CPython
+3.12 and `scispacy` declares `requires-python <3.13`; both had to be driven from a separate 3.12
+interpreter to appear in this table at all. Compiled bindings around 2008 C++ will lag every CPython
+release, structurally and permanently. That is not a benchmark result, it is an architectural fact,
+and it is worth more than a point of F1 to anyone on a current interpreter.
 
 The hypothesis that a zero-dependency pure-Python library would win on footprint is **not supported
 by this table**: `pyab3p` is smaller, imports faster, has no runtime dependencies *and* scores
