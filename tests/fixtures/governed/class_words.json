@@ -1,0 +1,74 @@
+{
+  "_meta": {
+    "catalog": "Northwind Data Standards",
+    "catalog_abbrev": "NDS",
+    "synthetic": true,
+    "file": "class_words.json",
+    "purpose": "The class-word map, the spelled-out forms, and the policy for the trailing token of a physical name.",
+    "shape": "GovernedDictionary(class_words=...) takes a plain abbrev -> full mapping, which is the \"abbreviations\" object here. \"full_words\" and \"trailing_token_policy\" are extra material this constructor has nowhere to put; see the open questions in README.md."
+  },
+
+  "abbreviations": {
+    "DT": "Date",
+    "TS": "Timestamp",
+    "CD": "Code",
+    "NM": "Name",
+    "AM": "Amount",
+    "IN": "Indicator",
+    "ID": "Identifier",
+    "NBR": "Number",
+    "QTY": "Quantity",
+    "PCT": "Percent",
+    "RT": "Rate",
+    "TXT": "Text",
+    "DESC": "Description",
+    "STS": "Status",
+    "TYP": "Type",
+    "FLG": "Flag",
+    "VAL": "Value",
+    "ADDR": "Address",
+    "SEQ": "Sequence",
+    "CNT": "Count",
+    "RTO": "Ratio"
+  },
+
+  "full_words": [
+    "Address",
+    "Amount",
+    "Code",
+    "Count",
+    "Date",
+    "Description",
+    "Flag",
+    "Identifier",
+    "Indicator",
+    "Name",
+    "Number",
+    "Percent",
+    "Quantity",
+    "Rate",
+    "Ratio",
+    "Sequence",
+    "Status",
+    "Text",
+    "Timestamp",
+    "Type",
+    "Value"
+  ],
+
+  "trailing_token_policy": {
+    "require_trailing_class_word": true,
+    "accept_abbreviated_form": true,
+    "accept_full_word_form": true,
+    "case_insensitive_match": true,
+    "append_when_missing": true,
+    "default_class_word": "VAL",
+    "exempt_when_whole_name_is_class_word": true,
+    "notes": [
+      "A physical name is expected to end in a class word, written either as the abbreviation (CUST_ACCT_OPEN_DT) or spelled out (Customer Account Open Date). Both are accepted; only the trailing token is inspected.",
+      "default_class_word is what to_physical_name appends when the logical name ends in something that is not a class word and the policy allows appending. VAL/Value is the fixture's choice because it says least about the column; the value is data, not a constant, and a caller with a different house rule should be able to change it.",
+      "exempt_when_whole_name_is_class_word keeps a single-token name such as ID or STS from being rewritten to ID_VAL.",
+      "NamingPolicy in the contract carries require_trailing_class_word and append_class_word_when_missing but has no field for which class word to append, and GovernedDictionary has no constructor argument for this object. Reported as an open question."
+    ]
+  }
+}

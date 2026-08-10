@@ -65,11 +65,14 @@ EXPECTED_ALL = [
     "ExpansionDictionary",
     "ExtractionResult",
     "GenerationError",
+    "GovernedDictionary",
+    "GovernedEntry",
     "HyphenPolicy",
     "Language",
     "LetterMapping",
     "LexiconError",
     "MappingKind",
+    "NamingPolicy",
     "NoCandidateError",
     "NumeralPolicy",
     "OfflineError",
@@ -85,10 +88,16 @@ EXPECTED_ALL = [
     "TokenizationError",
     "__version__",
     "capabilities",
+    "expand_identifier",
+    "expand_token",
     "format_report",
+    "is_compliant",
+    "normalize_name",
+    "to_physical_name",
 ]
 
-#: Every module a user may import directly. ``nlp`` is the sub-package.
+#: Every module a user may import directly. ``nlp`` and ``governed`` are the
+#: sub-packages.
 PUBLIC_MODULES = [
     "resources",
     "stopwords",
@@ -105,6 +114,7 @@ PUBLIC_MODULES = [
     "serialization",
     "cli",
     "nlp",
+    "governed",
 ]
 
 #: Distributions Tier 0 must never import, directly or transitively.
@@ -244,12 +254,20 @@ def test_the_lazy_path_and_the_eager_path_expose_identical_names() -> None:
 
 
 def test_every_lazy_export_is_the_object_its_own_module_defines() -> None:
-    """Attribute access returns the very object an eager import would have bound."""
+    """Attribute access returns the very object an eager import would have bound.
+
+    A handful of exports are renamed on the way out — ``normalize_name`` is
+    ``governed.compliance.normalize`` — so the name to look up in the defining
+    module comes from ``_EXPORT_ALIASES`` rather than from the export itself.
+    That table is the only place the two spellings are tied together, which is
+    why it is read here instead of the alias being repeated.
+    """
     imported, _ = static_export_surface()
     for name, module in imported.items():
         source = importlib.import_module(f"acronymkit.{module}")
-        assert getattr(acronymkit, name) is getattr(source, name), (
-            f"acronymkit.{name} is not acronymkit.{module}.{name}"
+        defined_as = acronymkit._EXPORT_ALIASES.get(name, name)
+        assert getattr(acronymkit, name) is getattr(source, defined_as), (
+            f"acronymkit.{name} is not acronymkit.{module}.{defined_as}"
         )
 
 

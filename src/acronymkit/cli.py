@@ -1,8 +1,11 @@
 """Command-line front end for :mod:`acronymkit`.
 
 The console script declared in ``pyproject.toml`` (``acronymkit =
-acronymkit.cli:main``) resolves here. Eight commands cover the whole public
-surface::
+acronymkit.cli:main``) resolves here. The commands fall into two groups,
+matching the two capabilities the library offers.
+
+*Acronyms*: generate them, extract the ones a document defines, score and
+inspect them::
 
     acronymkit generate  "Application Programming Interface"
     acronymkit backronym "Next Generation High Performance Storage" NEXUS
@@ -12,6 +15,25 @@ surface::
     acronymkit tokens     "Multi-Factor Authentication"
     acronymkit schema
     acronymkit version
+    acronymkit doctor
+
+*Governed naming* (:mod:`acronymkit.governed`): expand a database identifier
+against a vocabulary somebody has already written down, render the reverse
+direction, and check a name against the standard::
+
+    acronymkit expand-token      TXN                    --dictionary nds.json
+    acronymkit expand-identifier APPLNT_BRTH_DT         --dictionary nds.json
+    acronymkit physical-name     "Applicant Birth Date" --dictionary nds.json
+    acronymkit normalize-name    APPLNT_BRTH_DT         --dictionary nds.json
+    acronymkit check-name        APPLNT_BRTH_DT         --dictionary nds.json
+
+Every governed command takes ``--dictionary`` (required — a governed verb with
+no governed vocabulary is a contradiction), ``--policy``, ``--custom`` and the
+shared ``--format``/``--indent`` pair. They take none of the engine
+configuration options, because none of them runs the engine: nothing in the
+governed subsystem tokenises for pronounceability, scores a candidate or
+consults a language resource, so offering ``--strategy`` there would advertise
+a knob attached to nothing.
 
 Optional dependency
 -------------------
@@ -49,10 +71,16 @@ Exit status
     other :class:`~acronymkit.exceptions.AcronymKitError` such as an
     unavailable tier or a missing resource. The message goes to stderr; no
     traceback is printed.
+
+    ``check-name`` also exits ``1`` when the name it was given is not
+    compliant. That is a finding, not a malfunction — the command ran and
+    printed its verdict — and the status is what makes it usable as a step in
+    somebody else's CI, where a report nobody can branch on is a log line.
+    ``doctor --offline`` already sets the precedent.
 ``2``
     Usage error — an unknown flag, a bad enum value, an unreadable
-    ``--config`` file, an inconsistent configuration, or the absence of
-    ``click`` itself.
+    ``--config``, ``--dictionary`` or ``--custom`` file, an inconsistent
+    configuration, or the absence of ``click`` itself.
 
 :func:`main` is total with respect to user error: it converts every expected
 failure into one of those codes and never propagates an exception to the
@@ -64,14 +92,14 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any, Callable, Optional, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence, TypeVar, Union
 
 from pydantic import ValidationError
 
 from .config import Config
 from .engine import AcronymEngine
 from .enums import EngineTier, Language, ScoringStrategy
-from .exceptions import AcronymKitError
+from .exceptions import AcronymKitError, LexiconError
 from .models import (
     AcronymCandidate,
     AcronymResult,
@@ -80,6 +108,22 @@ from .models import (
     ScoreBreakdown,
     Token,
 )
+
+if TYPE_CHECKING:
+    # Governed naming is imported inside the callbacks that need it, the same
+    # way ``doctor``, ``schema`` and ``version`` import theirs: a governed
+    # command needs seven more Pydantic models, and ``acronymkit generate``
+    # should not build their core schemas to find out it does not want them.
+    # These are the annotations only.
+    from .governed.dictionary import GovernedDictionary
+    from .governed.models import (
+        ComplianceResult,
+        GovernedEntry,
+        IdentifierExpansion,
+        PhysicalName,
+        TokenExpansion,
+    )
+    from .governed.policy import NamingPolicy
 
 __all__ = ["cli", "main"]
 
@@ -122,6 +166,45 @@ _SCALAR_OPTIONS: dict[str, str] = {
     "top": "max_candidates",
     "include_articles": "include_articles",
 }
+
+#: Values accepted by ``--policy``, each the name of a
+#: :class:`~acronymkit.governed.policy.NamingPolicy` classmethod. Spelling them
+#: as the constructor names rather than inventing CLI-flavoured aliases means
+#: ``--policy frequency_baseline`` and ``NamingPolicy.frequency_baseline()``
+#: cannot come to mean different things, and the list is resolved by
+#: :func:`getattr` so there is one list rather than two.
+_POLICY_PRESETS = (
+    "governed_default",
+    "frequency_baseline",
+    "neural_optin",
+    "strict_length",
+)
+
+#: Values accepted by ``--dictionary-format``; see :func:`_governed_dictionary`
+#: for what each one reads.
+_DICTIONARY_LAYOUTS = ("auto", "catalog", "short_to_long", "long_to_short")
+
+#: Keys a ``--dictionary`` object may carry beside its entries, each named
+#: exactly for the :class:`~acronymkit.governed.dictionary.GovernedDictionary`
+#: keyword argument it supplies. A governed standard normally keeps these in
+#: files of their own; the CLI has one flag for the vocabulary, so it reads
+#: them from the one file and does nothing when they are absent.
+_VOCABULARY_KEYS = (
+    "approved_abbreviations",
+    "common_keywords",
+    "short_full_words",
+    "class_words",
+    "term_index",
+)
+
+#: Prefix marking a key as metadata rather than data, in every JSON file this
+#: CLI reads. The governed fixtures use it for the ``_meta`` block a catalog
+#: records itself in, and a token can never begin with it.
+_METADATA_PREFIX = "_"
+
+#: Hanging indent for the continuation lines of a compliance finding, sized to
+#: put them under the token rather than under the verdict tag.
+_FINDING_INDENT = " " * len("  [PASS] ")
 
 _Decorator = TypeVar("_Decorator", bound=Callable[..., Any])
 
@@ -326,6 +409,302 @@ def _stdin_is_tty() -> bool:
         return bool(stream.isatty())
     except (AttributeError, ValueError):  # pragma: no cover - closed stream
         return False
+
+
+# ---------------------------------------------------------------------------
+# governed vocabulary assembly
+# ---------------------------------------------------------------------------
+def _read_json_document(click: Any, flag: str, path: str) -> Any:
+    """Load any JSON document from a file named by a command-line flag.
+
+    Separate from :func:`_read_config_file`, which is specific to ``--config``
+    and insists on an object: a governed catalog is legitimately either an
+    object or a bare array, so the shape check belongs to whoever knows what
+    was asked for.
+
+    Args:
+        click: The imported ``click`` module.
+        flag: The flag the path came from, for the error message. A user who
+            passed three file-valued flags needs to be told which one failed.
+        path: Filesystem path to a UTF-8 JSON file.
+
+    Returns:
+        The decoded document: any JSON value.
+
+    Raises:
+        click.UsageError: If the file cannot be read, is not UTF-8, or is not
+            valid JSON.
+    """
+    try:
+        raw = Path(path).read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise click.UsageError(f"{flag} file '{path}' is not valid UTF-8: {exc}") from exc
+    except OSError as exc:
+        raise click.UsageError(f"could not read {flag} file '{path}': {exc}") from exc
+    try:
+        return json.loads(raw)
+    except ValueError as exc:
+        raise click.UsageError(f"{flag} file '{path}' is not valid JSON: {exc}") from exc
+
+
+def _read_json_argument(click: Any, flag: str, value: str) -> Any:
+    """Decode a flag whose value is either inline JSON or a path to JSON.
+
+    The rule is the first non-blank character: ``{`` or ``[`` means the value
+    *is* the document, anything else means it names a file holding one. That is
+    decidable rather than heuristic — no filesystem path begins with a brace,
+    and no JSON object or array begins with anything else — so the two cases
+    can never be confused for each other, and a caller never has to say which
+    one they meant.
+
+    Args:
+        click: The imported ``click`` module.
+        flag: The flag the value came from, for the error message.
+        value: Inline JSON, or a path.
+
+    Returns:
+        The decoded document.
+
+    Raises:
+        click.UsageError: If inline JSON does not parse, or the named file
+            cannot be read or does not parse.
+    """
+    text = value.strip()
+    if text.startswith(("{", "[")):
+        try:
+            return json.loads(text)
+        except ValueError as exc:
+            raise click.UsageError(f"inline {flag} JSON is not valid: {exc}") from exc
+    return _read_json_document(click, flag, value)
+
+
+def _is_catalog_document(document: Any) -> bool:
+    """Report whether a ``--dictionary`` document holds catalog rows.
+
+    Args:
+        document: The decoded ``--dictionary`` file.
+
+    Returns:
+        ``True`` for a bare array of rows, or for an object carrying them under
+        ``"entries"`` — the two layouts
+        :meth:`~acronymkit.governed.dictionary.GovernedDictionary.from_json`
+        accepts. Anything else is treated as a plain token mapping.
+    """
+    if isinstance(document, list):
+        return True
+    return isinstance(document, dict) and isinstance(document.get("entries"), list)
+
+
+def _vocabulary_arguments(document: Any) -> dict[str, Any]:
+    """Collect the allow-lists, class words and glossary a catalog file carries.
+
+    Args:
+        document: The decoded ``--dictionary`` file.
+
+    Returns:
+        The subset of :data:`_VOCABULARY_KEYS` present and non-empty, ready to
+        pass to the loader as keyword arguments. Empty for a bare array, and
+        empty for an object that carries none of them — which is the ordinary
+        case, and costs only the reason codes that distinguish one allow-list
+        from another.
+    """
+    if not isinstance(document, dict):
+        return {}
+    return {key: document[key] for key in _VOCABULARY_KEYS if document.get(key)}
+
+
+def _string_mapping(click: Any, flag: str, document: Any) -> dict[str, str]:
+    """Read a JSON object of string-to-string pairs, skipping metadata keys.
+
+    Args:
+        click: The imported ``click`` module.
+        flag: The flag the document came from, for the error message.
+        document: The decoded document.
+
+    Returns:
+        The pairs, with :data:`_METADATA_PREFIX` keys dropped.
+
+    Raises:
+        click.UsageError: If the document is not an object, or any value is not
+            a string. Reported rather than skipped: a mapping whose values are
+            objects is far more likely to be a catalog passed with the wrong
+            ``--dictionary-format`` than a file the caller wanted half of.
+    """
+    if not isinstance(document, dict):
+        raise click.UsageError(
+            f"{flag} must hold a JSON object mapping strings to strings, "
+            f"got {type(document).__name__}"
+        )
+    pairs: dict[str, str] = {}
+    for key, value in document.items():
+        if key.startswith(_METADATA_PREFIX):
+            continue
+        if not isinstance(value, str):
+            raise click.UsageError(
+                f"{flag} entry '{key}' must be a string, got {type(value).__name__}"
+            )
+        pairs[key] = value
+    return pairs
+
+
+def _governed_dictionary(click: Any, options: dict[str, Any]) -> GovernedDictionary:
+    """Load the governed vocabulary a command runs against.
+
+    ``--dictionary-format`` chooses the reader:
+
+    ``catalog``
+        Full :class:`~acronymkit.governed.models.GovernedEntry` rows, as a bare
+        array or under an ``"entries"`` key. Keys listed in
+        :data:`_VOCABULARY_KEYS` are read from the same object when present.
+    ``short_to_long``
+        ``{"TXN": "Transaction"}`` — the smallest useful vocabulary, and the
+        one to reach for when trying a command out.
+    ``long_to_short``
+        ``{"Transaction": "TXN"}`` — the direction a real catalog is stored in,
+        and the reason this flag exists at all. Inverting it produces the
+        collisions ``canonical_form_score`` then settles, so it cannot be
+        detected by inspection: the same file is a valid vocabulary read either
+        way round, meaning different things. It has to be declared.
+    ``auto`` (the default)
+        ``catalog`` when the document is one of the two catalog layouts,
+        ``short_to_long`` otherwise. Never ``long_to_short``, for the reason
+        above.
+
+    Args:
+        click: The imported ``click`` module.
+        options: The command callback's keyword arguments.
+
+    Returns:
+        The indexed vocabulary, with no overlay layered — ``--custom`` is
+        passed to the verb instead, so that it is a call-time overlay and
+        ``--policy`` can still refuse it.
+
+    Raises:
+        click.UsageError: If the file is unreadable, is not JSON, does not hold
+            the declared layout, or holds a malformed row.
+    """
+    from .governed.dictionary import GovernedDictionary
+
+    path = str(options["dictionary_path"])
+    document = _read_json_document(click, "--dictionary", path)
+    layout = str(options.get("dictionary_format") or "auto")
+    if layout == "auto":
+        layout = "catalog" if _is_catalog_document(document) else "short_to_long"
+    try:
+        if layout == "catalog":
+            return GovernedDictionary.from_json(document, **_vocabulary_arguments(document))
+        mapping = _string_mapping(click, "--dictionary", document)
+        if layout == "short_to_long":
+            return GovernedDictionary.from_mapping(mapping)
+        return GovernedDictionary.from_long_to_short(mapping)
+    except LexiconError as exc:
+        raise click.UsageError(f"--dictionary file '{path}': {exc}") from exc
+
+
+def _governed_overlay(
+    click: Any, value: Optional[str]
+) -> Optional[Mapping[str, Union[str, GovernedEntry]]]:
+    """Decode ``--custom`` into an overlay the governed verbs accept.
+
+    Two value shapes, matching what the library takes: a bare string is the
+    long form and nothing more, and an object is a whole
+    :class:`~acronymkit.governed.models.GovernedEntry`, so an overlay can carry
+    its own provenance handle, confidence and kind rather than borrowing the
+    catalog's.
+
+    An entry object may leave out ``token`` and ``source``, which are otherwise
+    required fields. Both are filled in here — ``token`` from the mapping key,
+    ``source`` as ``custom`` — because
+    :class:`~acronymkit.governed.dictionary.GovernedDictionary` rewrites both to
+    exactly those values on the way in whatever the caller wrote. Demanding
+    that a caller type a field whose value is discarded teaches them that the
+    field means something, and it does not. Nothing else is defaulted: the
+    entry still has to say what it means (``canonical``) and what kind of record
+    it is (``kind``), and inventing either would be this CLI making up a
+    provenance.
+
+    Args:
+        click: The imported ``click`` module.
+        value: The raw ``--custom`` value: inline JSON or a path. ``None`` or
+            empty when the flag was not given.
+
+    Returns:
+        The overlay, or ``None`` when there is nothing to layer.
+
+    Raises:
+        click.UsageError: If the value does not decode, is not an object, or
+            holds a value that is neither a string nor a usable entry.
+    """
+    if not value:
+        return None
+    from .governed.models import GovernedEntry
+
+    document = _read_json_argument(click, "--custom", value)
+    if not isinstance(document, dict):
+        raise click.UsageError(
+            f"--custom must hold a JSON object of token to long form or entry, "
+            f"got {type(document).__name__}"
+        )
+    overlay: dict[str, Union[str, GovernedEntry]] = {}
+    for token, supplied in document.items():
+        if token.startswith(_METADATA_PREFIX):
+            continue
+        if isinstance(supplied, str):
+            overlay[token] = supplied
+        elif isinstance(supplied, dict):
+            fields = {"token": token, "source": "custom", **supplied}
+            try:
+                overlay[token] = GovernedEntry(**fields)
+            except ValidationError as exc:
+                raise click.UsageError(
+                    f"--custom entry '{token}' is not a valid governed entry: "
+                    f"{_format_validation_error(exc)}"
+                ) from exc
+        else:
+            raise click.UsageError(
+                f"--custom entry '{token}' must be a string or an object, "
+                f"got {type(supplied).__name__}"
+            )
+    return overlay
+
+
+def _governed_policy(name: str) -> NamingPolicy:
+    """Return the named :class:`~acronymkit.governed.policy.NamingPolicy` preset.
+
+    Args:
+        name: One of :data:`_POLICY_PRESETS`, which are the classmethod names
+            themselves. ``click.Choice`` has already rejected anything else, so
+            the lookup cannot miss.
+
+    Returns:
+        The policy the preset constructs.
+    """
+    from .governed.policy import NamingPolicy
+
+    constructor: Callable[[], NamingPolicy] = getattr(NamingPolicy, name)
+    return constructor()
+
+
+def _governed_context(
+    click: Any, options: dict[str, Any]
+) -> tuple[GovernedDictionary, NamingPolicy, Optional[Mapping[str, Union[str, GovernedEntry]]]]:
+    """Assemble the three arguments every governed verb takes.
+
+    Args:
+        click: The imported ``click`` module.
+        options: The command callback's keyword arguments.
+
+    Returns:
+        ``(dictionary, policy, custom)``, in the order the verbs take them.
+
+    Raises:
+        click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
+    """
+    return (
+        _governed_dictionary(click, options),
+        _governed_policy(str(options["policy_name"])),
+        _governed_overlay(click, options.get("custom")),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -624,6 +1003,163 @@ def _render_tokens(phrase: str, tokens: Sequence[Token]) -> list[str]:
     return lines
 
 
+def _labelled(pairs: Sequence[tuple[str, str]]) -> list[str]:
+    """Lay out ``label: value`` lines with the values in one column.
+
+    The single-record counterpart to :func:`_table`, used where a command
+    reports one thing rather than a list of them.
+
+    Args:
+        pairs: ``(label, value)`` in display order. Labels are written without
+            their colon.
+
+    Returns:
+        One line per pair, trailing whitespace stripped.
+    """
+    width = max((len(label) for label, _ in pairs), default=0)
+    return [f"{label + ':':<{width + 1}} {value}".rstrip() for label, value in pairs]
+
+
+def _optional(value: Optional[str]) -> str:
+    """Render an optional string, showing an absent one as ``'-'``."""
+    return value if value else "-"
+
+
+def _render_token_expansion(expansion: TokenExpansion) -> list[str]:
+    """Render one token's governed expansion, provenance included.
+
+    Every field the DTO carries is shown, including the ones that are usually
+    empty. A governed answer is only worth having if the reader can see what
+    produced it, and a field that disappears when it is empty makes "there was
+    nothing to beat" indistinguishable from "the renderer dropped it".
+
+    Args:
+        expansion: The verb's result.
+
+    Returns:
+        The lines to print.
+    """
+    return _labelled(
+        [
+            ("Token", expansion.raw),
+            ("Expansion", expansion.long or "-"),
+            ("Known", _yes_no(expansion.is_known)),
+            ("Source", expansion.source.value),
+            ("Kind", expansion.kind.value if expansion.kind else "-"),
+            ("Entry", _optional(expansion.entry_id)),
+            ("Confidence", f"{expansion.confidence:.2f}"),
+            ("Class word", _optional(expansion.class_word)),
+            ("Beat", ", ".join(expansion.beat) or "-"),
+        ]
+    )
+
+
+def _render_identifier_expansion(expansion: IdentifierExpansion) -> list[str]:
+    """Render a whole identifier's expansion as a header plus a token table.
+
+    Args:
+        expansion: The verb's result.
+
+    Returns:
+        The lines to print. An identifier that tokenises to nothing gets the
+        header and an explanatory line, not an empty table.
+    """
+    lines = _labelled(
+        [
+            ("Identifier", expansion.identifier),
+            ("Phrase", expansion.phrase or "-"),
+            ("Class word", _optional(expansion.class_word)),
+            ("Fully known", _yes_no(expansion.is_fully_known)),
+        ]
+    )
+    if not expansion.tokens:
+        return [*lines, "", "No tokens."]
+    rows = [
+        [
+            token.raw,
+            token.long or "-",
+            _yes_no(token.is_known),
+            token.source.value,
+            f"{token.confidence:.2f}",
+            _optional(token.entry_id),
+            ", ".join(token.beat) or "-",
+        ]
+        for token in expansion.tokens
+    ]
+    lines.append("")
+    lines.extend(
+        _table(["TOKEN", "EXPANSION", "KNOWN", "SOURCE", "CONF", "ENTRY", "BEAT"], rows, (4,))
+    )
+    return lines
+
+
+def _render_physical_name(name: PhysicalName) -> list[str]:
+    """Render a governed physical name and the word-by-word trail behind it.
+
+    ``Truncated`` is printed even though it is always ``no``. The invariant is
+    that no policy shortens a name, and an invariant a reader can see asserted
+    in the output is worth more than one they have to take on trust.
+
+    Args:
+        name: The verb's result.
+
+    Returns:
+        The lines to print.
+    """
+    lines = _labelled(
+        [
+            ("Logical", name.logical),
+            ("Physical", name.physical or "-"),
+            ("Term id", _optional(name.term_id)),
+            ("Confidence", f"{name.confidence:.2f}"),
+            ("Truncated", _yes_no(name.truncated)),
+        ]
+    )
+    if not name.tokens:
+        return [*lines, "", "No words."]
+    rows = [
+        [token.word, token.abbrev, token.source.value, _optional(token.entry_id)]
+        for token in name.tokens
+    ]
+    lines.append("")
+    lines.extend(_table(["WORD", "ABBREV", "SOURCE", "ENTRY"], rows, ()))
+    return lines
+
+
+def _render_compliance(result: ComplianceResult) -> list[str]:
+    """Render a compliance verdict and every finding that produced it.
+
+    Findings are laid out one block each rather than as table rows because the
+    detail sentence and the suggested fix are prose of unbounded length, and a
+    column wide enough for the longest of them would push the token out of
+    sight on the rows where nothing is wrong.
+
+    Args:
+        result: The verb's result.
+
+    Returns:
+        The lines to print.
+    """
+    lines = _labelled(
+        [
+            ("Name", result.name),
+            ("Compliant", _yes_no(result.compliant)),
+            ("Ends in class word", _yes_no(result.ends_in_class_word)),
+            ("Class word", _optional(result.class_word)),
+        ]
+    )
+    if not result.reasons:
+        return [*lines, "", "No findings."]
+    lines.extend(["", "Findings:"])
+    for reason in result.reasons:
+        subject = reason.token if reason.token is not None else "<name>"
+        lines.append(f"  [{reason.verdict.value.upper()}] {subject}: {reason.code.value}")
+        lines.append(f"{_FINDING_INDENT}{reason.detail}")
+        if reason.fix:
+            lines.append(f"{_FINDING_INDENT}fix: {reason.fix}")
+    return lines
+
+
 def _emit(click: Any, lines: Sequence[str]) -> None:
     """Write rendered text lines to standard output.
 
@@ -759,6 +1295,73 @@ def _config_options(click: Any) -> Callable[[_Decorator], _Decorator]:
     return decorate
 
 
+def _governed_options(click: Any) -> Callable[[_Decorator], _Decorator]:
+    """Build the decorator carrying the options every governed command takes.
+
+    ``--dictionary`` is required rather than defaulted, and there is no bundled
+    vocabulary to fall back on. A governed verb answers "what does the standard
+    say", and a standard the caller did not supply is one this library would be
+    making up — which is the single thing the subsystem exists not to do.
+
+    ``--policy`` names one of the four presets rather than exposing the nine
+    fields behind them, because a named policy is auditable and a loose bag of
+    booleans is not: "this job runs under ``governed_default``" is a reviewable
+    sentence, and ``--allow-override/--no-allow-override --mode most_common``
+    scattered across a crontab is not. Callers who need a field combination the
+    presets do not cover have the Python API.
+
+    Args:
+        click: The imported ``click`` module.
+
+    Returns:
+        A decorator applying the governed options, then ``--format`` and
+        ``--indent``, to a command callback.
+    """
+    options = [
+        click.option(
+            "--dictionary",
+            "dictionary_path",
+            required=True,
+            type=click.Path(exists=True, dir_okay=False, readable=True),
+            help="JSON file holding the governed vocabulary. Required.",
+        ),
+        click.option(
+            "--dictionary-format",
+            "dictionary_format",
+            type=click.Choice(_DICTIONARY_LAYOUTS),
+            default="auto",
+            show_default=True,
+            help="How to read --dictionary: full catalog rows, a token->long form mapping, "
+            "or a long form->token mapping to invert. 'auto' never guesses long_to_short.",
+        ),
+        click.option(
+            "--custom",
+            "custom",
+            default=None,
+            help="Caller-supplied acronyms layered above the catalog, as inline JSON "
+            '(\'{"XYZ": "Exchange"}\') or a path to a JSON file. Values may be a long form '
+            "or a whole governed entry.",
+        ),
+        click.option(
+            "--policy",
+            "policy_name",
+            type=click.Choice(_POLICY_PRESETS),
+            default="governed_default",
+            show_default=True,
+            help="Named NamingPolicy preset to resolve under.",
+        ),
+    ]
+    output = _output_options(click)
+
+    def decorate(func: _Decorator) -> _Decorator:
+        func = output(func)
+        for option in reversed(options):
+            func = option(func)
+        return func
+
+    return decorate
+
+
 def build_cli() -> Any:
     """Construct (once) and return the ``click`` command group.
 
@@ -779,10 +1382,12 @@ def build_cli() -> Any:
     click = _require_click()
     config_options = _config_options(click)
     output_options = _output_options(click)
+    governed_options = _governed_options(click)
 
     @click.group(
         context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 100},
-        help="Generate, extract and disambiguate acronyms.",
+        help="Generate, extract and disambiguate acronyms, and expand identifiers "
+        "against a governed vocabulary.",
     )
     def group() -> None:
         """Root command group. Help text is supplied via ``help=``."""
@@ -1021,6 +1626,154 @@ def build_cli() -> Any:
             _emit(click, lines)
         if problems:
             raise SystemExit(1)
+
+    @group.command(
+        "expand-token",
+        help="Expand one governed TOKEN against the vocabulary in --dictionary.",
+    )
+    @click.argument("token")
+    @governed_options
+    def expand_token_command(token: str, **options: Any) -> None:
+        """Expand a single token, with the provenance of the answer.
+
+        Args:
+            token: The short form to expand, matched case-insensitively.
+            **options: The shared governed and output options.
+
+        Raises:
+            click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
+            LexiconError: If the policy is ``UnknownPolicy.REJECT`` and the
+                vocabulary does not contain the token.
+        """
+        from .governed.expansion import expand_token
+
+        dictionary, policy, custom = _governed_context(click, options)
+        expansion = expand_token(token, dictionary, policy, custom=custom)
+        if options["output_format"] == "json":
+            _emit_json(click, expansion.to_dict(), options["indent"])
+        else:
+            _emit(click, _render_token_expansion(expansion))
+
+    @group.command(
+        "expand-identifier",
+        help="Expand a whole IDENTIFIER (TXN_APPLNT_ID) token by token.",
+    )
+    @click.argument("identifier")
+    @governed_options
+    def expand_identifier_command(identifier: str, **options: Any) -> None:
+        """Expand an identifier into a readable phrase, token by token.
+
+        Args:
+            identifier: The column or field name to expand.
+            **options: The shared governed and output options.
+
+        Raises:
+            click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
+            LexiconError: If the policy is ``UnknownPolicy.REJECT`` and any
+                token is not in the vocabulary.
+        """
+        from .governed.expansion import expand_identifier
+
+        dictionary, policy, custom = _governed_context(click, options)
+        expansion = expand_identifier(identifier, dictionary, policy, custom=custom)
+        if options["output_format"] == "json":
+            _emit_json(click, expansion.to_dict(), options["indent"])
+        else:
+            _emit(click, _render_identifier_expansion(expansion))
+
+    @group.command(
+        "physical-name",
+        help="Render LOGICAL ('Applicant Birth Date') as the governed physical name.",
+    )
+    @click.argument("logical")
+    @governed_options
+    def physical_name_command(logical: str, **options: Any) -> None:
+        """The reverse direction: logical name in, governed physical name out.
+
+        Args:
+            logical: The logical name to abbreviate.
+            **options: The shared governed and output options.
+
+        Raises:
+            click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
+        """
+        from .governed.naming import to_physical_name
+
+        dictionary, policy, custom = _governed_context(click, options)
+        rendered = to_physical_name(logical, dictionary, policy, custom=custom)
+        if options["output_format"] == "json":
+            _emit_json(click, rendered.to_dict(), options["indent"])
+        else:
+            _emit(click, _render_physical_name(rendered))
+
+    @group.command(
+        "normalize-name",
+        help="Rewrite NAME into the governed form, applying only corrections the catalog names.",
+    )
+    @click.argument("name")
+    @governed_options
+    def normalize_name_command(name: str, **options: Any) -> None:
+        """Print the governed rewrite of a physical name.
+
+        The text form prints the rewritten name alone, with no label, because
+        the name is the whole answer and this is the command that ends up on
+        the left of a pipe. Everything else about the rewrite — which token
+        changed and why — is what ``check-name`` reports.
+
+        Passing this is not the same as being compliant: ``normalize`` applies
+        the corrections the catalog can justify, and appends no class word,
+        because appending one is documented as ``to_physical_name`` behaviour.
+
+        Args:
+            name: The physical name to rewrite.
+            **options: The shared governed and output options.
+
+        Raises:
+            click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
+        """
+        from .governed.compliance import normalize
+
+        dictionary, policy, custom = _governed_context(click, options)
+        normalized = normalize(name, dictionary, policy, custom=custom)
+        if options["output_format"] == "json":
+            _emit_json(click, {"name": name, "normalized": normalized}, options["indent"])
+        else:
+            _emit(click, [normalized])
+
+    @group.command(
+        "check-name",
+        help="Check NAME against the governed standard; exit 1 when it does not conform.",
+    )
+    @click.argument("name")
+    @governed_options
+    def check_name_command(name: str, **options: Any) -> None:
+        """Report a per-token compliance verdict, and set the exit status from it.
+
+        Built to be a step in somebody else's pipeline, which is why the status
+        carries the verdict: a non-compliant name exits :data:`EXIT_FAILURE`
+        after printing every finding, so a schema review can run this over a
+        list of column names and fail the build on the ones that do not
+        conform. ``doctor --offline`` works the same way.
+
+        Args:
+            name: The physical name to check.
+            **options: The shared governed and output options.
+
+        Raises:
+            click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
+            SystemExit: With :data:`EXIT_FAILURE` when the name is not
+                compliant. The output is printed first.
+        """
+        from .governed.compliance import is_compliant
+
+        dictionary, policy, custom = _governed_context(click, options)
+        result = is_compliant(name, dictionary, policy, custom=custom)
+        if options["output_format"] == "json":
+            _emit_json(click, result.to_dict(), options["indent"])
+        else:
+            _emit(click, _render_compliance(result))
+        if not result.compliant:
+            raise SystemExit(EXIT_FAILURE)
 
     _GROUP = group
     return group

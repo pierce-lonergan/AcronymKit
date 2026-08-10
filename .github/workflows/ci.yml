@@ -380,6 +380,25 @@ jobs:
 
           document = Path(os.environ["RUNNER_TEMP"]) / "airgap_document.txt"
           document.write_text(DOCUMENT, encoding="utf-8")
+
+          # The governed commands take a vocabulary the caller supplies, so the
+          # probe has to supply one. Nothing governed ships in the wheel and
+          # nothing about these commands may reach for a catalog on its own --
+          # that is the point of them, and an air-gapped run is where a hidden
+          # fetch would show up.
+          catalog = Path(os.environ["RUNNER_TEMP"]) / "airgap_catalog.json"
+          catalog.write_text(
+              json.dumps(
+                  [
+                      {"token": "TXN", "canonical": "Transaction", "kind": "approved_abbrev",
+                       "keep_as_abbrev": True, "source": "approved"},
+                      {"token": "DT", "canonical": "Date", "kind": "class_word_abbrev",
+                       "keep_as_abbrev": True, "class_word": "Date", "source": "approved"},
+                  ]
+              ),
+              encoding="utf-8",
+          )
+
           invocations = [
               ["version"],
               ["generate", "Portable Document Format"],
@@ -393,6 +412,13 @@ jobs:
               ["doctor"],
               ["doctor", "--offline"],
               ["doctor", "--offline", "--format", "json"],
+              ["expand-token", "TXN", "--dictionary", str(catalog)],
+              ["expand-token", "TXN", "--dictionary", str(catalog), "--format", "json"],
+              ["expand-token", "TXN", "--dictionary", str(catalog),
+               "--custom", '{"TXN": "Transfer"}'],
+              ["expand-identifier", "TXN_DT", "--dictionary", str(catalog)],
+              ["physical-name", "Transaction Date", "--dictionary", str(catalog)],
+              ["check-name", "TXN_DT", "--dictionary", str(catalog)],
           ]
           for argv in invocations:
               code = cli_main(argv)
@@ -523,33 +549,43 @@ jobs:
           import sys
           import zipfile
 
-          # Why 512 KiB.
+          # Why 768 KiB, and why the previous 512 KiB stopped being right.
           #
-          # Measured on this repository: the wheel is 411,019 B on disk, and
-          # acronymkit/resources/lexicon_en.txt is 51.6% of its compressed
-          # payload -- so the budget is really a budget on how much word list
-          # ships, and everything else is noise against it. That figure is
-          # current, not forecast: diagnostics.py, offline mode and `doctor`
-          # are already inside it, and the licence ledger and the docs ship in
-          # the sdist only, so they never reach this number at all.
+          # The 512 KiB budget was derived when the wheel was 411,019 B and
+          # rested on one premise: lexicon_en.txt was 51.6% of the compressed
+          # payload, so the budget was "really a budget on how much word list
+          # ships, and everything else is noise against it".
           #
-          # 524,288 B therefore leaves 119,896 B of headroom, with the wheel at
-          # 77.1% of budget. Loose enough to absorb ordinary growth -- the
-          # largest .py in the wheel compresses to 13,448 B, so the headroom is
-          # eight more modules that size -- and tight enough that the one
-          # change which would blow the size up fails by construction: an
-          # LRABR-derived expansion dictionary, measured during the offline
-          # audit at 402.7 KB to 1.4 MB gzipped. A budget only does work if
-          # something realistic can fail it.
+          # That premise is now false, and the honest response is to re-derive
+          # the number rather than nudge it. acronymkit/governed/ added 68,167 B
+          # of pure Python across 10 modules -- 13.9% of the wheel, and not
+          # noise by any reading. The wheel reached 491,293 B, 93.7% of the old
+          # budget, with 32,995 B left. A budget with 6% headroom does not
+          # express an intention; it just fails on the next ordinary commit.
           #
-          # The 10 MB originally proposed was rejected on exactly that ground.
-          # 10 MiB is 25.9x this wheel; nothing anyone has proposed could reach
-          # it. A ceiling that cannot be hit is not a budget, it is a permission
-          # slip, and it would have admitted every dictionary above in silence.
+          # 786,432 B is chosen so the gate still does the ONE job it was built
+          # for. The change it exists to reject is an LRABR-derived expansion
+          # dictionary, measured during the offline audit at 402.7 KB gzipped
+          # for the tightest useful shape and 1.4 MB for the full dump. Adding
+          # the tightest of those to today's wheel reaches ~894 KB, which is
+          # over this ceiling -- so it still fails by construction, which is the
+          # whole point. Everything anyone has actually proposed fits; the one
+          # thing that would change the character of the distribution does not.
+          #
+          # Headroom is now 295,139 B, and the largest .py in the wheel
+          # compresses to 18,856 B, so that is roughly fifteen more modules of
+          # the biggest size currently present.
+          #
+          # The 10 MB originally proposed was rejected and still is. It is 20x
+          # this wheel; nothing anyone has proposed could reach it. A ceiling
+          # that cannot be hit is not a budget, it is a permission slip, and it
+          # would admit every dictionary above in silence.
           #
           # Raising this number is a decision about what may ship. Read the
-          # largest entries printed below before making it.
-          BUDGET_BYTES = 524_288
+          # largest entries printed below before making it, and re-derive the
+          # rationale rather than editing the constant -- that is what went
+          # stale last time.
+          BUDGET_BYTES = 786_432
 
           wheel = glob.glob("dist/*.whl")[0]
           size = os.path.getsize(wheel)

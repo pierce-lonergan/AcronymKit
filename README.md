@@ -159,6 +159,48 @@ engine.disambiguate("MS", "Peak intensity in the MS spectrum identified the ioni
 With no dictionary supplied, the engine builds one from the document's own inline definitions, so a
 term defined once on first use resolves everywhere afterwards.
 
+### Governed naming — expansion with no sentence to lean on
+
+A schema-governance pipeline needs the opposite and simpler thing. Given a bare column token and a
+governed vocabulary, return the long form — deterministically, with no prose to disambiguate
+against, and with a record of which catalog entry produced each word.
+
+```python
+from acronymkit.governed import GovernedDictionary, expand_identifier, expand_token, normalize
+
+nds = GovernedDictionary.from_mapping(
+    {"TXN": "Transaction", "APPLNT": "Applicant", "ID": "Identifier",
+     "NBR": "Number", "NUM": "Number", "DT": "Date"},
+    approved_abbreviations=["TXN", "APPLNT", "ID", "NBR", "DT"],
+    class_words={"ID": "Identifier", "DT": "Date"},
+)
+
+expand_identifier("TXN_APPLNT_ID", nds).phrase        # 'Transaction Applicant Identifier'
+expand_identifier("TXN_KYC_ID", nds).is_fully_known   # False — the catalog has no KYC
+normalize("txnApplntNum", nds)                        # 'TXN_APPLNT_NBR'
+```
+
+**Your acronyms win.** Pass `custom=` to any verb and it is layered for that call only, on top of
+the catalog, and reported as such:
+
+```python
+result = expand_token("KYC", nds, custom={"KYC": "Know Your Customer"})
+result.long, result.source.value      # ('Know Your Customer', 'custom')
+```
+
+Three directions over one vocabulary — `expand_identifier` reads a physical name, `to_physical_name`
+renders a logical one, `is_compliant` checks a name somebody else wrote — so a catalog change moves
+all three at once. Every answer carries the rule that produced it, the catalog row behind it and the
+candidates it beat.
+
+**This is not disambiguation, and that is the design.** A column name is not a sentence: there is no
+context to weigh, so the answer comes from the catalog or it does not come at all. An unknown token
+is reported as unknown, with zero confidence, never approximated — because an unknown reported as
+unknown is recoverable and an unknown quietly guessed is not. Governed mode is exact by
+construction, which is a tautology rather than a measurement, and **no accuracy figure is attached
+to it anywhere in this project.** [docs/GOVERNED_NAMING.md](docs/GOVERNED_NAMING.md) has the
+precedence chain, every verb with runnable output, the four invariants and an honest limits section.
+
 ### Multilingual — English complete, others experimental
 
 Categorised stop-word taxonomies ship for English, French, Spanish and German, and generation works
@@ -375,6 +417,12 @@ python tools/fetch_data.py --verify      # re-check every checksum
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — subsystem map, tier policy, resource formats, extension points
+- [Governed naming](docs/GOVERNED_NAMING.md) — deterministic short→long expansion against a schema
+  catalog: the custom-first precedence chain, every verb with real output, the four invariants, and
+  why refusing to guess is the right design for governed data
+- [Technical note: the governed JSON wire contract](docs/notes/governed-json-contract.md) — the exact
+  JSON shape of every DTO and fixture, written so a port can be validated against the same golden
+  files. No JVM artifact exists; this is what would make writing one mechanical
 - [Contributing](CONTRIBUTING.md) — the invariants that are easy to break by accident
 - [Technical note: using a ranking function as a generation objective](docs/notes/scoring-objective.md)
 - [Evaluation](docs/EVALUATION.md) — measured extraction accuracy against a gold standard

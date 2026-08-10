@@ -152,9 +152,14 @@ def test_build_cli_returns_a_memoised_group() -> None:
     assert build_cli() is group
     assert sorted(group.commands) == [
         "backronym",
+        "check-name",
         "doctor",
+        "expand-identifier",
+        "expand-token",
         "extract",
         "generate",
+        "normalize-name",
+        "physical-name",
         "schema",
         "score",
         "synthesize",
@@ -603,17 +608,29 @@ def test_invalid_tier_lists_every_valid_choice(run: Callable[..., Invocation]) -
         pytest.param(("tokens", "--help"), id="tokens"),
         pytest.param(("schema", "--help"), id="schema"),
         pytest.param(("version", "--help"), id="version"),
+        pytest.param(("doctor", "--help"), id="doctor"),
+        pytest.param(("expand-token", "--help"), id="expand-token"),
+        pytest.param(("expand-identifier", "--help"), id="expand-identifier"),
+        pytest.param(("physical-name", "--help"), id="physical-name"),
+        pytest.param(("normalize-name", "--help"), id="normalize-name"),
+        pytest.param(("check-name", "--help"), id="check-name"),
     ],
 )
 def test_help_exits_zero(run: Callable[..., Invocation], argv: Sequence[str]) -> None:
-    """Help is a successful outcome and always mentions its own usage line."""
+    """Help is a successful outcome and always mentions its own usage line.
+
+    ``--help`` on a governed command must not require ``--dictionary``, even
+    though the flag is otherwise mandatory. Asking someone to supply a
+    vocabulary before they may read what the command does would be a poor
+    trade, and click's own ordering gives it away for free.
+    """
     outcome = run(*argv)
     assert outcome.exit_code == EXIT_OK
     assert "Usage:" in outcome.stdout
 
 
 def test_every_command_appears_in_the_group_help(run: Callable[..., Invocation]) -> None:
-    """The eight documented commands are all reachable from the root help."""
+    """Every documented command is reachable from the root help."""
     outcome = run("--help")
     for command in (
         "generate",
@@ -624,6 +641,12 @@ def test_every_command_appears_in_the_group_help(run: Callable[..., Invocation])
         "tokens",
         "schema",
         "version",
+        "doctor",
+        "expand-token",
+        "expand-identifier",
+        "physical-name",
+        "normalize-name",
+        "check-name",
     ):
         assert command in outcome.stdout
 
@@ -749,3 +772,213 @@ def test_main_reports_a_missing_click_in_process(
 def test_click_is_restored_after_the_simulation(run: Callable[..., Invocation]) -> None:
     """Guards the two tests above: the monkeypatched module was really put back."""
     assert run("version").exit_code == EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# governed naming commands
+# ---------------------------------------------------------------------------
+#: A catalog small enough to read in the test and complete enough to exercise
+#: every branch the governed commands have: an approved abbreviation, a pinned
+#: collision, a class word, and a genuine short word that a naive "2-5 upper
+#: letters is an abbreviation" rule would wrongly flag.
+GOVERNED_CATALOG: list[dict[str, Any]] = [
+    {
+        "token": "TXN",
+        "canonical": "Transaction",
+        "kind": "approved_abbrev",
+        "keep_as_abbrev": True,
+        "entry_id": "NDS-TXN",
+        "source": "approved",
+    },
+    {
+        "token": "ID",
+        "canonical": "Identifier",
+        "candidates": ["Identity", "Identifier", "Identification"],
+        "pin": "Identifier",
+        "kind": "ambiguous_pinned",
+        "keep_as_abbrev": True,
+        "class_word": "Identifier",
+        "entry_id": "NDS-ID",
+        "source": "pinned",
+    },
+    {
+        "token": "DT",
+        "canonical": "Date",
+        "kind": "class_word_abbrev",
+        "keep_as_abbrev": True,
+        "class_word": "Date",
+        "entry_id": "NDS-DT",
+        "source": "approved",
+    },
+    {
+        "token": "APPLNT",
+        "canonical": "Applicant",
+        "kind": "approved_abbrev",
+        "keep_as_abbrev": True,
+        "entry_id": "NDS-APPLNT",
+        "source": "approved",
+    },
+    {
+        "token": "FRAUD",
+        "canonical": "Fraud",
+        "kind": "short_full_word",
+        "entry_id": "NDS-FRAUD",
+        "source": "governed",
+    },
+]
+
+
+@pytest.fixture
+def catalog(tmp_path: Path) -> str:
+    """The governed catalog written to a JSON file, as ``--dictionary`` wants it."""
+    return write_config(tmp_path, GOVERNED_CATALOG, name="nds.json")
+
+
+def test_expand_token_resolves_from_the_supplied_catalog(runner: Any, catalog: str) -> None:
+    """``expand-token`` is the CLI face of a governed lookup."""
+    result = runner.invoke(build_cli(), ["expand-token", "TXN", "--dictionary", catalog])
+
+    assert result.exit_code == 0, runner_output(result)
+    assert "Transaction" in runner_output(result)
+
+
+def test_expand_token_reports_an_unknown_token_as_unknown(runner: Any, catalog: str) -> None:
+    """The passthrough contract has to survive the trip through the CLI.
+
+    A governed tool that renders "Zzz" for an unrecognised token without saying
+    it was a guess is worse than one that errors: the caller cannot tell the
+    difference between an answer and a shrug.
+    """
+    result = runner.invoke(
+        build_cli(), ["expand-token", "ZZZ", "--dictionary", catalog, "--format", "json"]
+    )
+
+    assert result.exit_code == 0, runner_output(result)
+    payload = json.loads(runner_output(result))
+    assert payload["is_known"] is False
+    assert payload["source"] == "passthrough"
+
+
+def test_custom_acronyms_beat_the_catalog_over_the_cli(runner: Any, catalog: str) -> None:
+    """``--custom`` is the whole reason this command takes two vocabularies.
+
+    A caller with house acronyms must be able to supply them at the call site
+    and see, in the output, that theirs is what answered.
+    """
+    result = runner.invoke(
+        build_cli(),
+        [
+            "expand-token",
+            "TXN",
+            "--dictionary",
+            catalog,
+            "--custom",
+            '{"TXN": "Transfer"}',
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, runner_output(result)
+    payload = json.loads(runner_output(result))
+    assert payload["long"] == "Transfer"
+    assert payload["source"] == "custom"
+
+
+def test_a_custom_override_is_refused_when_the_policy_forbids_it(runner: Any, catalog: str) -> None:
+    """``--policy frequency_baseline`` sets ``allow_override=False``.
+
+    The overlay contradicts a governed entry, so the catalog answer stands.
+    Pinned here because the demotion is the subtle half of the precedence rule
+    and is invisible from the default policy.
+    """
+    result = runner.invoke(
+        build_cli(),
+        [
+            "expand-token",
+            "TXN",
+            "--dictionary",
+            catalog,
+            "--custom",
+            '{"TXN": "Taxation"}',
+            "--policy",
+            "frequency_baseline",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, runner_output(result)
+    payload = json.loads(runner_output(result))
+    assert payload["long"] == "Transaction"
+    assert payload["source"] != "custom"
+
+
+def test_expand_identifier_returns_the_phrase_and_its_class_word(runner: Any, catalog: str) -> None:
+    """The unit of work in a schema pipeline is the identifier, not the token."""
+    result = runner.invoke(
+        build_cli(),
+        ["expand-identifier", "APPLNT_TXN_DT", "--dictionary", catalog, "--format", "json"],
+    )
+
+    assert result.exit_code == 0, runner_output(result)
+    payload = json.loads(runner_output(result))
+    assert payload["phrase"] == "Applicant Transaction Date"
+    assert payload["class_word"] == "Date"
+
+
+def test_physical_name_runs_the_reverse_direction(runner: Any, catalog: str) -> None:
+    """``physical-name`` closes the loop the other way, against the same catalog."""
+    result = runner.invoke(
+        build_cli(),
+        [
+            "physical-name",
+            "Applicant Transaction Date",
+            "--dictionary",
+            catalog,
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, runner_output(result)
+    assert json.loads(runner_output(result))["physical"] == "APPLNT_TXN_DT"
+
+
+def test_check_name_exits_zero_when_the_name_complies(runner: Any, catalog: str) -> None:
+    """A compliant name is a successful run."""
+    result = runner.invoke(build_cli(), ["check-name", "APPLNT_TXN_DT", "--dictionary", catalog])
+
+    assert result.exit_code == 0, runner_output(result)
+
+
+def test_check_name_exits_non_zero_when_it_does_not(runner: Any, catalog: str) -> None:
+    """The exit status is the feature.
+
+    ``check-name`` exists to be a gate in someone else's CI, and a gate that
+    reports a violation on stdout while exiting 0 is not a gate. ``APPLNT_TXN``
+    has no trailing class word.
+    """
+    result = runner.invoke(build_cli(), ["check-name", "APPLNT_TXN", "--dictionary", catalog])
+
+    assert result.exit_code == EXIT_FAILURE
+    assert "class word" in runner_output(result).lower()
+
+
+def test_a_malformed_catalog_is_a_usage_error(runner: Any, tmp_path: Path) -> None:
+    """A catalog named on the command line that cannot be read is exit 2, not 1."""
+    broken = write_config(tmp_path, [{"token": "TXN"}], name="broken.json")
+    result = runner.invoke(build_cli(), ["expand-token", "TXN", "--dictionary", broken])
+
+    assert result.exit_code == EXIT_USAGE, runner_output(result)
+
+
+def test_the_governed_commands_require_a_dictionary(runner: Any) -> None:
+    """A governed verb with no governed vocabulary is a contradiction, not a default.
+
+    Silently falling back to an empty catalog would make every token a
+    passthrough and every answer a guess dressed as a result.
+    """
+    result = runner.invoke(build_cli(), ["expand-token", "TXN"])
+
+    assert result.exit_code == EXIT_USAGE

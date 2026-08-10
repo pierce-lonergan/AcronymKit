@@ -1,0 +1,37 @@
+logical_name,physical_name,term_id,class_word,domain,confidentiality,source,confidence
+Customer Account Open Date,CUST_ACCT_OPEN_DT,TRM-400001,DT,account,internal,nds_catalog,1.0
+Customer Account Close Date,CUST_ACCT_CLOSE_DT,TRM-400002,DT,account,internal,nds_catalog,1.0
+Customer Identifier,CUST_ID,TRM-400003,ID,party,internal,nds_catalog,1.0
+Customer Phone Number,CUST_PHONE_NBR,TRM-400004,NBR,contact,restricted,nds_catalog,1.0
+Customer Primary Address Text,CUST_PRIMARY_ADDR_TXT,TRM-400005,TXT,contact,restricted,nds_catalog,1.0
+Customer Email Address Text,CUST_EMAIL_ADDR_TXT,TRM-400006,TXT,contact,restricted,nds_catalog,1.0
+Applicant Birth Date,APPLNT_BRTH_DT,TRM-400007,DT,party,restricted,nds_catalog,1.0
+Applicant Identifier,APPLNT_ID,TRM-400008,ID,party,internal,nds_catalog,1.0
+Transaction Identifier,TXN_ID,TRM-400009,ID,transaction,internal,nds_catalog,1.0
+Transaction Amount,TXN_AM,TRM-400010,AM,transaction,internal,nds_catalog,1.0
+Transaction Effective Date,TXN_EFF_DT,TRM-400011,DT,transaction,internal,nds_catalog,1.0
+Transaction Detail Sequence Number,TXN_DTL_SEQ_NBR,TRM-400012,NBR,transaction,internal,nds_catalog,1.0
+Transaction Type Code,TXN_TYP_CD,TRM-400013,CD,transaction,public,nds_catalog,1.0
+Transaction Status Code,TXN_STS_CD,TRM-400014,CD,transaction,public,nds_catalog,1.0
+Account Balance Amount,ACCT_BAL_AM,TRM-400015,AM,account,internal,nds_catalog,1.0
+Account Owner Party Identifier,ACCT_OWNER_PARTY_ID,TRM-400016,ID,party,internal,nds_catalog,1.0
+Deposit Account Identifier,DEP_ACCT_ID,TRM-400017,ID,account,internal,domain_addendum,1.0
+Loan Account Identifier,LN_ACCT_ID,TRM-400018,ID,account,internal,domain_addendum,1.0
+Product Type Code,PROD_TYP_CD,TRM-400019,CD,product,public,domain_addendum,1.0
+Application Status Code,APP_STS_CD,TRM-400020,CD,origination,internal,domain_addendum,1.0
+Source System Code,SRC_SYSTEM_CD,TRM-400021,CD,reference,public,nds_catalog,1.0
+Record Effective Timestamp,REC_EFF_TS,TRM-400022,TS,reference,internal,nds_catalog,1.0
+Security Identifier,SEC_ID,TRM-400023,ID,reference,internal,domain_addendum,1.0
+Activity Count,ACT_CNT,TRM-400024,CNT,transaction,internal,nds_catalog,1.0
+Payment Amount,PYMT_AM,TRM-400025,AM,transaction,internal,nds_catalog,1.0
+Adjustment Amount,ADJ_AM,TRM-400026,AM,transaction,internal,nds_catalog,1.0
+Additional Detail Text,ADDL_DTL_TXT,TRM-400027,TXT,reference,internal,nds_catalog,1.0
+Fraud Risk Score Value,FRAUD_RISK_SCORE_VAL,TRM-400028,VAL,risk,restricted,domain_addendum,1.0
+Fraud Model Sequence Number,FRAUD_MODEL_SEQ_NBR,TRM-400029,NBR,risk,internal,domain_addendum,1.0
+ATM Transaction Amount,ATM_TXN_AM,TRM-400030,AM,transaction,internal,nds_catalog,1.0
+ZIP Code,ZIP_CD,TRM-400031,CD,contact,public,nds_catalog,1.0
+ABA Number,ABA_NBR,TRM-400032,NBR,reference,internal,nds_catalog,1.0
+Party Owner Indicator,PARTY_OWNER_IN,TRM-400033,IN,party,internal,nds_catalog,1.0
+Customer Risk Tier Code,CUST_RISK_TIER_CD,TRM-900001,CD,risk,internal,placeholder,0.7
+Deposit Balance Ratio,DEP_BAL_RTO,TRM-900002,RTO,account,internal,placeholder,0.6
+Fraud Activity Count,FRAUD_ACT_CNT,TRM-900003,CNT,risk,restricted,placeholder,0.75

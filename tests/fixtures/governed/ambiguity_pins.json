@@ -1,0 +1,89 @@
+{
+  "_meta": {
+    "catalog": "Northwind Data Standards",
+    "catalog_abbrev": "NDS",
+    "synthetic": true,
+    "file": "ambiguity_pins.json",
+    "purpose": "The pin sheet: every token in this corpus whose long form collides, the collision set in corpus-frequency order, and the governed decision.",
+    "shape": "token -> {\"candidates\": [...], \"_pin\": <candidate or null>}. Keys beginning with an underscore are metadata and must be skipped by a loader; this is the same convention as the reserved \"_pin\" key inside each record.",
+    "candidate_order": "By corpus frequency, most frequent first. NamingPolicy.frequency_baseline() reads position 0 and ignores _pin.",
+    "null_pin_means": "A known collision that governance has deliberately not decided. Resolution falls through to canonical_form_score."
+  },
+
+  "ID": {
+    "candidates": [
+      "Identity",
+      "Identification",
+      "Identifier",
+      "Identities",
+      "Identified",
+      "Identifying",
+      "Internal Document",
+      "Idaho"
+    ],
+    "_pin": "Identifier"
+  },
+  "SRC": {
+    "candidates": ["Sourcing", "Source", "Sourced"],
+    "_pin": "Source"
+  },
+  "PROC": {
+    "candidates": ["Processed", "Process", "Processing", "Procedure"],
+    "_pin": "Process"
+  },
+  "MO": {
+    "candidates": ["Monthly", "Month", "Missouri", "Modification"],
+    "_pin": "Month"
+  },
+  "REC": {
+    "candidates": [
+      "Receipt",
+      "Record",
+      "Recovery",
+      "Recorded",
+      "Receiving",
+      "Reconciliation"
+    ],
+    "_pin": "Record"
+  },
+  "CHG": {
+    "candidates": ["Change", "Charge", "Charged", "Charging"],
+    "_pin": "Charge"
+  },
+  "SEC": {
+    "candidates": ["Securities", "Security", "Secured", "Section", "Secondary"],
+    "_pin": "Security"
+  },
+  "ACT": {
+    "candidates": ["Active", "Activity", "Action", "Actual"],
+    "_pin": "Activity"
+  },
+  "ORIG": {
+    "candidates": ["Original", "Origination", "Originating", "Originated"],
+    "_pin": "Origination"
+  },
+  "DEP": {
+    "candidates": ["Department", "Deposit", "Dependent", "Depreciation"],
+    "_pin": "Deposit"
+  },
+  "PROD": {
+    "candidates": ["Production", "Product", "Producer"],
+    "_pin": "Product"
+  },
+  "APP": {
+    "candidates": ["Approval", "Application", "Applied", "Applicable"],
+    "_pin": "Application"
+  },
+  "LN": {
+    "candidates": ["Line", "Loan", "Length"],
+    "_pin": "Loan"
+  },
+  "CTL": {
+    "candidates": ["Controlling", "Control", "Controlled"],
+    "_pin": null
+  },
+  "REG": {
+    "candidates": ["Registration", "Register", "Regulatory", "Regional"],
+    "_pin": null
+  }
+}

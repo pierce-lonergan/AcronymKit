@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "catalog": "Northwind Data Standards",
+    "catalog_abbrev": "NDS",
+    "synthetic": true,
+    "file": "policies.json",
+    "purpose": "The four named policies written out field by field, so a test can assert that each named constructor still produces these values.",
+    "shape": "Every object under \"policies\" carries all nine NamingPolicy fields and nothing else, so NamingPolicy(**policies[name]) works against a model configured with extra=\"forbid\". Commentary lives under \"notes\", keyed by the same names."
+  },
+
+  "policies": {
+    "governed_default": {
+      "mode": "governed",
+      "allow_override": true,
+      "unknown": "passthrough_titlecase",
+      "neural_fallback": false,
+      "governed_hit_is_final": true,
+      "enforce_name_length": false,
+      "max_name_length": 30,
+      "require_trailing_class_word": true,
+      "append_class_word_when_missing": true
+    },
+    "frequency_baseline": {
+      "mode": "most_common",
+      "allow_override": false,
+      "unknown": "passthrough_titlecase",
+      "neural_fallback": false,
+      "governed_hit_is_final": true,
+      "enforce_name_length": false,
+      "max_name_length": 30,
+      "require_trailing_class_word": false,
+      "append_class_word_when_missing": true
+    },
+    "neural_optin": {
+      "mode": "governed",
+      "allow_override": true,
+      "unknown": "neural",
+      "neural_fallback": true,
+      "governed_hit_is_final": true,
+      "enforce_name_length": false,
+      "max_name_length": 30,
+      "require_trailing_class_word": true,
+      "append_class_word_when_missing": true
+    },
+    "strict_length": {
+      "mode": "governed",
+      "allow_override": true,
+      "unknown": "passthrough_titlecase",
+      "neural_fallback": false,
+      "governed_hit_is_final": true,
+      "enforce_name_length": true,
+      "max_name_length": 30,
+      "require_trailing_class_word": true,
+      "append_class_word_when_missing": true
+    }
+  },
+
+  "notes": {
+    "governed_default": "The defaults. The dictionary decides; an unknown token is reported as unknown rather than guessed at.",
+    "frequency_baseline": "The contrast arm. It ignores every pin and takes candidates[0], which this corpus orders by corpus frequency. On the ambiguous rows it therefore answers Identity for ID, Sourcing for SRC, Active for ACT and Department for DEP. It exists to be beaten, and only on this fixture data: it is not evidence about any real corpus.",
+    "neural_optin": "Only changes what happens to tokens the dictionary does not have. governed_hit_is_final stays true, so no statistical or neural tier may touch a token the catalog answered.",
+    "strict_length": "enforce_name_length may only ever raise a flag. Nothing truncates, nothing is dropped, and PhysicalName.truncated stays False. Most corpus_sample.txt identifiers run well past max_name_length precisely so that invariant has something to be checked against.",
+    "_counts": "No expected counts are recorded here. A test that wants to know how many corpus_sample.txt names exceed max_name_length should compute it from the file, so the fixture cannot drift away from the data it describes."
+  }
+}

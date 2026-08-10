@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "catalog": "Northwind Data Standards",
+    "catalog_abbrev": "NDS",
+    "synthetic": true,
+    "file": "custom_overlay.json",
+    "purpose": "Caller-supplied acronyms that outrank the governed catalog, in two layers so that last-wins layering can be tested.",
+    "shape": "\"layers\" holds one mapping per layer; each mapping is exactly what GovernedDictionary(custom=...), with_custom(...) or a verb's custom= argument accepts, so a value is either a bare long-form string or a full GovernedEntry object. \"layer_order\" gives the order to apply them in: later layers win.",
+    "entry_id_prefix": "LOCAL-, deliberately not NDS-, so provenance shows at a glance that the answer did not come from the catalog."
+  },
+
+  "layer_order": ["house_style", "project_local"],
+
+  "layers": {
+    "house_style": {
+      "ID": "Identity",
+      "KYC": "Know Your Customer",
+      "WLT": {
+        "token": "WLT",
+        "canonical": "Wallet",
+        "kind": "approved_abbrev",
+        "keep_as_abbrev": true,
+        "entry_id": "LOCAL-WLT-0001",
+        "source": "custom",
+        "confidence": 0.9,
+        "notes": "Full entry form. The catalog has no WLT row, so this overrides nothing and carries its own provenance and confidence."
+      },
+      "DEP": {
+        "token": "DEP",
+        "canonical": "Department",
+        "candidates": ["Department", "Deposit", "Dependent", "Depreciation"],
+        "pin": "Department",
+        "kind": "domain_pin",
+        "entry_id": "LOCAL-DEP-0001",
+        "source": "custom",
+        "confidence": 0.95,
+        "notes": "Full entry form, and a direct contradiction: the catalog pins DEP to Deposit for this domain and this overlay pins it back to the catalog-wide default."
+      }
+    },
+
+    "project_local": {
+      "KYC": "Know Your Counterparty",
+      "TXN": "Transaction Record",
+      "WLT": {
+        "token": "WLT",
+        "canonical": "Wallet Account",
+        "kind": "approved_abbrev",
+        "keep_as_abbrev": true,
+        "entry_id": "LOCAL-WLT-0002",
+        "source": "custom",
+        "confidence": 1.0,
+        "notes": "Same token as the house_style layer, applied later, so this is the one that must win."
+      }
+    }
+  },
+
+  "_exercises": {
+    "ID": "Bare string, and an override of a governed entry: the catalog pins ID to Identifier and this says Identity. Under allow_override=true the answer is Identity with source=custom. Under allow_override=false the custom value is refused, the answer stays Identifier, and the result has to say that an override was declined.",
+    "DEP": "Full entry object, and an override of a domain pin. Same allow_override split as ID, with an entry_id and a confidence below 1.0 to prove the overlay's own provenance is carried through rather than the catalog's.",
+    "TXN": "Bare string, and an override of an approved abbreviation. Present in the second layer only, so it also shows that a layer may introduce an override the first layer never mentioned.",
+    "KYC": "Bare string, and a token the catalog does not have at all: it is in dictionary.json's reserved_absent list. Overriding nothing is not an override, so it must be applied even under allow_override=false. Defined in both layers with different long forms, so last-wins layering is observable on it.",
+    "WLT": "Full entry object for a token the catalog does not have. Defined in both layers with different canonicals, entry_ids and confidences, so a layering test can check that the whole entry is replaced and not merged field by field.",
+    "_layering": "Applying house_style then project_local must give: ID -> Identity, DEP -> Department, TXN -> Transaction Record, KYC -> Know Your Counterparty, WLT -> Wallet Account (LOCAL-WLT-0002). Applying them in the opposite order must give KYC -> Know Your Customer and WLT -> Wallet (LOCAL-WLT-0001), which is how a test tells composition from set union."
+  }
+}

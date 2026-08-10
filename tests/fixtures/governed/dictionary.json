@@ -1,0 +1,700 @@
+{
+  "_meta": {
+    "catalog": "Northwind Data Standards",
+    "catalog_abbrev": "NDS",
+    "synthetic": true,
+    "file": "dictionary.json",
+    "purpose": "GovernedEntry rows for the governed short-to-long expansion fixtures. Every row is invented. See README.md in this directory.",
+    "entry_id_pattern": "NDS-<TOKEN>",
+    "shape": "An object. The entry list is under \"entries\"; a loader must accept both this object form and a bare JSON array.",
+    "omitted_fields_take_model_defaults": [
+      "candidates",
+      "pin",
+      "keep_as_abbrev",
+      "class_word",
+      "notes"
+    ]
+  },
+
+  "reserved_absent": [
+    "KYC",
+    "WLT",
+    "ESCR",
+    "PRTFL",
+    "TRNCH",
+    "LGCY",
+    "WRKFLW",
+    "SBLDG"
+  ],
+
+  "entries": [
+    {
+      "token": "DT",
+      "canonical": "Date",
+      "kind": "class_word_abbrev",
+      "class_word": "Date",
+      "entry_id": "NDS-DT",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "TS",
+      "canonical": "Timestamp",
+      "kind": "class_word_abbrev",
+      "class_word": "Timestamp",
+      "entry_id": "NDS-TS",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "CD",
+      "canonical": "Code",
+      "kind": "class_word_abbrev",
+      "class_word": "Code",
+      "entry_id": "NDS-CD",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "NM",
+      "canonical": "Name",
+      "kind": "class_word_abbrev",
+      "class_word": "Name",
+      "entry_id": "NDS-NM",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "AM",
+      "canonical": "Amount",
+      "kind": "class_word_abbrev",
+      "class_word": "Amount",
+      "entry_id": "NDS-AM",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "IN",
+      "canonical": "Indicator",
+      "kind": "class_word_abbrev",
+      "class_word": "Indicator",
+      "entry_id": "NDS-IN",
+      "source": "governed",
+      "confidence": 1.0,
+      "notes": "IN is also a US state postal code. The class-word map settles it before scoring ever runs, so the +100 state penalty is never consulted for this token."
+    },
+    {
+      "token": "NBR",
+      "canonical": "Number",
+      "kind": "class_word_abbrev",
+      "class_word": "Number",
+      "entry_id": "NDS-NBR",
+      "source": "governed",
+      "confidence": 1.0,
+      "notes": "Reverse index: shares the long form \"Number\" with NUM (an unapproved expansion). Same token length, so the lexicographic tie-break decides, and it decides for NBR."
+    },
+    {
+      "token": "QTY",
+      "canonical": "Quantity",
+      "kind": "class_word_abbrev",
+      "class_word": "Quantity",
+      "entry_id": "NDS-QTY",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "PCT",
+      "canonical": "Percent",
+      "kind": "class_word_abbrev",
+      "class_word": "Percent",
+      "entry_id": "NDS-PCT",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "RT",
+      "canonical": "Rate",
+      "kind": "class_word_abbrev",
+      "class_word": "Rate",
+      "entry_id": "NDS-RT",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "TXT",
+      "canonical": "Text",
+      "kind": "class_word_abbrev",
+      "class_word": "Text",
+      "entry_id": "NDS-TXT",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "DESC",
+      "canonical": "Description",
+      "kind": "class_word_abbrev",
+      "class_word": "Description",
+      "entry_id": "NDS-DESC",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "STS",
+      "canonical": "Status",
+      "kind": "class_word_abbrev",
+      "class_word": "Status",
+      "entry_id": "NDS-STS",
+      "source": "governed",
+      "confidence": 1.0,
+      "notes": "\"Status\" is in SINGULAR_LOOKING_PLURALS, so it takes no -s penalty if it ever appears in a collision set."
+    },
+    {
+      "token": "TYP",
+      "canonical": "Type",
+      "kind": "class_word_abbrev",
+      "class_word": "Type",
+      "entry_id": "NDS-TYP",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "FLG",
+      "canonical": "Flag",
+      "kind": "class_word_abbrev",
+      "class_word": "Flag",
+      "entry_id": "NDS-FLG",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "VAL",
+      "canonical": "Value",
+      "kind": "class_word_abbrev",
+      "class_word": "Value",
+      "entry_id": "NDS-VAL",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "ADDR",
+      "canonical": "Address",
+      "kind": "class_word_abbrev",
+      "class_word": "Address",
+      "entry_id": "NDS-ADDR",
+      "source": "governed",
+      "confidence": 1.0,
+      "notes": "\"Address\" is in SINGULAR_LOOKING_PLURALS; it ends in -s and is not a plural."
+    },
+    {
+      "token": "SEQ",
+      "canonical": "Sequence",
+      "kind": "class_word_abbrev",
+      "class_word": "Sequence",
+      "entry_id": "NDS-SEQ",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "CNT",
+      "canonical": "Count",
+      "kind": "class_word_abbrev",
+      "class_word": "Count",
+      "entry_id": "NDS-CNT",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "RTO",
+      "canonical": "Ratio",
+      "kind": "class_word_abbrev",
+      "class_word": "Ratio",
+      "entry_id": "NDS-RTO",
+      "source": "governed",
+      "confidence": 1.0
+    },
+
+    {
+      "token": "TXN",
+      "canonical": "Transaction",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-TXN",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "EFF",
+      "canonical": "Effective",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-EFF",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "DTL",
+      "canonical": "Detail",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-DTL",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "APPLNT",
+      "canonical": "Applicant",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-APPLNT",
+      "source": "approved",
+      "confidence": 1.0,
+      "notes": "Deliberately the only claimant of the long form \"Applicant\"; APP is pinned away from it so the reverse index has one answer here."
+    },
+    {
+      "token": "BRTH",
+      "canonical": "Birth",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-BRTH",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "ACCT",
+      "canonical": "Account",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-ACCT",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "CUST",
+      "canonical": "Customer",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-CUST",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "ADJ",
+      "canonical": "Adjustment",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-ADJ",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "BAL",
+      "canonical": "Balance",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-BAL",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "PYMT",
+      "canonical": "Payment",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-PYMT",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "ADDL",
+      "canonical": "Additional",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-ADDL",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "XREF",
+      "canonical": "Cross Reference",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-XREF",
+      "source": "approved",
+      "confidence": 1.0,
+      "notes": "One of two multi-word canonicals, the other being 1MM. A word-by-word reverse mapping cannot reach XREF from \"Cross Reference\"; see the open question in README.md."
+    },
+    {
+      "token": "1MM",
+      "canonical": "One Million",
+      "kind": "approved_abbrev",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-1MM",
+      "source": "approved",
+      "confidence": 1.0,
+      "notes": "Digit-leading catalog token. Exists so the two-pass rule in the tokenizer contract has something to find: the joined form must be tried before the letter/digit split form."
+    },
+
+    {
+      "token": "ID",
+      "canonical": "Identifier",
+      "candidates": [
+        "Identity",
+        "Identification",
+        "Identifier",
+        "Identities",
+        "Identified",
+        "Identifying",
+        "Internal Document",
+        "Idaho"
+      ],
+      "pin": "Identifier",
+      "kind": "ambiguous_pinned",
+      "class_word": "Identifier",
+      "entry_id": "NDS-ID",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "The headline case. Eight candidates covering every penalty row except -ly: a plural, a past participle, a gerund, a multi-word form and a US state. The pin is not the most common English form and is not what the scorer would choose."
+    },
+    {
+      "token": "SRC",
+      "canonical": "Source",
+      "candidates": ["Sourcing", "Source", "Sourced"],
+      "pin": "Source",
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-SRC",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "Gerund loser: a most-common rule reaches for \"Sourcing\" here because the fixture orders candidates by corpus frequency."
+    },
+    {
+      "token": "PROC",
+      "canonical": "Process",
+      "candidates": ["Processed", "Process", "Processing", "Procedure"],
+      "pin": "Process",
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-PROC",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "Past-participle loser. \"Process\" is in SINGULAR_LOOKING_PLURALS, so it takes no -s penalty and the scorer agrees with the pin."
+    },
+    {
+      "token": "MO",
+      "canonical": "Month",
+      "candidates": ["Monthly", "Month", "Missouri", "Modification"],
+      "pin": "Month",
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-MO",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "The second US-state case, and the only -ly candidate in the corpus."
+    },
+    {
+      "token": "REC",
+      "canonical": "Record",
+      "candidates": [
+        "Receipt",
+        "Record",
+        "Recovery",
+        "Recorded",
+        "Receiving",
+        "Reconciliation"
+      ],
+      "pin": "Record",
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-REC",
+      "source": "pinned",
+      "confidence": 1.0
+    },
+    {
+      "token": "CHG",
+      "canonical": "Charge",
+      "candidates": ["Change", "Charge", "Charged", "Charging"],
+      "pin": "Charge",
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-CHG",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "Tie-break case: \"Change\" and \"Charge\" are the same length and take no penalties, so the scorer falls through to the lexicographic rule and picks \"Change\". The pin says otherwise."
+    },
+    {
+      "token": "SEC",
+      "canonical": "Security",
+      "candidates": ["Securities", "Security", "Secured", "Section", "Secondary"],
+      "pin": "Security",
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-SEC",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "Exercises both penalty exception sets at once: \"Securities\" is in SINGULAR_LOOKING_PLURALS and \"Secured\" is in PAST_TENSE_NOUNS, which is what lets \"Secured\" reach a tie and win on the lexicographic rule."
+    },
+    {
+      "token": "ACT",
+      "canonical": "Activity",
+      "candidates": ["Active", "Activity", "Action", "Actual"],
+      "pin": "Activity",
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-ACT",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "Three mechanisms, three answers: the frequency baseline takes \"Active\", the scorer takes \"Action\" off a three-way tie, the pin takes \"Activity\"."
+    },
+    {
+      "token": "ORIG",
+      "canonical": "Origination",
+      "candidates": ["Original", "Origination", "Originating", "Originated"],
+      "pin": "Origination",
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-ORIG",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "The pin is the longest candidate, so it can only ever come from governance: the length tiebreak works against it."
+    },
+
+    {
+      "token": "CTL",
+      "canonical": "Control",
+      "candidates": ["Controlling", "Control", "Controlled"],
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-CTL",
+      "source": "scored",
+      "confidence": 1.0,
+      "notes": "Known collision, deliberately unpinned, so resolution falls to canonical_form_score. Here the scorer is right and the frequency baseline reaches for the gerund."
+    },
+    {
+      "token": "REG",
+      "canonical": "Regional",
+      "candidates": ["Registration", "Register", "Regulatory", "Regional"],
+      "kind": "ambiguous_pinned",
+      "entry_id": "NDS-REG",
+      "source": "scored",
+      "confidence": 1.0,
+      "notes": "Known collision, deliberately unpinned, and the scorer's answer is defensible only as a deterministic tie-break: \"Register\" and \"Regional\" tie and the lexicographic rule takes \"Regional\". This row is the argument for pinning, not against scoring."
+    },
+
+    {
+      "token": "DEP",
+      "canonical": "Deposit",
+      "candidates": ["Department", "Deposit", "Dependent", "Depreciation"],
+      "pin": "Deposit",
+      "kind": "domain_pin",
+      "entry_id": "NDS-DEP",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "The catalog default for DEP is \"Department\" (first by corpus frequency). This domain reads DEP as \"Deposit\" and pins it."
+    },
+    {
+      "token": "PROD",
+      "canonical": "Product",
+      "candidates": ["Production", "Product", "Producer"],
+      "pin": "Product",
+      "kind": "domain_pin",
+      "entry_id": "NDS-PROD",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "Catalog default \"Production\" comes from platform schemas; in this domain PROD names a sold product."
+    },
+    {
+      "token": "APP",
+      "canonical": "Application",
+      "candidates": ["Approval", "Application", "Applied", "Applicable"],
+      "pin": "Application",
+      "kind": "domain_pin",
+      "entry_id": "NDS-APP",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "The pin beats both the catalog default and the scorer, which would take \"Approval\" on length. \"Applicant\" is deliberately not a candidate here; it belongs to APPLNT."
+    },
+    {
+      "token": "LN",
+      "canonical": "Loan",
+      "candidates": ["Line", "Loan", "Length"],
+      "pin": "Loan",
+      "kind": "domain_pin",
+      "entry_id": "NDS-LN",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "\"Line\" and \"Loan\" are the same length with no penalties, so without the pin the lexicographic tie-break would hand this to \"Line\". Also the source of a round-trip asymmetry; see README.md."
+    },
+
+    {
+      "token": "ZIP",
+      "canonical": "ZIP",
+      "kind": "proper_noun_acronym",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-ZIP",
+      "source": "approved",
+      "confidence": 1.0,
+      "notes": "Never expanded to \"Zone Improvement Plan\". The canonical is the token, and it must not be Title Cased to \"Zip\" either."
+    },
+    {
+      "token": "ABA",
+      "canonical": "ABA",
+      "kind": "proper_noun_acronym",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-ABA",
+      "source": "approved",
+      "confidence": 1.0,
+      "notes": "US bank routing number scheme. Carried verbatim."
+    },
+    {
+      "token": "ATM",
+      "canonical": "ATM",
+      "kind": "proper_noun_acronym",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-ATM",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "NDS",
+      "canonical": "NDS",
+      "kind": "proper_noun_acronym",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-NDS",
+      "source": "approved",
+      "confidence": 1.0,
+      "notes": "The fictional catalog naming itself. Columns that carry a catalog handle use this token."
+    },
+    {
+      "token": "GLX",
+      "canonical": "GLX",
+      "kind": "proper_noun_acronym",
+      "keep_as_abbrev": true,
+      "entry_id": "NDS-GLX",
+      "source": "approved",
+      "confidence": 1.0,
+      "notes": "Product code of Galaxen, a fictional upstream vendor. Stands in for the real vendor tokens that a governed catalog always carries and that must never be expanded."
+    },
+
+    {
+      "token": "FRAUD",
+      "canonical": "Fraud",
+      "kind": "short_full_word",
+      "entry_id": "NDS-FRAUD",
+      "source": "governed",
+      "confidence": 1.0,
+      "notes": "Regression guard: a rule that reads 2-5 uppercase letters as an abbreviation flags this word, and there is nothing to expand it to."
+    },
+    {
+      "token": "STATE",
+      "canonical": "State",
+      "kind": "short_full_word",
+      "entry_id": "NDS-STATE",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "PHONE",
+      "canonical": "Phone",
+      "kind": "short_full_word",
+      "entry_id": "NDS-PHONE",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "PARTY",
+      "canonical": "Party",
+      "kind": "short_full_word",
+      "entry_id": "NDS-PARTY",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "OWNER",
+      "canonical": "Owner",
+      "kind": "short_full_word",
+      "entry_id": "NDS-OWNER",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "MODEL",
+      "canonical": "Model",
+      "kind": "short_full_word",
+      "entry_id": "NDS-MODEL",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "RISK",
+      "canonical": "Risk",
+      "kind": "short_full_word",
+      "entry_id": "NDS-RISK",
+      "source": "governed",
+      "confidence": 1.0
+    },
+
+    {
+      "token": "CUSTMR",
+      "canonical": "Customer",
+      "kind": "unapproved_expansion",
+      "entry_id": "NDS-CUSTMR",
+      "source": "governed",
+      "confidence": 0.85,
+      "notes": "Not an approved physical form. Expands to \"Customer\"; the approved abbreviation is CUST, which is what normalize must rewrite it to."
+    },
+    {
+      "token": "ACCNT",
+      "canonical": "Account",
+      "kind": "unapproved_expansion",
+      "entry_id": "NDS-ACCNT",
+      "source": "governed",
+      "confidence": 0.85,
+      "notes": "Approved form is ACCT."
+    },
+    {
+      "token": "TRANS",
+      "canonical": "Transaction",
+      "kind": "unapproved_expansion",
+      "entry_id": "NDS-TRANS",
+      "source": "governed",
+      "confidence": 0.75,
+      "notes": "Also seen in the wild for \"Translation\" and \"Transfer\". Unapproved whichever way it is read, which is why the confidence is lower than its neighbours. Approved form is TXN."
+    },
+    {
+      "token": "AMNT",
+      "canonical": "Amount",
+      "kind": "unapproved_expansion",
+      "entry_id": "NDS-AMNT",
+      "source": "governed",
+      "confidence": 0.85,
+      "notes": "Approved form is AM."
+    },
+    {
+      "token": "NUM",
+      "canonical": "Number",
+      "kind": "unapproved_expansion",
+      "entry_id": "NDS-NUM",
+      "source": "governed",
+      "confidence": 0.9,
+      "notes": "Approved form is NBR. Same token length as NBR, so the reverse index for \"Number\" is decided lexicographically."
+    },
+    {
+      "token": "DTE",
+      "canonical": "Date",
+      "kind": "unapproved_expansion",
+      "entry_id": "NDS-DTE",
+      "source": "governed",
+      "confidence": 0.9,
+      "notes": "Approved form is DT. Both claim the long form \"Date\" as their canonical, so the reverse index is decided on token length."
+    },
+    {
+      "token": "PYMNT",
+      "canonical": "Payment",
+      "kind": "unapproved_expansion",
+      "entry_id": "NDS-PYMNT",
+      "source": "governed",
+      "confidence": 0.8,
+      "notes": "Approved form is PYMT."
+    },
+    {
+      "token": "EFFCTV",
+      "canonical": "Effective",
+      "kind": "unapproved_expansion",
+      "entry_id": "NDS-EFFCTV",
+      "source": "governed",
+      "confidence": 0.6,
+      "notes": "Approved form is EFF. The lowest confidence in the corpus, so a threshold test has something to sit above and below."
+    }
+  ]
+}

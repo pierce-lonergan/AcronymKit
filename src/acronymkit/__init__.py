@@ -23,6 +23,29 @@ Example:
     >>> (pair.short_form, pair.long_form)
     ('WHO', 'World Health Organization')
 
+Governed naming
+---------------
+:mod:`acronymkit.governed` is a separate capability with its own entry points,
+re-exported here for reach. It answers the schema-governance question rather
+than the linguistic one: given a bare column token and a vocabulary somebody
+has already written down, say what the token means, deterministically, and
+record which catalog row said so.
+
+    >>> from acronymkit import GovernedDictionary, expand_identifier
+    >>> catalog = GovernedDictionary.from_mapping(
+    ...     {"TXN": "Transaction", "ID": "Identifier"}
+    ... )
+    >>> expand_identifier("TXN_ID", catalog).phrase
+    'Transaction Identifier'
+
+``normalize_name`` is :func:`acronymkit.governed.compliance.normalize` under a
+qualified name, and the rename is not cosmetic: this package already has a
+:func:`acronymkit.tokenizer.normalize`, which NFKC-composes and case-folds
+arbitrary text. Read inside its own module the bare verb is unambiguous; read
+at the top of the package it would be one of two unrelated normalisations with
+no way to tell which. The defining module keeps the short name; the export says
+what it normalises. See :data:`_EXPORT_ALIASES`.
+
 Import policy
 -------------
 Two separate promises, and they are worth keeping apart.
@@ -104,6 +127,13 @@ if TYPE_CHECKING:
         TierUnavailableError,
         TokenizationError,
     )
+    from .governed.compliance import is_compliant
+    from .governed.compliance import normalize as normalize_name
+    from .governed.dictionary import GovernedDictionary
+    from .governed.expansion import expand_identifier, expand_token
+    from .governed.models import GovernedEntry
+    from .governed.naming import to_physical_name
+    from .governed.policy import NamingPolicy
     from .models import (
         AcronymCandidate,
         AcronymPair,
@@ -130,9 +160,11 @@ if TYPE_CHECKING:
 #: case in an un-installed source checkout.
 _FALLBACK_VERSION = "0.1.0"
 
-#: Public name -> the submodule that defines it. This is the whole lazy import
-#: table; every entry is also in :data:`__all__`, and the reverse holds except
-#: for ``__version__``, which is computed rather than imported.
+#: Public name -> the submodule it is resolved from. This is the whole lazy
+#: import table; every entry is also in :data:`__all__`, and the reverse holds
+#: except for ``__version__``, which is computed rather than imported. The
+#: values mirror the module paths in the ``TYPE_CHECKING`` block above one for
+#: one, which is what ``tests/test_package.py`` compares them against.
 _EXPORT_SOURCES = {
     "STRATEGY_WEIGHTS": "config",
     "capabilities": "diagnostics",
@@ -173,6 +205,31 @@ _EXPORT_SOURCES = {
     "LetterMapping": "models",
     "ScoreBreakdown": "models",
     "Token": "models",
+    "is_compliant": "governed.compliance",
+    "normalize_name": "governed.compliance",
+    "GovernedDictionary": "governed.dictionary",
+    "expand_identifier": "governed.expansion",
+    "expand_token": "governed.expansion",
+    "GovernedEntry": "governed.models",
+    "to_physical_name": "governed.naming",
+    "NamingPolicy": "governed.policy",
+}
+
+#: Public name -> the name its own module gives it, for the exports whose two
+#: spellings differ. Only ``normalize_name`` needs an entry, and the table
+#: exists rather than the alias being hard-coded because
+#: :data:`_EXPORT_SOURCES` resolves by identical name and silently returning
+#: the wrong object is the failure mode a special case here would invite.
+#:
+#: Renaming on re-export is worth doing sparingly and worth doing here:
+#: ``acronymkit.tokenizer.normalize`` already exists and does something else
+#: entirely. Exporting the compliance verb as ``normalize`` would mean
+#: ``from acronymkit import normalize`` and ``from acronymkit.tokenizer import
+#: normalize`` silently shadowing each other in one module, and a reader of
+#: either call site having no way to tell which was meant. The defining module
+#: keeps the short name; the package exports the qualified one.
+_EXPORT_ALIASES = {
+    "normalize_name": "normalize",
 }
 
 #: Submodules a bare ``import acronymkit`` used to bind as a side effect of the
@@ -181,6 +238,14 @@ _EXPORT_SOURCES = {
 #: imported on demand. ``cli`` and ``serialization`` are deliberately absent
 #: because they were never bound this way either: the point is to reproduce the
 #: previous attribute surface exactly, not to widen it.
+#:
+#: ``governed`` is the one entry with no previous surface to reproduce. It is
+#: listed because it is a sub-package whose own names are a superset of the
+#: eight re-exported here — a caller reaching for ``EntryKind`` or
+#: ``canonical_form_score`` has to get at it somehow, and
+#: ``acronymkit.governed`` raising ``AttributeError`` after ``import
+#: acronymkit`` while ``import acronymkit.governed`` worked would be a
+#: distinction nobody can predict from the outside.
 _SUBMODULES = frozenset(
     {
         "backronym",
@@ -193,6 +258,7 @@ _SUBMODULES = frozenset(
         "exceptions",
         "extractor",
         "generator",
+        "governed",
         "lexicon",
         "models",
         "nlp",
@@ -225,11 +291,14 @@ __all__ = [
     "ExpansionDictionary",
     "ExtractionResult",
     "GenerationError",
+    "GovernedDictionary",
+    "GovernedEntry",
     "HyphenPolicy",
     "Language",
     "LetterMapping",
     "LexiconError",
     "MappingKind",
+    "NamingPolicy",
     "NoCandidateError",
     "NumeralPolicy",
     "OfflineError",
@@ -244,7 +313,12 @@ __all__ = [
     "TokenizationError",
     "__version__",
     "capabilities",
+    "expand_identifier",
+    "expand_token",
     "format_report",
+    "is_compliant",
+    "normalize_name",
+    "to_physical_name",
 ]
 
 
@@ -272,7 +346,9 @@ def __getattr__(name: str) -> Any:
     lookup with no function call at all.
 
     Args:
-        name: The attribute being looked up.
+        name: The attribute being looked up. An export renamed on the way out
+            (see :data:`_EXPORT_ALIASES`) is fetched from its module under the
+            name that module gives it.
 
     Returns:
         The exported object, or the submodule.
@@ -285,7 +361,8 @@ def __getattr__(name: str) -> Any:
     if name == "__version__":
         value: Any = _resolve_version()
     elif name in _EXPORT_SOURCES:
-        value = getattr(import_module(f".{_EXPORT_SOURCES[name]}", __name__), name)
+        module = import_module(f".{_EXPORT_SOURCES[name]}", __name__)
+        value = getattr(module, _EXPORT_ALIASES.get(name, name))
     elif name in _SUBMODULES:
         value = import_module(f".{name}", __name__)
     else:
