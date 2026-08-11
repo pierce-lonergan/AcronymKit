@@ -374,10 +374,19 @@ def _render(
 
     At each position the longest remaining run of words the reverse index knows
     wins, so a multi-word catalog term is reached as one token rather than
-    spelled out word by word. The scan is quadratic in the number of words,
-    which for names of the length people actually write is a few dozen dictionary
-    lookups; the alternative — a single-word walk — cannot reach ``XREF`` or
-    ``1MM`` at all.
+    spelled out word by word. A single-word walk would be linear but could never
+    reach ``XREF`` or ``1MM``, so the longest match has to stay.
+
+    **The scan is bounded by the catalog, not by the name.** It used to run from
+    the end of the name back to the current position, which is quadratic in the
+    words: eighteen words cost 171 lookups. Almost all of them were asking
+    whether a reverse index whose wordiest key is two words long contains an
+    eighteen-word key — a question whose answer is fixed at construction. The
+    window is now capped at
+    :attr:`~acronymkit.governed.dictionary.GovernedDictionary.longest_long_form_words`,
+    which cannot change the outcome because a run longer than the wordiest key
+    cannot match anything, and makes the cost linear in the name and bounded by
+    the vocabulary. Names get longer; catalog terms do not.
 
     Args:
         words: The logical name's words, in order, as they were written.
@@ -399,7 +408,10 @@ def _render(
             rendered.append(verbatim)
             start += 1
             continue
-        for end in range(total, start, -1):
+        # At least one word, so a name is always made progress on even when the
+        # vocabulary holds no long form at all and the bound is zero.
+        window = max(layered.longest_long_form_words, 1)
+        for end in range(min(total, start + window), start, -1):
             text = " ".join(words[start:end])
             entry = _governed_entry(base, layered, text, allow_override)
             if entry is not None:

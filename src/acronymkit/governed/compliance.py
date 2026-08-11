@@ -75,13 +75,31 @@ code that describes one honestly. Reported as a gap rather than forced into
 
 Idempotence
 -----------
-``normalize(normalize(x)) == normalize(x)`` for every ``x``, and it holds by
-construction rather than by testing: a rewrite is proposed **only when its
+``normalize(normalize(x)) == normalize(x)`` for every ASCII ``x``, and it holds
+by construction rather than by testing: a rewrite is proposed **only when its
 target is approved**, so the second pass finds an approved token, has nothing to
 propose, and returns it unchanged. When the catalog offers nothing approved the
 token is left exactly as it was, which is also a fixed point. Both branches
 terminate after one step, so no cycle of "unapproved token A rewrites to
 unapproved token B rewrites to A" can exist.
+
+That argument has a second premise, and it is written down here because leaving
+it implicit is how it got broken once. The returned name is the tokens
+upper-cased and ``_``-joined, and the second pass splits that string again — so
+the argument holds only while **a token, upper-cased, splits back to exactly
+itself**. It does for all ASCII, and that is asserted as a property rather than
+assumed; an earlier reading of the tokenizer's ordinal rule emitted the token
+``1s``, whose upper-cased form ``1S`` splits into two, and ``normalize("1sT")``
+moved on every pass.
+
+Outside ASCII it is **false**, and the honest thing is to say where rather than
+to claim the invariant unqualified. ``str.upper`` is not length-preserving and
+can produce characters that are not letters: ``"ΐ"`` upper-cases to a
+capital iota followed by two combining marks, a combining mark is unaccounted,
+and the second pass drops them. Repairing that would mean either applying Unicode
+normalisation — which rewrites text, and
+:mod:`~acronymkit.governed.tokenizer` refuses to — or declining to upper-case a
+word, and both are worse than a stated limit.
 
 ``normalize`` and ``is_compliant`` share one decision ladder — ``normalize``
 applies precisely the ``fix`` that ``is_compliant`` reports — so the check and
@@ -564,8 +582,9 @@ def normalize(
     stands, including tokens the vocabulary has never heard of: an unknown token
     rewritten to a guess is worse than an unknown token reported as unknown.
 
-    Idempotent: ``normalize(normalize(x)) == normalize(x)``. See the module
-    docstring for why that holds by construction rather than by testing.
+    Idempotent for an ASCII name: ``normalize(normalize(x)) == normalize(x)``.
+    See the module docstring for why that holds by construction, for the premise
+    it rests on, and for the Unicode case where it does not hold.
 
     This is **not** a promise of compliance. It does not append a missing class
     word — the contract assigns that to ``to_physical_name`` — and it never

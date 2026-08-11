@@ -166,25 +166,43 @@ governed vocabulary, return the long form — deterministically, with no prose t
 against, and with a record of which catalog entry produced each word.
 
 ```python
-from acronymkit.governed import GovernedDictionary, expand_identifier, expand_token, normalize
+from acronymkit.governed import GovernedNamer, load_bundle
 
-nds = GovernedDictionary.from_mapping(
+# A real standard is a directory of files, and one line reads it:
+#     nds = GovernedNamer.from_bundle("nds_standard/")
+#     nds = GovernedNamer(load_bundle("nds_standard/"), policy)   # the same, unbundled
+# Inline below, so this block runs with nothing on disk.
+nds = GovernedNamer.from_mapping(
     {"TXN": "Transaction", "APPLNT": "Applicant", "ID": "Identifier",
      "NBR": "Number", "NUM": "Number", "DT": "Date"},
     approved_abbreviations=["TXN", "APPLNT", "ID", "NBR", "DT"],
     class_words={"ID": "Identifier", "DT": "Date"},
 )
 
-expand_identifier("TXN_APPLNT_ID", nds).phrase        # 'Transaction Applicant Identifier'
-expand_identifier("TXN_KYC_ID", nds).is_fully_known   # False — the catalog has no KYC
-normalize("txnApplntNum", nds)                        # 'TXN_APPLNT_NBR'
+nds.expand_identifier("TXN_APPLNT_ID").phrase        # 'Transaction Applicant Identifier'
+nds.expand_identifier("TXN_KYC_ID").is_fully_known   # False — the catalog has no KYC
+nds.normalize("txnApplntNum")                        # 'TXN_APPLNT_NBR'
 ```
 
-**Your acronyms win.** Pass `custom=` to any verb and it is layered for that call only, on top of
-the catalog, and reported as such:
+`GovernedNamer` binds one vocabulary and one policy and then takes the subject as its only argument;
+`expand_many` and `check_many` take a whole corpus. A naming standard on disk is a catalog, three
+allow-lists, a class-word map, a pin sheet and a term glossary, which is what `from_bundle` and
+`load_bundle` read; `from_csv` and `from_json` read the narrower shapes.
+
+**Nothing is dropped in silence.** A character the splitter cannot account for is reported rather
+than discarded, and `is_fully_known` is true only when every token resolved *and* nothing went
+unaccounted for:
 
 ```python
-result = expand_token("KYC", nds, custom={"KYC": "Know Your Customer"})
+nds.expand_identifier("TXN_©_ID").phrase           # 'Transaction Identifier'
+nds.expand_identifier("TXN_©_ID").unaccounted      # ('©',)
+nds.expand_identifier("TXN_©_ID").is_fully_known   # False
+```
+
+**Your acronyms win.** `with_custom` layers an overlay above the catalog and reports it as such:
+
+```python
+result = nds.with_custom({"KYC": "Know Your Customer"}).expand_token("KYC")
 result.long, result.source.value      # ('Know Your Customer', 'custom')
 ```
 
@@ -352,6 +370,40 @@ Score breakdown for SCUBA:
 Also available: `backronym`, `synthesize`, `extract`, `score`, `tokens`, `schema`, `version`. Every
 command takes `--format json` for the schema-conformant payload, and `extract` reads stdin.
 
+### Governed naming from the command line
+
+Seven more commands read a governed vocabulary. `expand-token`, `expand-identifier`, `physical-name`,
+`check-name` and `normalize-name` answer one subject each — `check-name` exits 1 when the name does
+not conform, so it works as a gate. Two answer a whole schema in one process:
+
+```bash
+acronymkit governed-batch --dictionary std/ --op expand < columns.txt > answers.jsonl
+acronymkit governed-audit --dictionary std/ --suggest   < columns.txt
+```
+
+**`governed-batch` streams**: one record per line in, one JSON object per line out, nothing
+accumulates, so a fifty-thousand-column schema costs the same memory as a hundred-column one and the
+reader sees the first answer before the last question is asked. `--op` selects `expand`, `physical`,
+`check`, `normalize` or `audit`; every record carries `line`, `input` and any `id` it arrived with.
+An error rides on its own record and never aborts the run, the process exits 1 if any record failed,
+and the one-line summary goes to stderr so every line of stdout is a record. This is the command that
+makes the library usable from another language: answering one name takes microseconds and starting a
+Python interpreter takes tens of milliseconds, so a pipeline that shells out per column pays almost
+all of its cost outside the work.
+
+**`governed-audit`** reduces the same corpus to one report — coverage, round-trip breaks, compliance
+findings by reason code, and the unknown-token backlog ranked by how often each token appears and in
+how many of them. `--suggest` proposes catalog rows to write, `--limit` controls truncation,
+`--details` keeps one record per name in the JSON.
+
+`--dictionary` takes a bundle directory, a JSON catalog or a CSV on all seven, with
+`--dictionary-format`, `--columns` and `--delimiter` saying how to read it — and it refuses to guess
+which way round a two-column CSV is meant to be read, because both readings are valid vocabularies
+that mean different things. Every command here except `governed-batch` also takes `--format json`.
+
+[docs/QUICKSTART_GOVERNED.md](docs/QUICKSTART_GOVERNED.md) runs all of it end to end, from a
+spreadsheet export to a diff against whatever you use today.
+
 ## Batch and async
 
 ```python
@@ -420,6 +472,9 @@ python tools/fetch_data.py --verify      # re-check every checksum
 - [Governed naming](docs/GOVERNED_NAMING.md) — deterministic short→long expansion against a schema
   catalog: the custom-first precedence chain, every verb with real output, the four invariants, and
   why refusing to guess is the right design for governed data
+- [Governed naming in five minutes](docs/QUICKSTART_GOVERNED.md) — the same subsystem from the
+  command line, from a spreadsheet export to a whole schema in one process, ending in a diff against
+  the implementation you have now
 - [Technical note: the governed JSON wire contract](docs/notes/governed-json-contract.md) — the exact
   JSON shape of every DTO and fixture, written so a port can be validated against the same golden
   files. No JVM artifact exists; this is what would make writing one mechanical

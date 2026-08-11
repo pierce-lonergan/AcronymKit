@@ -53,6 +53,45 @@ collision with no pin is settled by :func:`~acronymkit.governed.scoring.rank_can
 which is total. Two processes given the same rows produce the same answers and
 the same audit records.
 
+Memoisation, and the three things that make it safe
+---------------------------------------------------
+:meth:`GovernedDictionary.resolve` is a pure function of ``(this dictionary,
+this token, this policy)``, and a schema repeats tokens enormously — every table
+has an id, a date and a code column — so the answer is remembered. What makes
+that a cache rather than a bug is that all three parts of the key are honoured:
+
+* **This dictionary.** The memo lives on the instance, and
+  :meth:`~GovernedDictionary.with_custom` builds a *new* instance with an empty
+  one. A call-scoped ``custom=`` overlay therefore cannot be served an answer
+  computed without it, because it is not asking the same object.
+* **This policy.** Memos are kept per policy, matched by value, so two policies
+  that differ in any field never share one. Nothing enumerates which fields
+  ``resolve`` happens to read, because that list is exactly the kind of thing
+  that goes stale and returns a wrong answer quickly.
+* **This token.** Keyed on the normalised lookup key, which is what the answer
+  depends on; the surface spelling is the caller's and is not part of it.
+
+What is *not* remembered is that a token is unknown. That keeps the memo keyed by
+the vocabulary — a set the dictionary fixes when it is built — rather than by
+whatever names the caller happens to have, which is the shape that grows without
+limit in a service that runs for a month. :data:`_MEMO_LIMIT` is the second
+bound, for the residue a case-insensitive lookup leaves behind; both are
+described there. The cost is that a recurring unknown token is passed through
+afresh every time, and that was measured against the alternative before it was
+chosen: remembering the misses is faster on a corpus that repeats them and
+meaningfully *slower* on one that does not, because the bookkeeping is then paid
+on every token and returns nothing.
+
+Entries are frozen models, so handing the same object to two callers is not
+observable except by ``is``. Concurrent readers are safe: a memo is only ever
+added to or emptied, the pair of "policy and its memo" is published as one tuple
+so a reader cannot see half of an update, and the worst a race can cost is that
+two threads compute the same answer. That argument is also exercised rather than
+left as an argument — ``tests/test_governed_perf.py`` points several threads at
+one dictionary with the policies interleaved and compares every answer against
+the one a dictionary nothing had warmed gave, because the failure a race would
+cause here is a wrong answer rather than an exception.
+
 Where ``GovernedEntry`` lives
 -----------------------------
 The package layout in the contract lists ``GovernedEntry`` alongside
@@ -74,13 +113,13 @@ import json
 import os
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, NamedTuple, Optional, TypeVar, Union
 
 from pydantic import ValidationError as PydanticValidationError
 
 from ..exceptions import LexiconError
 from .enums import EntryKind, ExpansionSource, ResolutionMode
-from .models import GovernedEntry
+from .models import GovernedEntry, TokenExpansion
 from .policy import NamingPolicy
 from .scoring import rank_candidates
 
@@ -124,6 +163,87 @@ _INVERSION_NOTE = (
 #: What :meth:`GovernedDictionary.from_json` accepts: a path, or an already
 #: parsed document in either of the two layouts described on that method.
 _JsonSource = Union[str, "os.PathLike[str]", Mapping[str, Any], Sequence[Any]]
+
+#: Distinct answers one memo holds before it is emptied and starts again.
+#:
+#: A second bound behind the structural one. Only *governed* answers are
+#: memoised, so the keys are catalog, allow-list and overlay tokens — a set the
+#: vocabulary fixes at construction — and the memo cannot grow past the
+#: vocabulary however many names it is shown. What this limit catches is the
+#: residue: lookup is case-insensitive and the expansion memo is keyed on the
+#: spelling it was given, so a caller sending ``TXN``, ``Txn`` and ``tXn`` has
+#: three keys for one row, and a mixed-case export could in principle produce
+#: many. That is caller input again, and an unbounded map keyed by caller input is
+#: a leak whatever it is called.
+#:
+#: Emptying rather than evicting the least-used entry is deliberate. An eviction
+#: order costs bookkeeping on every hit, which is the operation worth keeping
+#: cheap; the tokens that matter are the frequent ones, and they refill an
+#: emptied memo within a few names. The size is chosen against the workload
+#: rather than tuned: it holds a real catalog's whole token set several times
+#: over, and the worst case it admits is a few thousand frozen models.
+_MEMO_LIMIT = 4096
+
+#: Distinct policies one dictionary memoises for before all of them are dropped.
+#: A pipeline runs under one policy, or two while a standard is being changed;
+#: four is room for that and a bound on the memory the per-policy split can cost.
+_MEMO_POLICY_LIMIT = 4
+
+_Answer = TypeVar("_Answer")
+
+
+class _Memo(NamedTuple):
+    """What one dictionary has already worked out under one policy.
+
+    Two maps rather than one because two modules answer two different questions
+    about the same token and their keys would otherwise collide: ``TXN`` names a
+    catalog entry in one and a whole expansion in the other.
+
+    Neither map records that a token is **unknown**, and that is the decision
+    that keeps both of them small. A memo of governed answers is keyed by the
+    vocabulary — finite, and fixed when the dictionary was built. Add the misses
+    and it is keyed by whatever names the caller has, which is the shape a cache
+    should not have; a corpus of one-off tokens would then fill and empty it over
+    and over, paying the bookkeeping on every token and getting nothing back,
+    which is measurably worse than not caching at all. What it costs is that a
+    recurring unknown token is Title Cased afresh each time. That is the cheap
+    branch — the catalog was already asked and said nothing — and it is the one
+    worth paying twice.
+
+    Attributes:
+        resolved: Normalised token key to the entry
+            :meth:`GovernedDictionary.resolve` found. Never holds ``None``.
+        expanded: Surface token to its :class:`~acronymkit.governed.models.TokenExpansion`,
+            for tokens the vocabulary answered for. Filled by
+            :mod:`acronymkit.governed.expansion`, which owns the shape of that
+            answer; it is declared here because the memo has to live for exactly
+            as long as the dictionary it is an answer about, and the dictionary is
+            the only object with that lifetime. Keyed on the **surface** token,
+            not the lookup key, because a token expansion reports the spelling it
+            was given.
+    """
+
+    resolved: dict[str, GovernedEntry]
+    expanded: dict[str, TokenExpansion]
+
+
+def _remember(memo: dict[str, _Answer], key: str, answer: _Answer) -> _Answer:
+    """Record an answer in a bounded memo and return it.
+
+    Args:
+        memo: The map to write to. Only ever holds answers the vocabulary
+            supplied, so a plain ``get`` returning ``None`` means "not
+            remembered" rather than "remembered as nothing".
+        key: The lookup key.
+        answer: What was worked out. Never ``None``.
+
+    Returns:
+        ``answer``, unchanged, so a caller can memoise and return in one line.
+    """
+    if len(memo) >= _MEMO_LIMIT:
+        memo.clear()
+    memo[key] = answer
+    return answer
 
 
 def _token_key(token: Optional[str]) -> str:
@@ -281,6 +401,86 @@ def _overlay_index(
             source=ExpansionSource.CUSTOM,
         )
     return index
+
+
+def _too_long_to_match(text: str, longest: int) -> bool:
+    """Whether ``text`` is too long to be any long form the index holds.
+
+    An exact rejection, not an estimate, and it is worth reading the three
+    conditions as one argument rather than as three tests.
+    :func:`_phrase_key` collapses whitespace and case-folds, so what has to be
+    bounded from below is the length of the *key*, and the only thing that can
+    make a key shorter than its text is whitespace collapsing:
+
+    * **ASCII**, because folding can lengthen a string — ``ß`` folds to ``ss`` —
+      and then a key can be longer than the text it came from;
+    * **printable**, because every ASCII whitespace character except the space
+      itself is unprintable, so this is what makes "the spaces are all the
+      whitespace there is" true rather than assumed. Drop it and a phrase
+      separated by a tab reads as one long word and is refused although the index
+      holds it;
+    * with both of those, the key is at least ``len(text) - text.count(" ")``
+      characters, since collapsing removes only spaces and puts one back between
+      every pair of words.
+
+    The reverse direction asks the index about every run of words in a name, and
+    nearly all of them are many times longer than any term a catalog abbreviates,
+    so measuring before normalising is most of the work avoided. Anything the
+    three conditions do not cover simply takes the ordinary path.
+
+    Args:
+        text: The phrase as the caller wrote it.
+        longest: Length of the longest key in the indexes being consulted.
+
+    Returns:
+        ``True`` only when no key of ``text`` can be in an index that long.
+    """
+    return (
+        len(text) > longest
+        and text.isascii()
+        and text.isprintable()
+        and len(text) - text.count(" ") > longest
+    )
+
+
+def _longest_long_form(*indexes: Mapping[str, GovernedEntry]) -> int:
+    """Length of the longest key across some reverse indexes.
+
+    The bound :meth:`GovernedDictionary.abbreviate` rejects on; see
+    :func:`_too_long_to_match` for why a length is enough to decide with.
+
+    Args:
+        *indexes: The reverse indexes to measure, keyed as
+            :func:`_phrase_key` produces.
+
+    Returns:
+        The longest key length, or ``0`` when every index is empty.
+    """
+    return max((len(key) for index in indexes for key in index), default=0)
+
+
+def _longest_long_form_words(*indexes: Mapping[str, GovernedEntry]) -> int:
+    """How many words the wordiest long form in these indexes has.
+
+    The companion to :func:`_longest_long_form`, in words rather than
+    characters, and it exists for a different consumer.
+    :mod:`acronymkit.governed.naming` matches longest-first: at each position it
+    asks the reverse index about the run of words from here to the end of the
+    name, then one shorter, and so on. On an eighteen-word name that is 171
+    questions, and every one longer than the wordiest catalog term is asking
+    whether an index that holds nothing above four words holds an eighteen-word
+    key. Knowing the ceiling turns the scan from quadratic in the name into
+    linear in the name and bounded by the catalog, which is the right shape:
+    names get longer, catalog terms do not.
+
+    Args:
+        *indexes: Reverse indexes keyed as :func:`_phrase_key` produces, whose
+            keys are therefore already whitespace-collapsed.
+
+    Returns:
+        The largest word count, or ``0`` when every index is empty.
+    """
+    return max((key.count(" ") + 1 for index in indexes for key in index), default=0)
 
 
 def _reverse_index(entries: Iterable[GovernedEntry]) -> dict[str, GovernedEntry]:
@@ -481,9 +681,12 @@ def _entry_from_row(row: Any, position: int) -> GovernedEntry:
 class GovernedDictionary:
     """A governed vocabulary, indexed for expansion, approval and abbreviation.
 
-    Immutable after construction. Every index is materialised once, so lookups
-    are dictionary hits rather than scans, and an instance can be shared across
-    threads without locking.
+    Every index is materialised once and never written to again, so lookups are
+    dictionary hits rather than scans and an instance can be shared across
+    threads without locking. The one part that *is* written after construction is
+    the memo — see the module docstring for what makes concurrent readers safe,
+    and note that "immutable" here means no answer ever changes, not that no
+    attribute ever does.
 
     Construction takes the catalog rows plus the material a naming standard
     keeps beside them: the three allow-lists that say which tokens may stand in
@@ -527,6 +730,10 @@ class GovernedDictionary:
         "_custom",
         "_custom_by_long_form",
         "_entries",
+        "_longest_long_form",
+        "_longest_long_form_words",
+        "_memo_recent",
+        "_memos",
         "_short_words",
         "_term_index",
     )
@@ -607,6 +814,15 @@ class GovernedDictionary:
 
         self._by_long_form: dict[str, GovernedEntry] = _reverse_index(rows.values())
         self._custom_by_long_form: dict[str, GovernedEntry] = _reverse_index(self._custom.values())
+        self._longest_long_form: int = _longest_long_form(
+            self._by_long_form, self._custom_by_long_form
+        )
+        self._longest_long_form_words: int = _longest_long_form_words(
+            self._by_long_form, self._custom_by_long_form
+        )
+
+        self._memos: dict[NamingPolicy, _Memo] = {}
+        self._memo_recent: Optional[tuple[NamingPolicy, _Memo]] = None
 
     # -- construction ------------------------------------------------------
     @classmethod
@@ -918,6 +1134,14 @@ class GovernedDictionary:
         the result away, so this has to stay cheap enough to sit inside a loop
         over a schema.
 
+        The memos are **not** shared, and that is a correctness requirement
+        rather than an optimisation choice. An overlay changes what a token
+        resolves to, so an answer worked out without it must never be served to a
+        caller who supplied it. The new dictionary starts with nothing
+        remembered, which is also why a per-call ``custom=`` overlay gets no
+        benefit from memoisation: it is a new vocabulary every call, and it is
+        answered as one.
+
         Args:
             custom: The overlay to layer. ``None`` and an empty mapping both
                 yield an equivalent dictionary rather than the receiver itself.
@@ -938,6 +1162,14 @@ class GovernedDictionary:
         clone._by_long_form = self._by_long_form
         clone._custom = layered
         clone._custom_by_long_form = _reverse_index(layered.values())
+        clone._longest_long_form = _longest_long_form(
+            self._by_long_form, clone._custom_by_long_form
+        )
+        clone._longest_long_form_words = _longest_long_form_words(
+            self._by_long_form, clone._custom_by_long_form
+        )
+        clone._memos = {}
+        clone._memo_recent = None
         return clone
 
     # -- lookups -----------------------------------------------------------
@@ -1046,22 +1278,12 @@ class GovernedDictionary:
         if not key:
             return None
         active = policy if policy is not None else NamingPolicy.governed_default()
-        overlay = self._custom.get(key)
-        entry = self._entries.get(key)
-
-        if overlay is not None and (entry is None or active.allow_override):
-            return overlay
-
-        note: Optional[str] = None
-        if overlay is not None and entry is not None:
-            governed = _governed_choice(entry, key)
-            if _phrase_key(overlay.canonical) == _phrase_key(governed):
-                return overlay
-            note = _DEMOTION_NOTE.format(overlay=overlay.canonical, governed=governed)
-
-        if entry is not None:
-            return _resolved(entry, key, active, note)
-        return self._allow_list_entry(key)
+        memo = self._memo(active).resolved
+        remembered = memo.get(key)
+        if remembered is not None:
+            return remembered
+        answer = self._decide(key, active)
+        return answer if answer is None else _remember(memo, key, answer)
 
     def is_approved(self, token: Optional[str]) -> bool:
         """Return whether ``token`` may stand as written in a physical name.
@@ -1131,6 +1353,22 @@ class GovernedDictionary:
             return mapped
         return self._class_word_full_forms.get(key)
 
+    @property
+    def longest_long_form_words(self) -> int:
+        """Word count of the wordiest long form this vocabulary can match.
+
+        A caller matching longest-first has no reason to ask about a run of
+        words longer than this: no key in the reverse index can be that long, so
+        every such question is answered ``None`` by construction. Exposed so
+        :func:`~acronymkit.governed.naming.to_physical_name` can bound its scan
+        by the catalog instead of by the name it was handed.
+
+        Returns:
+            The largest word count in the reverse index, or ``0`` when the
+            vocabulary holds no long form at all.
+        """
+        return self._longest_long_form_words
+
     def abbreviate(self, word: Optional[str]) -> Optional[GovernedEntry]:
         """Return the entry whose token is ``word``'s governed short form.
 
@@ -1159,6 +1397,8 @@ class GovernedDictionary:
             caller needs the entry id and source to record where the short form
             came from.
         """
+        if word is not None and _too_long_to_match(word, self._longest_long_form):
+            return None
         key = _phrase_key(word)
         if not key:
             return None
@@ -1187,6 +1427,78 @@ class GovernedDictionary:
         return self._term_index.get(key)
 
     # -- internals ---------------------------------------------------------
+    def _memo(self, policy: NamingPolicy) -> _Memo:
+        """Return what this dictionary has already worked out under ``policy``.
+
+        Also called from :mod:`acronymkit.governed.expansion`, which fills the
+        second half of the memo; see :class:`_Memo` for why the two live
+        together and the module docstring for why the split by policy is by
+        value rather than by identity.
+
+        Policies are matched by identity first and by value second, and the pair
+        earns its two lines. Every verb in this package resolves its policy once
+        and hands the same object to every token of a name, so the identity check
+        answers all but the first token of a call at the cost of a pointer
+        comparison. The lookup behind it is what catches two policies that are
+        equal without being the same object — which is what a verb building its
+        own default produces, as the compliance and reverse directions still do
+        on every call. Matching by value is also the safe half: it is what makes
+        two policies share a memo only when they say the same thing.
+
+        Args:
+            policy: The active policy.
+
+        Returns:
+            The memo for this policy, created empty if there is none.
+        """
+        recent = self._memo_recent
+        if recent is not None and recent[0] is policy:
+            return recent[1]
+        memo = self._memos.get(policy)
+        if memo is None:
+            if len(self._memos) >= _MEMO_POLICY_LIMIT:
+                self._memos.clear()
+                self._memo_recent = None
+            memo = _Memo({}, {})
+            self._memos[policy] = memo
+        # Published as one tuple, so a reader in another thread cannot see this
+        # policy paired with the previous policy's memo.
+        self._memo_recent = (policy, memo)
+        return memo
+
+    def _decide(self, key: str, policy: NamingPolicy) -> Optional[GovernedEntry]:
+        """Work out what ``key`` resolves to, without consulting the memo.
+
+        The precedence chain itself; :meth:`resolve` is this function plus the
+        normalisation of its arguments and the memo in front of it. Split out so
+        that the rules and the remembering are separately readable, and so that a
+        test can exercise the chain with nothing cached in front of it.
+
+        Args:
+            key: An already-normalised token key, never empty.
+            policy: The active policy, already defaulted.
+
+        Returns:
+            The resolved entry, or ``None`` when nothing in the vocabulary
+            matches.
+        """
+        overlay = self._custom.get(key)
+        entry = self._entries.get(key)
+
+        if overlay is not None and (entry is None or policy.allow_override):
+            return overlay
+
+        note: Optional[str] = None
+        if overlay is not None and entry is not None:
+            governed = _governed_choice(entry, key)
+            if _phrase_key(overlay.canonical) == _phrase_key(governed):
+                return overlay
+            note = _DEMOTION_NOTE.format(overlay=overlay.canonical, governed=governed)
+
+        if entry is not None:
+            return _resolved(entry, key, policy, note)
+        return self._allow_list_entry(key)
+
     def _allow_list_entry(self, key: str) -> Optional[GovernedEntry]:
         """Synthesise rule 4's entry: approved by an allow-list, with no row.
 

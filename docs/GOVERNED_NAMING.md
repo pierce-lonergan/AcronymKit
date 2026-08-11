@@ -21,11 +21,19 @@ that changes spelling on the way out — it is `acronymkit.normalize_name`, beca
 `acronymkit.tokenizer.normalize` already exists and does something else. Either import path resolves
 lazily and costs nothing until it is used.
 
+**If your standard is in a spreadsheet and your pipeline is in another language**, start with
+[docs/QUICKSTART_GOVERNED.md](QUICKSTART_GOVERNED.md) instead — it goes from a CSV to a whole schema
+answered in one process, at the command line, in five minutes. This page is the contract behind it.
+
 - [What this is not](#what-this-is-not-and-why-that-is-the-design)
 - [A catalog to work against](#a-catalog-to-work-against)
 - [Precedence: the caller's overlay comes first](#precedence-the-callers-overlay-comes-first)
 - [The verbs](#the-verbs)
+- [Binding it once: `GovernedNamer`](#binding-it-once-governednamer)
 - [Building a vocabulary](#building-a-vocabulary)
+- [Auditing a whole schema](#auditing-a-whole-schema)
+- [From another process](#from-another-process)
+- [What the splitter accounts for](#what-the-splitter-accounts-for)
 - [Policies](#policies)
 - [The four invariants](#the-four-invariants)
 - [Limits](#limits)
@@ -335,6 +343,10 @@ shape of `7Code`, which must. `expand_identifier` makes a second, dictionary-awa
 the token back **only where the catalog vouches for it**, which keeps the splitter a function of its
 input rather than of somebody's vocabulary.
 
+An unknown token is one half of `is_fully_known`. The other is `unaccounted`, the characters the
+splitter could not read as part of any token — see
+[What the splitter accounts for](#what-the-splitter-accounts-for).
+
 ### `to_physical_name`
 
 The reverse direction: a logical name rendered as `UPPER_SNAKE`, word by word, through the
@@ -490,6 +502,59 @@ This is a rule of thumb. It is written down, it is published, it is the same rul
 time, and every answer it produces reports `source: "scored"` so a consumer can treat it differently
 from a recorded decision. That is the whole difference between a defensible default and a guess.
 
+## Binding it once: `GovernedNamer`
+
+`verb(subject, dictionary, policy=None, *, custom=None)` is the right shape for the functions and
+the wrong one for the caller. A pipeline holds one vocabulary and one policy for its whole run, and
+repeating both at every call site buys a flexibility nobody uses in exchange for three arguments
+that can drift — one call site left on the default policy while the rest moved to a strict one is a
+bug no type checker sees.
+
+```python
+from acronymkit.governed.namer import GovernedNamer
+
+namer = GovernedNamer(nds, custom={"KYC": "Know Your Customer"})
+
+namer.expand_identifier("CUST_ACCT_KYC_ID").phrase   # 'Customer Account Know Your Customer Identifier'
+namer.is_compliant("CUSTMR_ACCT_NUM").compliant      # False
+namer.normalize("custmr_acct_num")                   # 'CUST_ACCT_NBR'
+namer.policy.mode.value                              # 'governed'
+```
+
+Every method forwards to the free function of the same name with the bound arguments filled in and
+returns exactly what it returns. This class holds **no naming logic at all**, on purpose, so there
+is no second place a governed decision can be made.
+
+It is immutable, holds no cache and reads no clock, so one namer can be a module-level constant
+shared by every thread of a service. `with_policy` and `with_custom` return new namers and leave the
+receiver alone:
+
+```python
+strict = namer.with_policy(NamingPolicy.strict_length())
+strict.policy.enforce_name_length     # True
+namer.policy.enforce_name_length      # False
+```
+
+`expand_many` and `check_many` take the batch, which is the call shape a schema pipeline wants —
+particularly across a process boundary, where the cost that matters is the number of round trips:
+
+```python
+tuple(e.phrase for e in namer.expand_many(["TXN_ID", "CUST_ACCT_ID"]))
+# ('Transaction Identifier', 'Customer Account Identifier')
+```
+
+**They are the loop, and they say so.** Neither is faster per identifier than calling the single
+verb in a comprehension. They earn their place by fixing two properties a future parallel
+implementation would have to keep — result *i* is the answer for input *i*, and nothing is carried
+from one item to the next — and not by being quick. Nothing is memoised: a memo keyed on the
+identifier was prototyped, measured and left out, because what it buys is proportional to how often
+a caller's schema repeats and nobody here has measured a real one. Wrap `expand_identifier` in
+`functools.lru_cache` if yours does.
+
+The five `from_*` constructors mirror the loaders below, so
+`GovernedNamer.from_bundle("std", NamingPolicy.strict_length())` is the whole of the setup for most
+callers.
+
 ## Building a vocabulary
 
 Three loaders, in increasing order of how much a real catalog gives you.
@@ -533,6 +598,58 @@ fail the file. A malformed row raises `LexiconError` naming its position.
 All three loaders take the same keyword-only extras as the constructor — allow-lists, class words,
 glossary — because a governed standard keeps those in separate files from the catalog.
 
+### Reading a standard off disk
+
+Nobody hands out a JSON array of `GovernedEntry` rows. A governance function keeps its standard in a
+workbook: a sheet of long form and preferred abbreviation, a sheet of tokens that may stand in a
+physical name, a sheet of class words, a pin sheet, and a term glossary. `acronymkit.governed.loaders`
+reads those, so the script that used to open five files and merge them lives in one place instead of
+in every caller's repository.
+
+```python
+from acronymkit.governed.loaders import load_bundle
+
+nds = load_bundle("tests/fixtures/governed")
+len(nds.entries)                                 # 68
+len(nds.approved_abbreviations)                  # 51
+nds.term_id_for("Customer Account Open Date")    # 'TRM-400001'
+```
+
+| Function | Reads |
+|---|---|
+| `load_bundle(path)` | a whole standard: a directory of the five files, or one JSON object carrying the same sections |
+| `load_csv(path, token_column=…, canonical_column=…)` | a short → long CSV |
+| `load_long_to_short_csv(path, long_column=…, short_column=…)` | a long → short CSV, inverted — the direction a real catalog is stored in |
+| `load_term_index_csv(path, name_column=…, term_id_column=…)` | a glossary, as a plain mapping |
+
+Four things these refuse to do, each for the same reason the rest of the package refuses to guess:
+
+- **The column names have no defaults.** There is no conventional header for "the long form" — a
+  real export says `Long Name`, or `Business Term`, or `Data Element Name` — so picking one would be
+  this package guessing about a file it has never seen. The bundle is the single exception, and only
+  because its layout is a convention this module *defines*; its file names and glossary columns are
+  written down in `BUNDLE_FILES` and `DEFAULT_TERM_COLUMNS`, and both can be overridden.
+- **Encoding is explicit at every read**, defaulting to `utf-8-sig` — plain UTF-8 with a tolerance
+  for the byte-order mark Excel writes, which is the single most common reason a column "does not
+  exist". Nothing consults the locale, so a container running under `LANG=C` reads the same bytes
+  the same way a developer laptop does.
+- **A half-filled row is skipped, not completed.** A row whose key or value cell is blank is a gap
+  in the catalog, and turning it into an entry would claim to know something the file did not say.
+- **The pin sheet fills gaps and never overwrites.** It supplies a pin or a candidate set only where
+  the catalog row has none, and the merged row records in `notes` that it did. A token the two files
+  pin *differently* raises, because choosing between two recorded decisions is not a loading
+  question.
+
+Duplicate keys resolve one way everywhere: **the last row wins**, which is what a Python mapping
+does with a repeated key and what `GovernedDictionary` already documents for two catalog rows
+carrying one token. Every failure raises `LexiconError` naming the file, and for a CSV the column
+and the header row it actually found.
+
+A caller overlay is deliberately *not* part of a bundle, even when a file beside it holds one. An
+overlay is the caller's, not the standard's, and a loader that quietly applied one would return a
+vocabulary that disagrees with the catalog with nothing at the call site to say so. Pass it as
+`custom=`.
+
 ### What the dictionary answers
 
 | Method | Question | Notes |
@@ -552,6 +669,201 @@ The reverse index resolves a long form claimed by two tokens with a written-down
 the entry whose `canonical` is that long form, then the shortest token, then the token that sorts
 first. `Number` is claimed by both `NBR` and `NUM`, which are the same length, so the third rule
 decides it — `nds.abbreviate("Number").token` is `'NBR'`.
+
+## Auditing a whole schema
+
+The verbs answer one name at a time. A team adopting a standard has a different question on the
+first day — *what will this do to our schema, and what is our catalog missing?* — and answering it
+means calling `expand_identifier` once per column and reducing the results. That reduction is
+mechanical, every team would write it slightly differently, and the differences would all be in the
+same two places: what counts as an unknown token worth acting on, and what a round trip that does
+not return its input actually means. So it is written once, in `acronymkit.governed.audit`.
+
+```python
+from acronymkit.governed.audit import audit_identifiers, render_audit, suggest_catalog_additions
+
+corpus = ["CUST_ACCT_KYC_ID", "CUSTOMER_ACCOUNT_ID", "TXN_APPLNT_ID",
+          "CUSTMR_ACCT_NUM", "KYC_REVIEW_DT"]
+audit = audit_identifiers(corpus, nds)
+
+audit.total, audit.distinct, audit.fully_known, audit.compliant     # (5, 5, 2, 1)
+[(t.token, t.occurrences, t.identifier_count) for t in audit.unknown_tokens]
+# [('KYC', 2, 2), ('ACCOUNT', 1, 1), ('CUSTOMER', 1, 1), ('REVIEW', 1, 1)]
+[(f.code.value, f.occurrences) for f in audit.findings]
+# [('unapproved_abbrev', 7), ('missing_class_word', 1)]
+```
+
+**The ranked unknown-token list is the part to look at first.** It is the catalog's backlog in
+priority order — every token the vocabulary does not cover, how often it appears, in how many of the
+corpus's identifiers, and an example column to look at — and it is the one output that turns "our
+catalog is incomplete" into a finite list of rows to write. Ranking is total in both tables
+(occurrences descending, then token or code ascending), so two runs over one corpus cannot order the
+backlog differently.
+
+The corpus is consumed exactly once, so a generator reading a schema export line by line is a
+supported argument and is the shape to reach for on a large one. Identifiers are de-duplicated as
+they stream — one warehouse repeats `LAST_CHG_TS` across every table it has — while the counts stay
+over the corpus *as supplied*, because the question is how much of a schema is affected and not how
+many distinct strings it contains.
+
+### The round trip is reported three ways, not two
+
+`to_physical_name(expand_identifier(x).phrase).physical != x` is the sharpest signal a corpus gives
+about a catalog, and as a bare count it is misleading, because most of the names it flags are working
+as designed:
+
+| Bucket | Meaning |
+|---|---|
+| `round_trip_stable` | the name came back as it was written |
+| `round_trip_corrected` | it came back as `normalize` would have rewritten it — the governed correction, and expected |
+| `round_trip_inconsistent` | it came back as neither, which is the case worth investigating |
+
+Only the third keeps its identifiers, on `round_trip_breaks`. One policy setting is taken out of the
+comparison and only one, `append_class_word_when_missing`: rendering appends a class word and
+`normalize` never does, so leaving it on would report every name that predates the standard as
+evidence of a catalog disagreeing with itself. That shortfall is already reported once, by
+`MISSING_CLASS_WORD`.
+
+### One inference, with a fence around it
+
+Every number in this module is a count of something a verb already said. Exactly one thing is not.
+When an unknown token is itself a **word the catalog governs** — a schema spelling out `CUSTOMER`
+where the standard says `CUST` — the reverse index already knows it, and saying so is reading the
+catalog rather than guessing at it:
+
+```python
+[(s.token, s.proposed_abbreviation, s.proposed_long_form, s.is_governed)
+ for s in suggest_catalog_additions(audit)]
+# [('KYC', None, None, False), ('ACCOUNT', 'ACCT', 'Account', False),
+#  ('CUSTOMER', 'CUST', 'Customer', False), ('REVIEW', None, None, False)]
+```
+
+Three conditions fence it: the row's `canonical` must **be** that word rather than merely list it as
+a candidate, the short form it names must itself be approved, and it must differ from the token.
+Without the first, `LINE` reaches the `LN` row, whose canonical is *Loan*, and the audit proposes
+rewriting a line number as a loan.
+
+Everything else is left alone. `proposed_long_form` is `None` for every token the catalog is silent
+about, which is most of them and is the point, and `CatalogSuggestion` has deliberately **no
+confidence field**: a suggestion is a request for a decision, never an answer, and a number next to
+it would invite somebody to accept the ones above a threshold.
+
+`render_audit(audit, limit=…)` prints the whole thing as ASCII with fixed-width columns, so it
+survives a log file, a CI pane and a Windows console equally, and a process that captured it can
+paste it into a ticket. It is a view rather than a summary: every corpus-level count appears
+somewhere in it, and the only things truncated are the two ranked tables, which say so when they are.
+
+## From another process
+
+The consumer this subsystem was built for is a schema-governance pipeline written in another
+language. Answering one name takes microseconds and starting a Python interpreter takes tens of
+milliseconds, so a pipeline that invokes a command per column pays the second cost tens of thousands
+of times and almost none of the work is the answer. That ratio, not the per-name cost, is what
+decides whether this library is adoptable across a process boundary.
+
+```bash
+acronymkit governed-batch --dictionary std/ --op expand < columns.txt > answers.jsonl
+acronymkit governed-audit --dictionary std/            < columns.txt
+```
+
+`governed-batch` reads one record per line and writes one JSON object per line, streaming: records
+are read, answered and written one at a time and nothing accumulates, so memory is flat in the size
+of the corpus and a caller reading the pipe sees the first answer before the last question is asked.
+
+| Envelope field | |
+|---|---|
+| `line` | 1-based input line number |
+| `id` | present only when the input record carried one, echoed untouched |
+| `input` | the subject as read, so a caller can correlate without relying on order |
+| `ok` | whether this record was answered |
+| `result` | the verb's own payload — the batch adds an envelope and no opinions |
+| `error`, `error_type` | present instead of `result` when `ok` is false |
+
+`--op` chooses the verb: `expand`, `physical`, `check`, `normalize`, or `audit`, which returns the
+`IdentifierAudit` record for that one name. Input lines are either a bare identifier or a JSON object
+carrying a string `identifier` and optionally an `id`; the rule between them is the first character,
+which is decidable rather than heuristic, because no physical name begins with `{`.
+
+Three properties are the contract:
+
+- **A bad record is a record, not an exit.** One malformed line reports its own failure and the run
+  continues; losing forty-nine thousand answers to one unparseable line is a worse outcome than any
+  error message. The process still exits non-zero when any record failed, so it remains usable as a
+  gate.
+- **A finding is not a failure.** Under `--op check`, a name that does not conform comes back
+  `"ok": true` with `compliant` false inside the result, and the exit status is unaffected.
+  Reporting that is the job the command was given.
+- **The record stream is ASCII and stdout carries nothing else.** Non-ASCII characters are
+  `\u`-escaped so a record survives any console encoding on the far side, and the one-line summary
+  (`{"op":…,"records":…,"failed":…,"skipped":…}`) goes to standard error, so every line of stdout is
+  a record.
+
+`--dictionary` accepts a bundle directory, a JSON catalog or a CSV on every governed command, with
+`--dictionary-format`, `--columns` and `--delimiter` saying how to read it. `auto` takes a directory
+as a bundle and refuses to guess a CSV's direction, for the same reason it never guesses
+`long_to_short`.
+
+[docs/QUICKSTART_GOVERNED.md](QUICKSTART_GOVERNED.md) is the worked version of all of this, including
+the migration seam: how to run this beside an existing implementation and diff the two.
+
+## What the splitter accounts for
+
+`split_identifier` classifies each character as an upper-case letter, a lower-case letter, a digit, a
+separator, or none of those. The separator set is closed and written down, and everything outside it
+is reported rather than dropped:
+
+```python
+from acronymkit.governed.tokenizer import ACCOUNTED_SEPARATORS, split_identifier_parts
+
+sorted(ACCOUNTED_SEPARATORS)      # ['"', "'", '-', '.', '/', '[', ']', '_', '`']
+```
+
+— those nine characters, plus every character `str.isspace()` accepts. A separator and an
+unaccounted character end the current token identically; the difference is that an unaccounted one is
+also reported:
+
+```python
+split_identifier_parts("TXN©ID")
+# IdentifierParts(tokens=('TXN', 'ID'), unaccounted=('©',))
+
+expand_identifier("TXN©ID", nds).phrase            # 'Transaction Identifier'
+expand_identifier("TXN©ID", nds).unaccounted       # ('©',)
+expand_identifier("TXN©ID", nds).is_fully_known    # False
+```
+
+The phrase is the same one a clean `TXN_ID` produces, and that is exactly the problem the field
+exists for: answering "Transaction Identifier, fully known" for a column whose name also held a
+character that was quietly discarded is a confident description of a name nobody wrote.
+`is_fully_known` is `True` only when every token resolved **and** `unaccounted` is empty, so the one
+bit a pipeline gates on still summarises the whole answer.
+
+`unaccounted` is separate from `unknown_tokens` because the two are different work: an unknown token
+is a catalog row somebody owes, and an unaccounted character is a question about the name itself that
+no catalog row can settle.
+
+Two smaller rules in the same family:
+
+```python
+from acronymkit.governed.tokenizer import split_identifier, strip_qualifier
+
+split_identifier("1ST_TXN_DT")           # ('1ST', 'TXN', 'DT')
+split_identifier("1STATE")               # ('1', 'STATE')
+split_identifier('"TXN_ID"')             # ('TXN', 'ID')
+strip_qualifier("nds.risk.SCORE_VAL")    # 'SCORE_VAL'
+```
+
+An ordinal suffix stays welded to its digit — `st`, `nd`, `rd`, `th`, matched on two characters, only
+when no letter follows, and only when the two are not written lowercase-then-uppercase — so
+`1ST_TXN_DT` names a first transaction date while `1STATE` still splits, because there the letters
+are a word, and `1sT` splits to `('1', 's', 'T')`, because a capital after a lowercase letter is the
+writer saying a new word starts there. `strip_qualifier` drops a leading `schema.table.`
+qualifier from a fully qualified name, which is the shape an information-schema export arrives in.
+
+`ACCOUNTED_SEPARATORS`, `IdentifierParts`, `split_identifier_parts` and `strip_qualifier` live on
+`acronymkit.governed.tokenizer` and are not re-exported from the package, unlike `split_identifier`
+itself. A port has to reproduce the separator set and the ordinal suffixes exactly; the rest of the
+splitter's implementation is not contract, and
+[docs/notes/governed-json-contract.md](notes/governed-json-contract.md) says which is which.
 
 ## Policies
 
@@ -607,7 +919,7 @@ Four claims, each with the test that carries it. Every example below was run aga
 | Invariant | The statement | Test that carries it, in `tests/test_governed.py` |
 |---|---|---|
 | **Round trip** | Expanding an identifier and rendering the phrase back yields the identifier's governed normal form. | `::test_the_round_trip_lands_on_the_governed_correction`, guarded by `::test_the_corpus_exercises_both_halves_of_the_round_trip` |
-| **Idempotence** | `normalize(normalize(x)) == normalize(x)`, for every `x` and every policy. | `::test_normalize_is_idempotent_under_every_policy` |
+| **Idempotence** | `normalize(normalize(x)) == normalize(x)`, for every ASCII `x` and every policy. The premise it rests on — a token upper-cased splits back to itself — is false outside ASCII, and the section below says where. | `::test_normalize_is_idempotent_under_every_policy`, with `tests/test_governed_edge_cases.py::test_an_ascii_token_upper_cased_splits_back_to_exactly_itself` carrying the premise |
 | **Length is a flag** | No policy, argument or code path shortens a name or drops a token. | `::test_no_policy_produces_a_shorter_token_list_than_any_other`, `::test_an_over_long_name_is_flagged_and_returned_whole`, `::test_an_unabbreviated_word_is_upper_cased_and_never_clipped` |
 | **Governed hit is final** | A token the vocabulary contains resolves from the vocabulary under every policy. | `::test_policy_contrast_golden`, over `tests/fixtures/governed/golden/policy_contrast.jsonl`; the unknown half is `::test_a_held_out_token_is_reported_unknown_rather_than_approximated` |
 
@@ -662,6 +974,25 @@ approved**, so the second pass finds an approved token, has nothing to propose, 
 unchanged; when the catalog offers nothing approved the token is left exactly as it was, which is
 also a fixed point. Both branches terminate after one step, so no cycle of "unapproved A rewrites to
 unapproved B rewrites to A" can exist. Verified on every identifier of the fixture corpus.
+
+There is a second premise under that argument, and it is worth stating because leaving it implicit is
+how it got broken once. `normalize` returns the tokens the splitter found, upper-cased and `_`-joined,
+and the second pass splits that string again — so the argument is only sound while **a token, upper-
+cased, splits back to exactly itself.** That holds for all ASCII and is asserted as a property over
+arbitrary ASCII text; an earlier reading of the ordinal rule emitted the token `1s`, whose upper-cased
+form `1S` splits into two, and `normalize("1sT")` moved on every pass until the rule was narrowed.
+
+It is **false outside ASCII**, and that limit is real rather than an oversight. `str.upper` is not
+length-preserving and can produce characters that are not letters at all:
+
+```python
+normalize("ΐ", nds)                    # 'Ϊ́'  — one letter upper-cases to a letter and two marks
+normalize(normalize("ΐ", nds), nds)    # 'Ι'  — the marks are unaccounted, so the second pass drops them
+```
+
+Fixing it would mean either applying Unicode normalisation, which rewrites text and is exactly what
+the splitter refuses to do, or declining to upper-case a word. Both are worse than saying where the
+invariant stops, so the exception is pinned by a test of its own next to the property.
 
 ### Length is a flag, never a truncation
 
@@ -812,6 +1143,52 @@ schema. Reported as a gap rather than papered over.
 Likewise, `EntryKind` has no member for a collision nobody pinned; such rows are filed as
 `AMBIGUOUS_PINNED` with an empty `pin`, and the `pin` field alone says whether a decision exists.
 
+### An unaccounted character is visible in one direction only
+
+`IdentifierExpansion.unaccounted` is written by `expand_identifier` and by nothing else.
+`ComplianceResult` and `PhysicalName` carry no equivalent, so a character the splitter could not
+account for reaches `is_compliant` as a `NOT_UPPER_SNAKE` finding — or as nothing at all, when the
+rest of the name is well formed — and reaches `to_physical_name` as nothing. A pipeline that gates
+only on `compliant` will not see it; a pipeline that gates on `is_fully_known` will. That is a gap in
+the DTO surface rather than a decision, and it is recorded here so it is not mistaken for one.
+
+### A CSV catalog is a third of a standard
+
+`load_csv` and `load_long_to_short_csv` read one sheet, and one sheet says what words *mean*. It says
+nothing about which tokens may stand in a physical name and nothing about which of them say what kind
+of value a column holds — so on a vocabulary built from a CSV alone, `is_approved` is false for every
+token, no name ends in a class word, and `is_compliant` fails everything. Expansion works; compliance
+does not, and `normalize` proposes nothing, because a rewrite is offered only when its target is
+itself approved.
+
+This is not a defect in the loader. It is the shape of the input, and the fix is the other two files
+— `approved_abbreviations` and `class_words`, passed as keyword arguments or carried in a bundle. The
+audit makes the shortfall obvious rather than leaving it to be discovered downstream: a corpus that
+reports `compliant 0` under a CSV-only vocabulary is reporting the missing sheets.
+
+### What the batch catches, and what that hides
+
+`governed-batch` catches **every** exception a record raises, not a named set, and reports it as that
+record's `error_type`. A `LexiconError` from a policy that rejects unknown tokens is a documented
+outcome; anything else is a bug in this library. The batch keeps going either way, because the right
+response to a bug on record 812 is still to answer the other forty-nine thousand — but the
+consequence is that a systematic failure arrives as forty-nine thousand error records rather than as
+one loud crash. The summary line's `failed` count and the non-zero exit status are what a caller
+should watch; a run that answered nothing would otherwise look like a run that answered everything
+badly.
+
+`--op audit` costs four verb calls and a pile of model construction per record where `--op expand`
+costs one, because it runs the corpus audit over a single name. It is opt-in for that reason, and a
+schema-wide sweep is cheaper as one `governed-audit` than as fifty thousand `--op audit` records.
+
+### An audit describes the corpus it was given
+
+Every count in a `CorpusAudit` is over the names that were passed in. A corpus with no broken round
+trips says the catalog is internally consistent over *those* names; it says nothing about the names
+it does not contain, and nothing about a table that was not in the export. Neither does an empty
+backlog mean a complete catalog — it means the corpus exercised no token the catalog is silent about.
+The audit is a measurement of a schema against a standard, not of a standard.
+
 ### No figure belongs next to this
 
 Governed mode is exact by construction. That is a tautology, not a result, and this project puts no
@@ -836,6 +1213,8 @@ fixture tokens chosen to make two rules disagree, and the corpus counts quoted u
 
 ## See also
 
+- [docs/QUICKSTART_GOVERNED.md](QUICKSTART_GOVERNED.md) — the same subsystem from the command line,
+  from a CSV catalog to a whole schema in one process, with a migration diff at the end.
 - [`tests/fixtures/governed/README.md`](../tests/fixtures/governed/README.md) — the worked corpus:
   the eight entry archetypes, the collision table, where the reverse index is not an inverse, and the
   open questions the fixtures found.

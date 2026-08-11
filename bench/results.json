@@ -481,6 +481,97 @@
       "unreachable_recall_at_25": 3.25,
       "unreachable_recall_at_5": 1.81
     },
+    "governed.build": {
+      "entries": 68,
+      "iterations": 50,
+      "median": 0.567,
+      "min": 0.533,
+      "p95": 0.731
+    },
+    "governed.expand_identifier": {
+      "corpus": "schema",
+      "iterations": 2000,
+      "median": 10.7,
+      "min": 3.1,
+      "p95": 16.3
+    },
+    "governed.expand_identifier_novel": {
+      "corpus": "novel",
+      "iterations": 2000,
+      "median": 44.8,
+      "min": 44.0,
+      "p95": 47.8
+    },
+    "governed.expand_token": {
+      "corpus": "schema",
+      "iterations": 20000,
+      "median": 0.3,
+      "min": 0.2,
+      "p95": 2.3
+    },
+    "governed.expand_token_novel": {
+      "corpus": "novel",
+      "iterations": 20000,
+      "median": 2.4,
+      "min": 2.2,
+      "p95": 2.5
+    },
+    "governed.is_compliant": {
+      "corpus": "schema",
+      "iterations": 2000,
+      "median": 38.6,
+      "min": 6.4,
+      "p95": 47.5
+    },
+    "governed.is_compliant_novel": {
+      "corpus": "novel",
+      "iterations": 2000,
+      "median": 44.0,
+      "min": 42.8,
+      "p95": 51.0
+    },
+    "governed.reference_identifier": {
+      "corpus": "schema",
+      "iterations": 1000,
+      "median": 8.0,
+      "min": 7.9,
+      "p95": 8.2
+    },
+    "governed.split_identifier": {
+      "corpus": "schema",
+      "iterations": 2000,
+      "median": 2.1,
+      "min": 0.3,
+      "p95": 2.6
+    },
+    "governed.throughput": {
+      "corpus": "schema",
+      "elapsed_seconds": 0.021,
+      "identifiers": 2000,
+      "identifiers_per_second": 96532,
+      "projected_seconds": 0.52
+    },
+    "governed.throughput_novel": {
+      "corpus": "novel",
+      "elapsed_seconds": 0.089,
+      "identifiers": 2000,
+      "identifiers_per_second": 22467,
+      "projected_seconds": 2.23
+    },
+    "governed.to_physical_name": {
+      "corpus": "schema",
+      "iterations": 2000,
+      "median": 41.5,
+      "min": 7.0,
+      "p95": 59.0
+    },
+    "governed.to_physical_name_novel": {
+      "corpus": "novel",
+      "iterations": 1800,
+      "median": 42.2,
+      "min": 41.6,
+      "p95": 44.5
+    },
     "micro.generate_default": {
       "iterations": 5000,
       "median": 358.8,

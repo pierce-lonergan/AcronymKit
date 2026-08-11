@@ -29,6 +29,23 @@ approximated is not recoverable, because nothing downstream can tell it from an
 answer. The Title Cased form exists so the phrase stays readable for a person,
 and the three other fields exist so no program mistakes it for an answer.
 
+The other half of not guessing: nothing is lost
+-----------------------------------------------
+"I do not know this token" is one honest answer and "there was something in this
+name I could not read" is another, and the second is the one a splitter is in a
+position to get wrong quietly. Every character of an identifier is either inside
+a token, or one of the separators
+:mod:`~acronymkit.governed.tokenizer` accounts for, or reported on
+:attr:`~acronymkit.governed.models.IdentifierExpansion.unaccounted`; and
+``is_fully_known`` is ``True`` only when the catalog answered for every token and
+that third list is empty. A confident, complete-looking phrase produced by
+discarding part of the input would be exactly the failure the passthrough
+contract above exists to prevent, arriving through a different door.
+
+:func:`expand_token` has nothing to account for. It looks its argument up whole,
+so a character it cannot read stays in the lookup key and the token resolves or
+does not; there is no splitting for anything to fall out of.
+
 ``UnknownPolicy.REJECT`` turns the same situation into a raised
 :class:`~acronymkit.exceptions.LexiconError`, for pipelines where an
 unrecognised token means the catalog is out of date and processing should stop.
@@ -60,13 +77,30 @@ from collections.abc import Mapping
 from typing import Optional, Union
 
 from ..exceptions import ConfigurationError, LexiconError
-from .dictionary import GovernedDictionary
+from .dictionary import GovernedDictionary, _remember
 from .enums import EntryKind, ExpansionSource, UnknownPolicy
 from .models import GovernedEntry, IdentifierExpansion, TokenExpansion
 from .policy import NamingPolicy
-from .tokenizer import split_identifier
+from .tokenizer import split_identifier_parts
 
 __all__ = ["expand_identifier", "expand_token"]
+
+
+#: The policy applied when the caller names none. Built once rather than per
+#: call, which is worth stating because it looks like a micro-optimisation and is
+#: not one: a :class:`~acronymkit.governed.policy.NamingPolicy` is frozen, so one
+#: shared instance and a fresh equal instance are the same policy in every way a
+#: caller can observe, and the difference between them is two costs that a
+#: single-token call cannot amortise. Constructing one validates nine fields, and
+#: the dictionary's memo is kept per policy and matched by value, so a caller who
+#: passes ``policy=None`` was paying for a new object and then paying again to
+#: discover it equalled the last one. Together that is most of the cost of
+#: expanding one already-known token.
+#:
+#: :mod:`acronymkit.governed.compliance` and :mod:`acronymkit.governed.naming`
+#: still build their own default per call; the same constant would do the same
+#: thing for them.
+_DEFAULT_POLICY = NamingPolicy.governed_default()
 
 
 def _title_case(token: str) -> str:
@@ -145,7 +179,7 @@ def _prepare(
     catalog = _require_dictionary(dictionary, verb)
     if custom:
         catalog = catalog.with_custom(custom)
-    return catalog, policy if policy is not None else NamingPolicy.governed_default()
+    return catalog, policy if policy is not None else _DEFAULT_POLICY
 
 
 def _empty_expansion(raw: str) -> TokenExpansion:
@@ -188,6 +222,27 @@ def _expand(token: str, dictionary: GovernedDictionary, policy: NamingPolicy) ->
     :func:`expand_identifier` layers an overlay and resolves a policy once for
     the whole identifier rather than once per token.
 
+    The answer is a pure function of ``(token, dictionary, policy)``, and a
+    schema asks the same question thousands of times — ``ID``, ``DT`` and ``CD``
+    between them account for a sixth of the fixture corpus's tokens — so it is
+    remembered on the dictionary, which is the object whose lifetime the answer
+    is valid for. See the
+    :mod:`~acronymkit.governed.dictionary` module docstring for what makes that
+    safe; the two conditions this end has to meet are:
+
+    * the key is the **surface** token, not the lookup key, because ``raw``
+      reports the spelling that was given — ``txn`` and ``TXN`` resolve alike and
+      do not expand alike; and
+    * a **passthrough is not remembered**. It is not an answer the vocabulary
+      gave, so caching it would key the memo by the caller's names rather than by
+      the catalog (see :class:`~acronymkit.governed.dictionary._Memo`), and it
+      would put a policy-dependent raise behind a lookup: ``UnknownPolicy.REJECT``
+      raises here rather than returning, and the one thing a cache must never do
+      is answer a question that was supposed to stop the pipeline.
+
+    Two callers can now hold the same :class:`TokenExpansion` object rather than
+    two equal ones. The models are frozen, so the only way to tell is ``is``.
+
     Args:
         token: A surface token as it appeared in the input.
         dictionary: The vocabulary, with any call-scoped overlay already layered.
@@ -200,20 +255,28 @@ def _expand(token: str, dictionary: GovernedDictionary, policy: NamingPolicy) ->
         LexiconError: If the token is unknown and ``policy.unknown`` is
             ``UnknownPolicy.REJECT``.
     """
+    memo = dictionary._memo(policy).expanded
+    remembered = memo.get(token)
+    if remembered is not None:
+        return remembered
     entry = dictionary.resolve(token, policy)
     if entry is None:
         return _passthrough(token, dictionary, policy)
     winner = entry.canonical
-    return TokenExpansion(
-        raw=token,
-        long=winner,
-        is_known=True,
-        source=entry.source,
-        entry_id=entry.entry_id,
-        confidence=entry.confidence,
-        class_word=entry.class_word or dictionary.class_word_for(token),
-        beat=tuple(candidate for candidate in entry.candidates if candidate != winner),
-        kind=entry.kind,
+    return _remember(
+        memo,
+        token,
+        TokenExpansion(
+            raw=token,
+            long=winner,
+            is_known=True,
+            source=entry.source,
+            entry_id=entry.entry_id,
+            confidence=entry.confidence,
+            class_word=entry.class_word or dictionary.class_word_for(token),
+            beat=tuple(candidate for candidate in entry.candidates if candidate != winner),
+            kind=entry.kind,
+        ),
     )
 
 
@@ -395,7 +458,7 @@ def expand_identifier(
     carrying its own audit trail, and the class word read off the trailing
     token.
 
-    Three things about the shape of the answer are worth knowing before relying
+    Five things about the shape of the answer are worth knowing before relying
     on it.
 
     **The class word comes from the trailing token and nowhere else.** Position
@@ -416,6 +479,20 @@ def expand_identifier(
     it; see :func:`_rejoin_digit_tokens` for why that belongs here rather than
     in the tokenizer.
 
+    **Nothing in the name is discarded in silence.** A character that is neither
+    a letter, a digit, nor one of the separators the tokenizer accounts for —
+    an emoji, a currency sign, a stray control character — is listed on
+    ``unaccounted`` and makes ``is_fully_known`` ``False``. It is reported rather
+    than turned into a token because it is not a word and no catalog row could
+    ever answer for it; the fix is to the name, not to the vocabulary.
+
+    **A qualified name keeps its qualifier.** ``.`` is an ordinary separator, so
+    ``db.schema.TXN_ID`` expands to a phrase beginning "Db Schema". Pass
+    :func:`~acronymkit.governed.tokenizer.strip_qualifier` yourself when the
+    input really is a qualified path and the leaf is what you want; this
+    function will not decide that for you, because ``nds.risk-model`` is one
+    name with a dot in it and nothing in either string says which is which.
+
     Args:
         identifier: A physical name — a column, table or attribute identifier.
             ``None``, ``""`` and separator-only input all return an empty
@@ -431,7 +508,11 @@ def expand_identifier(
         The expansion. ``tokens`` is empty and ``phrase`` is ``""`` when the
         identifier holds no letters or digits; ``is_fully_known`` is ``True``
         for that case, vacuously, since there is no token that failed to
-        resolve — the empty ``tokens`` tuple is what says nothing was expanded.
+        resolve and nothing went unaccounted for — the empty ``tokens`` tuple is
+        what says nothing was expanded. An identifier made only of characters
+        the tokenizer cannot read is *not* that case: it tokenises to nothing
+        and reports every one of them on ``unaccounted``, so ``is_fully_known``
+        is ``False``.
 
     Raises:
         ConfigurationError: If ``dictionary`` is ``None``.
@@ -454,15 +535,21 @@ def expand_identifier(
         ('Transaction Kyc Identifier', False)
         >>> [token.raw for token in partial.unknown_tokens]
         ['KYC']
+        >>> lossy = expand_identifier("TXN_\\U0001F600_ID", catalog)
+        >>> lossy.phrase, lossy.is_fully_known, lossy.unaccounted == ("\\U0001F600",)
+        ('Transaction Identifier', False, True)
     """
     catalog, active = _prepare(dictionary, policy, custom, "expand_identifier")
     text = identifier or ""
-    tokens = _rejoin_digit_tokens(split_identifier(text), catalog, active)
+    parts = split_identifier_parts(text)
+    tokens = _rejoin_digit_tokens(parts.tokens, catalog, active)
     expansions = tuple(_expand(token, catalog, active) for token in tokens)
     return IdentifierExpansion(
         identifier=text,
         phrase=" ".join(expansion.long for expansion in expansions if expansion.long),
         tokens=expansions,
         class_word=expansions[-1].class_word if expansions else None,
-        is_fully_known=all(expansion.is_known for expansion in expansions),
+        is_fully_known=not parts.unaccounted
+        and all(expansion.is_known for expansion in expansions),
+        unaccounted=parts.unaccounted,
     )

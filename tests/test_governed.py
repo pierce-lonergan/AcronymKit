@@ -1092,3 +1092,46 @@ def test_a_compliance_result_reports_a_finding_for_every_lettered_token() -> Non
     per_token = [reason for reason in result.reasons if reason.token is not None]
     assert [reason.token for reason in per_token] == lettered
     assert all(reason.verdict is Verdict.PASS for reason in per_token)
+
+
+# ---------------------------------------------------------------------------
+# doctests
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "acronymkit.governed",
+        "acronymkit.governed.audit",
+        "acronymkit.governed.compliance",
+        "acronymkit.governed.dictionary",
+        "acronymkit.governed.enums",
+        "acronymkit.governed.expansion",
+        "acronymkit.governed.loaders",
+        "acronymkit.governed.models",
+        "acronymkit.governed.namer",
+        "acronymkit.governed.naming",
+        "acronymkit.governed.policy",
+        "acronymkit.governed.scoring",
+        "acronymkit.governed.tokenizer",
+    ],
+)
+def test_the_worked_examples_in_the_docstrings_still_work(module_name: str) -> None:
+    """Every ``>>>`` example in the subsystem must actually produce what it says.
+
+    These modules carry over a hundred worked examples, several of which the
+    JSON contract cites as the definition of a behaviour a port has to match.
+    Until now nothing ran them: ``tests/test_tokenizer.py`` gates the doctests
+    of ``acronymkit.tokenizer`` and nothing gated these. They all passed when
+    checked by hand, which is exactly the state in which an example quietly
+    stops being true — the docstring is the last thing anyone edits when the
+    behaviour under it changes.
+
+    Parametrised by module so a failure names the file rather than the suite.
+    """
+    import doctest
+    import importlib
+
+    module = importlib.import_module(module_name)
+    results = doctest.testmod(module, verbose=False, report=True)
+
+    assert results.failed == 0, f"{results.failed} doctest failure(s) in {module_name}"

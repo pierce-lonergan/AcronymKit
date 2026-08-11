@@ -41,6 +41,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Governed naming** (`acronymkit.governed`). Deterministic short→long expansion of a database
+  identifier against a governed catalog, with the two reverse directions over the same vocabulary:
+  `expand_token`, `expand_identifier`, `to_physical_name`, `is_compliant`, `normalize`. It is a
+  lookup table with an audit trail around it — nothing is inferred, an unknown token comes back
+  `is_known=False` at zero confidence, and **no accuracy figure is attached to it anywhere**, because
+  reproducing a lookup table is a tautology rather than a result. `docs/GOVERNED_NAMING.md` is the
+  contract; `docs/QUICKSTART_GOVERNED.md` is the same thing from the command line.
+- **`GovernedNamer`** — the facade. Binds a dictionary and a policy once and exposes
+  `expand_token` / `expand_identifier` / `to_physical_name` / `is_compliant` / `normalize` with the
+  subject as their only argument, plus `expand_many` / `check_many` over a corpus and
+  `with_custom` / `with_policy` for a variant. Constructors: `from_bundle`, `from_csv`, `from_json`,
+  `from_long_to_short_csv`, `from_mapping`.
+- **Loaders for a whole standard, not just a catalog.** `load_bundle`, `load_csv`,
+  `load_long_to_short_csv`, `load_term_index_csv` and `BUNDLE_FILES`. A naming standard is a catalog,
+  three allow-lists, a class-word map, a pin sheet and a term glossary; each bundle section accepts
+  several conventional filenames, two files claiming one section is an error rather than a coin toss,
+  and every section is optional.
+- **Corpus audit.** `audit_identifiers`, `render_audit` and `suggest_catalog_additions`, with the
+  `CorpusAudit`, `IdentifierAudit`, `UnknownToken`, `CatalogSuggestion`, `FindingTally` and
+  `RoundTripBreak` records. The unknown-token table is the deliverable: it turns "our catalog is
+  incomplete" into a ranked, finite list of rows to write. A suggestion is a request for a decision
+  from whoever owns the catalog, never a wording this library invented.
+- **`acronymkit governed-batch [FILE]`** — a whole schema in one process. JSONL in, JSONL out,
+  streaming, so memory is flat in the size of the corpus. `--op expand|physical|check|normalize|audit`
+  chooses the verb and `--flush-every` trades latency for throughput. Every record carries `line`,
+  `input` and any `id` it arrived with; an error rides on its own record and never aborts the run;
+  the process exits 1 if any record failed, and the one-line summary goes to standard error so every
+  line of stdout is a record.
+- **`acronymkit governed-audit [FILE]`** — the corpus report, with `--suggest`, `--limit` and
+  `--details`.
+- **`--dictionary` now accepts a bundle directory or a CSV** on every governed command, via
+  `--dictionary-format auto|bundle|catalog|short_to_long|long_to_short|csv|long_to_short_csv` with
+  `--columns` and `--delimiter`. `auto` reads a directory as a bundle and **refuses** to guess a
+  CSV's direction: the same two columns are a valid vocabulary read either way and mean different
+  things.
+- **The tokenizer surface is public**: `split_identifier_parts`, `strip_qualifier`,
+  `IdentifierParts` and `ACCOUNTED_SEPARATORS`, exported from `acronymkit.governed` alongside
+  everything above. `import acronymkit.governed` still binds no submodule — every name resolves
+  lazily on first access.
 - **First disambiguation evaluation.** SDU@AAAI-21 task 2, scored with a faithful reimplementation
   of the shared task's own `scorer.py`. `acronymkit` scores 41.65 % accuracy against 72.84 % for
   always picking the most common expansion. It beats random, so the context signal is real, but on
@@ -91,6 +130,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Governed naming is faster on a corpus, and every optimisation changes no answer.** Against the
+  figure recorded before the work, on the `schema` benchmark arm: `expand_identifier` 62.30 → 10.70
+  µs, `to_physical_name` 99.90 → 41.50 µs, `is_compliant` 62.40 → 38.60 µs, corpus throughput
+  15,607 → 96,532 identifiers/second. The wins are an ASCII fast path in the splitter, a
+  per-(dictionary, policy) memo of resolved entries whose key space is the vocabulary rather than
+  caller input, a length rejection in `abbreviate`, memoised (and frozen, therefore shareable)
+  `NamingPolicy` presets, and bounding the longest-match scan in `to_physical_name` by the catalog's
+  wordiest term instead of by the length of the name. Only the "after" column is in
+  `bench/results.json`; see `docs/DECISIONS.md` D-026 for why a baseline cannot be, and for the
+  `novel` arm that exists so a per-token memo cannot be reported only where it flatters.
 - **`import acronymkit` costs 2.3 ms**, down from 149.3 ms, via lazy PEP 562 re-exports.
   Note honestly: `from acronymkit import AcronymEngine` still costs 128.1 ms and
   time-to-first-result is 196.0 ms — this moves the Pydantic cost to first use rather than
@@ -105,6 +154,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **BEHAVIOUR CHANGE — governed identifier expansion silently discarded characters it could not read,
+  and then reported the answer as complete.** The splitter sorted everything that was neither a
+  letter nor a digit into one bucket, *separator*, and separators disappear. So a column name holding
+  an emoji pasted out of a spreadsheet, a stray comma from a hand-edited CSV, a currency sign or a
+  combining accent expanded to the phrase a clean name would have produced — `TXN_<emoji>_ID` came
+  back as "Transaction Identifier" with `is_fully_known=True`. The phrase was never the problem; the
+  flag was. `is_fully_known` is the one bit a pipeline gates on, and it was saying a governed catalog
+  had accounted for the whole of a name it had not read the whole of.
+
+  Now: the separators the design names — the underscore, hyphen, dot and slash, the four SQL quoting
+  characters, the two square brackets, and every Unicode whitespace character — still vanish without
+  comment, because that is what a physical name is made of and it is what keeps `"TXN_ID"`,
+  `[TXN_ID]` and a backtick-quoted name reading as the bare one. **Every other character is reported**,
+  one entry per occurrence in input order, in a new `IdentifierExpansion.unaccounted` field, and
+  `is_fully_known` is `True` only when every token resolved **and** `unaccounted` is empty.
+
+  **What existing callers must know:** `is_fully_known` is narrower than it was, so a gate on it will
+  now reject names it previously waved through — which is the intent. `unaccounted` defaults to
+  empty, so a consumer that has never heard of the field reads the same payload as before. The
+  accounting is written by `expand_identifier` only: `ComplianceResult` and `PhysicalName` carry no
+  equivalent, which is a recorded gap rather than a decision.
+
+  An unaccounted character is deliberately *not* turned into a token. A token is a lookup key and a
+  work item — a token that misses is a catalog row somebody owes — and "this name holds a character I
+  could not read" is a different fact that no catalog row can settle. The vaguer "lossless" claim is
+  replaced by a counting guarantee, Hypothesis-tested: for any character outside the accounted
+  separators and outside whitespace, its multiplicity in the input equals its multiplicity across the
+  returned tokens plus its multiplicity in `unaccounted`. See `docs/DECISIONS.md` D-024.
+- **Governed expansion cut English ordinals in half.** `1ST_TXN_DT` split to `1|ST|TXN|DT` and
+  expanded to "1 St Transaction Date", where `ST` is a token no catalog carries. An ordinal suffix now
+  stays welded to its digits — `1ST_TXN_DT` → `1ST|TXN|DT`, "1st Transaction Date". The suffix set is
+  closed (`st`, `nd`, `rd`, `th`), matched without regard to case, English-only, and applies only when
+  those two letters end the token, so `1STATE` still splits and `ADDR_1_ST` keeps the two tokens
+  somebody wrote separately. The rule also does not fire across a camelCase boundary, so `1sT` is
+  `('1', 's', 'T')`: a capital after a lowercase letter is the writer saying a new word starts there,
+  which is what that signal means everywhere else in the splitter. A port that implements the rule
+  without that condition answers `('1sT',)` and diverges.
+- **`normalize` was not idempotent for a name containing an ordinal written `1sT`.** The first
+  reading of the rule above joined the digit to the lowercase letter and let the camelCase rule cut
+  the result, giving the token `1s` — and `'1s'.upper()` is `'1S'`, which splits back into two. Since
+  `normalize` returns the tokens upper-cased and `_`-joined, `normalize('1sT')` was `'1S_T'` and
+  `normalize('1S_T')` was `'1_S_T'`, so a documented invariant was false for every name carrying one.
+  The corpus the idempotence test runs over contains no such name. Fixed by the narrowing above, and
+  the premise the invariant rests on — a token upper-cased splits back to exactly itself — is now
+  asserted as a property over arbitrary ASCII text instead of left implicit. See `docs/DECISIONS.md`
+  D-024.
+- **The CLI printed a traceback and exited `120` when its reader hung up.** `acronymkit
+  governed-batch … | head -1` is a normal thing to type. `main` caught `BrokenPipeError` but two
+  things were missing: on Windows a closed pipe surfaces as a plain `OSError` with `EINVAL` and no
+  `BrokenPipeError` at all, and even where it was caught the interpreter's own flush of `sys.stdout`
+  on the way out failed again against the same pipe, which is what produced the `120`. Standard
+  output is now pointed at the null device on the way out, and the exit status is `0` — a consumer
+  that has seen enough is the command working.
 - `bench/splits.toml` recorded SDU-21 AD as MIT. It is not: the MIT licence covers the scorer and
   baseline, while the dataset is CC BY-NC-SA 4.0. Corrected, and the upstream README is pinned as an
   asset so the finding stays checkable.
@@ -118,6 +220,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 
+- **`normalize`'s idempotence is stated for ASCII names, and the limit outside it is now written
+  down.** It rebuilds a name from the tokens the splitter found, upper-cased, and `str.upper` is not
+  length-preserving in Unicode: `"ΐ"` upper-cases to a capital iota and two combining marks, a
+  combining mark is not part of any token, and the second pass reports it as unaccounted and drops
+  it. Repairing that would mean either applying Unicode normalisation — which rewrites text, and the
+  splitter deliberately does not — or declining to upper-case a word. Both are worse than a stated
+  limit, so the exception is pinned by a test of its own beside the property.
+- **Memoising unknown governed tokens was measured, faster, and reverted.** A real schema repeats the
+  tokens its catalog is silent about as thoroughly as the ones it governs, so caching the passthrough
+  path wins on such a corpus. It was rejected on what it does to the key space: a passthrough is not
+  an answer the vocabulary gave, so the memo becomes keyed by whatever names the caller happens to
+  have. Clearing on full cost about 44 % on a corpus with no repetition, where the bookkeeping is
+  paid on every token and returns nothing; stopping on full leaves a long-running service holding the
+  first few thousand names it ever saw and learning nothing after. The correctness argument is the
+  stronger one: `UnknownPolicy.REJECT` raises on an unknown token, and a cache must never answer a
+  question that was supposed to stop the pipeline. The rule that replaced it — the memo remembers
+  what the catalog said, and the catalog saying nothing is not something to remember. See
+  `docs/DECISIONS.md` D-026.
+- **The adoption problem for governed naming was a process boundary, not an API.** The consumer is a
+  schema-governance pipeline in another language, and the only shape on offer was one interpreter
+  start per column name. Measured on one machine, answering 2,000 names in one `governed-batch`
+  process is roughly 1,300 times cheaper than 2,000 invocations, and the answers themselves are
+  0.021 s of it. `GovernedNamer`, the loaders, the audit and the two batch commands exist for that
+  reason; D-025 records the contract decisions inside them and what is still only hypothetical.
 - Four further experiments were run and reverted: a pseudo-precision cascade, a pseudo-precision
   re-ranker, derived term statistics, and a hyphen-boundary rule. Seven attempts have now failed to
   close the extraction gap, with converging diagnoses recorded in `docs/DECISIONS.md`. The most

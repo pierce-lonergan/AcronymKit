@@ -9,6 +9,357 @@ Newest first.
 
 ---
 
+## D-026 — Five optimisations that change no answer, and a sixth that was reverted
+
+**Status:** shipped; the passthrough memo reverted · **Evidence:** `governed.*` in
+[`bench/results.json`](../bench/results.json), `bench/run_governed.py`, `tests/test_governed_perf.py`
+
+The consumer described in D-025 walks tens of thousands of column names inside one process, so the
+figure that decides anything is the cost of a corpus, not the cost of a call. `bench/run_governed.py`
+is the only writer of these numbers and it runs two arms deliberately: a `schema` arm whose
+token-frequency distribution is the fixture corpus's, and a `novel` arm in which no token repeats and
+nothing can be reused between names. The two answer different questions and their figures must not be
+read against each other; each is compared against itself across a change.
+
+```
+schema arm, medians, one machine          before      after
+  expand_identifier                        62.30      10.70   us per call
+  to_physical_name                         99.90      41.50   us per call
+  is_compliant                             62.40      38.60   us per call
+  corpus throughput                       15,607     96,532   identifiers/sec
+```
+
+The **after** column is what `bench/results.json` holds and is the figure of record; the corpus row
+is the one to quote for a pipeline, because it carries no per-sample timer overhead. The **before**
+column is not in that file and cannot be — a runner records the tree it is run against, so a baseline
+survives only as far as somebody writes it down. It is written down here, it is one machine, and
+D-023's warning applies unchanged: session-to-session drift on this host is larger than several of
+the differences this project has argued about elsewhere, so a ratio of this size is what carries the
+argument and a decimal is not.
+
+### The five, and what makes each one unobservable
+
+**An ASCII fast path in the splitter.** Splitting is the largest single cost in expanding an
+identifier, and reading `TXN_APPLNT_ID` character by character is an expensive way to spend it. An
+all-ASCII name — very nearly every name — is now one call into the regex engine. That is two readings
+of one set of rules, which is exactly the drift `tokenizer.py` warns about everywhere else, so the
+split is drawn where it can be policed: rules 2, 7 and 8 keep a single statement in `_classify`, from
+which the unaccounted-character pattern is *derived* at import, and rules 3 to 6 genuinely are stated
+twice and are property-tested against the scan over arbitrary ASCII text plus exhaustively to length
+four over the alphabets where the rules interact. When the two disagree the scan is right by
+definition and the pattern is the bug; the test says so rather than leaving it to be argued.
+
+**A memo of resolved entries and token expansions, per (dictionary, policy).** A schema repeats
+tokens enormously — every table has an id, a date and a code column — and `resolve` is a pure
+function of dictionary, token and policy, so the answer is remembered on the dictionary. All three
+parts of the key are honoured: the memo lives on the instance and `with_custom` builds a new instance
+with an empty one, memos are kept per policy and matched by value, and the key is the surface token
+because `raw` reports the spelling that was given. The bound is structural rather than a number:
+only governed answers are remembered, so the key space is the vocabulary the dictionary fixed at
+construction. `_MEMO_LIMIT` is a second bound for the residue a case-insensitive lookup leaves
+behind, since `TXN`, `Txn` and `tXn` are three keys for one row.
+
+**A length rejection in `abbreviate`.** A word longer than the catalog's longest long form cannot be
+in the reverse index, so the lookup is skipped before the key is built.
+
+**Memoised `NamingPolicy` presets.** Each preset names a fixed set of field values, so every call was
+building an object equal to the last — once per verb call, since this is the default a caller gets
+when they omit `policy=` — and the resolver then keys its memo on the policy *by value*, so the cost
+was paid twice, once to construct and once to discover the construction had been unnecessary. The
+models are frozen, so one shared instance is unobservable except by `is`.
+
+**Bounding `naming._render`'s longest-match scan by the catalog rather than by the name.** It used to
+scan from the end of the name back to the current position, which is quadratic in the words: an
+eighteen-word name costs 18 × 19 / 2 = 171 lookups, and nearly all of them ask whether a reverse
+index whose wordiest key is two words long contains an eighteen-word key. That answer is fixed at
+construction, so the window is now `GovernedDictionary.longest_long_form_words`. A run longer than
+the wordiest key cannot match anything, which is why the outcome cannot change — and rather than
+leave that as an argument, the output was compared byte for byte over the whole corpus and is
+identical. This step alone took `to_physical_name` from 76.15 to 41.50 us; the second figure is the
+recorded one and the first is an intermediate reading of the same un-recorded kind as the baseline
+column above. Names get longer; catalog terms do not.
+
+### Reverted: remembering the tokens the catalog is silent about
+
+A real schema repeats its *unknown* tokens as thoroughly as its known ones, so memoising the
+passthrough path was tried and was faster on such a corpus. It was reverted on what it does to the
+key space rather than on the size of the win, and both ways of bounding it are worse than not doing
+it at all:
+
+- **Clear the memo when it fills** — the `novel` arm, where nothing repeats, lost about 44 %. The
+  bookkeeping is then paid on every token and returns nothing, and the periodic clear discards the
+  governed answers alongside the useless ones. That figure is not in `bench/results.json` either,
+  for the same reason the baseline is not: a reverted arm leaves no row behind.
+- **Stop writing when it fills** — the memo fills with arbitrary caller strings and stops learning,
+  so a service that runs for a month ends up holding the first few thousand column names it ever saw
+  and nothing since.
+
+There is a second reason and it is the stronger one, because it is about correctness rather than
+memory. `UnknownPolicy.REJECT` *raises* on an unknown token, and a cache in front of that path would
+put a policy-dependent raise behind a lookup. The one thing a cache must never do is answer a
+question that was supposed to stop the pipeline.
+
+**The rule that replaced it: the memo remembers what the catalog said; the catalog saying nothing is
+not something to remember.** That is also what keeps the key space equal to the vocabulary rather
+than to whatever names the caller happens to have, which is the shape that grows without limit.
+
+### What is not claimed
+
+No accuracy figure appears anywhere near this work, because the whole justification of every item
+above is that it changes no answer. `tests/test_governed_perf.py` is where that is asserted and it
+times nothing; wall-clock budgets belong in `bench/`, where the environment is pinned and dispersion
+is reported.
+
+The `schema` arm flatters anything memoised per token, and it should: 2,000 generated names resolve
+31,926 token occurrences out of 117 distinct tokens, which is the shape a governed vocabulary
+imposes. A caller whose names are genuinely one-offs should read the `novel` arm instead, which is
+recorded for exactly that reason and is why the runner will not publish only the good half:
+
+```
+novel arm, medians, current tree      (no baseline was kept)
+  expand_identifier                    44.80   us per call
+  to_physical_name                     42.20   us per call
+  is_compliant                         44.00   us per call
+  corpus throughput                   22,467   identifiers/sec
+```
+
+Those figures must not be read against the `schema` column: a `novel` token is unknown to the
+catalog and takes the passthrough path, which is a different amount of work from resolving a
+governed row. Every measurement gets a freshly built vocabulary, because a dictionary that remembers
+what it has been asked is not being asked the same question twice — the first draft of the runner
+shared one dictionary and reported a `novel` arm partly served from the previous arm's answers.
+
+---
+
+## D-025 — The consumer is on the other side of a process boundary, and per-call invocation is what would have ended it
+
+**Status:** shipped · **Evidence:** `src/acronymkit/governed/namer.py`, `loaders.py`, `audit.py`,
+`src/acronymkit/cli.py`, [`QUICKSTART_GOVERNED.md`](QUICKSTART_GOVERNED.md)
+
+The subsystem answered every question correctly and was still not adoptable, and the reason had
+nothing to do with the answers. The consumer this was built for is a schema-governance pipeline
+written in another language: it holds a list of column names and needs them back expanded, checked
+and corrected. Reaching a Python library from there means a process, and the only shape of API on
+offer was one call per name.
+
+That is not a small tax, it is the entire cost. One interleaved session on this machine, medians of
+five, each arm run once per pass:
+
+```
+bare interpreter, nothing imported                        50.1 ms
+one expand-identifier invocation                         281.0 ms
+one governed-batch over 2,000 names                      432.5 ms
+the same 2,000 names as 2,000 invocations            562,000    ms   (arithmetic)
+```
+
+Both invocation rows include reading the fixture bundle, which is what a real caller pays too — the
+batch pays it once and the per-call pipeline pays it per column, and that is part of the point rather
+than a confound to be stripped out.
+
+Roughly **1,300 times**, and the ratio rather than the milliseconds is the durable part: a second
+session on the same host put the same comparison at about 1,354, while every absolute figure in it
+moved. Set against that, the answers themselves are
+0.021<!--claim:governed.throughput.elapsed_seconds--> s of the batch run, at
+96,532<!--claim:governed.throughput.identifiers_per_second:,--> identifiers per second. Almost none
+of what a per-call pipeline pays for is the work.
+
+### What was built, and what each piece is for
+
+- **`GovernedNamer`** binds a vocabulary and a policy once and exposes the five verbs with the
+  subject as their only argument, plus `expand_many` / `check_many` for a corpus and
+  `with_custom` / `with_policy` for a variant. `from_bundle`, `from_csv` and `from_json` are the
+  constructors, so start-up is one line. It is built once and never written to afterwards, holds no
+  cache and reads no clock.
+- **Loaders** — `load_bundle`, `load_csv`, `load_long_to_short_csv`, `load_term_index_csv` and
+  `BUNDLE_FILES` — because a standard is not one file. It is a catalog, three allow-lists, a
+  class-word map, a pin sheet and a term glossary, and the section names each accept several
+  spellings so a standard exported by somebody who never read the docs usually loads unchanged.
+- **`audit_identifiers` / `render_audit` / `suggest_catalog_additions`** turn a corpus into one
+  report. The unknown-token table is the part that earns its place: it converts "our catalog is
+  incomplete" into a finite list of rows to write, ranked by how often each token appears and in how
+  many of the corpus's identifiers, with one column to go and look at. A suggestion is a request for a decision
+  from whoever owns the catalog, never a wording this library invented.
+- **`governed-batch` and `governed-audit`** are the process-boundary surface. Records stream in and
+  out one at a time so memory is flat in the size of the corpus; every record carries `line`, `input`
+  and any `id` it arrived with, so a caller correlates without relying on order.
+- **Everything above is exported from `acronymkit.governed`** as well as from its own module, 42
+  public names in one place, resolved lazily so a caller who wants one enum still does not pay for
+  the Pydantic schemas.
+
+### Three contract decisions inside the batch, each of which could have gone the other way
+
+**A bad record is a record, not an exit.** Losing forty-nine thousand answers to one unparseable line
+is a worse outcome than any error message, so the failure rides on the record and the run continues.
+The process still exits non-zero when anything failed, so it remains usable as a gate.
+
+**A finding is not a failure.** Under `--op check`, a name that does not conform comes back
+`"ok": true` with `compliant` false inside the result and the exit status unchanged. Reporting
+non-conformance is the job the command was given; making it an error would mean a pipeline could not
+tell "your schema has findings" from "the tool broke".
+
+**Stdout carries records and nothing else.** The one-line summary goes to standard error and the
+record stream is ASCII-escaped, so a consumer parses stdout without knowing to skip anything and a
+record survives whatever encoding is on the far side.
+
+### Limits, and one that is a real cost
+
+`governed-batch` catches **every** exception a record raises, not a named set. That is right for a
+`LexiconError` from a policy that rejects unknown tokens, which is a documented outcome; it also
+means a systematic bug arrives as forty-nine thousand error records rather than as one loud crash.
+The `failed` count and the exit status are what a caller should watch.
+
+`--op audit` costs four verb calls and a pile of model construction per record where `--op expand`
+costs one, because it runs the corpus audit over a single name. A schema-wide sweep is much cheaper
+as one `governed-audit` than as fifty thousand `--op audit` records, and the flag is opt-in for that
+reason.
+
+An audit describes the corpus it was given and not the standard. An empty backlog means the corpus
+exercised no token the catalog is silent about — not that the catalog is complete.
+
+And the JVM consumer is still hypothetical. No `acronym4j` artifact exists; what exists is a wire
+contract with golden files (`docs/notes/governed-json-contract.md`) and a command that a pipeline in
+any language can drive. That is the thing this record claims, and nothing beyond it has been
+demonstrated.
+
+---
+
+## D-024 — A subsystem whose thesis is that it refuses to guess was discarding characters and reporting a complete answer
+
+**Status:** fixed, shipped · **Evidence:** `src/acronymkit/governed/tokenizer.py`,
+`tests/test_governed_edge_cases.py::test_nothing_leaves_without_being_kept_or_reported`,
+[`GOVERNED_NAMING.md`](GOVERNED_NAMING.md#what-the-splitter-accounts-for)
+
+`_classify` sorted every character that was neither a letter nor a digit into one bucket:
+*separator*. Separators end a token and then vanish, which is correct for the underscore in `TXN_ID`
+and wrong for everything else. So an emoji pasted out of a spreadsheet, a stray comma from a
+hand-edited CSV of column names, a currency sign, a combining accent left behind by a decomposed
+Unicode spelling — each was silently deleted, and the name that came back was the name somebody
+*should* have written:
+
+```
+before        TXN_<emoji>_ID  ->  'Transaction Identifier',  is_fully_known True
+after         TXN_<emoji>_ID  ->  'Transaction Identifier',  is_fully_known False
+                                  unaccounted ('<emoji>',)
+```
+
+The phrase is not the defect. The phrase is unavoidable — no catalog row can expand a character that
+is not a word — and it is identical to what a clean `TXN_ID` produces, which is precisely the
+problem. The defect is the second column. `is_fully_known` is the one bit a pipeline gates on, and it
+was reporting that a governed vocabulary had accounted for the whole of a name it had not read the
+whole of. Every other unknown in this package is recoverable because it is reported: an unknown
+token is `is_known=False` with zero confidence and a row somebody owes. A dropped character was
+reported as nothing at all, which makes a governance tool a confident source of names nobody wrote —
+the exact failure the rest of the design exists to prevent.
+
+### The design, which is a three-way split rather than a two-way one
+
+**Accounted separators still vanish, silently, and that is deliberate.** Nine characters — the
+underscore, hyphen, dot and slash, then the double quote, apostrophe, backtick and the two square
+brackets — plus every character `str.isspace()` accepts, printed from the published constant rather
+than transcribed:
+
+```python
+sorted(ACCOUNTED_SEPARATORS)   # ['"', "'", '-', '.', '/', '[', ']', '_', '`']
+```
+
+The first four are what a physical name is *made of*, and a caller who wrote `TXN_ID` does not need
+to be told it contained an underscore. The rest are how the common SQL dialects quote an identifier,
+so `"TXN_ID"`, `[TXN_ID]` and a backtick-quoted name read exactly like the bare one; a name that made
+a round trip through a catalog query is the same name. Reporting those would make the field noise,
+and a field that is usually noise is a field nobody reads.
+
+**Everything else is reported**, one entry per occurrence, in input order, in a new
+`IdentifierExpansion.unaccounted` field, and `is_fully_known` is now `all tokens known` **and**
+`unaccounted` empty.
+
+**An unaccounted character is deliberately not made into a token of its own**, and this is the choice
+most likely to be revisited by somebody who has not thought about it. Turning it into a token would
+have been less code and would have made the character visible through machinery that already exists.
+It is refused because a token is two things at once: a lookup key, and a work item. A token that
+misses is a catalog row somebody owes. "This name holds a character I could not read" is a different
+fact, it is not fixable by writing a catalog row, and the token list is also what `normalize`
+rebuilds a corrected name out of — so a stray character promoted to a token would be a permanent
+member of the backlog *and* would appear in a name the tool proposed. Two facts, two fields, one
+clean work queue. `unaccounted` is separate from `unknown_tokens` for the same reason.
+
+### The guarantee that replaced "lossless"
+
+"Lossless" was the word the first draft reached for and it does not survive contact with the accounted
+separators, which are lost on purpose. What is stated instead is countable:
+
+> For any input string, and for any character that is not one of the accounted separators and is not
+> whitespace, the number of times that character occurs in the input equals the number of times it
+> occurs across the returned tokens plus the number of times it appears in `unaccounted`.
+
+That is a property, so it is property-tested rather than exampled —
+`test_nothing_leaves_without_being_kept_or_reported` under Hypothesis, with the separator set itself
+asserted against the published constant so the guarantee cannot be widened by editing one file. It
+also settles a question that was previously answered by implication: the splitter applies no Unicode
+normalisation, because NFKC rewrites text, a normalising splitter would return tokens that are not
+substrings of the identifier, and the guarantee would then have nothing left to count.
+
+### The ordinal fix, which landed with it and has the same shape
+
+`1ST_TXN_DT` split to `1|ST|TXN|DT` and expanded to "1 St Transaction Date". `ST` is a token no
+catalog carries and "1 St" is not what the column is called, so rule 5's letter↔digit boundary now
+has one exception: a closed suffix set (`st`, `nd`, `rd`, `th`), matched without regard to case, and
+only when those two letters *end* the token.
+
+```
+1ST_TXN_DT   -> ('1ST', 'TXN', 'DT')     '1st Transaction Date'
+1STATE       -> ('1', 'STATE')
+ADDR_1_ST    -> ('ADDR', '1', 'ST')
+1sT          -> ('1', 's', 'T')
+```
+
+It is English-only and says so — a catalog whose ordinals are written `1ER` or `1E` gets rule 5 and
+nothing else — and it does not reach across a separator, so `ADDR_1_ST` keeps the two tokens somebody
+wrote separately.
+
+**The last line was `('1s', 'T')` when this record was first written, and that was a bug, not a
+quirk.** The reasoning at the time was that rule 6 keeps the suffix with its digits, rule 4 then cuts
+between a lowercase letter and the capital after it, nobody writes an ordinal that way, and there was
+no obviously better answer to give it — so the odd answer was pinned rather than tidied, because a
+port reading rule 6 "cleanly" would answer `('1sT',)` and diverge.
+
+It was not answer-neutral. `'1s'.upper()` is `'1S'`, which splits back into `('1', 'S')`, and
+`normalize` rebuilds a name by upper-casing the tokens the splitter found and joining them with `_`.
+So `normalize('1sT')` was `'1S_T'` and `normalize('1S_T')` was `'1_S_T'` — the invariant this project
+states as holding *by construction* was false for every name containing one, and the test carrying it
+runs over a 40-line fixture corpus that has no such name in it.
+
+The rule now has a third condition: it does not fire across a camelCase boundary, so `1sT` is three
+tokens. A capital after a lowercase letter is the writer saying a new word starts there, which is what
+that signal means everywhere else in the splitter, and rule 6 exists because `1ST` is one *word*. The
+port-divergence note stands, with a different answer on this side of it.
+
+What is worth keeping from the mistake is the shape of it: an input nobody writes was pinned as
+correct because the two readings of the rules agreed about it, and "the two implementations agree" is
+not the same claim as "the answer composes with everything downstream". The property that would have
+caught it is now asserted directly — every ASCII token, upper-cased, splits back to exactly itself —
+and it is the premise `normalize`'s idempotence rests on.
+`test_an_ascii_token_upper_cased_splits_back_to_exactly_itself` is the name to search for.
+
+### What this changes for existing callers, and what is still missing
+
+`is_fully_known` means something narrower than it did. A caller gating on it will now see `False` for
+names it previously waved through — which is the point, and is a behaviour change worth a release
+note rather than a footnote. `unaccounted` defaults to empty, so a consumer that has never heard of
+the field reads the same payload it always did.
+
+The accounting is visible **in one direction only**. `expand_identifier` writes it;
+`ComplianceResult` and `PhysicalName` carry no equivalent, so a character the splitter could not read
+reaches `is_compliant` as a `NOT_UPPER_SNAKE` finding — or as nothing at all, when the rest of the
+name is well formed — and reaches `to_physical_name` as nothing. That is a gap in the DTO surface
+rather than a decision, and `GOVERNED_NAMING.md` records it in place so it is not mistaken for one.
+
+One vacuous case stands and is left alone: `expand_identifier("")` returns `is_fully_known=True`,
+because no token failed and nothing went unaccounted for. The empty `tokens` tuple is what says
+nothing was expanded, and raising on a blank cell would push a `try` into every caller walking a
+schema export.
+
+---
+
 ## D-023 — pydantic is 84.6 % of the engine import. Migrate, and before the package is published.
 
 **Status:** decided, not executed · **Evidence:**

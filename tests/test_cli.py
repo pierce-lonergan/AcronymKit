@@ -20,6 +20,8 @@ resolve ``click``, plus an in-process variant that pokes ``sys.modules``.
 
 from __future__ import annotations
 
+import errno
+import io
 import json
 import os
 import subprocess
@@ -158,6 +160,8 @@ def test_build_cli_returns_a_memoised_group() -> None:
         "expand-token",
         "extract",
         "generate",
+        "governed-audit",
+        "governed-batch",
         "normalize-name",
         "physical-name",
         "schema",
@@ -614,6 +618,8 @@ def test_invalid_tier_lists_every_valid_choice(run: Callable[..., Invocation]) -
         pytest.param(("physical-name", "--help"), id="physical-name"),
         pytest.param(("normalize-name", "--help"), id="normalize-name"),
         pytest.param(("check-name", "--help"), id="check-name"),
+        pytest.param(("governed-batch", "--help"), id="governed-batch"),
+        pytest.param(("governed-audit", "--help"), id="governed-audit"),
     ],
 )
 def test_help_exits_zero(run: Callable[..., Invocation], argv: Sequence[str]) -> None:
@@ -647,6 +653,8 @@ def test_every_command_appears_in_the_group_help(run: Callable[..., Invocation])
         "physical-name",
         "normalize-name",
         "check-name",
+        "governed-batch",
+        "governed-audit",
     ):
         assert command in outcome.stdout
 
@@ -982,3 +990,578 @@ def test_the_governed_commands_require_a_dictionary(runner: Any) -> None:
     result = runner.invoke(build_cli(), ["expand-token", "TXN"])
 
     assert result.exit_code == EXIT_USAGE
+
+
+def test_expand_identifier_shows_the_characters_it_could_not_account_for(
+    runner: Any, catalog: str
+) -> None:
+    """``Fully known: no`` has to say what made it false.
+
+    Every token here resolves, so a reader looking at the token table alone
+    would see nothing wrong and would be told the name failed anyway. The
+    copyright sign is neither a letter, a digit nor one of the separators the
+    splitter accounts for, and it is the whole reason for the verdict.
+    """
+    result = runner.invoke(build_cli(), ["expand-identifier", "TXN©ID", "--dictionary", catalog])
+
+    assert result.exit_code == 0, runner_output(result)
+    text = runner_output(result)
+    assert "Fully known: no" in text
+    assert "Unaccounted: ©" in text
+
+
+# ---------------------------------------------------------------------------
+# the vocabulary flags shared by every governed command
+# ---------------------------------------------------------------------------
+#: The worked fixture standard, in the bundle layout ``load_bundle`` reads.
+GOVERNED_BUNDLE = str(REPO_ROOT / "tests" / "fixtures" / "governed")
+
+#: A long form -> token catalog, the direction a real standard is authored in.
+LONG_TO_SHORT_CSV = "long_form,abbreviation\nTransaction,TXN\nIdentifier,ID\nDate,DT\n"
+
+
+@pytest.fixture
+def catalog_csv(tmp_path: Path) -> str:
+    """``LONG_TO_SHORT_CSV`` written to a file, as a spreadsheet export would be."""
+    path = tmp_path / "nds.csv"
+    path.write_text(LONG_TO_SHORT_CSV, encoding="utf-8")
+    return str(path)
+
+
+def test_a_directory_is_read_as_a_whole_standard(runner: Any) -> None:
+    """A standard is five files, and asking for one of them is asking for a fifth of it.
+
+    The catalog alone answers what a token means and nothing about whether it
+    may stand in a physical name, so a directory has to reach ``load_bundle``
+    for the allow-lists and the class-word map to be in force.
+    """
+    result = runner.invoke(
+        build_cli(),
+        [
+            "expand-identifier",
+            "CUST_ACCT_OPEN_DT",
+            "--dictionary",
+            GOVERNED_BUNDLE,
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, runner_output(result)
+    payload = json.loads(runner_output(result))
+    assert payload["phrase"] == "Customer Account OPEN Date"
+    assert payload["class_word"] == "Date"
+
+
+def test_a_csv_catalog_is_refused_until_its_direction_is_declared(
+    runner: Any, catalog_csv: str
+) -> None:
+    """The same two columns are a valid vocabulary read either way round.
+
+    Guessing would silently produce a vocabulary meaning something the caller
+    did not ask for, which is the same reason ``auto`` never picks
+    ``long_to_short`` for a JSON mapping. The refusal names both flags that fix
+    it.
+    """
+    result = runner.invoke(build_cli(), ["expand-token", "TXN", "--dictionary", catalog_csv])
+
+    assert result.exit_code == EXIT_USAGE
+    text = runner_output(result)
+    assert "long_to_short_csv" in text
+    assert "--columns" in text
+
+
+def test_a_csv_catalog_loads_once_the_direction_and_columns_are_given(
+    runner: Any, catalog_csv: str
+) -> None:
+    """The shape a governance function's standard actually arrives in.
+
+    A caller whose catalog is a spreadsheet export should not have to write a
+    conversion script before they can find out what this library does.
+    """
+    result = runner.invoke(
+        build_cli(),
+        [
+            "expand-identifier",
+            "TXN_ID",
+            "--dictionary",
+            catalog_csv,
+            "--dictionary-format",
+            "long_to_short_csv",
+            "--columns",
+            "long_form,abbreviation",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, runner_output(result)
+    assert json.loads(runner_output(result))["phrase"] == "Transaction Identifier"
+
+
+def test_columns_is_refused_when_nothing_reads_a_csv(runner: Any, catalog: str) -> None:
+    """A flag that is quietly ignored teaches the caller it did something."""
+    result = runner.invoke(
+        build_cli(), ["expand-token", "TXN", "--dictionary", catalog, "--columns", "a,b"]
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert "--columns" in runner_output(result)
+
+
+@pytest.mark.parametrize("value", ["long_form", "a,b,c", "long_form,"])
+def test_columns_must_name_exactly_two_headers(runner: Any, catalog_csv: str, value: str) -> None:
+    """One name, three names and a blank name are each undecidable, not a default."""
+    result = runner.invoke(
+        build_cli(),
+        [
+            "expand-token",
+            "TXN",
+            "--dictionary",
+            catalog_csv,
+            "--dictionary-format",
+            "long_to_short_csv",
+            "--columns",
+            value,
+        ],
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert "two" in runner_output(result)
+
+
+def test_a_directory_with_a_file_layout_is_a_usage_error(runner: Any) -> None:
+    """Nothing but a bundle is a directory, so the two flags contradict each other."""
+    result = runner.invoke(
+        build_cli(),
+        [
+            "expand-token",
+            "TXN",
+            "--dictionary",
+            GOVERNED_BUNDLE,
+            "--dictionary-format",
+            "catalog",
+        ],
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert "directory" in runner_output(result)
+
+
+# ---------------------------------------------------------------------------
+# governed-batch: one process for a whole schema
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def batch(
+    run: Callable[..., Invocation], monkeypatch: pytest.MonkeyPatch
+) -> Callable[..., Invocation]:
+    """Run a command with ``text`` on standard input, with the streams kept apart.
+
+    ``main`` plus ``capsys`` rather than ``CliRunner`` because a batch writes its
+    records to stdout and its summary to stderr, and a runner that mixes the two
+    cannot tell a record from a report.
+    """
+
+    def _batch(text: str, *argv: str) -> Invocation:
+        monkeypatch.setattr(sys, "stdin", io.StringIO(text))
+        return run(*argv)
+
+    return _batch
+
+
+def batch_records(outcome: Invocation) -> list[dict[str, Any]]:
+    """Parse the record stream a batch wrote to stdout."""
+    return [json.loads(line) for line in outcome.stdout.splitlines() if line.strip()]
+
+
+def test_governed_batch_answers_every_line_in_order(
+    batch: Callable[..., Invocation],
+) -> None:
+    """One record in, one record out, and the input on every one of them.
+
+    The echoed input is what lets a caller join the stream back onto its own
+    rows without trusting the order it read them in — which is the difference
+    between a pipe another process can use and one it has to be careful with.
+    """
+    outcome = batch(
+        "TXN_APPLNT_ID\nCUST_ACCT_KYC_ID\n",
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+    )
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    records = batch_records(outcome)
+    assert [record["line"] for record in records] == [1, 2]
+    assert [record["input"] for record in records] == ["TXN_APPLNT_ID", "CUST_ACCT_KYC_ID"]
+    assert records[0]["result"]["phrase"] == "Transaction Applicant Identifier"
+    assert records[0]["result"]["is_fully_known"] is True
+    assert records[1]["result"]["is_fully_known"] is False
+
+
+def test_governed_batch_echoes_a_caller_supplied_key(
+    batch: Callable[..., Invocation],
+) -> None:
+    """A pipeline holding a row id needs it back, untouched, on the answer."""
+    outcome = batch(
+        '{"id": "col-0007", "identifier": "TXN_ID"}\n',
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+    )
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    record = batch_records(outcome)[0]
+    assert record["id"] == "col-0007"
+    assert record["input"] == "TXN_ID"
+
+
+def test_one_bad_line_costs_one_record_and_not_the_run(
+    batch: Callable[..., Invocation],
+) -> None:
+    """The whole point of the record envelope.
+
+    Losing forty-nine thousand answers to one unparseable line is a worse
+    outcome than any error message, so the failure goes on the record and the
+    run continues. The exit status still reports it, so the command remains
+    usable as a gate.
+    """
+    outcome = batch(
+        'TXN_ID\n{"identifier": 7}\nAPPLNT_BRTH_DT\n',
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+    )
+
+    assert outcome.exit_code == EXIT_FAILURE
+    records = batch_records(outcome)
+    assert [record["ok"] for record in records] == [True, False, True]
+    assert records[1]["error_type"] == "InputError"
+    assert "identifier" in records[1]["error"]
+    assert records[2]["result"]["phrase"] == "Applicant Birth Date"
+
+
+def test_a_non_compliant_name_is_an_answer_and_not_a_failure(
+    batch: Callable[..., Invocation],
+) -> None:
+    """The exit status reports records that failed, never findings.
+
+    A batch that exited non-zero because the schema it was handed is imperfect
+    would be a gate on the wrong thing: reporting that imperfection is what the
+    command was asked to do.
+    """
+    outcome = batch(
+        "APPLNT_TXN\n",
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+        "--op",
+        "check",
+    )
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    record = batch_records(outcome)[0]
+    assert record["ok"] is True
+    assert record["result"]["compliant"] is False
+
+
+def test_the_summary_goes_to_stderr_so_stdout_stays_a_record_stream(
+    batch: Callable[..., Invocation],
+) -> None:
+    """A caller has to be able to confirm it received every record it sent.
+
+    On stdout that count would be a line their parser has to know to skip; on
+    stderr it is a report, and every line of stdout is a record.
+    """
+    outcome = batch(
+        "TXN_ID\n\n\nAPPLNT_BRTH_DT\n",
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+    )
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    assert len(batch_records(outcome)) == 2
+    summary = json.loads(outcome.stderr.strip())
+    assert summary == {"op": "expand", "records": 2, "failed": 0, "skipped": 2}
+
+
+@pytest.mark.parametrize(
+    ("op", "subject", "key", "expected"),
+    [
+        pytest.param("expand", "TXN_APPLNT_ID", "phrase", "Transaction Applicant Identifier"),
+        pytest.param("physical", "Customer Account Open Date", "physical", "CUST_ACCT_OPEN_DT"),
+        pytest.param("check", "TXN_APPLNT_ID", "compliant", True),
+        pytest.param("normalize", "custmr_acct_num", "normalized", "CUST_ACCT_NBR"),
+        pytest.param("audit", "CUST_ACCT_KYC_ID", "unknown_tokens", ["KYC"]),
+    ],
+)
+def test_each_op_returns_what_its_verb_returns(
+    batch: Callable[..., Invocation], op: str, subject: str, key: str, expected: Any
+) -> None:
+    """The batch adds an envelope and no opinions.
+
+    Each record's ``result`` is the payload the matching verb produces for that
+    one name, so a caller can read the same JSON contract whether they called
+    the library once or fifty thousand times.
+    """
+    outcome = batch(
+        f"{subject}\n",
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+        "--op",
+        op,
+    )
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    assert batch_records(outcome)[0]["result"][key] == expected
+
+
+def test_the_audit_op_answers_for_a_name_it_has_nothing_to_say_about(
+    batch: Callable[..., Invocation],
+) -> None:
+    """A batch owes an answer for every line, including the clean ones.
+
+    ``audit_identifiers`` keeps a detail record only for identifiers worth
+    looking at, which is right for a corpus report and wrong for a stream where
+    a missing line is indistinguishable from a lost one.
+    """
+    outcome = batch(
+        "TXN_APPLNT_ID\n",
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+        "--op",
+        "audit",
+    )
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    record = batch_records(outcome)[0]["result"]
+    assert record["identifier"] == "TXN_APPLNT_ID"
+    assert record["is_fully_known"] is True
+    assert record["compliant"] is True
+    assert record["unknown_tokens"] == []
+
+
+def test_the_record_stream_is_ascii_whatever_the_identifier_holds(
+    batch: Callable[..., Invocation],
+) -> None:
+    """The stream crosses a process boundary, where the code page is not ours.
+
+    Escaping every non-ASCII character keeps a record readable by a consumer on
+    any console encoding, and JSON says the two spellings mean the same string.
+    """
+    outcome = batch(
+        "TXN_ÜBER_ID\n",
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+    )
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    assert outcome.stdout.isascii()
+    assert batch_records(outcome)[0]["input"] == "TXN_ÜBER_ID"
+
+
+def test_a_batch_overlay_is_layered_once_for_the_whole_run(
+    batch: Callable[..., Invocation],
+) -> None:
+    """``--custom`` has to reach a batch, or a caller with house acronyms cannot use it."""
+    outcome = batch(
+        "KYC_REVIEW_DT\n",
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+        "--custom",
+        '{"KYC": "Know Your Customer"}',
+    )
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    result = batch_records(outcome)[0]["result"]
+    # REVIEW keeps its shape because the standard's allow-list approves it and
+    # re-casing an approved token would be correcting the standard; the overlay
+    # is the KYC half.
+    assert result["phrase"] == "Know Your Customer REVIEW Date"
+    assert result["is_fully_known"] is True
+
+
+def test_governed_batch_reads_a_file_argument(
+    run: Callable[..., Invocation], tmp_path: Path
+) -> None:
+    """The same command, with the corpus already on disk rather than in a pipe."""
+    corpus = tmp_path / "columns.txt"
+    corpus.write_text("TXN_ID\nAPPLNT_BRTH_DT\n", encoding="utf-8")
+
+    outcome = run("governed-batch", str(corpus), "--dictionary", GOVERNED_BUNDLE)
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    assert len(batch_records(outcome)) == 2
+
+
+# ---------------------------------------------------------------------------
+# A consumer that stops reading is success, not a crash
+# ---------------------------------------------------------------------------
+def test_a_consumer_that_closes_the_pipe_is_not_an_error(tmp_path: Path) -> None:
+    """``acronymkit governed-batch ... | head -1`` exits 0 with no traceback.
+
+    The whole point of a streaming command is that the reader sees the first
+    answer before the last question is asked, so a reader that has seen enough
+    and closed the pipe is the command working. Run out of process because that
+    is the only place a real pipe exists: an in-process stub can imitate the
+    exception but not the interpreter's own flush on the way out, which is what
+    turned a handled condition into exit ``120``.
+
+    Two platforms, one condition, two errors — POSIX raises ``BrokenPipeError``
+    and Windows a plain ``OSError`` with ``EINVAL`` — so this asserts the outcome
+    rather than the exception type.
+    """
+    corpus = tmp_path / "wide.txt"
+    corpus.write_text("".join(f"TXN_ID_{index}\n" for index in range(20_000)), encoding="utf-8")
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "acronymkit.cli",
+            "governed-batch",
+            str(corpus),
+            "--dictionary",
+            GOVERNED_BUNDLE,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=str(REPO_ROOT),
+        env=dict(os.environ, PYTHONPATH=str(SRC), PYTHONDONTWRITEBYTECODE="1"),
+    )
+    assert process.stdout is not None and process.stderr is not None
+    first = process.stdout.readline()
+    process.stdout.close()
+    complaints = process.stderr.read().decode("utf-8", "replace")
+    process.stderr.close()
+
+    assert process.wait(timeout=120) == EXIT_OK, complaints
+    assert "Traceback" not in complaints
+    assert json.loads(first)["line"] == 1
+
+
+def test_a_broken_pipe_is_told_apart_from_any_other_os_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``main`` returns 0 for a closed consumer and re-raises everything else.
+
+    The Windows half of :func:`~acronymkit.cli._is_closed_consumer` reads a bare
+    ``EINVAL`` as a hang-up, which is a real loss of precision and is the reason
+    the other direction is asserted here: an ``OSError`` that is not that
+    condition must still reach the interpreter rather than be reported as a
+    clean run.
+
+    The redirect itself is stubbed out. It really does ``dup2`` over file
+    descriptor 1, which is the right thing for a process that is exiting and the
+    wrong thing to do to the harness capturing this test; the subprocess test
+    above is where it runs for real.
+    """
+    import acronymkit.cli as cli_module
+
+    monkeypatch.setattr(cli_module, "_abandon_stdout", lambda: None)
+
+    def raise_it(exc: BaseException) -> Callable[..., Any]:
+        def _raise(*_args: Any, **_kwargs: Any) -> Any:
+            raise exc
+
+        return _raise
+
+    monkeypatch.setattr(cli_module, "cli", raise_it(BrokenPipeError()))
+    assert cli_module.main(["version"]) == EXIT_OK
+
+    if sys.platform == "win32":
+        monkeypatch.setattr(cli_module, "cli", raise_it(OSError(errno.EINVAL, "Invalid argument")))
+        assert cli_module.main(["version"]) == EXIT_OK
+
+    monkeypatch.setattr(cli_module, "cli", raise_it(OSError(errno.EACCES, "Permission denied")))
+    with pytest.raises(OSError, match="Permission denied"):
+        cli_module.main(["version"])
+
+
+# ---------------------------------------------------------------------------
+# governed-audit: the first thing a new adopter runs
+# ---------------------------------------------------------------------------
+CORPUS = "CUST_ACCT_KYC_ID\nTRNCH_ID_TRNCH_AM\nCUSTOMER_ACCOUNT_ID\nTXN_APPLNT_ID\n"
+
+
+def test_governed_audit_reports_coverage_and_the_backlog(
+    batch: Callable[..., Invocation],
+) -> None:
+    """The ranked unknown-token table is why this command exists.
+
+    It turns "our catalog is incomplete" into a finite list of rows to write, in
+    the order that clears the most columns per row.
+    """
+    outcome = batch(CORPUS, "governed-audit", "--dictionary", GOVERNED_BUNDLE)
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    assert "Governed naming audit" in outcome.stdout
+    assert "identifiers      4 (4 distinct)" in outcome.stdout
+    assert "TRNCH" in outcome.stdout
+    assert "KYC" in outcome.stdout
+
+
+def test_governed_audit_json_is_the_audit_payload(batch: Callable[..., Invocation]) -> None:
+    """A report a person reads and a payload a program reads, from one pass."""
+    outcome = batch(CORPUS, "governed-audit", "--dictionary", GOVERNED_BUNDLE, "--format", "json")
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    payload = json.loads(outcome.stdout)
+    assert payload["total"] == 4
+    assert payload["distinct"] == 4
+    assert [token["token"] for token in payload["unknown_tokens"]][:1] == ["TRNCH"]
+    assert "suggestions" not in payload
+
+
+def test_the_suggestions_separate_a_decision_from_an_edit(
+    batch: Callable[..., Invocation],
+) -> None:
+    """Two kinds of backlog row, and only one of them needs anybody to decide anything.
+
+    ``CUSTOMER`` is a word the catalog already governs, so the answer is an edit
+    to the column name. ``TRNCH`` is a row somebody has to write, and the
+    library proposes no wording for it.
+    """
+    outcome = batch(
+        CORPUS,
+        "governed-audit",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+        "--format",
+        "json",
+        "--suggest",
+    )
+
+    assert outcome.exit_code == EXIT_OK, outcome.text
+    proposals = {
+        item["token"]: item["proposed_abbreviation"]
+        for item in json.loads(outcome.stdout)["suggestions"]
+    }
+    assert proposals["CUSTOMER"] == "CUST"
+    assert proposals["TRNCH"] is None
+
+
+def test_governed_audit_still_reports_when_a_line_cannot_be_read(
+    batch: Callable[..., Invocation],
+) -> None:
+    """A corpus with one bad line is still a corpus worth reporting on.
+
+    The report is printed, the unreadable lines are named on stderr, and the
+    exit status says the corpus was not read whole — so nobody mistakes a
+    partial audit for a complete one.
+    """
+    outcome = batch(
+        'TXN_ID\n{"identifier": null}\n',
+        "governed-audit",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+    )
+
+    assert outcome.exit_code == EXIT_FAILURE
+    assert "Governed naming audit" in outcome.stdout
+    assert "identifiers      1 (1 distinct)" in outcome.stdout
+    assert "line 2" in outcome.stderr

@@ -241,6 +241,15 @@ class TokenExpansion(_FrozenModel):
 class IdentifierExpansion(_FrozenModel):
     """A whole identifier expanded token by token.
 
+    The record accounts for the whole input, not only the part of it that
+    became words. Every character of ``identifier`` is either inside one of the
+    ``tokens``, or one of the separators
+    :mod:`~acronymkit.governed.tokenizer` names, or listed in
+    :attr:`unaccounted` — and :attr:`is_fully_known` is ``True`` only when the
+    catalog answered for every token *and* there was nothing in the third
+    bucket. A caller that reads those two fields has seen everything that
+    happened to the name it passed in.
+
     Example:
         ``TXN_APPLNT_ID`` becomes the phrase "Transaction Applicant Identifier",
         three :class:`TokenExpansion` records, and the class word read off the
@@ -262,9 +271,27 @@ class IdentifierExpansion(_FrozenModel):
         "word, so APPLNT_VERIF_DT names a date while DT_APPLNT_VERIF does not."
     )
     is_fully_known: bool = Field(
-        description="True when every token is known. The one-bit summary a pipeline gates on: "
-        "a partially expanded identifier is a governed answer with guesses mixed in, and that "
-        "has to be visible without walking the token list."
+        description="True when every token is known AND nothing in the identifier went "
+        "unaccounted for. The one-bit summary a pipeline gates on, and it summarises the whole "
+        "answer or it is worth nothing: a partially expanded identifier is a governed answer "
+        "with guesses mixed in, and an identifier holding a character the splitter could not "
+        "read is a governed answer to a question that was not quite the one asked. Both have to "
+        "be visible without walking the token list."
+    )
+    unaccounted: tuple[str, ...] = Field(
+        default=(),
+        description="Characters of the identifier that ended up in no token and are not one of "
+        "the separators the splitter accounts for: an emoji pasted out of a spreadsheet, a "
+        "currency sign, a combining accent left by a decomposed Unicode spelling, a control "
+        "character from a bad export. One entry per occurrence, in input order. Empty for "
+        "essentially every name a schema actually contains, and the reason the field exists is "
+        "the case where it is not - answering 'Transaction Identifier, fully known' for a column "
+        "whose name also held a character that was quietly discarded is a confident description "
+        "of a name nobody wrote. Separate from unknown_tokens because the two are different "
+        "work: an unknown token is a catalog row somebody owes, and an unaccounted character is "
+        "a question about the name itself that no catalog row can settle. Written by "
+        "expand_identifier; the compliance and reverse directions do not carry it, and such a "
+        "character reaches is_compliant as a NOT_UPPER_SNAKE finding or as nothing at all.",
     )
 
     @property

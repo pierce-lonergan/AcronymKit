@@ -26,6 +26,7 @@ so that a test — and an auditor — can assert it stayed ``False``.
 
 from __future__ import annotations
 
+from functools import cache
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -157,6 +158,7 @@ class NamingPolicy(BaseModel):
             raise ConfigurationError(_describe(exc)) from exc
 
     @classmethod
+    @cache
     def governed_default(cls) -> NamingPolicy:
         """The default policy: the catalog decides, and an unknown stays unknown.
 
@@ -165,12 +167,25 @@ class NamingPolicy(BaseModel):
         the vocabulary does not contain comes back Title Cased and marked
         unknown rather than guessed at.
 
+        **Memoised, and the four presets share the reason.** Each one names a
+        fixed set of field values, so every call was building an object equal to
+        the last. That is not free: this is the default a caller gets whenever
+        they omit ``policy=``, so it ran once per verb call, and the resolver
+        then keys its caches on the policy *by value* — meaning the cost was
+        paid twice, once to construct and once to discover the construction had
+        been unnecessary. Returning one shared instance is safe because the
+        model is frozen: two callers cannot tell they hold the same object
+        except by ``is``, and nothing may mutate it. Callers who want a variant
+        still get a fresh object from ``model_copy(update=...)``.
+
         Returns:
-            A policy with every field at its declared default.
+            A policy with every field at its declared default. The same
+            instance on every call.
         """
         return cls()
 
     @classmethod
+    @cache
     def frequency_baseline(cls) -> NamingPolicy:
         """The contrast arm: resolve a collision by "most common", ignoring the pin.
 
@@ -196,6 +211,7 @@ class NamingPolicy(BaseModel):
         )
 
     @classmethod
+    @cache
     def neural_optin(cls) -> NamingPolicy:
         """Allow the statistical tier, but only where the catalog is silent.
 
@@ -217,6 +233,7 @@ class NamingPolicy(BaseModel):
         )
 
     @classmethod
+    @cache
     def strict_length(cls) -> NamingPolicy:
         """Flag names longer than ``max_name_length``, and change nothing else.
 

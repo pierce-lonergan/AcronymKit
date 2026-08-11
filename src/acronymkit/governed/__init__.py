@@ -90,6 +90,17 @@ if TYPE_CHECKING:
     # consumers resolve these; an actual attribute access resolves the
     # ``_EXPORT_SOURCES`` table below. The two lists describe one surface and
     # can drift silently, so they are written next to each other deliberately.
+    from .audit import (
+        CatalogSuggestion,
+        CorpusAudit,
+        FindingTally,
+        IdentifierAudit,
+        RoundTripBreak,
+        UnknownToken,
+        audit_identifiers,
+        render_audit,
+        suggest_catalog_additions,
+    )
     from .compliance import is_compliant, normalize
     from .dictionary import GovernedDictionary
     from .enums import (
@@ -101,6 +112,13 @@ if TYPE_CHECKING:
         Verdict,
     )
     from .expansion import expand_identifier, expand_token
+    from .loaders import (
+        BUNDLE_FILES,
+        load_bundle,
+        load_csv,
+        load_long_to_short_csv,
+        load_term_index_csv,
+    )
     from .models import (
         ComplianceReason,
         ComplianceResult,
@@ -110,14 +128,30 @@ if TYPE_CHECKING:
         PhysicalToken,
         TokenExpansion,
     )
+    from .namer import GovernedNamer
     from .naming import to_physical_name
     from .policy import NamingPolicy
     from .scoring import canonical_form_score, score_breakdown
-    from .tokenizer import split_identifier
+    from .tokenizer import (
+        ACCOUNTED_SEPARATORS,
+        IdentifierParts,
+        split_identifier,
+        split_identifier_parts,
+        strip_qualifier,
+    )
 
 #: Public name -> the submodule that defines it. This is the whole lazy import
 #: table; every entry is also in :data:`__all__`, and the reverse holds.
 _EXPORT_SOURCES = {
+    "CatalogSuggestion": "audit",
+    "CorpusAudit": "audit",
+    "FindingTally": "audit",
+    "IdentifierAudit": "audit",
+    "RoundTripBreak": "audit",
+    "UnknownToken": "audit",
+    "audit_identifiers": "audit",
+    "render_audit": "audit",
+    "suggest_catalog_additions": "audit",
     "is_compliant": "compliance",
     "normalize": "compliance",
     "GovernedDictionary": "dictionary",
@@ -129,6 +163,11 @@ _EXPORT_SOURCES = {
     "Verdict": "enums",
     "expand_identifier": "expansion",
     "expand_token": "expansion",
+    "BUNDLE_FILES": "loaders",
+    "load_bundle": "loaders",
+    "load_csv": "loaders",
+    "load_long_to_short_csv": "loaders",
+    "load_term_index_csv": "loaders",
     "ComplianceReason": "models",
     "ComplianceResult": "models",
     "GovernedEntry": "models",
@@ -136,11 +175,16 @@ _EXPORT_SOURCES = {
     "PhysicalName": "models",
     "PhysicalToken": "models",
     "TokenExpansion": "models",
+    "GovernedNamer": "namer",
     "to_physical_name": "naming",
     "NamingPolicy": "policy",
     "canonical_form_score": "scoring",
     "score_breakdown": "scoring",
+    "ACCOUNTED_SEPARATORS": "tokenizer",
+    "IdentifierParts": "tokenizer",
     "split_identifier": "tokenizer",
+    "split_identifier_parts": "tokenizer",
+    "strip_qualifier": "tokenizer",
 }
 
 #: Submodules reachable as attributes of this package, so that
@@ -148,11 +192,14 @@ _EXPORT_SOURCES = {
 #: the package having imported any of them up front.
 _SUBMODULES = frozenset(
     {
+        "audit",
         "compliance",
         "dictionary",
         "enums",
         "expansion",
+        "loaders",
         "models",
+        "namer",
         "naming",
         "policy",
         "scoring",
@@ -161,28 +208,47 @@ _SUBMODULES = frozenset(
 )
 
 __all__ = [
+    "ACCOUNTED_SEPARATORS",
+    "BUNDLE_FILES",
+    "CatalogSuggestion",
     "ComplianceReason",
     "ComplianceReasonCode",
     "ComplianceResult",
+    "CorpusAudit",
     "EntryKind",
     "ExpansionSource",
+    "FindingTally",
     "GovernedDictionary",
     "GovernedEntry",
+    "GovernedNamer",
+    "IdentifierAudit",
     "IdentifierExpansion",
+    "IdentifierParts",
     "NamingPolicy",
     "PhysicalName",
     "PhysicalToken",
     "ResolutionMode",
+    "RoundTripBreak",
     "TokenExpansion",
     "UnknownPolicy",
+    "UnknownToken",
     "Verdict",
+    "audit_identifiers",
     "canonical_form_score",
     "expand_identifier",
     "expand_token",
     "is_compliant",
+    "load_bundle",
+    "load_csv",
+    "load_long_to_short_csv",
+    "load_term_index_csv",
     "normalize",
+    "render_audit",
     "score_breakdown",
     "split_identifier",
+    "split_identifier_parts",
+    "strip_qualifier",
+    "suggest_catalog_additions",
     "to_physical_name",
 ]
 
