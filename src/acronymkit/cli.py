@@ -1740,7 +1740,7 @@ def _batch_operation(op: str, namer: GovernedNamer) -> Callable[[str], dict[str,
 
 def _run_batch(
     op: str, namer: GovernedNamer, stream: Any, flush_every: int
-) -> tuple[int, int, int]:
+) -> tuple[int, int, int, bool]:
     """Read the stream, answer each record, write each answer, keep nothing.
 
     The loop holds one record at a time. Nothing accumulates — not the inputs,
@@ -1798,12 +1798,36 @@ def _run_batch(
                 record["ok"] = True
                 record["result"] = result
         records += 1
-        out.write(json.dumps(record, ensure_ascii=True, separators=_JSONL_SEPARATORS))
-        out.write("\n")
-        if flush_every and records % flush_every == 0:
-            out.flush()
-    out.flush()
-    return records, failed, skipped
+        try:
+            out.write(json.dumps(record, ensure_ascii=True, separators=_JSONL_SEPARATORS))
+            out.write("\n")
+            if flush_every and records % flush_every == 0:
+                out.flush()
+        except OSError as exc:
+            # The consumer stopped reading -- ``| head -1`` on a streaming
+            # command. Handled *here* rather than by letting it reach
+            # :func:`main`, because ``click`` intercepts ``EPIPE`` inside its
+            # own ``main()`` and turns it into ``sys.exit(1)`` before our
+            # handler can run: the process would report a failure for the most
+            # ordinary way there is to use this command.
+            #
+            # Windows raises ``EINVAL`` rather than ``EPIPE`` for the same
+            # event, so click's check does not match it there and the exception
+            # did reach our handler. That is precisely why this was invisible
+            # on the machine it was written on and failed on every POSIX cell
+            # in CI: the platform difference hid the design mistake.
+            if not _is_closed_consumer(exc):
+                raise
+            _abandon_stdout()
+            return records, failed, skipped, True
+    try:
+        out.flush()
+    except OSError as exc:
+        if not _is_closed_consumer(exc):
+            raise
+        _abandon_stdout()
+        return records, failed, skipped, True
+    return records, failed, skipped, False
 
 
 def _batch_identifiers(stream: Any, problems: list[str]) -> Iterator[str]:
@@ -2541,10 +2565,15 @@ def build_cli() -> Any:
         namer = _governed_namer(click, options)
         stream, close_it = _batch_stream(click, file)
         try:
-            records, failed, skipped = _run_batch(op, namer, stream, flush_every)
+            records, failed, skipped, consumer_gone = _run_batch(op, namer, stream, flush_every)
         finally:
             if close_it:
                 stream.close()
+        if consumer_gone:
+            # Nothing is reading stdout, and the answer was delivered as far as
+            # anyone wanted it. There is nobody left to read a summary, and a
+            # non-zero exit would call an ordinary `| head` a failure.
+            return
         print(
             json.dumps(
                 {
