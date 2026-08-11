@@ -227,13 +227,12 @@ jobs:
           path: dist/
       - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
         with:
+          repository-url: https://test.pypi.org/legacy/
           # twine truncates a rejection to "400 Bad Request" and drops the body,
           # which is the only part that says WHY. The first publish of this
           # package failed twice on a message nobody could read. Verbose costs
           # a few lines of log and buys the actual reason.
           verbose: true
-        with:
-          repository-url: https://test.pypi.org/legacy/
 
   publish-pypi:
     name: Publish to PyPI
