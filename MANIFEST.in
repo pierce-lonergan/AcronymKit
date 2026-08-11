@@ -19,6 +19,16 @@ recursive-include src/acronymkit/resources *.json *.txt *.gz
 recursive-include tests *.py
 include tests/conftest.py
 
+# The test suite's data, not just its code. `recursive-include tests *.py`
+# shipped the assertions and left the fixtures behind, so the sdist's own suite
+# died on a missing JSON file -- the third time this distribution has shipped a
+# claim without the thing that backs it (the first was bench/results.json, the
+# second data/LICENSES.md). `tests/test_packaging_manifest.py` now derives the
+# rule from the tree instead of from memory: every non-Python file under
+# tests/fixtures/ must match a line in this file, so the next fixture in a new
+# format fails locally rather than in the release job.
+recursive-include tests/fixtures *.json *.jsonl *.csv *.txt *.md
+
 # `recursive-include tests *.py` already carries `tests/airgap_socket_guard.py`,
 # the pytest plugin the `air-gap` CI job runs the suite under (verified against
 # a built sdist, not assumed). That is deliberate rather than incidental: an
