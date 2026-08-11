@@ -225,7 +225,7 @@ jobs:
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
           # twine truncates a rejection to "400 Bad Request" and drops the body,
@@ -254,7 +254,7 @@ jobs:
       # its Integrity API; that is provenance for the *PyPI* copy. The GitHub
       # copy gets its own, from the attest job below, because they are separate
       # claims about separate downloads.
-      - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           # twine truncates a rejection to "400 Bad Request" and drops the body,
           # which is the only part that says WHY. The first publish of this
