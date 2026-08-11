@@ -158,7 +158,7 @@ if TYPE_CHECKING:
 
 #: Version reported when the distribution metadata is unavailable, which is the
 #: case in an un-installed source checkout.
-_FALLBACK_VERSION = "0.1.0"
+_FALLBACK_VERSION = "0.3.0"
 
 #: Public name -> the submodule it is resolved from. This is the whole lazy
 #: import table; every entry is also in :data:`__all__`, and the reverse holds

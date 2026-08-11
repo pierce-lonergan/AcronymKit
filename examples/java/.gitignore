@@ -1,0 +1,4 @@
+# Maven build output. The repository root's .gitignore covers the Python build
+# and has no rule for this, so it lives here rather than there -- an example
+# that leaves compiled classes in `git status` teaches the wrong habit.
+target/

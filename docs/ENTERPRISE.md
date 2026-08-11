@@ -27,7 +27,7 @@ the network. To check the claim itself rather than one installation, read the `a
 The wheel is `acronymkit-0.2.0-py3-none-any.whl`: pure Python, no compiled extension of its own, no
 build step, no post-install hook. A wheel built from this tree while writing this page was 404,651 B
 over 41 entries — a figure to re-derive per release rather than quote, which is why the `build` job
-in CI re-measures it on every push against a 524,288 B budget. Three install shapes, in increasing
+in CI re-measures it on every push against a 786,432 B budget. Three install shapes, in increasing
 order of how much your policy asks for:
 
 **A mirrored index.** Nothing special is needed. There is no first-run download to survive, so an

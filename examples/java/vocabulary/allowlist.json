@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "catalog": "Northwind Data Standards",
+    "catalog_abbrev": "NDS",
+    "synthetic": true,
+    "file": "allowlist.json",
+    "purpose": "The three allow-list sets that decide whether a token may stand in a physical name. They are what `--op check` reports against.",
+    "shape": "Three flat arrays. They map one-to-one onto the approved_abbreviations, common_keywords and short_full_words arguments of GovernedDictionary."
+  },
+
+  "consult_order": ["approved_abbreviations", "common_keywords", "short_full_words"],
+
+  "approved_abbreviations": [
+    "ACCT",
+    "AM",
+    "APPLNT",
+    "BAL",
+    "CD",
+    "CUST",
+    "DT",
+    "EFF",
+    "FLG",
+    "ID",
+    "NM",
+    "ORIG",
+    "PYMT",
+    "SRC",
+    "STS",
+    "TXN"
+  ],
+
+  "common_keywords": ["CLOSE", "GROSS", "NET", "OPEN", "TOTAL"],
+
+  "short_full_words": ["FEE", "RISK", "TAX", "TERM"]
+}

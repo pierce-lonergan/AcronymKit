@@ -38,6 +38,12 @@ recursive-include tests/fixtures *.json *.jsonl *.csv *.txt *.md
 # the means to check it is exactly the pattern this project keeps refusing.
 #   PYTHONPATH=tests python -m pytest -p airgap_socket_guard
 
+# The runnable Java example. docs/JAVA_INTEROP.md links to it as the working
+# demonstration of the supported interop route, and a reader holding an sdist
+# rather than a checkout would otherwise follow that link to nothing. Small,
+# and it is source rather than build output -- `target/` is gitignored.
+recursive-include examples *.java *.xml *.json *.txt *.md
+
 recursive-include schemas *.json
 recursive-include tools *.py
 recursive-include docs *.md

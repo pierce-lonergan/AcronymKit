@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "catalog": "Northwind Data Standards",
+    "catalog_abbrev": "NDS",
+    "synthetic": true,
+    "file": "ambiguity_pins.json",
+    "purpose": "The pin sheet: tokens whose long form collides, the collision set, and the governed decision. Keys beginning with an underscore are metadata and are skipped by the loader.",
+    "null_pin_means": "A known collision that governance has deliberately not decided. Resolution falls through to canonical_form_score."
+  },
+
+  "SRC": {
+    "candidates": ["Sourcing", "Source", "Sourced"],
+    "_pin": "Source"
+  },
+  "STS": {
+    "candidates": ["Status", "States", "Statistics"],
+    "_pin": "Status"
+  }
+}

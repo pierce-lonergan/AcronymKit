@@ -100,16 +100,15 @@ or standard.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Optional, Union
-
-from pydantic import Field
 
 from ..exceptions import ConfigurationError
 from .compliance import is_compliant, normalize
 from .dictionary import GovernedDictionary, _phrase_key
 from .enums import ComplianceReasonCode, UnknownPolicy, Verdict
 from .expansion import expand_identifier
-from .models import GovernedEntry, _FrozenModel
+from .models import GovernedEntry, _freeze_sequences, _FrozenModel
 from .naming import to_physical_name
 from .policy import NamingPolicy
 
@@ -129,6 +128,7 @@ __all__ = [
 # --------------------------------------------------------------------------
 # The payload
 # --------------------------------------------------------------------------
+@dataclass(frozen=True)
 class UnknownToken(_FrozenModel):
     """One token the vocabulary does not cover, and how much of the corpus it costs.
 
@@ -145,42 +145,49 @@ class UnknownToken(_FrozenModel):
     row would fix it.
     """
 
-    token: str = Field(
-        description="The token, upper-cased. Lookup is case-insensitive, so a schema that "
-        "writes both custmr and CUSTMR contributes to one row here rather than two."
-    )
-    occurrences: int = Field(
-        description="How many times the token appears across the corpus, counting every "
-        "appearance — a name that uses it three times contributes three. This is the ranking "
-        "key, because it is the size of the hole."
-    )
-    identifier_count: int = Field(
-        description="How many identifiers contain it at least once. Reported alongside the "
-        "occurrence count because the two say different things: one token used forty times "
-        "inside one name is a naming quirk, and the same token in forty names is a gap in the "
-        "standard."
-    )
-    examples: tuple[str, ...] = Field(
-        default=(),
-        description="Identifiers the token was seen in, in corpus order, capped by the "
-        "audit's max_examples. Enough to go and look at, and deliberately not the full list: "
-        "on a large corpus the full list is most of the corpus.",
-    )
-    governed_word: Optional[GovernedEntry] = Field(
-        default=None,
-        description="The catalog row that already governs this token read as a WORD rather "
-        "than as an abbreviation — the schema spelled out CUSTOMER where the standard says "
-        "CUST. When this is set the item is not a missing row at all; it is a name to rewrite, "
-        "and the row names what to write. None for every token the catalog is silent about, "
-        "which is the common case. The conditions under which it is set are in the module "
-        "docstring, and they exist so that a candidate-only match (LINE reaching LN, which "
-        "means Loan) can never produce one.",
-    )
+    #: The token, upper-cased. Lookup is case-insensitive, so a schema that
+    #: writes both custmr and CUSTMR contributes to one row here rather than two.
+    token: str
+
+    #: How many times the token appears across the corpus, counting every
+    #: appearance — a name that uses it three times contributes three. This is
+    #: the ranking key, because it is the size of the hole.
+    occurrences: int
+
+    #: How many identifiers contain it at least once. Reported alongside the
+    #: occurrence count because the two say different things: one token used
+    #: forty times inside one name is a naming quirk, and the same token in forty
+    #: names is a gap in the standard.
+    identifier_count: int
+
+    #: Identifiers the token was seen in, in corpus order, capped by the audit's
+    #: max_examples. Enough to go and look at, and deliberately not the full
+    #: list: on a large corpus the full list is most of the corpus.
+    examples: tuple[str, ...] = ()
+
+    #: The catalog row that already governs this token read as a WORD rather
+    #: than as an abbreviation — the schema spelled out CUSTOMER where the
+    #: standard says CUST. When this is set the item is not a missing row at all;
+    #: it is a name to rewrite, and the row names what to write. None for every
+    #: token the catalog is silent about, which is the common case. The
+    #: conditions under which it is set are in the module docstring, and they
+    #: exist so that a candidate-only match (LINE reaching LN, which means Loan)
+    #: can never produce one.
+    governed_word: Optional[GovernedEntry] = None
+
+    def __post_init__(self) -> None:
+        """Normalise the example list to a tuple.
+
+        Raises:
+            GovernedValidationError: If ``examples`` is not a sequence.
+        """
+        _freeze_sequences(self, "examples")
 
     def __str__(self) -> str:  # pragma: no cover - display helper
         return f"{self.token} x{self.occurrences}"
 
 
+@dataclass(frozen=True)
 class FindingTally(_FrozenModel):
     """One compliance reason code, and how much of the corpus carries it.
 
@@ -196,29 +203,37 @@ class FindingTally(_FrozenModel):
     nothing actionable.
     """
 
-    code: ComplianceReasonCode = Field(
-        description="The machine-readable reason. This is what to filter and route on; the "
-        "free-text detail that accompanies it per name is deliberately not aggregated, "
-        "because it names a token and a corpus-level count of it would be meaningless."
-    )
-    occurrences: int = Field(
-        description="How many findings across the corpus carry this code. A name can "
-        "contribute several — six unapproved tokens in one name are six findings."
-    )
-    identifier_count: int = Field(
-        description="How many identifiers carry the code at least once. This is the number to "
-        "quote as 'how many columns have this problem'."
-    )
-    examples: tuple[str, ...] = Field(
-        default=(),
-        description="Identifiers carrying the code, in corpus order, capped by the audit's "
-        "max_examples.",
-    )
+    #: The machine-readable reason. This is what to filter and route on; the
+    #: free-text detail that accompanies it per name is deliberately not
+    #: aggregated, because it names a token and a corpus-level count of it would
+    #: be meaningless.
+    code: ComplianceReasonCode
+
+    #: How many findings across the corpus carry this code. A name can
+    #: contribute several — six unapproved tokens in one name are six findings.
+    occurrences: int
+
+    #: How many identifiers carry the code at least once. This is the number to
+    #: quote as "how many columns have this problem".
+    identifier_count: int
+
+    #: Identifiers carrying the code, in corpus order, capped by the audit's
+    #: max_examples.
+    examples: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Normalise the example list to a tuple.
+
+        Raises:
+            GovernedValidationError: If ``examples`` is not a sequence.
+        """
+        _freeze_sequences(self, "examples")
 
     def __str__(self) -> str:  # pragma: no cover - display helper
         return f"{self.code.value} x{self.occurrences}"
 
 
+@dataclass(frozen=True)
 class RoundTripBreak(_FrozenModel):
     """An identifier whose round trip came back as neither itself nor its governed form.
 
@@ -235,21 +250,25 @@ class RoundTripBreak(_FrozenModel):
     :attr:`CorpusAudit.round_trip_corrected`.
     """
 
-    identifier: str = Field(description="The identifier as supplied.")
-    phrase: str = Field(
-        description="The phrase the forward direction produced, carried because it is the "
-        "half of the trip a reviewer has to read to see where the two directions part."
-    )
-    physical: str = Field(description="What rendering the phrase back produced.")
-    governed_form: str = Field(
-        description="What normalize would have produced. The trip landing here instead of on "
-        "this is what makes the row a break rather than a correction."
-    )
+    #: The identifier as supplied.
+    identifier: str
+
+    #: The phrase the forward direction produced, carried because it is the half
+    #: of the trip a reviewer has to read to see where the two directions part.
+    phrase: str
+
+    #: What rendering the phrase back produced.
+    physical: str
+
+    #: What normalize would have produced. The trip landing here instead of on
+    #: this is what makes the row a break rather than a correction.
+    governed_form: str
 
     def __str__(self) -> str:  # pragma: no cover - display helper
         return f"{self.identifier} -> {self.physical}"
 
 
+@dataclass(frozen=True)
 class IdentifierAudit(_FrozenModel):
     """What the audit found about one identifier.
 
@@ -260,46 +279,56 @@ class IdentifierAudit(_FrozenModel):
     payload. Turn the whole tuple off with ``keep_details=False``.
     """
 
-    identifier: str = Field(description="The identifier as supplied.")
-    occurrences: int = Field(
-        description="How many times this exact identifier appeared in the corpus. One in a "
-        "column list from a single table; more when a name repeats across tables, which is "
-        "the normal case for a warehouse."
-    )
-    is_fully_known: bool = Field(
-        description="Carried through from IdentifierExpansion: every token resolved. True "
-        "vacuously for an identifier that tokenises to nothing, because no token failed."
-    )
-    compliant: bool = Field(description="Carried through from ComplianceResult.")
-    unknown_tokens: tuple[str, ...] = Field(
-        default=(),
-        description="The tokens that did not resolve, upper-cased, in identifier order and "
-        "de-duplicated. Ordinals are included here, unlike in the ranked corpus list, because "
-        "at the level of one name they are part of the reason it is not fully known.",
-    )
-    codes: tuple[ComplianceReasonCode, ...] = Field(
-        default=(),
-        description="The distinct failing reason codes, in the order the check produced them. "
-        "The findings themselves are not carried: they hold a sentence per token, and "
-        "re-running is_compliant on one name is cheap.",
-    )
-    round_trip: Optional[str] = Field(
-        default=None,
-        description="What the round trip produced, when that is not the identifier itself. "
-        "None means the name came back exactly as it was written.",
-    )
-    governed_form: Optional[str] = Field(
-        default=None,
-        description="What normalize produces for this identifier, filled in only when the "
-        "round trip moved — comparing the two is what separates a governed correction from a "
-        "catalog inconsistency, and computing it for a name that did not move would be work "
-        "spent on an answer nobody reads.",
-    )
+    #: The identifier as supplied.
+    identifier: str
+
+    #: How many times this exact identifier appeared in the corpus. One in a
+    #: column list from a single table; more when a name repeats across tables,
+    #: which is the normal case for a warehouse.
+    occurrences: int
+
+    #: Carried through from IdentifierExpansion: every token resolved. True
+    #: vacuously for an identifier that tokenises to nothing, because no token
+    #: failed.
+    is_fully_known: bool
+
+    #: Carried through from ComplianceResult.
+    compliant: bool
+
+    #: The tokens that did not resolve, upper-cased, in identifier order and
+    #: de-duplicated. Ordinals are included here, unlike in the ranked corpus
+    #: list, because at the level of one name they are part of the reason it is
+    #: not fully known.
+    unknown_tokens: tuple[str, ...] = ()
+
+    #: The distinct failing reason codes, in the order the check produced them.
+    #: The findings themselves are not carried: they hold a sentence per token,
+    #: and re-running is_compliant on one name is cheap.
+    codes: tuple[ComplianceReasonCode, ...] = ()
+
+    #: What the round trip produced, when that is not the identifier itself.
+    #: None means the name came back exactly as it was written.
+    round_trip: Optional[str] = None
+
+    #: What normalize produces for this identifier, filled in only when the
+    #: round trip moved — comparing the two is what separates a governed
+    #: correction from a catalog inconsistency, and computing it for a name that
+    #: did not move would be work spent on an answer nobody reads.
+    governed_form: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        """Normalise the two sequence fields to tuples.
+
+        Raises:
+            GovernedValidationError: If either is not a sequence.
+        """
+        _freeze_sequences(self, "unknown_tokens", "codes")
 
     def __str__(self) -> str:  # pragma: no cover - display helper
         return f"{self.identifier}: {'compliant' if self.compliant else 'not compliant'}"
 
 
+@dataclass(frozen=True)
 class CorpusAudit(_FrozenModel):
     """What one governed vocabulary does to one corpus of physical names.
 
@@ -308,79 +337,83 @@ class CorpusAudit(_FrozenModel):
     exception and the fence around it.
     """
 
-    total: int = Field(
-        description="Identifiers audited, exactly as supplied — duplicates counted again, "
-        "blanks counted. This is the denominator for every other count."
-    )
-    distinct: int = Field(
-        description="How many of them were distinct. The gap between this and total is what "
-        "de-duplication saved, and it is also worth reading: a schema export whose column "
-        "names are largely repeats is one where a small catalog goes a long way."
-    )
-    empty: int = Field(
-        description="Identifiers that tokenised to nothing — blank cells and separator-only "
-        "rows. Counted rather than skipped so that a corpus which is half empty cannot look "
-        "like a corpus that is fully known."
-    )
-    fully_known: int = Field(
-        description="Identifiers every token of which resolved. An empty identifier is "
-        "counted here, vacuously, because that is what IdentifierExpansion.is_fully_known "
-        "says about it and this module reports the verbs rather than reinterpreting them."
-    )
-    partially_known: int = Field(
-        description="Identifiers with at least one token the vocabulary does not contain. "
-        "Together with fully_known this exhausts the corpus."
-    )
-    compliant: int = Field(description="Identifiers with no failing compliance finding.")
-    non_compliant: int = Field(
-        description="Identifiers with at least one. Together with compliant this exhausts "
-        "the corpus. Note that being fully known and being compliant are different "
-        "properties: NUM expands to Number and is not approved."
-    )
-    unknown_tokens: tuple[UnknownToken, ...] = Field(
-        default=(),
-        description="Every letter-bearing token the vocabulary does not cover, ranked by "
-        "occurrence count and then by token so the order is total. This is the catalog "
-        "backlog.",
-    )
-    ordinal_occurrences: int = Field(
-        default=0,
-        description="Appearances of unknown tokens holding no letters — the 1 and 2 of "
-        "ADDR_LINE_1_TXT. Kept out of the ranking because no catalog row would cover one, "
-        "and reported here rather than dropped so that the two numbers still add up.",
-    )
-    findings: tuple[FindingTally, ...] = Field(
-        default=(),
-        description="Failing compliance findings collapsed by reason code, ranked by "
-        "occurrence count and then by code.",
-    )
-    round_trip_stable: int = Field(
-        default=0,
-        description="Identifiers the round trip returned unchanged.",
-    )
-    round_trip_corrected: int = Field(
-        default=0,
-        description="Identifiers the round trip returned as normalize would have rewritten "
-        "them. Expected, not a fault: the standard correcting an unapproved token is the "
-        "package working.",
-    )
-    round_trip_inconsistent: int = Field(
-        default=0,
-        description="Identifiers the round trip returned as neither. These three counts are "
-        "over the corpus as supplied and together they exhaust it.",
-    )
-    round_trip_breaks: tuple[RoundTripBreak, ...] = Field(
-        default=(),
-        description="One record per DISTINCT inconsistent identifier, in corpus order, so "
-        "this tuple is shorter than round_trip_inconsistent whenever a name repeats. Retained "
-        "in full rather than capped, because this is the finding an audit exists to surface "
-        "and a count alone would not be actionable.",
-    )
-    details: tuple[IdentifierAudit, ...] = Field(
-        default=(),
-        description="Per-identifier records, in corpus order, for the identifiers there is "
-        "something to say about. Empty when the audit ran with keep_details=False.",
-    )
+    #: Identifiers audited, exactly as supplied — duplicates counted again,
+    #: blanks counted. This is the denominator for every other count.
+    total: int
+
+    #: How many of them were distinct. The gap between this and total is what
+    #: de-duplication saved, and it is also worth reading: a schema export whose
+    #: column names are largely repeats is one where a small catalog goes a long
+    #: way.
+    distinct: int
+
+    #: Identifiers that tokenised to nothing — blank cells and separator-only
+    #: rows. Counted rather than skipped so that a corpus which is half empty
+    #: cannot look like a corpus that is fully known.
+    empty: int
+
+    #: Identifiers every token of which resolved. An empty identifier is counted
+    #: here, vacuously, because that is what IdentifierExpansion.is_fully_known
+    #: says about it and this module reports the verbs rather than
+    #: reinterpreting them.
+    fully_known: int
+
+    #: Identifiers with at least one token the vocabulary does not contain.
+    #: Together with fully_known this exhausts the corpus.
+    partially_known: int
+
+    #: Identifiers with no failing compliance finding.
+    compliant: int
+
+    #: Identifiers with at least one. Together with compliant this exhausts the
+    #: corpus. Note that being fully known and being compliant are different
+    #: properties: NUM expands to Number and is not approved.
+    non_compliant: int
+
+    #: Every letter-bearing token the vocabulary does not cover, ranked by
+    #: occurrence count and then by token so the order is total. This is the
+    #: catalog backlog.
+    unknown_tokens: tuple[UnknownToken, ...] = ()
+
+    #: Appearances of unknown tokens holding no letters — the 1 and 2 of
+    #: ADDR_LINE_1_TXT. Kept out of the ranking because no catalog row would
+    #: cover one, and reported here rather than dropped so that the two numbers
+    #: still add up.
+    ordinal_occurrences: int = 0
+
+    #: Failing compliance findings collapsed by reason code, ranked by
+    #: occurrence count and then by code.
+    findings: tuple[FindingTally, ...] = ()
+
+    #: Identifiers the round trip returned unchanged.
+    round_trip_stable: int = 0
+
+    #: Identifiers the round trip returned as normalize would have rewritten
+    #: them. Expected, not a fault: the standard correcting an unapproved token
+    #: is the package working.
+    round_trip_corrected: int = 0
+
+    #: Identifiers the round trip returned as neither. These three counts are
+    #: over the corpus as supplied and together they exhaust it.
+    round_trip_inconsistent: int = 0
+
+    #: One record per DISTINCT inconsistent identifier, in corpus order, so this
+    #: tuple is shorter than round_trip_inconsistent whenever a name repeats.
+    #: Retained in full rather than capped, because this is the finding an audit
+    #: exists to surface and a count alone would not be actionable.
+    round_trip_breaks: tuple[RoundTripBreak, ...] = ()
+
+    #: Per-identifier records, in corpus order, for the identifiers there is
+    #: something to say about. Empty when the audit ran with keep_details=False.
+    details: tuple[IdentifierAudit, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Normalise the four sequence fields to tuples.
+
+        Raises:
+            GovernedValidationError: If any of them is not a sequence.
+        """
+        _freeze_sequences(self, "unknown_tokens", "findings", "round_trip_breaks", "details")
 
     @property
     def unknown_token_count(self) -> int:
@@ -394,6 +427,7 @@ class CorpusAudit(_FrozenModel):
         )
 
 
+@dataclass(frozen=True)
 class CatalogSuggestion(_FrozenModel):
     """A request for a human decision about one token the catalog does not cover.
 
@@ -417,47 +451,56 @@ class CatalogSuggestion(_FrozenModel):
     but a column name to rewrite.
     """
 
-    token: str = Field(description="The unknown token, upper-cased.")
-    occurrences: int = Field(description="How many times it appears across the corpus.")
-    identifier_count: int = Field(description="How many identifiers contain it.")
-    examples: tuple[str, ...] = Field(
-        default=(),
-        description="Identifiers to look at while deciding, in corpus order.",
-    )
-    proposed_long_form: Optional[str] = Field(
-        default=None,
-        description="A PROPOSAL, not a governed answer, and None unless the catalog itself "
-        "supplied the wording: it is set only when the token is a word the reverse index "
-        "already carries as some row's canonical long form. No other route can fill it — "
-        "nothing here stems, matches fuzzily or asks a model — so None is the honest and "
-        "common answer, and a consumer that treats a filled value as an expansion has "
-        "misread the field.",
-    )
-    proposed_abbreviation: Optional[str] = Field(
-        default=None,
-        description="The approved short form the catalog already names for that long form, "
-        "when there is one. This is the actionable half: the decision being asked for is "
-        "usually not 'what does this token mean' but 'should these columns be written this "
-        "way instead'. Set and unset together with proposed_long_form.",
-    )
-    entry_id: Optional[str] = Field(
-        default=None,
-        description="The catalog row the proposal was read out of, so a reviewer can go and "
-        "look at it instead of taking this payload's word for anything.",
-    )
-    basis: Optional[str] = Field(
-        default=None,
-        description="One sentence saying where the proposal came from and what decision it "
-        "asks for. None when there is no proposal, which is the case where the honest thing "
-        "to say is nothing at all.",
-    )
-    is_governed: bool = Field(
-        default=False,
-        description="Always False. Every other object this package returns carries an "
-        "ExpansionSource saying which rule produced it, and a consumer that has learned to "
-        "check provenance should find an answer here rather than a missing field. It is "
-        "written by this module and this module writes it False.",
-    )
+    #: The unknown token, upper-cased.
+    token: str
+
+    #: How many times it appears across the corpus.
+    occurrences: int
+
+    #: How many identifiers contain it.
+    identifier_count: int
+
+    #: Identifiers to look at while deciding, in corpus order.
+    examples: tuple[str, ...] = ()
+
+    #: A PROPOSAL, not a governed answer, and None unless the catalog itself
+    #: supplied the wording: it is set only when the token is a word the reverse
+    #: index already carries as some row's canonical long form. No other route
+    #: can fill it — nothing here stems, matches fuzzily or asks a model — so
+    #: None is the honest and common answer, and a consumer that treats a filled
+    #: value as an expansion has misread the field.
+    proposed_long_form: Optional[str] = None
+
+    #: The approved short form the catalog already names for that long form,
+    #: when there is one. This is the actionable half: the decision being asked
+    #: for is usually not "what does this token mean" but "should these columns
+    #: be written this way instead". Set and unset together with
+    #: proposed_long_form.
+    proposed_abbreviation: Optional[str] = None
+
+    #: The catalog row the proposal was read out of, so a reviewer can go and
+    #: look at it instead of taking this payload's word for anything.
+    entry_id: Optional[str] = None
+
+    #: One sentence saying where the proposal came from and what decision it
+    #: asks for. None when there is no proposal, which is the case where the
+    #: honest thing to say is nothing at all.
+    basis: Optional[str] = None
+
+    #: Always False. Every other object this package returns carries an
+    #: ExpansionSource saying which rule produced it, and a consumer that has
+    #: learned to check provenance should find an answer here rather than a
+    #: missing field. It is written by this module and this module writes it
+    #: False.
+    is_governed: bool = False
+
+    def __post_init__(self) -> None:
+        """Normalise the example list to a tuple.
+
+        Raises:
+            GovernedValidationError: If ``examples`` is not a sequence.
+        """
+        _freeze_sequences(self, "examples")
 
     def __str__(self) -> str:  # pragma: no cover - display helper
         return f"{self.token} x{self.occurrences} (undecided)"

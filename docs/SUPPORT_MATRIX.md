@@ -148,7 +148,7 @@ SHA-256 for each is in the same report under `resources.digests`, and in
 A wheel built from this tree while writing this page was 404,651 B over 41 entries, tagged
 `py3-none-any` with `Root-Is-Purelib: true` and no compiled extension. The tag and the absence of
 native code are properties of the package; the byte count is a property of the tree on the day, and
-the `build` job in CI re-measures it on every push against a 524,288 B budget.
+the `build` job in CI re-measures it on every push against a 786,432 B budget.
 
 ## Measurement environment
 

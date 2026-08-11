@@ -1,0 +1,21 @@
+# A slice of a schema export, in the shape this example expects: one physical
+# column name per line. Lines beginning with '#' are this file's convention and
+# are dropped by Main before anything is sent; governed-batch itself has no
+# comment syntax and would answer them as names.
+#
+# Synthetic. Northwind Data Standards (NDS) is a fictional standard.
+CUST_ACCT_OPEN_DT
+TXN_APPLNT_DOB_DT
+PYMT_AM
+ORIG_BAL_AM
+EFF_DT
+CUST_STS_CD
+SRC_SYS_CD
+TXN_ID
+APPLNT_NM
+ACCT_CLOSE_DT
+WDGT_FRBL_CD
+CUST_ACCT_NET_BAL_AM
+TXN_RVSL_FLG
+PYMT_TERM_CD
+RISK_SCR_VAL

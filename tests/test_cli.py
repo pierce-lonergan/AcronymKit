@@ -1565,3 +1565,196 @@ def test_governed_audit_still_reports_when_a_line_cannot_be_read(
     assert "Governed naming audit" in outcome.stdout
     assert "identifiers      1 (1 distinct)" in outcome.stdout
     assert "line 2" in outcome.stderr
+
+
+# ---------------------------------------------------------------------------
+# --unknown: letting a stale catalog stop a pipeline
+# ---------------------------------------------------------------------------
+def test_unknown_reject_turns_a_missing_catalog_row_into_a_hard_error(
+    run: Callable[..., Invocation],
+) -> None:
+    """The governed case ``--policy`` alone could not express.
+
+    None of the four presets sets ``UnknownPolicy.REJECT``, so until this flag
+    existed a caller who wanted an unrecognised token to stop their pipeline —
+    which is the whole reason the policy value exists — had to drop out of the
+    command line into the Python API. The error names the offending token,
+    because "the catalog is out of date" is not actionable and "``DOB`` is not
+    in it" is.
+
+    Run through ``main`` rather than ``CliRunner``: the raise is what is being
+    tested, and a runner holds it as ``result.exception`` instead of rendering
+    it, so the message a caller would actually read never reaches either stream.
+    """
+    outcome = run(
+        "expand-identifier",
+        "TXN_DOB_DT",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+        "--unknown",
+        "reject",
+    )
+
+    assert outcome.exit_code == EXIT_FAILURE
+    assert "DOB" in outcome.stderr
+    assert "Traceback" not in outcome.text
+
+
+def test_the_same_name_passes_through_when_unknown_is_not_overridden(runner: Any) -> None:
+    """The control for the test above: the flag is what changed the outcome.
+
+    Without it the identifier is answered, with the unrecognised token Title
+    Cased and flagged rather than raised on, so the two runs differ in one
+    argument and nothing else.
+    """
+    result = runner.invoke(
+        build_cli(),
+        ["expand-identifier", "TXN_DOB_DT", "--dictionary", GOVERNED_BUNDLE, "--format", "json"],
+    )
+
+    assert result.exit_code == 0, runner_output(result)
+    payload = json.loads(runner_output(result))
+    assert payload["phrase"] == "Transaction Dob Date"
+    assert payload["is_fully_known"] is False
+
+
+def test_a_rejected_token_is_one_failed_record_and_not_a_failed_batch(
+    batch: Callable[..., Invocation],
+) -> None:
+    """The ``LexiconError`` record the JSON contract documents, actually produced.
+
+    ``docs/notes/governed-json-contract.md`` §7.2 specifies ``error_type`` for a
+    token rejected while answering, and a specification no command can reach is
+    a specification nobody can check. The record envelope still holds: the bad
+    line reports itself, the next line is still answered, and the run exits
+    non-zero because a record failed.
+    """
+    outcome = batch(
+        "TXN_DOB_DT\nTXN_APPLNT_ID\n",
+        "governed-batch",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+        "--unknown",
+        "reject",
+    )
+
+    assert outcome.exit_code == EXIT_FAILURE
+    records = batch_records(outcome)
+    assert [record["ok"] for record in records] == [False, True]
+    assert records[0]["error_type"] == "LexiconError"
+    assert "DOB" in records[0]["error"]
+    assert records[1]["result"]["phrase"] == "Transaction Applicant Identifier"
+    assert json.loads(outcome.stderr.strip())["failed"] == 1
+
+
+def test_check_name_reports_an_unknown_token_even_under_reject(runner: Any) -> None:
+    """``--unknown`` reaches the expansion verbs and no others, and that is not a gap.
+
+    A compliance check that raised on the token it was asked to report would
+    have nothing left to say. The flag is accepted here rather than refused so
+    that one policy can be named once for a whole pipeline, and this pins the
+    consequence so nobody reads the acceptance as a promise to raise.
+    """
+    result = runner.invoke(
+        build_cli(),
+        [
+            "check-name",
+            "TXN_DOB_DT",
+            "--dictionary",
+            GOVERNED_BUNDLE,
+            "--unknown",
+            "reject",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == EXIT_FAILURE
+    payload = json.loads(runner_output(result))
+    assert payload["compliant"] is False
+    assert "DOB" in {reason["token"] for reason in payload["reasons"]}
+
+
+def test_governed_audit_refuses_reject_and_says_why(batch: Callable[..., Invocation]) -> None:
+    """Listing the tokens a catalog is silent about is what an audit is for.
+
+    Under ``REJECT`` the audit would stop at the first one, so a caller asking
+    "how many gaps" would learn only "at least one". It is refused at the door
+    with a message naming the setting to use instead, rather than allowed to
+    raise from somewhere inside the corpus.
+    """
+    outcome = batch(
+        "TXN_DOB_DT\n",
+        "governed-audit",
+        "--dictionary",
+        GOVERNED_BUNDLE,
+        "--unknown",
+        "reject",
+    )
+
+    assert outcome.exit_code == EXIT_FAILURE
+    assert "REJECT" in outcome.stderr
+    assert "PASSTHROUGH_TITLECASE" in outcome.stderr
+
+
+@pytest.mark.parametrize("preset", ["governed_default", "frequency_baseline", "strict_length"])
+def test_omitting_unknown_leaves_the_preset_exactly_as_it_was(preset: str) -> None:
+    """A flag nobody typed must change nothing, and the risk here is not hypothetical.
+
+    ``neural_optin`` is the one preset whose ``unknown`` is not
+    ``passthrough_titlecase``, so a ``--unknown`` defaulting to that value would
+    have quietly undone the opt-in for every caller who never typed the flag.
+    Asserted through the helper rather than a command because no command prints
+    the policy it resolved.
+    """
+    from acronymkit.cli import _governed_policy
+    from acronymkit.governed.policy import NamingPolicy
+
+    assert _governed_policy(preset) == getattr(NamingPolicy, preset)()
+    assert _governed_policy("neural_optin").unknown.value == "neural"
+    assert _governed_policy("neural_optin", "reject").unknown.value == "reject"
+    assert NamingPolicy.neural_optin().unknown.value == "neural"
+
+
+def test_an_override_changes_the_unknown_field_and_no_other(runner: Any) -> None:
+    """``--unknown`` overrides one field, so the named preset still describes the run.
+
+    ``strict_length`` is the preset to check it against: its distinguishing
+    field is not ``unknown``, so if the copy lost anything the length finding
+    would stop being reported.
+    """
+    over_long = "CUST_ACCT_PRIMARY_OWNER_PARTY_VERIFICATION_STAT_CD"
+    result = runner.invoke(
+        build_cli(),
+        [
+            "check-name",
+            over_long,
+            "--dictionary",
+            GOVERNED_BUNDLE,
+            "--policy",
+            "strict_length",
+            "--unknown",
+            "reject",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == EXIT_FAILURE
+    codes = {reason["code"] for reason in json.loads(runner_output(result))["reasons"]}
+    assert "exceeds_max_length" in codes
+
+
+def test_unknown_rejects_a_value_that_is_not_one_of_the_two(runner: Any) -> None:
+    """``neural`` is deliberately absent, and a typo must not be read as a preference.
+
+    It behaves as passthrough in this release, so offering it here would be a
+    third spelling of a flag that does nothing; ``--policy neural_optin`` is
+    where the declaration of intent belongs.
+    """
+    result = runner.invoke(
+        build_cli(),
+        ["expand-token", "TXN", "--dictionary", GOVERNED_BUNDLE, "--unknown", "neural"],
+    )
+
+    assert result.exit_code == EXIT_USAGE

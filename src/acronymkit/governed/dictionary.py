@@ -115,11 +115,15 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, NamedTuple, Optional, TypeVar, Union
 
-from pydantic import ValidationError as PydanticValidationError
-
 from ..exceptions import LexiconError
 from .enums import EntryKind, ExpansionSource, ResolutionMode
-from .models import GovernedEntry, TokenExpansion
+from .models import (
+    GovernedEntry,
+    GovernedValidationError,
+    TokenExpansion,
+    _describe_problems,
+    _entry_from_mapping,
+)
 from .policy import NamingPolicy
 from .scoring import rank_candidates
 
@@ -303,21 +307,6 @@ def _join_notes(existing: Optional[str], addition: str) -> str:
     return f"{existing} {addition}" if existing else addition
 
 
-def _describe_validation_error(exc: PydanticValidationError) -> str:
-    """Render a pydantic failure as compact ``field: message`` clauses.
-
-    Args:
-        exc: The failure raised while building a :class:`GovernedEntry`.
-
-    Returns:
-        One clause per problem, joined with ``"; "``.
-    """
-    return "; ".join(
-        f"{'.'.join(str(part) for part in error.get('loc', ()))}: {error.get('msg', '')}"
-        for error in exc.errors()
-    )
-
-
 def _overlay_index(
     custom: Optional[Mapping[str, Union[str, GovernedEntry]]],
 ) -> dict[str, GovernedEntry]:
@@ -371,8 +360,8 @@ def _overlay_index(
             # the entry instead, and let a malformed one raise rather than
             # quietly becoming text.
             try:
-                entry = GovernedEntry(
-                    **{
+                entry = _entry_from_mapping(
+                    {
                         **{
                             str(field): item
                             for field, item in value.items()
@@ -382,10 +371,10 @@ def _overlay_index(
                         "source": ExpansionSource.CUSTOM,
                     }
                 )
-            except PydanticValidationError as exc:
+            except GovernedValidationError as exc:
                 raise LexiconError(
                     f"Custom overlay entry {raw_token!r} is not a valid governed entry: "
-                    f"{_describe_validation_error(exc)}"
+                    f"{_describe_problems(exc.problems)}"
                 ) from exc
             if not entry.canonical.strip():
                 continue
@@ -668,13 +657,13 @@ def _entry_from_row(row: Any, position: int) -> GovernedEntry:
             f"Governed dictionary entry at position {position} must be a JSON object, got "
             f"{type(row).__name__}."
         )
-    fields = {key: value for key, value in row.items() if not str(key).startswith("_")}
+    fields = {str(key): value for key, value in row.items() if not str(key).startswith("_")}
     try:
-        return GovernedEntry(**fields)
-    except PydanticValidationError as exc:
+        return _entry_from_mapping(fields)
+    except GovernedValidationError as exc:
         raise LexiconError(
             f"Governed dictionary entry at position {position} is malformed: "
-            f"{_describe_validation_error(exc)}"
+            f"{_describe_problems(exc.problems)}"
         ) from exc
 
 

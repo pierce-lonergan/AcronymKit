@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-08-11
+
+First release published to PyPI. Adds the governed-naming subsystem, and closes the two
+network-reachable paths a security audit of the previous release found.
+
 ### Security
 
 - **Audit result, stated plainly: `acronymkit` authors no network-reachable code path.** Nothing in
@@ -71,6 +76,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   line of stdout is a record.
 - **`acronymkit governed-audit [FILE]`** — the corpus report, with `--suggest`, `--limit` and
   `--details`.
+- **`--unknown passthrough_titlecase|reject`** on every governed command, overriding the `unknown`
+  field of the policy `--policy` resolved and nothing else. No preset sets `UnknownPolicy.REJECT`, so
+  the one case a governed pipeline most obviously wants — a stale catalog stops the run rather than
+  carrying on under a name nobody approved — was reachable only from Python. Omitting the flag leaves
+  the preset alone, which matters because `neural_optin` is the one preset whose `unknown` is not
+  `passthrough_titlecase`. It reaches the expansion verbs; `check-name`, `normalize-name` and
+  `physical-name` accept it and still report, because an unapproved token *is* their answer, and
+  `governed-audit` refuses the combination with a message, because listing the tokens a catalog is
+  silent about is what an audit is for.
 - **`--dictionary` now accepts a bundle directory or a CSV** on every governed command, via
   `--dictionary-format auto|bundle|catalog|short_to_long|long_to_short|csv|long_to_short_csv` with
   `--columns` and `--delimiter`. `auto` reads a directory as a bundle and **refuses** to guess a
@@ -118,8 +132,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   package, and capability × tier × "works offline" × "what it needs" for the engineer who has to
   live with the answer. Linked from the README.
 - **`docs/notes/pydantic-cost.md`.** What the pydantic dependency costs, measured four ways.
-- **The wheel has a size budget in CI**, currently 524,288 bytes, so a resource cannot be added
-  without someone noticing what it costs.
+- **The wheel has a size budget in CI**, currently 786,432 bytes, so a resource cannot be added
+  without someone noticing what it costs. It was 524,288 bytes until `acronymkit/governed/` made the
+  premise behind that figure false — the old budget was really a budget on how much word list ships,
+  and 68,167 B of pure Python is not noise against it. The ceiling was re-derived rather than nudged,
+  and the change it exists to reject still fails by construction; `.github/workflows/ci.yml` carries
+  the arithmetic.
 - **`.github/workflows/publish.yml` now builds the release's whole artifact set**: bundles for every
   target, a CycloneDX SBOM and an SPDX SBOM (both checked to actually describe this distribution), one
   `SHA256SUMS` over everything, and a build-provenance attestation over that file. Signing and writing
@@ -130,6 +148,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`acronymkit.governed` no longer imports pydantic, or anything else third-party.** The DTO
+  layer, the policy and the audit records are frozen dataclasses validating in `__post_init__`. The
+  wire format did not move: 940 renderings — 40 corpus identifiers plus 7 Unicode edge cases, by
+  four policy presets, by five verbs, by three serialisations — hash identically under both
+  implementations, so a consumer written against `docs/notes/governed-json-contract.md` needs no
+  edit. What this buys is recorded in D-027 and D-028: the governed working surface imports in
+  26.27 ms against 161.88 ms, and the subsystem became embeddable in a JVM, which a compiled Rust
+  extension had made impossible.
+  **One input-acceptance change, and it is the only behavioural difference on the whole surface:**
+  a non-boolean spelling of a boolean is now refused rather than coerced. `keep_as_abbrev="false"`,
+  `"no"`, `"yes"`, `1`, `0` and `1.0` raise where pydantic accepted them. Numeric widening is
+  unchanged — `confidence=1` still becomes `1.0`, `max_name_length="30"` still reads as `30`.
 - **Governed naming is faster on a corpus, and every optimisation changes no answer.** Against the
   figure recorded before the work, on the `schema` benchmark arm: `expand_identifier` 62.30 → 10.70
   µs, `to_physical_name` 99.90 → 41.50 µs, `is_compliant` 62.40 → 38.60 µs, corpus throughput
@@ -262,11 +292,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shipped and nothing was invented, which is the deliverable. One route does clear the licence bar —
   deriving counts from the PMC Open Access commercial-use collection — and it is costed in D-020,
   where the binding constraint turns out to be the wheel budget rather than the licence.
-- **The pydantic dependency is measured and a migration is recommended, not executed.** It accounts
-  for the large majority of `from acronymkit import AcronymEngine`, and a frozen-dataclass shadow of
-  the DTO layer emits an identical payload while running the warm path faster. No code has changed;
-  D-023 records the decision, what it would break, and the order to do it in. The portability
-  argument often made for such a migration is refuted there rather than used.
+- **The pydantic migration was measured in D-023, then carried out for the governed subsystem
+  only.** `acronymkit.governed` now imports no third-party module at all; the generation and
+  extraction engine still uses pydantic and `pyproject.toml` still declares the dependency, so this
+  is one import graph changing rather than the dependency going away. See Changed, above, and
+  D-027. The portability argument often made for such a migration is refuted in D-023 rather than
+  used — the reason this half was done is the JVM one recorded in D-028.
 
 ## [0.2.0] — 2026-08-09
 
@@ -404,6 +435,7 @@ Initial public release. Delivers roadmap **Phase 1** (Tier 0 engine and extracti
 - The Tier 2 neural disambiguation engine (Phase 3) and the `acronym4j` Java port (Phase 4) are not
   part of this release.
 
-[Unreleased]: https://github.com/pierce-lonergan/AcronymKit/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/pierce-lonergan/AcronymKit/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/pierce-lonergan/AcronymKit/releases/tag/v0.3.0
 [0.2.0]: https://github.com/pierce-lonergan/AcronymKit/releases/tag/v0.2.0
 [0.1.0]: https://github.com/pierce-lonergan/AcronymKit/releases/tag/v0.1.0

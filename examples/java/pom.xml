@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A Java Maven project that calls acronymkit's governed naming subsystem.
+
+  There is no acronymkit Maven artifact, and this pom does not pretend otherwise.
+  The library runs as a co-process: `acronymkit governed-batch` reads identifiers
+  on standard input and writes one JSON object per line back. See
+  ../../docs/JAVA_INTEROP.md for why that is the recommended route and what the
+  alternatives cost.
+
+  One dependency, and it is only for parsing. The wire format is JSONL, so any
+  JSON library will do; Jackson is here because most JVM shops already have it.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.example</groupId>
+  <artifactId>acronymkit-governed-example</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>acronymkit governed naming, from Java</name>
+  <description>
+    Drives `acronymkit governed-batch` as a long-lived co-process and maps its
+    JSONL output onto Java records.
+  </description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <!--
+      17 rather than 21: records and switch expressions are all this code needs,
+      and pinning to the oldest LTS that has them makes the example droppable into
+      more codebases. Built and run here on Temurin 17.0.15 and 21.0.7; nothing
+      newer was tried.
+    -->
+    <maven.compiler.release>17</maven.compiler.release>
+    <jackson.version>2.18.2</jackson.version>
+    <exec.plugin.version>3.5.0</exec.plugin.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>${exec.plugin.version}</version>
+        <configuration>
+          <mainClass>com.example.governed.Main</mainClass>
+          <!--
+            The demo resolves `vocabulary` and `identifiers.txt` relative to the
+            working directory, so pin it rather than inherit whatever the caller
+            happened to be in.
+          -->
+          <workingDirectory>${project.basedir}</workingDirectory>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

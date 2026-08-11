@@ -73,6 +73,24 @@ the abbreviation rules have nothing to say about them, and there is no reason
 code that describes one honestly. Reported as a gap rather than forced into
 ``SHORT_FULL_WORD``.
 
+The policy's ``unknown`` handling is not read here
+--------------------------------------------------
+:attr:`~acronymkit.governed.policy.NamingPolicy.unknown` says what
+:mod:`~acronymkit.governed.expansion` does with a token the vocabulary does not
+contain, and under ``UnknownPolicy.REJECT`` that is a raised
+:class:`~acronymkit.exceptions.LexiconError`. **Neither verb in this module
+consults the field.** A check that raised on the token it was asked to report
+would have nothing left to report — the unapproved token *is* the answer, and
+its finding names the token, the code and the fix — and ``normalize`` leaves an
+unrecognised token exactly as it found it for the same reason.
+
+The consequence is worth stating plainly, because it looks like an oversight
+from the outside: one policy object resolved for a whole pipeline raises out of
+``expand_identifier`` and returns a finding out of ``is_compliant``. That is the
+intended reading of the two verbs rather than a gap between them.
+``acronymkit check-name --unknown reject`` therefore accepts the flag and
+reports; it does not stop.
+
 Idempotence
 -----------
 ``normalize(normalize(x)) == normalize(x)`` for every ASCII ``x``, and it holds

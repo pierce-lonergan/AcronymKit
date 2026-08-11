@@ -9,6 +9,220 @@ Newest first.
 
 ---
 
+## D-028 — The JVM can now host this library directly. Measured, that is still the worse route.
+
+**Status:** spike; not adopted. `governed-batch` remains the supported JVM route · **Evidence:**
+[`JAVA_INTEROP.md`](JAVA_INTEROP.md), `examples/java/`, `src/acronymkit/governed/models.py`,
+[`notes/governed-json-contract.md`](notes/governed-json-contract.md), and the phase-1 GraalPy spike —
+which left no artifact in this tree, and whose figures are marked below as the second-hand ones they
+are
+
+The consumer D-025 was built for is a Java Maven project. It drives `acronymkit governed-batch` as a
+co-process and asked whether it could instead take a Maven dependency and call the library in-process.
+GraalVM's Python — GraalPy — is distributed as Maven artifacts and runs Python inside a JVM through
+the Polyglot API, so the question was answerable rather than rhetorical.
+
+### The blocker was real, and it is gone
+
+GraalPy runs pure Python well and compiled extensions badly. `pydantic` v2 ships `pydantic_core`, a
+compiled Rust extension — on this machine, `_pydantic_core.cp313-win_amd64.pyd` — and four governed
+modules imported pydantic. D-027 removed it. What is checkable today, and what makes the rest of this
+record possible:
+
+```
+extension modules (.pyd/.so/.dll) in the import graph of
+  from acronymkit.governed import GovernedNamer, audit_identifiers, load_bundle
+                                                        none
+the five verbs, plus audit_identifiers / render_audit /
+  suggest_catalog_additions, run with pydantic, pydantic_core
+  and _pydantic_core raising ImportError from sys.meta_path    all answer
+negative control, same interpreter: import acronymkit.config   ImportError: blocked: pydantic
+```
+
+That is the precondition, not the result. It says the subsystem is now the *kind* of code GraalPy is
+good at; it says nothing about whether hosting it there is a good idea.
+
+### What the spike found, and which half of it can be re-run here
+
+The spike ran the real `acronymkit.governed` inside a JVM-hosted GraalPy and diffed its output
+against CPython 3.13 over the contract's Unicode edge cases. **Its figures are recorded here because
+losing them would cost the next person the same spike, and they are second-hand: nothing in this
+repository reproduces them, and this record's author did not re-run the GraalPy arm.**
+
+```
+reported by the spike -- NOT reproduced in this tree
+  five verbs, 56 identifiers, CPython vs in-JVM GraalPy   byte-identical (327,754 chars)
+  best in-JVM throughput                                  21,482 identifiers/sec
+  the same, in the configuration a consumer gets by
+    default on JDK 21                                      3,513 identifiers/sec
+  jars                                                   143.2 MiB
+  runtime unpacked into %LOCALAPPDATA%                     65   MiB
+  cold start, best configuration                        7,047.9 ms
+  cold start, optimising configuration                 13,033.8 ms
+```
+
+The other arm — the co-process, driven from a real JVM — is reproducible on this machine, and was
+re-measured independently for this record: a single-file JDK 21 harness spawning
+`acronymkit governed-batch` on the installed wheel, feeding 20,000 identifiers cycled from
+`corpus_sample.txt` down one warm pipe, five runs.
+
+```
+measured here, JDK 21.0.7, CPython 3.13.4, one machine
+  cold start: spawn to first record on the pipe   228.9 ms   median of 5
+  steady state                                  18,022      identifiers/sec, median of 5
+```
+
+That lands within ordinary session drift of the spike's own subprocess figure, which is the check
+that matters: the denominator of every ratio below is one both halves of this project measured
+separately and agreed on.
+
+### The decision, and the arithmetic behind it
+
+**Keep `governed-batch`.** Against a co-process that starts in about a fifth of a second and holds
+its throughput, the best in-JVM configuration buys roughly a tenth more throughput for two orders of
+magnitude more start-up, a hundred-odd megabytes of jars against a wheel budget of 786,432 B, a
+version-pinned JDK, two experimental VM flags and an extra jar. Take the flags away — which is what a
+consumer who simply adds the dependency gets — and it is several times *slower* than the process
+boundary it was meant to remove. Nothing about that is close enough to argue over, which is why this
+is recorded as settled rather than as a preference.
+
+**Record that it is now possible.** It was not, before D-027, and "we tried and the extension blocked
+it" is the wrong thing for this file to say if it has stopped being true. If a JVM-native answer is
+ever actually required, GraalPy is the low-risk route to it, for a reason that has nothing to do with
+performance: it runs *this* implementation, so the answers are this implementation's answers. A
+hand-written Java port cannot promise that. It would have to re-derive every rule in section 8 of the
+wire contract by hand — locale-independent case mapping, full case folding, code points rather than
+UTF-16 units, code-point ordering, Python's digit test, Python's 29-code-point whitespace set — and
+each of those is a place where the obvious Java translation is silently wrong on inputs a clean
+corpus never contains.
+
+### What is not claimed
+
+No figure here is in `bench/results.json` and none may be quoted in user-facing prose; they are in
+fenced blocks so `tools/check_claims.py` reads them as the un-gated numbers they are. The GraalPy
+column is not this author's measurement and is labelled as such. Throughput on the co-process arm was
+measured with the fixture catalog and the fixture corpus, which repeats tokens the way a real schema
+does — D-026's `schema`/`novel` warning applies to it unchanged.
+
+And no `acronym4j` exists, still. The contract note's opening paragraph is unchanged and remains
+true: what this repository ships towards the JVM is a wire contract, a golden replay set, a command
+that any language can drive, and now `examples/java/` — a client, not a port.
+
+---
+
+## D-027 — pydantic is out of `acronymkit.governed`, and 940 payloads say the wire did not move
+
+**Status:** shipped, for one subsystem only — D-023's larger decision is still open · **Evidence:**
+`src/acronymkit/governed/models.py`, `policy.py`, `dictionary.py`, `audit.py`,
+[`notes/pydantic-cost.md`](notes/pydantic-cost.md),
+[`notes/governed-json-contract.md`](notes/governed-json-contract.md)
+
+D-023 ended "**Migrate to dataclasses with explicit validation, and do it before the package is
+published**", with a status of *decided, not executed*. This is the first half of that execution and
+it stops at the subsystem boundary.
+
+### Read the scope before the numbers
+
+**The dependency is not gone.** `pyproject.toml` still declares `pydantic>=2.0.0`;
+`acronymkit.config`, `acronymkit.models` and the whole generation path still build Pydantic models;
+`[tool.mypy]` still loads `pydantic.mypy`; and `publish.yml`'s SBOM check still asserts that
+`pydantic` and `pydantic-core` appear as components of this distribution — which they do, and a
+release would fail if they stopped. What changed is one import graph: nothing under
+`src/acronymkit/governed/` imports pydantic, so a process that only wants to expand `TXN_ID` no
+longer pays for it and no longer loads a compiled extension. D-023's own ordering asked for exactly
+this — the DTO layer first, `Config` second — and the second half has not been done.
+
+### What it bought
+
+Medians of 15 fresh interpreters per arm, one arm and one metric per interpreter, every arm sampled
+once before any repeat so drift lands on all four rather than on the later ones. The bare-package arm
+is the control: it was not touched by this change and it did not move.
+
+```
+                                       with pydantic   without    sys.modules
+  from acronymkit.governed import
+    GovernedNamer, audit_identifiers,
+    load_bundle                          161.88 ms     26.27 ms    216 -> 117
+  import acronymkit  (control)             2.73 ms      2.39 ms     86 ->  86
+```
+
+`pydantic` and `pydantic_core` are absent from `sys.modules` in the second column, which is the
+structural half of the result and the half that cannot be flaky. The timing half is one machine and
+one session; D-023's warning about drift on this host applies unchanged, and the ratio is what
+carries the argument.
+
+### The proof that the payloads did not move
+
+The whole point of a DTO layer is the bytes it emits, so the check was the bytes. `git archive HEAD`
+into a scratch tree gives the pydantic implementation; the working tree gives the dataclass one; the
+same script runs against both.
+
+```
+940 payloads: 40 corpus identifiers + 7 hand-picked edge cases
+              (emoji, empty, separators-only, NBSP, eszett, an fi ligature)
+              x 4 policy presets
+              x expand_identifier / to_physical_name / is_compliant / normalize / expand_token,
+                each rendered three ways (to_dict, to_json(), to_json(indent=2))
+
+  pydantic HEAD    3,996,282 chars   sha256 72614c77766ca06b...4328d46151a1
+  dataclasses      3,996,282 chars   sha256 72614c77766ca06b...4328d46151a1
+```
+
+Identical, and the section 3 examples in the wire contract were re-checked against the running code
+character by character on top of that.
+
+### The one thing that did change, stated rather than buried
+
+Every non-`bool` spelling of a boolean is now refused where pydantic coerced it. On `GovernedEntry`
+and on `NamingPolicy` alike, `"false"`, `"no"`, `"yes"`, `"true"`, `1`, `0` and `1.0` used to become
+booleans and now raise, naming the field. Nothing else narrowed: `confidence=1` still becomes `1.0`,
+`max_name_length="30"` and `max_name_length=30.0` are still read as `30`, and every loader-path error
+message is byte-identical to the one it replaces — which matters, because several of them are quoted
+in the loaders' own errors and read by whoever is fixing a catalog file.
+
+The narrowing is deliberate and `_flag`'s docstring argues it: JSON and CSV both have a spelling for
+true, a catalog is authored by hand, and `"keep_as_abbrev": "false"` is a row somebody got wrong.
+Reading it as `False` happens to be right; reading `"no"` as `True`, which is what pydantic did, is
+wrong, and nothing at the point of use can tell those two cases apart. A named field and a refusal is
+the outcome that can be fixed.
+
+The exception class also changed on the DTOs, and in the direction D-023 asked for. A bad field value
+on a model in `models.py` used to surface as `pydantic.ValidationError`, which is a `ValueError` but
+is **not** an `AcronymKitError`, so it walked straight past the single `except AcronymKitError` that
+`acronymkit.exceptions` promises catches everything this library raises. It is now
+`GovernedValidationError`, which derives from `ConfigurationError` and therefore from both. D-023
+recorded that leak under "noticed in passing, not fixed"; it is fixed here, for this subsystem.
+
+`NamingPolicy` never had that leak and does not gain anything here: it wrapped its validation errors
+in `ConfigurationError` under pydantic and still does, with the same message text. Its only
+observable change is the boolean narrowing above.
+
+### What was kept on purpose
+
+`model_dump` and `model_copy` survive as methods on the new base class, and `model_copy(update=...)`
+keeps its Pydantic semantics exactly — values written as given, not re-validated — because the
+resolver rewrites three fields of an already-validated catalog row on the hot path and `models.py`'s
+own module docstring documented the behaviour. Field *order* is untouched everywhere, because the
+order is the emitted key order and the wire contract numbers it. `GovernedEntry` still checks every
+field, because it is the one model built from data nobody in this package wrote; the result DTOs
+normalise their sequences and keep their range bounds and check nothing else, because they are built
+by this package out of values it computed itself and re-deriving a type check per field per record on
+a path that answers tens of thousands of identifiers a second is paying pydantic's price without
+pydantic.
+
+### What is not claimed
+
+No figure above is in `bench/results.json`, no bench runner was added, and none of it may be quoted
+in user-facing prose — same footing as D-023's table, and for the same reason: the comparison arm is
+a tree that no longer exists. The payload comparison is a different kind of evidence and does not
+have that problem, because it is an equality rather than a magnitude.
+
+This record does not claim the migration is complete, that the dependency count fell, that the
+installed footprint fell, or that anything outside `acronymkit.governed` got faster. It claims one
+import graph is clear and the bytes on the wire are the same bytes.
+
+---
+
 ## D-026 — Five optimisations that change no answer, and a sixth that was reverted
 
 **Status:** shipped; the passthrough memo reverted · **Evidence:** `governed.*` in

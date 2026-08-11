@@ -1,0 +1,151 @@
+{
+  "_meta": {
+    "catalog": "Northwind Data Standards",
+    "catalog_abbrev": "NDS",
+    "synthetic": true,
+    "file": "dictionary.json",
+    "purpose": "GovernedEntry rows for the Java example. Every row is invented; NDS is a fictional standard. Copy the structure, not the content.",
+    "entry_id_pattern": "NDS-<TOKEN>"
+  },
+
+  "entries": [
+    {
+      "token": "DT",
+      "canonical": "Date",
+      "kind": "class_word_abbrev",
+      "class_word": "Date",
+      "entry_id": "NDS-DT",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "CD",
+      "canonical": "Code",
+      "kind": "class_word_abbrev",
+      "class_word": "Code",
+      "entry_id": "NDS-CD",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "NM",
+      "canonical": "Name",
+      "kind": "class_word_abbrev",
+      "class_word": "Name",
+      "entry_id": "NDS-NM",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "AM",
+      "canonical": "Amount",
+      "kind": "class_word_abbrev",
+      "class_word": "Amount",
+      "entry_id": "NDS-AM",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "ID",
+      "canonical": "Identifier",
+      "kind": "class_word_abbrev",
+      "class_word": "Identifier",
+      "entry_id": "NDS-ID",
+      "source": "governed",
+      "confidence": 1.0,
+      "notes": "ID also reads as Identity, Identification and the state abbreviation for Idaho. The class-word map settles it before scoring is ever consulted."
+    },
+    {
+      "token": "FLG",
+      "canonical": "Flag",
+      "kind": "class_word_abbrev",
+      "class_word": "Flag",
+      "entry_id": "NDS-FLG",
+      "source": "governed",
+      "confidence": 1.0
+    },
+    {
+      "token": "TXN",
+      "canonical": "Transaction",
+      "kind": "approved_abbrev",
+      "entry_id": "NDS-TXN",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "CUST",
+      "canonical": "Customer",
+      "kind": "approved_abbrev",
+      "entry_id": "NDS-CUST",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "ACCT",
+      "canonical": "Account",
+      "kind": "approved_abbrev",
+      "entry_id": "NDS-ACCT",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "APPLNT",
+      "canonical": "Applicant",
+      "kind": "approved_abbrev",
+      "entry_id": "NDS-APPLNT",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "PYMT",
+      "canonical": "Payment",
+      "kind": "approved_abbrev",
+      "entry_id": "NDS-PYMT",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "BAL",
+      "canonical": "Balance",
+      "kind": "approved_abbrev",
+      "entry_id": "NDS-BAL",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "EFF",
+      "canonical": "Effective",
+      "kind": "approved_abbrev",
+      "entry_id": "NDS-EFF",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "ORIG",
+      "canonical": "Original",
+      "kind": "approved_abbrev",
+      "entry_id": "NDS-ORIG",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "STS",
+      "canonical": "Status",
+      "kind": "approved_abbrev",
+      "entry_id": "NDS-STS",
+      "source": "approved",
+      "confidence": 1.0
+    },
+    {
+      "token": "SRC",
+      "canonical": "Source",
+      "kind": "ambiguous_pinned",
+      "candidates": ["Sourcing", "Source", "Sourced"],
+      "pin": "Source",
+      "entry_id": "NDS-SRC",
+      "source": "pinned",
+      "confidence": 1.0,
+      "notes": "Three recorded long forms and one governed decision. Without the pin the answer would come from canonical_form_score, which ranks candidates rather than deciding between them."
+    }
+  ]
+}

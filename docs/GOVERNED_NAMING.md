@@ -803,14 +803,25 @@ Three properties are the contract:
 as a bundle and refuses to guess a CSV's direction, for the same reason it never guesses
 `long_to_short`.
 
+`--policy` names one of the four presets and `--unknown [passthrough_titlecase|reject]` overrides
+that policy's `unknown` field and nothing else, so `--policy strict_length --unknown reject` is still
+a sentence a reviewer can read. Omitted, the preset decides — which matters because `neural_optin` is
+the one preset that sets the field to anything else. Under `--unknown reject` a `governed-batch`
+record whose identifier holds an unknown token comes back `"ok": false` with `"error_type":
+"LexiconError"`, the run continues, and the process exits 1; see
+[the batch's error record](notes/governed-json-contract.md) for the shape.
+
 [docs/QUICKSTART_GOVERNED.md](QUICKSTART_GOVERNED.md) is the worked version of all of this, including
 the migration seam: how to run this beside an existing implementation and diff the two.
 
 ## What the splitter accounts for
 
-`split_identifier` classifies each character as an upper-case letter, a lower-case letter, a digit, a
-separator, or none of those. The separator set is closed and written down, and everything outside it
-is reported rather than dropped:
+`split_identifier` classifies each character as an upper-case letter, a lower-case letter, a letter
+with no case of its own, a digit, a separator, or none of those. The caseless class is its own thing
+rather than folded into one of the cased ones: a CJK ideograph, a Hebrew or Devanagari letter takes
+part in the letter/digit rules and in no case rule at all, because a case boundary means nothing next
+to a character that has no case to change. The separator set is closed and written down, and
+everything outside it is reported rather than dropped:
 
 ```python
 from acronymkit.governed.tokenizer import ACCOUNTED_SEPARATORS, split_identifier_parts
@@ -859,10 +870,12 @@ are a word, and `1sT` splits to `('1', 's', 'T')`, because a capital after a low
 writer saying a new word starts there. `strip_qualifier` drops a leading `schema.table.`
 qualifier from a fully qualified name, which is the shape an information-schema export arrives in.
 
-`ACCOUNTED_SEPARATORS`, `IdentifierParts`, `split_identifier_parts` and `strip_qualifier` live on
-`acronymkit.governed.tokenizer` and are not re-exported from the package, unlike `split_identifier`
-itself. A port has to reproduce the separator set and the ordinal suffixes exactly; the rest of the
-splitter's implementation is not contract, and
+`ACCOUNTED_SEPARATORS`, `IdentifierParts`, `split_identifier_parts` and `strip_qualifier` are defined
+in `acronymkit.governed.tokenizer` and re-exported from `acronymkit.governed` alongside
+`split_identifier`, so the shorter import works too and resolves lazily like every other name on that
+package. None of the five reaches the top-level `acronymkit`, which carries only the eight names an
+integration needs. A port has to reproduce the separator set and the ordinal suffixes exactly; the
+rest of the splitter's implementation is not contract, and
 [docs/notes/governed-json-contract.md](notes/governed-json-contract.md) says which is which.
 
 ## Policies
@@ -892,6 +905,28 @@ statistical tier and importing one would break the Tier 0 promise the distributi
 opt-in is a declaration of intent that nothing yet acts on. `UnknownPolicy.REJECT` is the other
 direction: an unrecognised token raises `LexiconError`, for pipelines where it means the catalog is
 out of date and processing should stop.
+
+No preset sets `REJECT`, because refusing unknown tokens is orthogonal to everything the four presets
+distinguish — a caller who wants a stale catalog to stop their run wants it under whichever preset
+they were already on. It is reached by copying the policy, or by `--unknown reject` on any governed
+command:
+
+```python
+from acronymkit.governed import UnknownPolicy
+
+strict_unknown = NamingPolicy.governed_default().model_copy(
+    update={"unknown": UnknownPolicy.REJECT}
+)
+expand_identifier("TXN_KYC_ID", nds, strict_unknown)   # raises LexiconError, naming 'KYC'
+```
+
+**Only the expansion verbs read the field.** `is_compliant` and `normalize` never raise on an
+unrecognised token, whatever `unknown` says, because reporting it is the answer they were asked for —
+a check that stopped at the token it was asked to describe would have nothing left to describe. So
+one policy shared across a pipeline raises out of `expand_identifier` and returns a finding out of
+`is_compliant`, and that asymmetry is the contract rather than a gap in it. `audit_identifiers`
+refuses `REJECT` outright, with a message saying so: listing the tokens a catalog is silent about is
+the whole of what an audit does.
 
 ### `frequency_baseline` is a contrast arm, not a benchmark
 

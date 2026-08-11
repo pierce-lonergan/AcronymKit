@@ -234,6 +234,14 @@ _POLICY_PRESETS = (
     "strict_length",
 )
 
+#: Values accepted by ``--unknown``, each the value of a
+#: :class:`~acronymkit.governed.enums.UnknownPolicy` member. Two of the three
+#: members, and the omission is deliberate: ``neural`` behaves as passthrough in
+#: this release, so offering it here would be a third spelling of a flag that
+#: does nothing, and the preset that declares the opt-in — ``neural_optin`` —
+#: already reaches it for a caller who wants the declaration on the record.
+_UNKNOWN_OVERRIDES = ("passthrough_titlecase", "reject")
+
 #: Values accepted by ``--dictionary-format``; see :func:`_governed_dictionary`
 #: for what each one reads.
 _DICTIONARY_LAYOUTS = (
@@ -968,21 +976,41 @@ def _governed_overlay(
     return overlay
 
 
-def _governed_policy(name: str) -> NamingPolicy:
+def _governed_policy(name: str, unknown: Optional[str] = None) -> NamingPolicy:
     """Return the named :class:`~acronymkit.governed.policy.NamingPolicy` preset.
+
+    ``unknown`` is the one field of the preset a command line may change, and it
+    is a field rather than a fifth preset because "reject unknown tokens" is
+    orthogonal to every other choice the four presets express: a caller who
+    wants a stale catalog to stop their pipeline wants it under whichever
+    preset they were already running.
+
+    ``None`` means the preset's own value stands. That matters more than a
+    default usually does — ``neural_optin`` is the only preset that sets
+    ``unknown`` to anything else, and a flag defaulting to
+    ``passthrough_titlecase`` would silently undo the opt-in for every caller
+    who never typed the flag.
 
     Args:
         name: One of :data:`_POLICY_PRESETS`, which are the classmethod names
             themselves. ``click.Choice`` has already rejected anything else, so
             the lookup cannot miss.
+        unknown: One of :data:`_UNKNOWN_OVERRIDES`, or ``None`` to leave the
+            preset alone.
 
     Returns:
-        The policy the preset constructs.
+        The policy the preset constructs, or a copy of it carrying the
+        requested ``unknown`` handling. The presets are memoised and frozen, so
+        the copy is what keeps an override from reaching the next caller.
     """
+    from .governed.enums import UnknownPolicy
     from .governed.policy import NamingPolicy
 
     constructor: Callable[[], NamingPolicy] = getattr(NamingPolicy, name)
-    return constructor()
+    policy = constructor()
+    if unknown is None:
+        return policy
+    return policy.model_copy(update={"unknown": UnknownPolicy(unknown)})
 
 
 def _governed_context(
@@ -1000,9 +1028,10 @@ def _governed_context(
     Raises:
         click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
     """
+    unknown = options.get("unknown")
     return (
         _governed_dictionary(click, options),
-        _governed_policy(str(options["policy_name"])),
+        _governed_policy(str(options["policy_name"]), None if unknown is None else str(unknown)),
         _governed_overlay(click, options.get("custom")),
     )
 
@@ -1992,15 +2021,32 @@ def _vocabulary_options(click: Any) -> Callable[[_Decorator], _Decorator]:
     scattered across a crontab is not. Callers who need a field combination the
     presets do not cover have the Python API.
 
+    ``--unknown`` is the one exception, and it is one because no preset sets
+    ``UnknownPolicy.REJECT`` and refusing an unrecognised token is exactly the
+    governed use case: a pipeline whose catalog has gone stale should stop
+    rather than carry on under a name nobody approved. It overrides the
+    resolved policy's ``unknown`` field and changes nothing else, so the
+    reviewable sentence survives — "``governed_default``, rejecting unknown
+    tokens" still names what ran. Omitted, the preset's own value stands.
+
+    What it reaches is worth stating, because it is not every command.
+    ``expand-token``, ``expand-identifier`` and ``governed-batch`` under
+    ``--op expand`` raise on the first unrecognised token; ``check-name``,
+    ``normalize-name`` and ``physical-name`` do not consult the field at all,
+    because reporting an unapproved token *is* their answer. ``governed-audit``
+    refuses the combination outright, with a message saying so: listing the
+    tokens a catalog is silent about is what an audit is for, and a policy that
+    stops at the first one answers a question nobody asked.
+
     Separate from :func:`_governed_options` because the batch commands take
-    these six options and not the ``--format``/``--indent`` pair: their output
+    these seven options and not the ``--format``/``--indent`` pair: their output
     format is one JSON object per line and is not a choice.
 
     Args:
         click: The imported ``click`` module.
 
     Returns:
-        A decorator applying the six vocabulary options to a command callback.
+        A decorator applying the seven vocabulary options to a command callback.
     """
     options = [
         click.option(
@@ -2049,6 +2095,15 @@ def _vocabulary_options(click: Any) -> Callable[[_Decorator], _Decorator]:
             default="governed_default",
             show_default=True,
             help="Named NamingPolicy preset to resolve under.",
+        ),
+        click.option(
+            "--unknown",
+            "unknown",
+            type=click.Choice(_UNKNOWN_OVERRIDES),
+            default=None,
+            help="Override how the chosen --policy handles a token the vocabulary does not "
+            "contain: pass it through Title Cased and marked unknown, or reject it as a "
+            "LexiconError. Omitted, the preset decides.",
         ),
     ]
 

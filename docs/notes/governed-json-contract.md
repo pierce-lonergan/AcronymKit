@@ -15,6 +15,14 @@ It is written for someone implementing `acronymkit.governed` on the JVM, but eve
 language-agnostic, so it serves equally as the answer to "what exactly does this emit" for a
 consumer in any language.
 
+**Before writing a port, read [D-028](../DECISIONS.md).** A JVM can now host this implementation
+directly — the subsystem's import graph carries no compiled extension, which is what previously
+stopped GraalPy running it — and a spike measured that route as slower and vastly heavier than the
+co-process it would replace. Neither of those is a reason to write a port instead: a port is the
+option that cannot promise the same answers, and section 8 is the list of ways it will quietly fail
+to. This document exists so that a port, *if* someone decides to write one, is mechanical rather than
+a guess.
+
 **Reference implementation:** `src/acronymkit/governed/` in this repository. Where this document and
 the source disagree, the source is right and this document is a bug.
 
@@ -116,6 +124,32 @@ Declared in `src/acronymkit/governed/models.py`. Every model is frozen and forbi
 means the constructor demands it; a required field may still be nullable, which is the distinction
 between "you must decide" and "the answer may be nothing". *Default* applies only to optional
 fields. Sequence fields are Python tuples and serialise as JSON arrays.
+
+**These models were Pydantic v2 models and are now frozen dataclasses. The emitted shape did not
+move.** The change was made to get a compiled extension out of the import graph — see
+[D-027](../DECISIONS.md) and [D-028](../DECISIONS.md) — and every table in this section was
+re-verified against the running code afterwards, field by field: same names, same declaration order,
+same required/nullable split, same defaults, in all seven models and in `NamingPolicy`. The payloads
+were checked as bytes rather than by reading: 940 renderings across the fixture corpus, seven Unicode
+edge cases, four policy presets, five verbs and three serialisations each, hash-identical before and
+after. **Nothing in sections 3, 4 or 7 changed, and a port written against an earlier revision of
+this document needs no edit.**
+
+Two things that are *not* the wire format did change, and a port that accepts catalog files needs
+both:
+
+- **A boolean field now takes only a real boolean.** `"false"`, `"no"`, `"yes"`, `"true"`, `1`, `0`
+  and `1.0` were previously coerced and are now refused, naming the field — on `GovernedEntry` and on
+  `NamingPolicy` alike. See [section 5](#5-the-input-files) for what that means for a hand-authored
+  catalog. Nothing else narrowed: `"confidence": 1` still becomes `1.0`, and `max_name_length` still
+  accepts `"30"` and `30.0`.
+- **The exception class for a malformed field is `GovernedValidationError`**, not
+  `pydantic.ValidationError`. It derives from `ConfigurationError`, so it is both an
+  `AcronymKitError` and a `ValueError`. The *message* text is unchanged — the loaders quote it, and
+  every loader-path message is byte-identical to what the Pydantic implementation produced.
+
+**`NamingPolicy` has no `to_dict()`**, in either implementation. It carries `model_dump()`, whose
+`mode="json"` rendering is the shape stored in `policies.json`. The result DTOs below have both.
 
 ### `GovernedEntry`
 
@@ -398,6 +432,13 @@ does not have, or that omits a required one, is an error naming the row's zero-b
 Entry objects use the `GovernedEntry` field names from section 3 and omit any field taking its model
 default. The fixture carries 68 rows and 8 tokens held out under `reserved_absent` for the
 passthrough path.
+
+**`keep_as_abbrev` must be a JSON boolean.** `"keep_as_abbrev": "false"` is an error naming the
+field, and so is `1`. The reference implementation used to coerce both, and stopped: JSON has a
+spelling for true, a catalog is authored by hand, and reading `"false"` as `false` happens to be
+right where reading `"no"` as `true` — which is what the coercion did — is wrong, with nothing at the
+point of use able to tell the two apart. A port should refuse rather than coerce, and the fixture
+never exercised the coercion, so replaying the golden set will not tell you which side you are on.
 
 ### `allowlist.json`
 
@@ -1102,6 +1143,8 @@ envelope is not a drop-in.
 ```
 acronymkit governed-batch [FILE] --dictionary <vocabulary>
                                  [--op expand|physical|check|normalize|audit]
+                                 [--policy governed_default|frequency_baseline|neural_optin|strict_length]
+                                 [--unknown passthrough_titlecase|reject]
                                  [--flush-every N]
 ```
 
@@ -1166,10 +1209,17 @@ opinions, so section 3 specifies `result` in full:
 | `normalize` | `{"name": <subject>, "normalized": <string>}` | not a DTO — two keys, in that order |
 | `audit` | `IdentifierAudit` | section 7.5 |
 
-`error_type` is the exception's class name for anything raised while answering — `LexiconError` under
-`UnknownPolicy.REJECT` is the one documented case. For a line that could not be read it is the
-literal string **`"InputError"`**, which names no class in this library and exists so the two
-failures can be told apart without parsing prose. A port should emit the same literal.
+`error_type` is the exception's class name for anything raised while answering. Two cases are
+documented rather than incidental, and both are reachable from the command line:
+
+| `error_type` | Raised when |
+|---|---|
+| `LexiconError` | a token is not in the vocabulary and the resolved policy's `unknown` is `reject` |
+| `ConfigurationError` | `--op audit` is combined with `unknown = reject`; the audit refuses the policy per record, because listing the tokens a catalog is silent about is what the call is for |
+
+For a line that could not be read it is instead the literal string **`"InputError"`**, which names no
+class in this library and exists so the two failures can be told apart without parsing prose. A port
+should emit the same literal.
 
 Every exception is caught and reported on its record, including ones this library does not expect:
 the right response to a bug on record 812 is to answer the other 49,999 and put the type on the
@@ -1189,11 +1239,26 @@ is why the line numbers jump:
 {"line":9,"input":"CUST_ACCT_OPEN_DT","ok":true,"result":{…}}
 ```
 
-and one raised while answering, under a policy whose `unknown` is `reject`:
+and one raised while answering. **This transcript is reproducible from the command line**, which it
+was not when this section was first written — no preset sets `UnknownPolicy.REJECT`, so the case
+existed only in the Python API until `--unknown` was added. Against the fixture catalog, with a file
+holding the single line `TXN_DOB_DT`:
 
 ```
-{"line":1,"input":"TXN_DOB_DT","ok":false,"error":"Token 'DOB' is not in the governed vocabulary and NamingPolicy.unknown is REJECT. …","error_type":"LexiconError"}
+$ acronymkit governed-batch identifiers.txt --dictionary tests/fixtures/governed --unknown reject
+{"line":1,"input":"TXN_DOB_DT","ok":false,"error":"Token 'DOB' is not in the governed vocabulary and NamingPolicy.unknown is REJECT. Add a catalog row or an allow-list entry for it, supply it through custom=, or use a policy whose unknown handling is PASSTHROUGH_TITLECASE.","error_type":"LexiconError"}
+{"op":"expand","records":1,"failed":1,"skipped":0}      <- standard error
+$ echo $?
+1
 ```
+
+`--unknown` overrides the `unknown` field of whatever `--policy` resolved and changes nothing else,
+so it composes with every preset. It reaches this command under `--op expand`; under `--op check`,
+`--op normalize` and `--op physical` the field is not consulted at all — reporting an unapproved
+token *is* those verbs' answer — so the same line comes back `"ok": true` with the finding inside the
+result and the exit status unchanged. Under `--op audit` it produces the `ConfigurationError` record
+in the table above. A port exposing the equivalent switch should reproduce all four behaviours; three
+of them are "the flag does nothing here", and that is the part most likely to be got wrong.
 
 Like `ComplianceReason.detail`, **`error` is prose and is not part of the contract**. Route on
 `error_type` and on `ok`; a port is not required to reproduce the wording.

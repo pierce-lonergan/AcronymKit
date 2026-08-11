@@ -22,51 +22,83 @@ platform limit would be inventing an identifier nobody governs, and it would do
 it at the exact moment the caller most needs to be told. So the answer is always
 the full name plus a finding, and :attr:`PhysicalName.truncated` exists solely
 so that a test — and an auditor — can assert it stayed ``False``.
+
+Why the policy is a dataclass and not a validated model
+-------------------------------------------------------
+A policy is a dict key. :meth:`~acronymkit.governed.dictionary.GovernedDictionary._memo`
+keys its per-policy memos on the policy *by value*, so ``__eq__`` and ``__hash__``
+have to mean "the same nine settings" and nothing else; a frozen dataclass gives
+exactly that and gives it without a compiled extension in the import graph. See
+:mod:`acronymkit.governed.models` for the rest of that argument, which is the
+same argument.
+
+The nine fields are checked by hand in :meth:`NamingPolicy.__init__` rather than
+derived from the annotations. That is nine explicit lines, and it is what keeps
+the refusals this module is judged on — an unknown field, a mode nobody
+declared, a length ceiling below one — reported together and reported as
+:class:`~acronymkit.exceptions.ConfigurationError`.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, fields
 from functools import cache
-from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field
-from pydantic import ValidationError as PydanticValidationError
+from typing import Any, Mapping, Optional, Tuple
 
 from ..exceptions import ConfigurationError
 from .enums import ResolutionMode, UnknownPolicy
+from .models import _describe_problems, _flag, _member
 
 __all__ = ["NamingPolicy"]
 
 
-def _describe(exc: PydanticValidationError) -> str:
-    """Render a Pydantic validation error as a compact, actionable message.
+def _bounded_int(value: Any, name: str, minimum: int, problems: list[Tuple[str, str]]) -> Any:
+    """Read an integer field and hold it at or above ``minimum``.
 
-    A near-copy of ``acronymkit.config._describe_validation_error``, and
-    deliberately not an import of it: importing :mod:`acronymkit.config` builds
-    the :class:`~acronymkit.config.Config` core schema, which is the single
-    largest import cost in this distribution and has nothing to do with governed
-    naming. A few duplicated lines are the cheaper of the two mistakes.
+    The accepted spellings are the ones the subsystem has always taken: an
+    ``int``, a ``bool`` (which is an ``int`` in Python and was accepted before),
+    a ``float`` that is whole, and a string of digits. A policy crosses the wire
+    as JSON and arrives from a CLI flag as text, so refusing ``"30"`` would
+    break a caller for no gain.
 
     Args:
-        exc: The error raised while validating a :class:`NamingPolicy`.
+        value: Whatever the caller supplied.
+        name: The field name, for the message.
+        minimum: The inclusive lower bound.
+        problems: Collected problems, appended to in place.
 
     Returns:
-        One ``field: message`` clause per problem, joined with ``"; "``. A
-        problem with no location is reported unqualified.
+        The value as an ``int``, or unchanged when it is not readable as one.
     """
-    problems = []
-    for error in exc.errors():
-        location = ".".join(str(part) for part in error.get("loc", ()))
-        message = error.get("msg", "invalid value")
-        problems.append(f"{location}: {message}" if location else message)
-    return "; ".join(problems) or str(exc)
+    if isinstance(value, bool):
+        number = int(value)
+    elif isinstance(value, int):
+        number = value
+    elif isinstance(value, float) and value.is_integer():
+        number = int(value)
+    elif isinstance(value, str):
+        try:
+            number = int(value)
+        except ValueError:
+            problems.append(
+                (name, "Input should be a valid integer, unable to parse string as an integer")
+            )
+            return value
+    else:
+        problems.append((name, "Input should be a valid integer"))
+        return value
+    if number < minimum:
+        problems.append((name, f"Input should be greater than or equal to {minimum}"))
+    return number
 
 
-class NamingPolicy(BaseModel):
+@dataclass(frozen=True)
+class NamingPolicy:
     """Rules applied on top of a governed vocabulary.
 
     Frozen, so a policy resolved once at start-up is safe to share across
-    threads and to hold on a long-lived service object.
+    threads and to hold on a long-lived service object. Hashable by value, which
+    is what lets the resolver keep one memo per distinct set of settings.
 
     Example:
         >>> from acronymkit.governed import NamingPolicy
@@ -76,86 +108,178 @@ class NamingPolicy(BaseModel):
         False
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    #: How a token with several candidate long forms is resolved. GOVERNED
+    #: honours the catalog; MOST_COMMON is the contrast arm and ignores the pin.
+    mode: ResolutionMode = ResolutionMode.GOVERNED
 
-    mode: ResolutionMode = Field(
-        default=ResolutionMode.GOVERNED,
-        description="How a token with several candidate long forms is resolved. GOVERNED "
-        "honours the catalog; MOST_COMMON is the contrast arm and ignores the pin.",
-    )
-    allow_override: bool = Field(
-        default=True,
-        description="Whether a caller-supplied pin or overlay entry may beat the catalog "
-        "default. When False, an overlay that CONTRADICTS a governed entry is not applied and "
-        "the result carries a note saying so — but an overlay for a token the catalog does not "
-        "know is still applied, because overriding nothing is not an override.",
-    )
-    unknown: UnknownPolicy = Field(
-        default=UnknownPolicy.PASSTHROUGH_TITLECASE,
-        description="What to do with a token the vocabulary does not contain.",
-    )
-    neural_fallback: bool = Field(
-        default=False,
-        description="Whether the statistical tier may be consulted at all. Off by default: a "
-        "governed pipeline that quietly starts guessing has lost the property it was chosen "
-        "for, so reaching the guess must be an explicit act.",
-    )
-    governed_hit_is_final: bool = Field(
-        default=True,
-        description="A statistical answer may NEVER override a governed one. This is the "
-        "line the neural opt-in does not cross: the tier can only ever speak for tokens the "
-        "catalog is silent about. Turning it off is not supported by any preset.",
-    )
-    enforce_name_length: bool = Field(
-        default=False,
-        description="Whether a name longer than max_name_length is reported as a problem. It "
-        "may only ever cause a FLAG. No code path truncates a name or drops a token, ever — "
-        "not under this setting, not under any other. The result is the full name plus an "
-        "EXCEEDS_MAX_LENGTH finding, and PhysicalName.truncated stays False so that the "
-        "invariant can be asserted rather than trusted.",
-    )
-    max_name_length: int = Field(
-        default=30,
-        ge=1,
-        description="Character ceiling checked when enforce_name_length is on. The default is "
-        "a common platform limit for an identifier and is a starting point, not a standard.",
-    )
-    require_trailing_class_word: bool = Field(
-        default=True,
-        description="Whether a physical name must end in a class word to be compliant. On by "
-        "default because that is what makes a name self-describing; off in the frequency "
-        "baseline, which is not modelling a naming standard at all.",
-    )
-    append_class_word_when_missing: bool = Field(
-        default=True,
-        description="Whether to append the class word implied by the logical name when the "
-        "rendered physical name lacks one. Affects to_physical_name only — a compliance check "
-        "reports what it was given and never edits it.",
-    )
+    #: Whether a caller-supplied pin or overlay entry may beat the catalog
+    #: default. When False, an overlay that CONTRADICTS a governed entry is not
+    #: applied and the result carries a note saying so — but an overlay for a
+    #: token the catalog does not know is still applied, because overriding
+    #: nothing is not an override.
+    allow_override: bool = True
+
+    #: What to do with a token the vocabulary does not contain.
+    unknown: UnknownPolicy = UnknownPolicy.PASSTHROUGH_TITLECASE
+
+    #: Whether the statistical tier may be consulted at all. Off by default: a
+    #: governed pipeline that quietly starts guessing has lost the property it
+    #: was chosen for, so reaching the guess must be an explicit act.
+    neural_fallback: bool = False
+
+    #: A statistical answer may NEVER override a governed one. This is the line
+    #: the neural opt-in does not cross: the tier can only ever speak for tokens
+    #: the catalog is silent about. Turning it off is not supported by any
+    #: preset.
+    governed_hit_is_final: bool = True
+
+    #: Whether a name longer than max_name_length is reported as a problem. It
+    #: may only ever cause a FLAG. No code path truncates a name or drops a
+    #: token, ever — not under this setting, not under any other. The result is
+    #: the full name plus an EXCEEDS_MAX_LENGTH finding, and
+    #: PhysicalName.truncated stays False so that the invariant can be asserted
+    #: rather than trusted.
+    enforce_name_length: bool = False
+
+    #: Character ceiling checked when enforce_name_length is on. The default is
+    #: a common platform limit for an identifier and is a starting point, not a
+    #: standard.
+    max_name_length: int = 30
+
+    #: Whether a physical name must end in a class word to be compliant. On by
+    #: default because that is what makes a name self-describing; off in the
+    #: frequency baseline, which is not modelling a naming standard at all.
+    require_trailing_class_word: bool = True
+
+    #: Whether to append the class word implied by the logical name when the
+    #: rendered physical name lacks one. Affects to_physical_name only — a
+    #: compliance check reports what it was given and never edits it.
+    append_class_word_when_missing: bool = True
 
     def __init__(self, **data: Any) -> None:
         """Validate and freeze a policy.
 
-        Pydantic wraps a bad field value in its own ``ValidationError``, which is
-        not an :class:`~acronymkit.exceptions.AcronymKitError`. That would break
-        the contract documented in :mod:`acronymkit.exceptions` — a single
-        ``except AcronymKitError`` at a service boundary catches everything this
-        library raises — so the wrapper is unwrapped here and re-raised as
-        :class:`~acronymkit.exceptions.ConfigurationError`, which is also a
-        ``ValueError`` and therefore still catchable the conventional way.
-        :class:`~acronymkit.config.Config` does the same thing for the same
-        reason.
+        Every problem is reported together, as ``field: message`` clauses joined
+        with ``"; "``, and the whole thing is raised as
+        :class:`~acronymkit.exceptions.ConfigurationError` — which is also a
+        :class:`ValueError`, so it stays catchable the conventional way, and is
+        an :class:`~acronymkit.exceptions.AcronymKitError`, so the single
+        ``except`` clause :mod:`acronymkit.exceptions` promises at a service
+        boundary still catches it. :class:`~acronymkit.config.Config` presents
+        the same face for the same reason.
 
         Args:
-            **data: Field values; see the class attributes.
+            **data: Field values; see the class attributes. A keyword this
+                policy does not declare is refused rather than ignored: a
+                misspelled setting that is silently dropped is a pipeline
+                running under rules nobody chose.
 
         Raises:
-            ConfigurationError: If any field is invalid.
+            ConfigurationError: If any field is invalid or unknown.
         """
-        try:
-            super().__init__(**data)
-        except PydanticValidationError as exc:
-            raise ConfigurationError(_describe(exc)) from exc
+        problems: list[Tuple[str, str]] = []
+        unknown = [
+            (name, "Extra inputs are not permitted") for name in data if name not in _DEFAULTS
+        ]
+        values = {**_DEFAULTS, **data}
+
+        set_field = object.__setattr__
+        set_field(self, "mode", _member(values["mode"], ResolutionMode, "mode", problems))
+        set_field(
+            self, "allow_override", _flag(values["allow_override"], "allow_override", problems)
+        )
+        set_field(self, "unknown", _member(values["unknown"], UnknownPolicy, "unknown", problems))
+        set_field(
+            self, "neural_fallback", _flag(values["neural_fallback"], "neural_fallback", problems)
+        )
+        set_field(
+            self,
+            "governed_hit_is_final",
+            _flag(values["governed_hit_is_final"], "governed_hit_is_final", problems),
+        )
+        set_field(
+            self,
+            "enforce_name_length",
+            _flag(values["enforce_name_length"], "enforce_name_length", problems),
+        )
+        set_field(
+            self,
+            "max_name_length",
+            _bounded_int(values["max_name_length"], "max_name_length", 1, problems),
+        )
+        set_field(
+            self,
+            "require_trailing_class_word",
+            _flag(values["require_trailing_class_word"], "require_trailing_class_word", problems),
+        )
+        set_field(
+            self,
+            "append_class_word_when_missing",
+            _flag(
+                values["append_class_word_when_missing"],
+                "append_class_word_when_missing",
+                problems,
+            ),
+        )
+
+        problems.extend(unknown)
+        if problems:
+            raise ConfigurationError(_describe_problems(problems))
+
+    def model_dump(self, *, mode: str = "python") -> dict[str, Any]:
+        """Return the nine settings as a ``dict``, in declaration order.
+
+        Kept from the Pydantic era because a policy is written to and read from
+        JSON — ``tests/fixtures/governed/policies.json`` stores all four presets
+        in exactly this shape.
+
+        Args:
+            mode: ``"json"`` renders the two enum fields as their string values,
+                which is what crosses a wire; anything else returns the members.
+
+        Returns:
+            One key per field, in declaration order.
+        """
+        values = {name: getattr(self, name) for name in _FIELD_NAMES}
+        if mode == "json":
+            return {
+                name: value.value if isinstance(value, (ResolutionMode, UnknownPolicy)) else value
+                for name, value in values.items()
+            }
+        return values
+
+    def model_copy(
+        self,
+        *,
+        update: Optional[Mapping[str, Any]] = None,
+        deep: bool = False,
+    ) -> NamingPolicy:
+        """Return a policy with ``update`` applied, without re-validating.
+
+        The same semantics as
+        :meth:`acronymkit.governed.models._FrozenModel.model_copy`, and the same
+        semantics this method had while it was pydantic's: the values in
+        ``update`` are written as given. It is deliberately not a second
+        validation point, because it is the documented way to derive a variant
+        from a preset and a caller who has just been handed one should not have
+        the rules for building one change underneath them. Build with
+        :class:`NamingPolicy` itself to have the settings checked.
+
+        Args:
+            update: Settings to replace, or ``None`` for a plain copy.
+            deep: Accepted so the signature does not narrow. Every field is an
+                immutable scalar, so it can make no difference.
+
+        Returns:
+            A new policy. The receiver is unchanged.
+        """
+        del deep
+        values = dict(self.__dict__)
+        if update:
+            values.update(update)
+        clone = object.__new__(type(self))
+        clone.__dict__.update(values)
+        return clone
 
     @classmethod
     @cache
@@ -174,7 +298,7 @@ class NamingPolicy(BaseModel):
         then keys its caches on the policy *by value* — meaning the cost was
         paid twice, once to construct and once to discover the construction had
         been unnecessary. Returning one shared instance is safe because the
-        model is frozen: two callers cannot tell they hold the same object
+        record is frozen: two callers cannot tell they hold the same object
         except by ``is``, and nothing may mutate it. Callers who want a variant
         still get a fresh object from ``model_copy(update=...)``.
 
@@ -245,3 +369,17 @@ class NamingPolicy(BaseModel):
             The length-checking policy.
         """
         return cls(enforce_name_length=True, max_name_length=30)
+
+
+#: Every field's declared default, keyed by name in declaration order — which is
+#: also the emitted key order, and is what the wire contract fixes.
+#:
+#: Read off the class rather than written out a second time.
+#: :meth:`NamingPolicy.__init__` takes ``**data``, because that is what lets an
+#: unknown keyword be refused *by name* rather than as a bare ``TypeError``, and
+#: the price of that is that the defaults are applied here instead of by a
+#: generated signature.
+_DEFAULTS: dict[str, Any] = {field.name: field.default for field in fields(NamingPolicy)}
+
+#: Field names in declaration order.
+_FIELD_NAMES: tuple[str, ...] = tuple(_DEFAULTS)

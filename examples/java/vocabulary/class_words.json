@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "catalog": "Northwind Data Standards",
+    "catalog_abbrev": "NDS",
+    "synthetic": true,
+    "file": "class_words.json",
+    "purpose": "The class-word map: the abbreviations a physical name is allowed to end in, and what each one means.",
+    "shape": "GovernedDictionary(class_words=...) takes a plain abbrev -> full mapping, which is the \"abbreviations\" object here."
+  },
+
+  "abbreviations": {
+    "DT": "Date",
+    "CD": "Code",
+    "NM": "Name",
+    "AM": "Amount",
+    "ID": "Identifier",
+    "FLG": "Flag"
+  }
+}

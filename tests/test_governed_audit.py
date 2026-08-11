@@ -36,6 +36,7 @@ Nothing here describes a real organisation's naming standard.
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError, fields
 from typing import Any, Optional
 
 import pytest
@@ -546,7 +547,7 @@ def test_a_suggestion_never_claims_to_be_governed() -> None:
     assert suggestions
     for item in suggestions:
         assert item.is_governed is False
-    assert "confidence" not in CatalogSuggestion.model_fields, (
+    assert "confidence" not in {field.name for field in fields(CatalogSuggestion)}, (
         "a confidence on a suggestion invites comparing it against a governed answer"
     )
 
@@ -796,9 +797,17 @@ def test_the_audit_serialises_to_json_with_enums_as_strings() -> None:
 
 
 def test_every_model_is_frozen_and_forbids_unknown_fields() -> None:
-    """The house rule for an audit record: it cannot be edited after it is handed out."""
+    """The house rule for an audit record: it cannot be edited after it is handed out.
+
+    Asserted through behaviour rather than through a declaration. These are
+    frozen dataclasses, so "frozen" means an assignment raises and "forbids
+    unknown fields" means the constructor refuses a keyword it does not declare
+    — which is what a caller actually meets, and it stays the right test however
+    the records are built.
+    """
     for model in (CorpusAudit, CatalogSuggestion):
-        assert model.model_config["frozen"] is True
-        assert model.model_config["extra"] == "forbid"
-    with pytest.raises(Exception, match=r"frozen"):
+        assert model.__dataclass_params__.frozen is True, f"{model.__name__} is not frozen"
+        with pytest.raises(TypeError, match="unexpected keyword argument"):
+            model(nope=1)  # type: ignore[call-arg]
+    with pytest.raises(FrozenInstanceError):
         AUDIT.total = 1  # type: ignore[misc]

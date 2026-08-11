@@ -402,7 +402,9 @@ which way round a two-column CSV is meant to be read, because both readings are 
 that mean different things. Every command here except `governed-batch` also takes `--format json`.
 
 [docs/QUICKSTART_GOVERNED.md](docs/QUICKSTART_GOVERNED.md) runs all of it end to end, from a
-spreadsheet export to a diff against whatever you use today.
+spreadsheet export to a diff against whatever you use today. Driving `governed-batch` from another
+runtime is [docs/JAVA_INTEROP.md](docs/JAVA_INTEROP.md), with a runnable Maven project in
+[examples/java/](examples/java).
 
 ## Batch and async
 
@@ -478,6 +480,11 @@ python tools/fetch_data.py --verify      # re-check every checksum
 - [Technical note: the governed JSON wire contract](docs/notes/governed-json-contract.md) — the exact
   JSON shape of every DTO and fixture, written so a port can be validated against the same golden
   files. No JVM artifact exists; this is what would make writing one mechanical
+- [Calling this library from the JVM](docs/JAVA_INTEROP.md) — which route a Java Maven project should
+  take and what each one needs on the machine: the `governed-batch` co-process, GraalPy as a Maven
+  dependency, Py4J, JPype and a hand-written port, with the measurements behind the recommendation
+- [`examples/java/`](examples/java) — a runnable Maven project for the recommended route: a
+  co-process client, the wire format by hand, and the real output. No CI job builds it
 - [Contributing](CONTRIBUTING.md) — the invariants that are easy to break by accident
 - [Technical note: using a ranking function as a generation objective](docs/notes/scoring-objective.md)
 - [Evaluation](docs/EVALUATION.md) — measured extraction accuracy against a gold standard
