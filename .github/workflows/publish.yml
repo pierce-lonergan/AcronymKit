@@ -40,16 +40,51 @@ jobs:
       - run: python -m pip install build twine
       - run: python -m build
       - run: python -m twine check dist/*
-      - name: Assert the tag matches the packaged version
-        if: github.event_name == 'release'
+      - name: Assert the packaged version is releasable
+        # Runs on BOTH trigger shapes, and it did not always. Guarding this on
+        # `github.event_name == 'release'` left `workflow_dispatch` with
+        # `target: pypi` able to upload whatever happened to be on the default
+        # branch, with no check of any kind -- and that is not hypothetical:
+        # 0.3.0 reached PyPI through exactly that path after two release-event
+        # attempts failed on a misconfigured publisher. A guard that the most
+        # convenient route skips is not a guard.
+        #
+        # A release event still checks the stronger property, that the tag and
+        # the wheel agree. A dispatch has no tag to compare against, so it
+        # checks the two things it can: that a version was built, and that PyPI
+        # does not already hold it. The second is the one that matters, because
+        # a filename PyPI has accepted can never be reused, and the failure mode
+        # of a careless dispatch is burning a version number.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           python - <<'PY'
-          import glob, os, re
-          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          import glob, json, os, re, urllib.error, urllib.request
+
           wheel = os.path.basename(glob.glob("dist/*.whl")[0])
           version = re.match(r"acronymkit-([^-]+)-", wheel).group(1)
-          assert version == tag, f"tag {tag!r} does not match built version {version!r}"
-          print(f"version {version} matches tag")
+
+          if os.environ["EVENT_NAME"] == "release":
+              tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+              assert version == tag, f"tag {tag!r} does not match built version {version!r}"
+              print(f"version {version} matches tag {tag}")
+          else:
+              print(f"no tag to compare against; built version {version}")
+
+          url = f"https://pypi.org/pypi/acronymkit/{version}/json"
+          try:
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  json.load(response)
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise
+              print(f"PyPI does not yet hold {version}; safe to upload")
+          else:
+              raise SystemExit(
+                  f"PyPI already holds acronymkit {version}. Uploading it again "
+                  f"cannot succeed -- a filename PyPI has accepted is never "
+                  f"reusable -- so bump the version instead."
+              )
           PY
       - name: Record the packaged version
         # Separate from the assertion above rather than folded into it, because
