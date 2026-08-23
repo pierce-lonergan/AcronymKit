@@ -64,16 +64,19 @@ identified from it. Any future number reported on MED1250 is a tuning number.
 role = "held_out"
 task = "span_detection"
 status = "reader_not_written"
-licence = "MIT"
+# CORRECTION. This said "MIT", which is the same error already caught and
+# corrected on [corpora.sdu21_ad] and never propagated here. The repository
+# ships an MIT LICENSE, but its README narrows the grant: MIT covers the
+# evaluation script and the baseline, while the dataset is CC BY-NC-SA 4.0.
+licence = "CC BY-NC-SA 4.0 (data); MIT (scorer and baseline only)"
 note = "BIO tags over scientific-paper sentences; no annotator pairing."
 
 [corpora.plod]
 role = "held_out"
 task = "span_detection"
-status = "reader_not_written"
+status = "evaluated (span detection)"
 licence = "CC BY-SA 4.0"
 vendorable = false
-status = "evaluated (span detection)"
 note = """
 CORRECTION. This entry called PLOD a "non-biomedical counterweight". It is not.
 PLOD is drawn from PLOS journal text and is dominated by the life sciences
