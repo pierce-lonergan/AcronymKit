@@ -9,6 +9,912 @@ Newest first.
 
 ---
 
+## D-051 — The definition of done, read together for the first time: five met, three not, and both flips were scoping errors
+
+**Status:** swept and published · **Amends:** D-044 (criterion 1), D-013 (the import triple) ·
+**Evidence:** `docs/DEFINITION-OF-DONE.md`; `micro.import` in `bench/results.json`;
+`tools/check_claims.py`; `bench/run_micro.py`; `python tools/splits.py --check`
+
+Eight criteria have governed what "finished" means here and have been answered one at a time, each in
+the round that touched it. Read together against the tree rather than against the last reading, two
+verdicts move — and neither moves because a number changed.
+
+```
+docs/DEFINITION-OF-DONE.md, re-derived 2026-08-24
+  1  abstention                  met with qualification   mechanism + publication, not value
+  2  every subsystem scored      NOT MET                  BackronymGenerator has no number
+  3  everything gated            NOT MET                  the gate cannot see every number
+  4  splits.toml governance      met                      parses, loaded, in CI, 26 mutation tests
+  5  non-biomedical + ceiling    met with qualification   ceiling IS in the table; genre != domain
+  6  extension points            met                      four injectable; pack group deleted
+  7  clean-report-data-loss      met                      three defects re-probed, all fixed
+  8  do-not list grew            met                      nine carried, one added, none withdrawn
+```
+
+**Criterion 2 was carried as met and is not, and the failure is one of scope, not of evidence.**
+`BackronymGenerator` is a box in the architecture map, two facade methods, two CLI commands and a
+README section with worked output, and it carries no accuracy number of any kind.
+`docs/EVALUATION.md` says as much in its own words. Reading "every shipped subsystem" as "every
+subsystem with a registered corpus" makes the criterion true by construction, which is exactly the
+move this file exists to make expensive. Closing it needs either a backronym gold — a phrase, a
+target word and a human's judgement that the alignment is good, which nobody has published — or an
+amendment that names the excluded subsystem out loud. **Inventing a number for it would be worse
+than the open verdict.**
+
+**Criterion 5 confirms on its wording, and the qualification underneath it moved.** The short-form
+recall ceiling really is printed in the same table as the recall it bounds, in D-039 and now in
+`docs/EVALUATION.md`, which is R9.6 satisfied. What stays open is not the ceiling: `bench/splits.toml`
+establishes by counting that the split the corpus calls "legal" is UN institutional prose with zero
+occurrences of six basic terms of legal practice. A different genre is worth having and it is not a
+different domain, so the domain-generalisation gap this criterion was written about is untouched.
+
+### The import claim: already gated, and the re-record refused
+
+The instruction was to gate `import acronymkit`, described as `1.8 ms` against a documented `7.71 ms`
+and therefore a large un-gated win. All three parts fail on checking. Verified for this record
+straight out of the results file:
+
+```
+bench/results.json, micro.import -- gated since D-013
+  cold_import_ms         2.3
+  cold_import_engine_ms  128.1
+  cold_first_result_ms   196.0
+  iterations             9
+```
+
+`7.71` is the audit's eight-distribution virtual environment, measured to argue against scanning
+entry points on the import path; it was never this project's import figure, and reading it as a
+"before" compares two environments. And the movement is the machine, not the package:
+
+```
+un-gated -- five consecutive medians-of-nine, 2026-08-24, development box, NOT saved
+  import acronymkit               1.9  2.0  1.9  2.1  2.1 ms    recorded 2.3     DOWN
+  from acronymkit import Engine   140.1 143.4 143.3 144.5 151.1  recorded 128.1   UP
+  import + first generate         206.3 209.0 209.0 208.8 216.9  recorded 196.0   UP
+```
+
+Nothing this project did makes the shell cheaper and the engine dearer in the same measurement. D-038
+already A/B'd the only recent change to the import path — deleting the entry-point scan — and
+recorded it as a non-result on purpose, because the scan was never on that path.
+
+**What saving anyway would have cost, and why `--only import` does not prevent it.** The flag
+protects the per-call latency arms; it does not protect the three import figures from each other,
+because they are one entry. The only way to re-record the flattering figure is to re-record the other
+two, and those three are quoted as a triple in five places no runner regenerates — D-013's
+before/after table, `docs/EVALUATION.md`'s import-column caveat, `docs/notes/pydantic-cost.md`,
+`CHANGELOG.md`, and the "why 30 ms" comment in the CI `import-time` job. The third row exists
+precisely to stop the first being read as a win. **A `--save` would have published drift as a win in
+README while staling, in the opposite direction, the caveat that prevents that reading.** That is
+D-013's flattering comparison arriving through the runner rather than through the prose.
+`bench/run_micro.py` now prints, at the moment `--save` is used, every field being overwritten with
+its old and new value, and names the five documents when `micro.import` is among them.
+
+### R1: README is the first document at zero, and the ratchet moved with it
+
+```
+python tools/check_claims.py, run for this record, 2026-08-24
+  scanned 58 files, 535 claims | cited 462 | value-matched 71 | allowlisted 2 | unbacked 0
+  value-matched ratchet: 71 of 71 budgeted across 4 file(s)
+  VALUE_MATCHED_BASELINE   README.md  5 -> ABSENT   (absent reads as zero)
+```
+
+Five value-matched claims migrated to run-id citations and the baseline lowered in the same commit,
+which is what R1 requires and what stops a freed slot being occupied quietly by the next bare number.
+Ten further measured figures were found in README that the gate had never seen at all: `check_claims`
+arms only within 48 characters of eleven keywords, so a figure written further away is not merely
+un-cited — it is counted in no total and reported in no summary. One README sentence held both
+states: two figures on the same line, both about the same measurement, one inside the window from
+`mean absolute error` and counted, the other a few words further along and invisible. (Writing the
+two character distances out here would itself have added two value-matched claims to this file, for
+numbers that are not claims at all. The gate is doing its job and the failure mode cuts both ways.)
+
+### Criterion 9, proposed and not met
+
+**"The two tasks the README leads with can be adjudicated by a corpus this project did not tune on."**
+Verified live for this record: `headline_capable('extraction')` and `headline_capable('disambiguation')`
+both return empty, and `python tools/splits.py --check` prints both gaps. The flagship number and the
+worst number are the two with nothing behind them.
+
+The collision worth carrying forward: **criterion 9's disambiguation half cannot be closed with any
+corpus currently registered.** The only capable instrument is SDU-21 AD `test.json`, which D-043 has
+already assigned to a different question. One unread split, two questions — the same shape as D-047
+below, one task over. It needs a new corpus, not a re-run.
+
+### How it fails
+
+Nothing in CI asserts any of the eight, and four verdicts rest on prose read on one day by one
+reader; `check_claims` catches a stale number and nothing catches a stale sentence, which is how
+D-037's three retired sentences survived. Two verdicts were taken against a tree other workstreams
+were still editing — criterion 5's location half depends on a concurrent `docs/EVALUATION.md` edit,
+and if that is reverted the criterion re-opens — which is also why the sweep transcribes no
+project-wide claim total and prints the command instead. Criterion 3's evidence is circular: the
+invisible figures were found by eye, so ten is a lower bound, and no document other than README was
+swept the same way. Criterion 7 quantifies over *known* defects and all three originals were found by
+a person driving the public API rather than by a check. And the import refusal is a reading of three
+figures moving in two directions, not an A/B across a commit; if the three are ever re-recorded
+together with a change that explains all three, this record is what should be cited against the story
+where the import cost fell alone.
+
+**One out-of-assignment edit landed with this work and is recorded rather than buried.**
+`tools/check_claims.py` was not the workstream's file, but `baseline_problems()` fails the build on a
+*decrease* as loudly as on an increase, so migrating README's five claims and leaving the entry alone
+would have left the claims gate red. The edit is confined to the README key. R1 mandates exactly that
+pairing; the note is here because "the rule told me to" is a reason to record an out-of-scope edit,
+not a reason to omit it.
+
+---
+
+## D-050 — The AST guard is retired, and the job that subsumes it is not the one everybody assumed
+
+**Status:** shipped (tests + CI comments) · **no experiment number spent** ·
+**Evidence:** `tests/test_packaging_manifest.py`, the `installed-suite` and `build` job comments in
+`.github/workflows/ci.yml`
+
+`tests/test_packaging_manifest.py` held an AST scan for test modules that load an unshipped path at
+import. It failed in the shape it was installed to prevent twice, each fix resolving one more level
+of indirection. D-040 built a structural job — `installed-suite` — and the question was whether it
+subsumes the pattern. Each of the five historical breakages was reintroduced one at a time on a
+scratch clone and run through that job's literal command sequence.
+
+```
+un-gated, workstream measurement, 2026-08-24, CPython 3.13, Windows
+(`Scripts/python.exe` for `bin/python`), gate exactly as written in ci.yml
+                                              installed  extracted  test -f
+                                              -suite     tree       lines
+  a  bench/results.json out of the sdist      passes     FAILS      FAILS
+  b  data/LICENSES.md out of the sdist        passes     passes     FAILS
+  c  tests/fixtures/*.json out of the sdist   FAILS      FAILS      --
+  d  test_governed_gold.py loads bench/       FAILS      FAILS      --
+  e  test_splits_manifest.py loads bench/     passes     FAILS      --
+```
+
+### `installed-suite` catches two of five, and misses the one that matters
+
+`a` and `b` are invisible because the run directory holds `tests/` and `pyproject.toml` and nothing
+else, and the only test reading `bench/results.json` is one of the two that cannot collect at all.
+
+**`e` is the finding.** It is the *same defect as `d`*, in a file already on `EXPECTED_NON_PASSING`,
+and it produced a log identical to a clean run — same pass, skip, failure and error counts, the same
+eight checkout-only entries "accounted for exactly", gate `rc=0`. **While a file is on that list the
+job cannot see a second defect inside it**, because the entry is keyed on the file and the file was
+already going to error. D-040 anticipated the opposite direction: a future workstream *guarding* a
+listed file and firing the stale-entry branch. This direction was recorded nowhere.
+
+So the premise the retirement was proposed on — that `installed-suite` catches this class by
+construction — is false on the printed table. **Structural-by-construction stops at the boundary of a
+list of names.** Had the guard been retired on that reasoning alone, the one breakage that motivated
+the last two fixes would have had no check on it in the `test` job at all, and the fact that `build`
+still covers it would have been true by accident rather than by anyone's decision.
+
+### What does subsume it is `build`'s extracted-tree step
+
+```
+un-gated, same session, with tests/test_packaging_manifest.py DELETED from the
+extracted tree so the failure cannot be the guard firing inside that run:
+  d  extracted-tree `pytest -q -x`   rc=1
+  e  extracted-tree `pytest -q -x`   rc=1
+     unmutated baseline              rc=0
+```
+
+That step catches four of five, by **executing the import rather than matching a pattern**, so no
+spelling hides from it — which is precisely how the guard was beaten twice. The guard is deleted:
+`_UNSHIPPED_ROOTS`, the two AST helpers, the check and its now-unused `import ast`. Verified for this
+record: `tests/test_packaging_manifest.py` contains zero occurrences of either name.
+
+D-018's rule appears once more, one level up. A pattern that describes the bug cannot be used to test
+for the bug; only running the thing can.
+
+### The manifest-vs-tree half stays, on its own measurement
+
+```
+un-gated, same session. Add tests/fixtures/governed/policies.yaml, a file the
+`recursive-include tests/fixtures *.json *.jsonl *.csv *.txt *.md` format does
+not name:
+  absent from the built sdist                            (confirmed at the artifact)
+  build / extracted-tree `pytest -q -x`     rc=0          PASSES
+  installed-suite                           gate rc=0     PASSES
+  test_every_fixture_data_file_is_named...  names it      FAILS
+```
+
+Both structural runs are silent, because a fixture is caught only through a test that runs and reads
+it, and no such test exists yet. This is not "keep both to be safe": it is a coverage gap measured in
+the same session as the retirement.
+
+### The suite count, and why it is not the number the mandate carried
+
+```
+python -m pytest tests, run for this record on the shared tree
+  4,537 passed, 10 skipped, 1 xfailed
+  = 4,531 (mandate) - 1 (this guard) + 7 (D-045's new extractor tests)
+```
+
+Two workstreams moved the count in one round and neither number alone reconciles. Recorded here so
+the next mandate quotes 4,537 rather than either workstream's local arithmetic.
+
+### How it fails
+
+**The retirement rests on `bench/*.py` staying out of the sdist.** That absence is what makes the
+import raise in the extracted tree. `MANIFEST.in` ships `bench/results.json` and nothing else from
+`bench/`; if a future commit ships the runners, `build` stops seeing this class and the only net left
+is the job that is blind in two files. That is now written into `ci.yml` beside the retirement, and
+it is a coupling between a manifest line and a check that nothing enforces.
+
+Coverage also moves from the `test` job to `build`, which needs `[lint, test, resources]` — so the
+class is caught later in the same run and never on a laptop before a push, and the message degrades
+from one naming the offending file and line to a raw `FileNotFoundError` from a tarball under `/tmp`.
+`data/LICENSES.md` is now held by one `test -f` line and nothing else, measured rather than assumed.
+`EXPECTED_NON_PASSING` was documented, not shrunk. And every verdict here is Windows/CPython 3.13;
+ubuntu/3.12 under GitHub's `bash -e` is unexecuted, as it was for D-040.
+
+**Three of these measurements were wrong the first time and the reason is worth carrying.** A stale
+`src/acronymkit.egg-info/SOURCES.txt` made setuptools ship files `MANIFEST.in` no longer named, so
+cases `a`, `b` and `c` were run against unmutated artifacts and all reported "not caught". Every case
+was re-run after `rm -rf src/*.egg-info`, and each mutation was then confirmed *at the artifact*
+before a verdict was recorded. The uncaught version of that error reaches the same conclusion by
+luck, on false evidence.
+
+---
+
+## D-049 — W11: the emission-model question is scoped, and the corpus that would sell it already has a one-line rule beating this library on the same label
+
+**Status:** workstream scoped, **not adopted**; no decision taken · **Promotes:** the API question
+posed and refused in D-041 · **Evidence:** `docs/notes/w11-emission-model.md`; `spans.plod.all.*` in
+`bench/results.json`; `bench/splits.toml`; `src/acronymkit/models.py`, `bench/run_spans.py`
+
+D-041 closed long-form-keyed precision filtering and found a larger question underneath it: **should
+`extract()` be able to emit a short form with an absent or low-confidence long form?** It recorded
+the question and declined to answer it. W11 is that question promoted to a workstream, scoped and
+costed in `docs/notes/w11-emission-model.md`. **This record does not adopt it.** It fixes three
+things a future round would otherwise re-derive, and one of them changes the case.
+
+*A naming hazard, because it will bite:* **W11 is a workstream and experiment eleven is an experiment
+number, and they are unrelated.** Experiment eleven is still free and W11 has not spent it.
+
+### The number that decides how W11 is allowed to be pitched
+
+Verified for this record out of the results file, not transcribed:
+
+```
+bench/results.json, spans.plod.all.tight.*   PLOD-CW, HELD OUT, uncontaminated,
+exact convention, native offsets
+  system                              sfP      sfR     sfF1
+  acronymkit.high_precision.native   93.66    36.53    52.56
+  allcaps  (one-line rule)           64.45    73.37    68.62   <- baseline wins
+  oracle_definitional (no allcaps)            37.50
+  oracle              (all rows)              82.36
+  and the allcaps long-form row is printed as 0.00 rather than hidden
+```
+
+`predict_all_caps` in `bench/run_spans.py` **already emits short forms with no long forms**, and the
+span harness scores it without complaint. So the emission model W11 proposes is not a capability this
+library lacks — it is a floor this library is already below on the short-form label, on the only
+held-out corpus that can see it.
+
+**This is the D-044 shape arriving in the extraction half.** D-044 shipped a mechanism for the
+disambiguator to decline to answer and then found the curve losing to counting words. W11's mechanism
+would ship into a table where the trivial control already has the better F1. The consequence is
+recorded as a constraint on the pitch rather than as a kill: **W11's product claim can never be "we
+can emit unpaired short forms"** — only "we emit them at a precision materially above the all-caps
+rule while adding recall the pair model cannot reach". `allcaps` is scored in token space with no
+detokenisation, an advantage `bench/run_spans.py` states and calls small; it is small, and it does
+not explain a gap of this size.
+
+### The wire-contract cost, corrected downward
+
+D-041 named the governed JSON contract, the golden fixtures and a JVM port as the R8 surfaces at
+risk. Checked for this record, **none of the three is affected**:
+
+```
+docs/notes/governed-json-contract.md   AcronymPair appears ZERO times; §1 excludes
+                                       the generation-side DTOs
+tests/fixtures/governed/golden/        8 .jsonl files, all governed verbs.
+                                       NO golden fixture for extract()
+schemas/                               one file, acronym-engine-result.schema.json.
+                                       AcronymPair has no published JSON Schema
+docs/JAVA_INTEROP.md                   no JVM artifact exists and GraalPy cannot host
+                                       extraction, so no JVM caller can break
+```
+
+What does bind is the Python wire, and it binds precisely: `extra="forbid"` makes any added key a
+`ValidationError` for a consumer reconstructing the model from JSON, and `long_form=None` is a
+`ValidationError` today. **R8 still applies — one Python package and one CLI JSON mode is a public
+contract — but the change is narrow, not wide, and pricing it as wide would have killed W11 for the
+wrong reason.**
+
+### Two options refused on shipped evidence
+
+**A long-form confidence answers nothing.** `_confidence(short, long)` is a *pair* confidence bounded
+in `[0.6, 1.0]`; a low-confidence long form is still a long-form string and still a long-form false
+positive, so pair atomicity is untouched. It reduces to a threshold on the long form alone, which
+D-041 already lists as closed in advance.
+
+**A `(0, 0)` sentinel corrupts output silently.** `_pair_anchor` and `_attach_sentences` both compute
+`min(short_form_span[0], long_form_span[0])`, so every unpaired emission would sort to the front of
+its document and be handed the document's first sentence. Both failures produce plausible output,
+which is the worse kind. The surviving shape is a separate mention type behind an off-by-default
+emission mode.
+
+### What W11 may spend, and what it may not
+
+W11 scores as `span_detection` on the short-form label and **needs no new `task`**, so the closed
+vocabulary `bench/corpora.py` depends on is untouched. Its measurements belong on the two already
+contaminated SDU-22 dev splits. `sdu21_ai` stays shut — D-043 calls it the only unspent capable
+instrument for a span claim — and SDU-22 `train.json` is allocated elsewhere by D-047. **PLOD may be
+scored and must not be diagnosed**: reading which short forms are missed and why is the act that
+contaminated MED1250 and both SDU-22 dev splits, and PLOD is the only uncontaminated span corpus this
+project has scored.
+
+And `bench/scoring.py` keys MED1250 on `short\x00fold(long)`, so on the only corpus registered under
+`task = "extraction"` an unpaired emission is a pure false positive: **the benefit is structurally
+invisible there and the cost is fully charged.** R9's corpus-capability question, asked of W11 and
+answered against it.
+
+### How it fails
+
+**The strongest number is one corpus.** PLOD is PLOS life-sciences text, already corrected once in
+`bench/splits.toml` after being filed as a non-biomedical counterweight and cited as domain evidence
+in two documents. Everything the pitch constraint rests on rests on it.
+
+**The discriminator that would settle whether W11 is a real gap is specified and unrun**,
+deliberately, because running it would have put a new un-gated figure into a `docs/*.md` page — which
+is what R1 exists to stop. So this record scopes a workstream whose decision point has been defined
+and not reached.
+
+**The manifest's `18`-in-samples-with-zero-long-forms count hints against W11 and cannot settle it.**
+It counts *samples* where nothing is defined; the question is over *surfaces*. A draft of the note
+read it as proof the excess is repeat occurrences of locally defined abbreviations, which it is not,
+and the note records the over-read rather than deleting it — it is the same compress-out-a-qualifier
+failure that produced both dead phrasings of the abstention finding.
+
+**"Scope W11 before W10" could not be fully checked**, because W10 is named nowhere in this
+repository. The note states the reading it used — the held-out extraction corpus D-042 names as the
+lead item on its adopted-library arm — and flags the one section that depends on it. D-048 takes the
+same reading, independently.
+
+**The note is unlinked.** Nothing in `docs/DECISIONS.md` pointed at `docs/notes/w11-emission-model.md`
+until this record did. An unlinked design note is how a scoped workstream becomes an unscoped one two
+rounds later.
+
+---
+
+## D-048 — `extraction` gold is an edge claim and `span_detection` gold has no edges. The empty row is real, and W10 is the lead item.
+
+**Status:** analysis; taxonomy affirmed, no code changed · **Amends:** D-036 · **Bears on:** D-041,
+D-042, D-043 · **Evidence:** `bench/run_spans.py::SpanPrediction`; `shortform.med1250_all.legend_exposure`,
+`shortform.plod_all.corpus` in `bench/results.json`; un-gated probes in the workstream's scratch
+
+`headline_capable("extraction")` returns empty. The question this round was whether that is a fact
+about the world or an artifact of a vocabulary that split one task in two — because if MED1250 pairs
+and SDU/PLOD spans were the same task under two names, `plod` and `sdu21_ai` would *already* be the
+instrument and W10 would be unnecessary. **They are not the same task, and the empty row is real.**
+
+### What one gold record is, and the half `TASK_GOLD_UNIT` leaves implicit
+
+`TASK_GOLD_UNIT` is correct and states the *shape* of a record. The load-bearing property is
+*relational*:
+
+```
+  task             gold carries an edge?                      vertices are
+  extraction       YES, and the edge IS the whole gold        definitions only, NOT localised
+  span_detection   NO, by the annotators' own convention      every occurrence, localised
+```
+
+MED1250's gold is `sf|lf` strings with no offsets anywhere in the file. PLOD and SDU-22 tag every
+acronym occurrence, defined or not, and never say which long form belongs to which acronym. **Each
+corpus holds exactly what the other lacks**, which is why neither derives from the other.
+
+### The adversary the span corpora cannot catch
+
+Two systems emitting exactly PLOD's gold spans, differing only in the pairing, scored through the
+shipped `bench.run_spans.score` unmodified:
+
+```
+un-gated -- plod_cw all, 650 of 1,351 documents permuted, 1,376 of 1,804 gold
+long forms mis-paired
+  metric                 honest   permuted   delta
+  long_form.exact        100.00     100.00    0.00
+  long_form.overlap      100.00     100.00    0.00
+  short_form.exact       100.00     100.00    0.00
+  short_form.overlap     100.00     100.00    0.00
+```
+
+A system wrong about three quarters of PLOD's definitions is indistinguishable from a perfect one.
+**The type that carries a prediction into the span scorer has no slot for the edge** — verified for
+this record directly against the shipped dataclass, whose fields are exactly `short_forms` and
+`long_forms`. `locate_pair` computes the edge and `localise` throws it away.
+
+### Which derivations are legitimate, and which are invention
+
+Coarsening a **prediction** from a pair to two span sets is mechanical and honest — the thing being
+reshaped is our own output — and `run_spans.py` already does it. Enriching **gold** in either
+direction is invention:
+
+```
+un-gated -- corpus structure only, no extractor run
+                                        plod_cw all   sdu22 legal dev   sdu22 sci dev
+  SFs with NO preceding LF at all       576  22.07%     365  30.54%     223  23.11%
+  two defensible pairing rules DISAGREE 433  16.59%     134  11.21%      87   9.02%
+
+  med1250, 1,221 gold pairs
+    LONG form not a verbatim substring          24    1.97%
+    SHORT form occurs more than once         1,018   83.37%
+```
+
+Nearest-preceding-long-form and best-character-alignment are both what an implementer reaches for,
+and they disagree on one PLOD short form in six. The first is *undefined* on 22–31%. Going the other
+way, localising a MED1250 pair to a span is a choice on five records in six.
+
+### The escape hatch, and the arithmetic that closes it
+
+Restricting to documents holding exactly one acronym and one long form forces the edge by counting
+rather than by assumption — no invention. It still fails.
+
+```
+un-gated -- forced subset; Schwartz & Hearst validity implemented locally, deliberately
+NOT acronymkit's own matcher, which would make the corpus answer with our own code
+  documents with exactly one AC and one LF     plod 411    legal 158   sci 258
+    do not align, lenient                       15  3.65%   5  3.16%    8  3.10%
+    residue: 'UK' <- 'University of Manchester'    'SDS' <- 'system'
+             'be' <- 'slip coefficient'           'r'   <- 'correlation'
+
+on a 411-pair derived corpus:
+  a 0.36-point movement (83.85 -> 84.21)      =   1.5 pairs
+  invented / non-definitional gold at 3.65 %  =  ~15 pairs
+```
+
+**The noise floor of the derived gold is an order of magnitude larger than the effect it would
+adjudicate.** That closes `bench/splits.toml`'s route 2 — "derive pairs by adjacency and label the
+corpus derived pairing" — on arithmetic rather than on principle. Route 1 was already taken and is
+gated.
+
+### The repository's own practice already agreed
+
+It coarsens predictions freely and has never once enriched gold. The single gold-side derivation is
+`run_shortform.py::_text_and_gold_starts`, which feeds a corpus-capability count and never a scored
+claim. That was hunted for a false zero, since `str.find` takes the first occurrence while — un-gated
+— 29.73% of MED1250 gold long forms occur more than once: FIRST-occurrence 0, ANY-occurrence 0.
+Confirmed for this record against the gated field — `shortform.med1250_all.legend_exposure` records
+`gold_long_form_spans_after_a_separator = 0` of 1,221, and it is a true zero.
+
+### The consequence for W10, stated plainly
+
+**W10 — a held-out extraction corpus with annotator-asserted edges — is the LEAD ITEM, not the long
+pole, and this record removes the only route by which it could have been avoided.** The two empty
+rows invite "this project has no held-out number", and that is false:
+`headline_capable('span_detection')` returns `['plod','sdu21_ai']` and
+`spans.plod.all.tight.acronymkit.high_precision` is gated, held out and uncontaminated. What is
+missing is a held-out number **for the shape of claim the README leads with**. The correct sentence
+is: *the flagship claim is an edge claim, and no held-out corpus in this project contains edges.* The
+weaker version invites "but PLOD is held out", whose answer is the adversary above.
+
+Two limits on that, both load-bearing:
+
+**One W10 does not close both empty rows.** The `disambiguation` row is empty for the same type
+reason and a pair corpus does nothing for it (D-043). Anyone costing W10 as "closes the two gaps
+`--check` prints" is costing the wrong artefact.
+
+**The verdict is contingent on one open design question.** D-041's fork — should `extract()` emit an
+unpaired short form? — is the single fact that would change which corpus the headline needs, because
+answering it *yes* is the only route by which `plod` and `sdu21_ai` could become the flagship
+instrument. D-049 scopes that question and does not answer it. **If it is ever answered yes, re-read
+this record before funding W10.**
+
+### How it fails
+
+The 16.59% depends on which two pairing rules were picked; the claim is that two defensible rules
+disagree materially at all, not that 16.59% is *the* invention rate. The forced-subset alignment test
+is a proxy — character alignment is the field's criterion for a definition, not the definition of one
+— and its residue contains errors of both signs; a first pass flagged 6.33% and inspection showed a
+chunk of that was the aligner's strictness on plurals and hyphens rather than a corpus fact, so 3.65%
+is published as a lower bound with the strict figure beside it. A crude 49.72% "acronym-shaped
+surface not in gold" figure exists in the workstream's report, is labelled a two-line heuristic rather
+than PLOD's guideline, and **is not quotable**. Two of the three span corpora here are contaminated
+tuning splits, used only for annotation *structure* — the same class of statistic as
+`sdu22_ae_recall_ceiling`, selecting nothing — so the load-bearing adversary rests on PLOD alone.
+`sdu21_ai` was not opened: its manifest entry declares "no annotator pairing", which is the
+disqualifying property, so the adversary applies to it by type; writing its reader would buy exact
+proportions and cannot change the verdict.
+
+### One change recommended and not made
+
+`TASK_GOLD_UNIT`'s `extraction` and `span_detection` entries state the shape of a record and not the
+edge. One clause each — extraction's gold *is* an edge; span detection's is two unlinked vertex sets
+with a wider extension — would put this whole argument where the next person finds it, in the same
+place the `identifier_segmentation` entry already does that job well. That is a `tools/splits.py`
+edit and it is owed.
+
+---
+
+## D-047 — SDU-22 legal `train.json` is allocated to the legend flag's cost, experiment nine loses, and one runner invocation answers both arms anyway
+
+**Status:** allocation made; loser named; trigger recorded · **Resolves the collision found in:**
+D-043 · **Amends:** D-032 (experiment nine's precondition), D-039 (the precondition for flipping the
+legend default) · **Evidence:** `bench/splits.toml` `[corpora.sdu22_ae_legal]`,
+`[corpora.sdu22_ae_scientific]`; `bench/run_shortform.py` `_VARIANTS`;
+`shortform.sdu22_ae_*_dev.corpus` and `.legend_cost` in `bench/results.json`
+
+D-043 recorded that SDU-22 `train.json` is claimed twice — it is D-039's named precondition for
+flipping the legend default and D-032's named precondition for reopening experiment nine — and that
+whichever runner touches it first spends it incidentally. **Leaving both claims live is how a budget
+gets spent by accident, so this record allocates it rather than letting priority be inferred from
+whoever runs first.** The allocation is written into `bench/splits.toml` as well, because the person
+about to spend it will have that file open and not this one.
+
+### First, what is actually scarce, because it is less than R3's language implies
+
+Both SDU-22 AE entries are **already** `role = "tuning"` and `contaminated = true`; the corpus offers
+no held-out arm and never did, since both English test splits carry zero labels. So spending
+`train.json` costs no blind split. **What it costs is the last UNMINED arm of the corpus** — a
+within-corpus arm whose misses nobody has read, which can be run against once before it becomes as
+contaminated as the dev splits it sits beside. That is a real budget and a smaller one than "a
+held-out corpus", and an allocation that over-states the stake invites the next round to over-pay for
+it.
+
+### The allocation
+
+```
+[corpora.sdu22_ae_legal] train.json -- 3,564 unread samples, ONE unmined read
+  ALLOCATED TO   the legend flag's precision cost on an arm that was not mined
+                 to invent it (D-039, D-045). W8 owns the read: it decides when
+                 the split is read, which miss decomposition is published, and
+                 what may be concluded.
+  LOSER          experiment nine, the two-word bracketed short form (D-032).
+                 It stays HELD. Holding it costs nothing; the legend flag is
+                 SHIPPED and its cost is unmeasured on any unmined corpus,
+                 which is a live liability rather than a parked one.
+  FREE RIDE      `bench/run_shortform.py --variants` scores `two_word` and
+                 `legend` in ONE invocation over the same corpus. The run that
+                 spends this split MUST save the `two_word` row too: it costs
+                 zero additional reads and it is the only way experiment nine
+                 is ever answered once the arm is mined.
+  NOT PERMITTED  experiment nine commissioning a read of its own, or a miss
+                 decomposition of its own. If the two arms disagree about what
+                 to publish, W8's question governs.
+```
+
+The free-ride clause is the part that is checkable rather than argued, and it was verified for this
+record: `_VARIANTS` in `bench/run_shortform.py` carries `("two_word", ...)` and `("legend", ...)` as
+rows of the same tuple, with `two_word` compared against `baseline` and `legend` against
+`balanced_trim`, which is the comparator D-039 requires. **The collision D-043 named is genuine, and
+it is a collision over who owns the read and the decomposition — not over which arm gets scored.**
+
+### The split can answer both questions, and that is a counted fact rather than an assumption
+
+R9's corpus-capability question, asked *before* the spend rather than after it:
+
+```
+bench/results.json, shortform.sdu22_ae_legal_dev.corpus and .legend_cost
+  gold short-form spans                        1,213
+  of them MULTI-TOKEN  (experiment nine)          26     2.14 %
+  separators           (the legend rule)         138
+  legend pairs emitted, high_precision            83
+  separators opening a number                      0     0.00 %
+
+  compare PLOD, on which experiment nine was refused:
+  shortform.plod_all.corpus.gold_short_form_spans_multi_token   0 of 2,869
+```
+
+**PLOD carries zero multi-token gold short-form spans, so it could not score experiment nine even in
+principle; the legal split can.** That is why D-032's precondition named this file, and it is why the
+free-ride clause is worth writing rather than waving at.
+
+Scaling from the ceiling basis already in the manifest — legal train holds 9,532 gold acronym spans
+against dev's 1,213, a factor of 7.86 — dev density projects roughly 200 multi-token spans and about
+1,100 separators on train. **Those two figures are arithmetic on a gated dev count and are not
+measurements**; they are here to say the arm is worth spending, not to be quoted.
+
+### What the spend can buy, and what it cannot — this is the part that must not be lost
+
+**It cannot license flipping the legend default on its own.** D-039's first reason for shipping the
+flag off is that *no uncontaminated, structurally capable corpus exists in this repository*, and a
+within-corpus tuning arm does not answer that. D-039 says so itself: this split "buys within-corpus
+corroboration and not generalisation".
+
+**And it cannot answer the risk the flag is actually off for.** D-045 measures the census: legal dev
+has `0 of 138` separators opening a number. The legal split is where the legend class is dense and
+where the equation surface is *absent*. So spending this arm measures the legend class's precision
+cost in institutional prose and says nothing whatever about `Tsat=Tamb`. Somebody who spends it and
+then reports "the equation risk is measured" has repeated D-045's own finding one corpus over.
+
+Stated positively, so the spend is not merely fenced: what it buys is the one thing nothing else in
+this repository can buy — **an honest precision delta for a shipped flag, on an arm that was not
+mined to invent it.** That is exactly the hole D-045 opens and cannot close, and it is worth one
+unmined split.
+
+### The trigger that reverses the allocation
+
+```
+  the allocation LAPSES and experiment nine inherits the split when either:
+    (a) a corpus that annotates legend definitions, is structurally capable,
+        and can be declared uncontaminated is registered -- which is D-039's
+        real precondition and makes this arm redundant for W8; or
+    (b) `legend_syntax` is deleted rather than defaulted, at which point W8's
+        question no longer exists.
+  NOT a trigger: experiment nine being older; a workstream needing a number
+  this round; the legend work stalling. Priority does not transfer by default.
+```
+
+### How it fails
+
+**An allocation in a D-record is not a mechanism**, which is D-043's own complaint about the AD
+`test.json` reservation and it applies here in full. Nothing in `tools/splits.py` refuses a run
+against `train.json`; the guard is that somebody reads the manifest note this record puts in front of
+them. Writing it in two places — here and in `bench/splits.toml` — is deliberate and is also exactly
+the duplication D-045 warns turns one description stale without anybody noticing.
+
+**The free-ride clause could be read as making the allocation moot.** It does not: whoever owns the
+read owns the *decomposition*, and the decomposition is what mines the arm. But a reader who takes
+only the fenced block could conclude the collision was imaginary, and it was not — D-043 was right
+that first-touch was deciding it.
+
+**The scaling figures are extrapolation from one dev split** and the recall-ceiling basis is the only
+evidence that legal train resembles legal dev in structure. It decomposes well there (55.04% against
+55.15%), which is why the extrapolation is offered at all, and it is still an extrapolation.
+
+**Scientific `train.json` is left unallocated on purpose, and that is the weakest line in this
+record.** Both live claims name the legal split, so allocating the scientific one now would mean
+inventing a use for it — which is the failure D-043 corrected when the AD reservation attracted a
+proposal it could not serve. What is written instead is a *rule*: the first spend of scientific
+`train.json` requires its own record, and first-come is refused. That is a checkable state rather than
+a drift, and it is not a use.
+
+---
+
+## D-046 — A revert criterion must name a corpus where the mechanism fires, and the firing count is what establishes that
+
+**Status:** project rule, no code changed · **Generalises:** D-045 · **Bears on:** D-032, D-033,
+D-039 · **Evidence:** `shortform.med1250_all.legend_firing` and
+`shortform.med1250_all.legend_exposure` in `bench/results.json`; D-039, D-032, D-033
+
+D-045 is a finding about one flag. This record is the transferable half, separated because the next
+person to write a revert criterion will not be reading about legend syntax.
+
+### The rule
+
+**A revert criterion is only a test if it is evaluated on a corpus structurally capable of exhibiting
+the phenomenon the criterion is about, and the thing that establishes capability is the number of
+times the mechanism FIRES — not the number of documents, not the corpus's reputation, and not the
+fact that the score did not move.**
+
+The failure mode is specific and it is quiet:
+
+```
+  the criterion       "if MED1250 precision moves at all, revert"
+  the outcome         precision did not move, on any split, under any profile
+  the reason          the rule emitted 0 pairs on 1,252 documents
+                      -- shortform.med1250_all.legend_firing, verified for this
+                         record: legend_pairs_emitted = 0 for all three profiles
+  what was reported   the criterion passed
+```
+
+Bit-identical output was evidence the rule never ran, and it was read as evidence the rule is
+harmless. Nobody was careless: the criterion was written by a mandate, accepted by a workstream and
+reported as passed, and D-039 even carried `gate_a_prefix_aligns = 0` in its own evidence block
+without reading it as the reason the criterion held.
+
+### Be exact, because the strong version of this is false
+
+**The criterion was not literally untestable.** A rule that fired on MED1250 and was wrong would have
+failed it. What it tested is far narrower than what it was read as testing: *that the gates refuse a
+numeric assignment*. On that corpus 394 of 401 separators open a number and, under the loosest shipped
+profile, 396 reach the alignment, which refuses every one. **A gate under load is real evidence.** It
+is not evidence about what the rule costs when it emits, because on that corpus it never does.
+
+So the rule above has a second clause: **a criterion evaluated where the mechanism does not fire is
+testing the gate, not the cost, and must say which of the two it tested.**
+
+### Was this already recorded? Partly, and in the wrong shape
+
+Grepped for the mechanism before writing this, as R9 requires. Three neighbours exist and none of
+them is this rule:
+
+```
+  D-032   PLOD "cannot show the upside even in principle" (0 multi-token gold
+          short-form spans) -- recorded as a CORPUS PROPERTY qualifying a
+          result, not as a defect in a decision procedure
+  D-039   legend_exposure's zeros are published in the record itself, as a
+          caveat under the table -- "that table alone says almost nothing"
+  D-033   R9's fifth question asked of a TEST SUITE: an idempotence test that
+          varied identifiers and policies but never catalogs, and so was
+          structurally incapable of firing however long it ran
+```
+
+D-033 is the closest and it is about a test that could not fail. This one is about a *criterion* that
+could not fail — the same arithmetic, applied to the decision procedure rather than to the assertion.
+The distinction is worth its own number because the two are found by different searches: a person
+auditing tests finds D-033, and a person writing "revert if X" finds nothing.
+
+### What a criterion has to carry from here
+
+```
+  1. the corpus, and the count of times the mechanism fires on it. Zero is a
+     valid answer and it INVALIDATES the criterion rather than satisfying it.
+  2. which of two things is being tested -- that the gate refuses, or what the
+     rule costs when it emits. They need different corpora and only one of them
+     is a safety property.
+  3. the INCREMENT, not the corpus total, wherever the mechanism touches a
+     minority of predictions. A corpus total dominated by predictions the
+     change cannot reach will report "no movement" for a change that is wrong
+     about everything it touches.
+```
+
+And the negative half, which D-045 observed rather than invented: **a replacement threshold must not
+be fitted to the data that has just been collected.** D-045 deliberately wrote no numeric cut-point
+to replace the retired criterion, because a cut-point chosen after seeing the measurement is a tuned
+parameter wearing a rule's clothes — D-044's own objection, and D-032's reason for using the
+project's existing 16-word `SKIPPABLE` set rather than a set chosen after seeing the corpus. The
+worst measured values are the reference points instead.
+
+### How it fails
+
+**This rule is more expensive than it looks.** Establishing a firing count means building an
+instrument before writing the criterion, and D-045 needed a new runner mode over 1,252 documents and
+six full corpus passes to produce one. A round under time pressure will write the criterion first and
+call the instrument a nice-to-have, which is exactly what happened.
+
+**"Structurally capable" is not binary and this record states it as if it were.** MED1250 is blind to
+the legend *class* and loads the *gate* heavily; PLOD has 0.89% capability and 12 predictions, which
+is neither zero nor useful. A count with no threshold beside it invites the next person to declare
+`n = 12` sufficient, and no threshold is offered here on purpose — see the fitting objection above,
+which cuts both ways.
+
+**It cannot be enforced.** Nothing in `tools/` reads a revert criterion, and the criteria live in
+mandates and D-records rather than in code. This is prose defending against prose, which is the
+weakest instrument this project has and the only one available for a rule about how decisions are
+worded.
+
+---
+
+## D-045 — A revert criterion evaluated on a corpus the rule never fires on tests the gate, not the cost
+
+**Status:** criterion retired and replaced; feature kept, default unchanged ·
+**no experiment number spent — experiment eleven is still free** · **Amends:** D-039 ·
+**Generalised by:** D-046 · **Evidence:** `shortform.med1250_all.legend_firing`,
+`shortform.sdu22_ae_{legal,scientific}_dev.{high_precision,general,biomedical}.legend_cost` in
+`bench/results.json`; `bench/run_shortform.py --legend-cost`; `docs/EVALUATION.md`;
+`tests/test_extractor.py`
+
+D-039 shipped `legend_syntax` against an absolute criterion — *if MED1250 precision moves at all,
+revert* — and recorded that the `legend` row was bit-identical to `balanced_trim` on every field, all
+three profiles, both splits. That is true. It is also the wrong thing to have been reassured by.
+
+### The rule emits nothing there, and now that is a number rather than an inference
+
+```
+bench/results.json, shortform.med1250_all.legend_firing
+through extract() itself, 1,252 documents, MED1250 -- TUNING SPLIT
+  profile          legend pairs emitted   docs firing   exact P off -> on
+  high_precision            0                  0          92.46 -> 92.46
+  general                   0                  0          92.39 -> 92.39
+  biomedical                0                  0          86.43 -> 86.43
+  separators 401, of which 394 open a number (98.25 %)
+and, from shortform.med1250_all.legend_exposure:
+  gold long forms beginning after a separator: 0 of 1,221
+```
+
+D-039 already carried `gate_a_prefix_aligns = 0` in `legend_exposure`; what it did not do was read
+that number as the reason the criterion held. **Bit-identical output was evidence the rule never ran,
+and it was read as evidence the rule is harmless.** The transferable form of that is D-046; what
+follows is this flag.
+
+**Be exact, because the strong version of the correction is false.** The criterion was not literally
+untestable — a rule that fired on MED1250 and was wrong would have failed it. What it tested is far
+narrower than what it was read as testing: that the gates refuse a numeric assignment. It cannot test
+what the rule costs *when it fires*, because there it never does. That narrow test is worth
+something and this record keeps it: 394 numeric right-hand sides, 396 walked to the alignment under
+`biomedical`, every one refused. A gate under load is evidence. It is not evidence about emission.
+
+### The cost, measured where the rule fires
+
+```
+bench/results.json, shortform.sdu22_ae_*_dev.*.legend_cost
+SDU@AAAI-22 AE dev -- TUNING, CONTAMINATED for exactly this change: the audit
+decomposed both splits' misses by legend separator to rank this proposal.
+Comparator balanced_trim, as D-039 requires.
+
+  split / profile              added   SF exact P        SF overlap P
+  scientific / high_precision     39   95.90 -> 95.67    97.78 -> 97.44
+  scientific / general            39   95.90 -> 95.67    97.78 -> 97.44
+  scientific / BIOMEDICAL         52   94.29 -> 92.27    96.30 -> 94.13   <- worst
+  legal      / high_precision     83   93.66 -> 94.41    99.80 -> 99.83
+  legal      / general            83   93.67 -> 94.42    99.80 -> 99.83
+  legal      / biomedical         88   92.56 -> 92.65    98.59 -> 97.95
+  In this table no F1 falls, on either label, either convention. Neither that
+  nor anything else here extends past these six runs -- PLOD and MED1250 were
+  not re-measured for it.
+  Recall ceilings 74.23 % and 55.15 %; every recall stays under its own.
+```
+
+**The worst row is a row the shipping table did not contain.** `--spans` runs `high_precision` only
+and three profiles ship, so D-039's "worst move anywhere `0.34` points" is scoped correctly by its own
+code fence and is still incomplete: over all three profiles the worst move is `-2.18`. Nothing was
+mis-stated; one profile was measured, three ship, and the phrase "worst move anywhere" invites a
+reading the table does not support. That phrase is what needs amending, not the number, and D-039 now
+carries a pointer here.
+
+### R9.5, asked of this measurement rather than only of the last one
+
+The proposal reaching this round was that the precision risk lives in scientific text, because that is
+where equations and legends are both dense. **On the corpora this repository reads they are
+anti-correlated, and the census is what shows it.**
+
+```
+separators opening a number (a digit, or a signed digit, after the blanks)
+  MED1250                  394 / 401   98.25 %    legend pairs emitted:   0
+  SDU-22 AE scientific       5 / 147    3.40 %    legend pairs emitted:  39
+  SDU-22 AE legal            0 / 138    0.00 %    legend pairs emitted:  83
+```
+
+So measuring the scientific split does not close the hole D-039 left; it **relocates** it. The corpus
+that loads the gate cannot show the class, the corpora that show the class barely load the gate, and
+PLOD — the one held-out arm — has 0.89 % capability and 12 predictions. **The genre the risk was named
+for, engineering and physics body text, is still unmeasured**, which is the same reason the flag
+shipped off and the reason it stays off. D-047 records what the one remaining unmined arm can and
+cannot buy against this, because the answer is "not this".
+
+Exactly one added pair across all six runs is an equation: `X -> x|W1`, from
+`P (X = x|W1 = w1, . . . , WN = wN )`, and it needs `biomedical` — the only shipped profile admitting
+a one-character short form with no uppercase requirement — to exist at all. The rest of the residue is
+single-letter legends the corpus does not tag.
+`tests/test_extractor.py::test_the_one_equation_a_loosened_gate_admits` pins both halves, so the loose
+profile's behaviour is a decision rather than a rediscovery: pinning only the refusal would leave the
+loose profile a surprise, and pinning only the admission would read as approval.
+
+### One property that got stronger
+
+`increment_accounts_for_every_new_false_positive` is true on all six records: in every
+label/convention cell the corpus's false-positive count rises by exactly the number of added pairs
+that missed gold. "The flag adds candidates and re-ranks none" was asserted on synthetic documents in
+D-039; it now holds at corpus scale, which is the region where D-012's pseudo-precision diagnosis does
+not bite. The `high_precision` scientific row also reproduces the already-published
+`.legend`/`.balanced_trim` figures to the digit, so the new instrument agrees with the existing
+`--spans` scorer rather than being a second, flattering implementation of it.
+
+### What is retired, and what replaces it
+
+"MED1250 precision does not move" is not a safety property of this rule and must not be quoted as one.
+A replacement must be evaluated on a corpus where `legend_pairs_emitted > 0` and must name the
+**increment**, because the corpus total is dominated by predictions the flag cannot change. **No
+numeric cut-point is written here on purpose**: a threshold fitted to the data that just produced it
+is a tuned parameter wearing a rule's clothes. The worst values above are the reference points.
+
+Note what is *not* retired. The flag stays, defaulted off. Deleting it would have been a revert
+justified by the same corpus that could not justify shipping it — the identical error with one sign
+flipped — and "a feature nobody can evaluate is a maintenance liability" is answered by evaluating it,
+which is what this record does.
+
+### How it fails
+
+**Every new figure is a tuning number** from the two splits `bench/splits.toml` declares contaminated
+for precisely this change, and the worst row rests on 52 predictions — 16 of which are predictions the
+corpus does not tag as acronyms. No split-half was run, so `-2.18` has no stability estimate.
+
+**`_numeric_right_hand_side` is a proxy and it under-counts.** It scores only digit-initial right-hand
+sides, so `Dbest = argmaxD P (D|B)` and `Nu' (a) = Nu (a) A(P (a)~ P' (a))` count as prose. The
+narrow definition was chosen on purpose — a wider one stops matching the gate the code implements, and
+widening the gate to match a sentence is what D-039 refused — but **3.40 % is a FLOOR on the equation
+surface, not a measurement of it**, and a reader who takes it as the equation density is being
+under-informed by the instrument.
+
+**The attribution of the false positives is an explanation and not a deduction.** Most of the residue
+is unannotated legends, and it would be convenient to call the precision loss an annotation artifact.
+The tables report the raw delta with nothing adjusted, and the residue list is in `bench/results.json`
+so the classification can be disagreed with. An extractor scored against a corpus is scored against
+that corpus's decisions.
+
+**`--legend-cost` is char-span only**, so PLOD — token-indexed, and the one held-out arm — contributes
+nothing beyond its exposure figure. `legend_firing` re-runs the extractor six times over 1,252
+documents and records the settings it measured rather than what the shipped enum means, so a drift in
+`_PROFILES` would go unremarked.
+
+**And this decision is now described in five places** — D-039, this record, the CHANGELOG, the
+extractor docstrings and `docs/EVALUATION.md`. That is one more than the four the workstream counted,
+because this record is itself the fifth. Four descriptions of one decision is how one of them goes
+stale without anybody noticing; five is worse, and the honest mitigation is that the numbers all cite
+run ids and only the prose can rot.
+
+---
+
 ## D-044 — Definition of Done 1: abstention exists, defaults off, and loses to a word-count baseline across most of its range
 
 **Status:** met in mechanism, not met in value · **Amends:** D-030 ·
@@ -608,6 +1514,10 @@ bench/results.json, .balanced_trim -> .legend, high_precision
   labels and no false positive at all.
 ```
 
+**Amended by D-045.** That block is scoped to `high_precision` by its own header and is correct there.
+`--spans` runs only that profile and three profiles ship: over all three the worst move is `-2.18`,
+and "worst move anywhere" is the phrase that needs reading narrowly. The number is right.
+
 **PLOD-CW — the one held-out corpus, improves everywhere, and is nearly blind.**
 
 ```
@@ -655,6 +1565,11 @@ SDU-22 `train.json` — 3,564 unread legal samples — is the obvious candidate,
 generalisation, **and is the same split D-032 reserved as the precondition for reopening experiment
 nine.** One unread split, two questions. D-043 records what the alternative instruments would cost
 and why AD `test.json` is not one of them.
+
+**Resolved by D-047:** the split is allocated to this question, experiment nine is the loser and the
+run that spends it must save the `two_word` row anyway. D-047 also records what spending it cannot
+buy — it is a tuning arm, so it does not answer the sentence above about an *uncontaminated* corpus,
+and legal dev carries zero separators opening a number, so it says nothing about the equation risk.
 
 ### How it fails, beyond the above
 
@@ -1488,6 +2403,12 @@ are not structurally blind and one long-form true positive becomes a false posit
 
 Precondition for reopening: a corpus that annotates multi-token acronym spans and has not been mined.
 SDU-22 legal `train.json`, 3,564 unread samples, is the obvious candidate.
+
+**Amended by D-047:** that split is allocated to the legend flag's cost and experiment nine is the
+loser — it stays held, because holding it costs nothing and the legend flag is shipped with an
+unmeasured cost. It is not starved: `--variants` scores `two_word` and `legend` in one invocation, so
+the run that spends the split must save this arm too. The capability question is settled in its
+favour and against PLOD's: legal dev carries 26 multi-token gold short-form spans against PLOD's 0.
 
 ### Experiment ten — rejecting a long form that begins with a function word. Reverted.
 

@@ -552,6 +552,174 @@ a tenth of a point. There is also no `HIGH_RECALL` profile: the sweep produced n
 `BIOMEDICAL` on recall, and inventing one would mean shipping a distinction the measurements do not
 support.
 
+## The `SF = LF` legend flag, and a revert criterion that could not fail
+
+`AbbreviationExtractor(config, legend_syntax=True)` reads a definition that no bracket introduces —
+`GEF = Global Environment Facility`. It ships **off by default**. This section is why the default has
+not moved, and what changed about the reason.
+
+It shipped against an absolute criterion: *if MED1250 precision moves at all, revert.* It did not
+move — not on any split, under any profile, on any recorded field. **It could not move.**
+
+### The rule emits nothing on MED1250
+
+| Profile | legend pairs emitted | documents that fire | MED1250 exact P, flag off | flag on |
+|---|---:|---:|---:|---:|
+| `HIGH_PRECISION` | 0<!--claim:shortform.med1250_all.legend_firing.high_precision.legend_pairs_emitted--> | 0<!--claim:shortform.med1250_all.legend_firing.high_precision.documents_emitting_a_legend_pair--> | 92.46<!--claim:shortform.med1250_all.legend_firing.high_precision.exact_precision_off:.2f--> | 92.46<!--claim:shortform.med1250_all.legend_firing.high_precision.exact_precision_on:.2f--> |
+| `GENERAL` | 0<!--claim:shortform.med1250_all.legend_firing.general.legend_pairs_emitted--> | 0<!--claim:shortform.med1250_all.legend_firing.general.documents_emitting_a_legend_pair--> | 92.39<!--claim:shortform.med1250_all.legend_firing.general.exact_precision_off:.2f--> | 92.39<!--claim:shortform.med1250_all.legend_firing.general.exact_precision_on:.2f--> |
+| `BIOMEDICAL` | 0<!--claim:shortform.med1250_all.legend_firing.biomedical.legend_pairs_emitted--> | 0<!--claim:shortform.med1250_all.legend_firing.biomedical.documents_emitting_a_legend_pair--> | 86.43<!--claim:shortform.med1250_all.legend_firing.biomedical.exact_precision_off:.2f--> | 86.43<!--claim:shortform.med1250_all.legend_firing.biomedical.exact_precision_on:.2f--> |
+
+MED1250 is a declared **tuning** split (`bench/splits.toml`). The count is taken through `extract()`
+itself rather than through a re-implementation of its gates —
+`python bench/run_shortform.py --legend-cost` — over all 1,252<!--claim:shortform.med1250_all.legend_firing.documents:,--> documents.
+
+**Bit-identical output was never evidence that the rule is harmless. It was evidence that the rule
+never ran.** Be exact about what that does and does not mean. The criterion was not literally
+untestable: a rule that fired here and was wrong would have failed it. What it tested is far narrower
+than what it was read as testing. It tested one property — that the gates refuse a numeric assignment
+— and it cannot test what the rule costs *when it fires*, because on this corpus it never does. A
+precision figure computed over a prediction set the flag does not touch cannot move whatever the
+added pairs would have been worth. Reading "MED1250 precision did not move" as "the precision risk
+was checked" is the same failure as PLOD being structurally unable to corroborate the short-form span
+fixes, arriving through the revert criterion instead of through the evidence table.
+
+What MED1250 *does* test is the refusal path, under real load, and that part is worth keeping:
+
+- 401<!--claim:shortform.med1250_all.legend_firing.separators--> separators in the corpus, of which 394<!--claim:shortform.med1250_all.legend_firing.separators_numeric_right_hand_side--> open a number — 98.25<!--claim:shortform.med1250_all.legend_firing.separators_numeric_right_hand_side_pct:.2f--> % of them.
+- 0<!--claim:shortform.med1250_all.legend_exposure.gold_long_form_spans_after_a_separator--> of 1,221<!--claim:shortform.med1250_all.legend_exposure.gold_long_form_spans:,--> gold long forms begin immediately after a separator, so
+  the corpus cannot show the class in either direction.
+- Under `BIOMEDICAL`, 396<!--claim:shortform.med1250_all.legend_exposure_biomedical.gate_a_window_follows--> of those separators reach a search
+  window and the alignment refuses every one.
+
+A corpus that cannot show the class cannot adjudicate the rule. It can still stress the gate, and
+this one does.
+
+### Where the cost actually lives, measured
+
+Both SDU@AAAI-22 AE dev splits, all three shipped profiles. **These are TUNING splits and
+`bench/splits.toml` declares them contaminated**: the audit decomposed both splits' misses by legend
+separator and used the result to rank this very proposal. Every number below is a tuning number.
+SDU-22 `train.json` is unread and was not spent.
+
+| Split / profile | pairs added | SF exact P | SF overlap P | LF exact P | LF overlap P |
+|---|---:|---:|---:|---:|---:|
+| scientific / `HIGH_PRECISION` | 39<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.legend_pairs_emitted--> | 95.90<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form.exact.precision_off:.2f--> &rarr; 95.67<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form.exact.precision_on:.2f--> | 97.78<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form.overlap.precision_off:.2f--> &rarr; 97.44<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form.overlap.precision_on:.2f--> | 83.76<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.long_form.exact.precision_off:.2f--> &rarr; 83.81<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.long_form.exact.precision_on:.2f--> | 97.26<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.long_form.overlap.precision_off:.2f--> &rarr; 96.96<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.long_form.overlap.precision_on:.2f--> |
+| scientific / `GENERAL` | 39<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.legend_pairs_emitted--> | 95.90<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.short_form.exact.precision_off:.2f--> &rarr; 95.67<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.short_form.exact.precision_on:.2f--> | 97.78<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.short_form.overlap.precision_off:.2f--> &rarr; 97.44<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.short_form.overlap.precision_on:.2f--> | 83.76<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.long_form.exact.precision_off:.2f--> &rarr; 83.81<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.long_form.exact.precision_on:.2f--> | 97.26<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.long_form.overlap.precision_off:.2f--> &rarr; 96.96<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.long_form.overlap.precision_on:.2f--> |
+| scientific / `BIOMEDICAL` | 52<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.legend_pairs_emitted--> | 94.29<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.exact.precision_off:.2f--> &rarr; 92.27<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.exact.precision_on:.2f--> | 96.30<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.overlap.precision_off:.2f--> &rarr; 94.13<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.overlap.precision_on:.2f--> | 82.86<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.long_form.exact.precision_off:.2f--> &rarr; 82.84<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.long_form.exact.precision_on:.2f--> | 96.30<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.long_form.overlap.precision_off:.2f--> &rarr; 95.83<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.long_form.overlap.precision_on:.2f--> |
+| legal / `HIGH_PRECISION` | 83<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.legend_pairs_emitted--> | 93.66<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.short_form.exact.precision_off:.2f--> &rarr; 94.41<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.short_form.exact.precision_on:.2f--> | 99.80<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.short_form.overlap.precision_off:.2f--> &rarr; 99.83<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.short_form.overlap.precision_on:.2f--> | 82.69<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.long_form.exact.precision_off:.2f--> &rarr; 84.67<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.long_form.exact.precision_on:.2f--> | 96.74<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.long_form.overlap.precision_off:.2f--> &rarr; 97.21<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.long_form.overlap.precision_on:.2f--> |
+| legal / `GENERAL` | 83<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.legend_pairs_emitted--> | 93.67<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.short_form.exact.precision_off:.2f--> &rarr; 94.42<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.short_form.exact.precision_on:.2f--> | 99.80<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.short_form.overlap.precision_off:.2f--> &rarr; 99.83<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.short_form.overlap.precision_on:.2f--> | 82.72<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.long_form.exact.precision_off:.2f--> &rarr; 84.70<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.long_form.exact.precision_on:.2f--> | 96.75<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.long_form.overlap.precision_off:.2f--> &rarr; 97.22<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.long_form.overlap.precision_on:.2f--> |
+| legal / `BIOMEDICAL` | 88<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.legend_pairs_emitted--> | 92.56<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.short_form.exact.precision_off:.2f--> &rarr; 92.65<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.short_form.exact.precision_on:.2f--> | 98.59<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.short_form.overlap.precision_off:.2f--> &rarr; 97.95<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.short_form.overlap.precision_on:.2f--> | 81.56<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.long_form.exact.precision_off:.2f--> &rarr; 83.48<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.long_form.exact.precision_on:.2f--> | 95.39<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.long_form.overlap.precision_off:.2f--> &rarr; 96.08<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.long_form.overlap.precision_on:.2f--> |
+
+**The worst row is `scientific` / `BIOMEDICAL`, and it is a row the shipping table did not contain.**
+Short-form overlap precision moves -2.18<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.overlap.precision_delta:.2f-->
+points there and exact precision -2.01<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.exact.precision_delta:.2f-->.
+The table this flag shipped on covered `HIGH_PRECISION` only, where the worst move on the same split
+is -0.34<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form.overlap.precision_delta:.2f--> — a sixth
+of it. Nothing was mis-stated; one profile was measured and three ship, and a table that reports the
+first as the worst case is a claim about the other two that was never made.
+
+Recall and F1 for the same six runs, with the recall ceiling in the same table because every point
+above it is bought by emitting a definition the corpus does not annotate:
+
+| Split / profile | SF exact recall | SF recall ceiling | SF exact F1 | LF exact F1 | LF overlap F1 |
+|---|---:|---:|---:|---:|---:|
+| scientific / `HIGH_PRECISION` | 57.84<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form.exact.recall_off:.2f--> &rarr; 61.55<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form.exact.recall_on:.2f--> | 74.23<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form_recall_ceiling_pct:.2f--> % | 72.15<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form.exact.f1_off:.2f--> &rarr; 74.91<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.short_form.exact.f1_on:.2f--> | 75.10<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.long_form.exact.f1_off:.2f--> &rarr; 77.83<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.long_form.exact.f1_on:.2f--> | 87.20<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.long_form.overlap.f1_off:.2f--> &rarr; 90.03<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.long_form.overlap.f1_on:.2f--> |
+| scientific / `GENERAL` | 57.84<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.short_form.exact.recall_off:.2f--> &rarr; 61.55<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.short_form.exact.recall_on:.2f--> | 74.23<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.short_form_recall_ceiling_pct:.2f--> % | 72.15<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.short_form.exact.f1_off:.2f--> &rarr; 74.91<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.short_form.exact.f1_on:.2f--> | 75.10<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.long_form.exact.f1_off:.2f--> &rarr; 77.83<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.long_form.exact.f1_on:.2f--> | 87.20<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.long_form.overlap.f1_off:.2f--> &rarr; 90.03<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.long_form.overlap.f1_on:.2f--> |
+| scientific / `BIOMEDICAL` | 57.84<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.exact.recall_off:.2f--> &rarr; 61.55<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.exact.recall_on:.2f--> | 74.23<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form_recall_ceiling_pct:.2f--> % | 71.69<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.exact.f1_off:.2f--> &rarr; 73.84<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.short_form.exact.f1_on:.2f--> | 74.98<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.long_form.exact.f1_off:.2f--> &rarr; 78.42<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.long_form.exact.f1_on:.2f--> | 87.15<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.long_form.overlap.f1_off:.2f--> &rarr; 90.71<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.long_form.overlap.f1_on:.2f--> |
+| legal / `HIGH_PRECISION` | 37.76<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.short_form.exact.recall_off:.2f--> &rarr; 44.52<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.short_form.exact.recall_on:.2f--> | 55.15<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.short_form_recall_ceiling_pct:.2f--> % | 53.82<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.short_form.exact.f1_off:.2f--> &rarr; 60.50<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.short_form.exact.f1_on:.2f--> | 70.00<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.long_form.exact.f1_off:.2f--> &rarr; 78.20<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.long_form.exact.f1_on:.2f--> | 81.90<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.long_form.overlap.f1_off:.2f--> &rarr; 89.78<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.long_form.overlap.f1_on:.2f--> |
+| legal / `GENERAL` | 37.84<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.short_form.exact.recall_off:.2f--> &rarr; 44.60<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.short_form.exact.recall_on:.2f--> | 55.15<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.short_form_recall_ceiling_pct:.2f--> % | 53.90<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.short_form.exact.f1_off:.2f--> &rarr; 60.58<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.short_form.exact.f1_on:.2f--> | 70.11<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.long_form.exact.f1_off:.2f--> &rarr; 78.30<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.long_form.exact.f1_on:.2f--> | 82.00<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.long_form.overlap.f1_off:.2f--> &rarr; 89.87<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.long_form.overlap.f1_on:.2f--> |
+| legal / `BIOMEDICAL` | 37.92<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.short_form.exact.recall_off:.2f--> &rarr; 44.68<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.short_form.exact.recall_on:.2f--> | 55.15<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.short_form_recall_ceiling_pct:.2f--> % | 53.80<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.short_form.exact.f1_off:.2f--> &rarr; 60.29<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.short_form.exact.f1_on:.2f--> | 69.69<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.long_form.exact.f1_off:.2f--> &rarr; 78.03<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.long_form.exact.f1_on:.2f--> | 81.51<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.long_form.overlap.f1_off:.2f--> &rarr; 89.81<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.long_form.overlap.f1_on:.2f--> |
+
+In this table no F1 falls: not on either label, under either convention, on either split, at any
+profile. Every recall stays under its ceiling. Neither statement extends past these six runs.
+
+### What the added pairs actually are
+
+The increment is the only thing that can move precision, so its own precision is the sharper
+statement. It is also the only thing that moves it: in every one of the
+4<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.label_convention_cells_checked-->
+label-and-convention cells of all six runs below, the corpus's false-positive count rises by exactly
+the number of added pairs that missed gold — `increment_accounts_for_every_new_false_positive` is
+true on every record. "The flag adds candidates and re-ranks none" is asserted by a unit test on
+synthetic documents; this is the same property holding at corpus scale, which is what keeps this
+change out of the region where the pseudo-precision diagnosis bites.
+
+| Split / profile | pairs added | SF span exactly gold | LF span exactly gold | LF span overlapping gold | matching no gold long form |
+|---|---:|---:|---:|---:|---:|
+| scientific / `HIGH_PRECISION` | 39<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.legend_pairs_emitted--> | 36<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.increment_short_form_exact_hits--> | 33<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.increment_long_form_exact_hits--> | 36<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.increment_long_form_overlap_hits--> | 3<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.added_pairs_matching_no_gold_long_form_count--> |
+| scientific / `GENERAL` | 39<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.legend_pairs_emitted--> | 36<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.increment_short_form_exact_hits--> | 33<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.increment_long_form_exact_hits--> | 36<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.increment_long_form_overlap_hits--> | 3<!--claim:shortform.sdu22_ae_scientific_dev.general.legend_cost.added_pairs_matching_no_gold_long_form_count--> |
+| scientific / `BIOMEDICAL` | 52<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.legend_pairs_emitted--> | 36<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.increment_short_form_exact_hits--> | 43<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.increment_long_form_exact_hits--> | 47<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.increment_long_form_overlap_hits--> | 5<!--claim:shortform.sdu22_ae_scientific_dev.biomedical.legend_cost.added_pairs_matching_no_gold_long_form_count--> |
+| legal / `HIGH_PRECISION` | 83<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.legend_pairs_emitted--> | 82<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.increment_short_form_exact_hits--> | 80<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.increment_long_form_exact_hits--> | 83<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.increment_long_form_overlap_hits--> | 0<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.added_pairs_matching_no_gold_long_form_count--> |
+| legal / `GENERAL` | 83<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.legend_pairs_emitted--> | 82<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.increment_short_form_exact_hits--> | 80<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.increment_long_form_exact_hits--> | 83<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.increment_long_form_overlap_hits--> | 0<!--claim:shortform.sdu22_ae_legal_dev.general.legend_cost.added_pairs_matching_no_gold_long_form_count--> |
+| legal / `BIOMEDICAL` | 88<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.legend_pairs_emitted--> | 82<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.increment_short_form_exact_hits--> | 83<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.increment_long_form_exact_hits--> | 88<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.increment_long_form_overlap_hits--> | 0<!--claim:shortform.sdu22_ae_legal_dev.biomedical.legend_cost.added_pairs_matching_no_gold_long_form_count--> |
+
+On the legal split not one added pair misses gold entirely, at any profile. On the scientific split
+the ones that do are worth naming rather than counting:
+
+```
+NLP = Natural Language Processing researcher    a legend this corpus does not annotate
+HA  = high attachment                           a legend this corpus does not annotate
+WER = word error rate                           a legend this corpus does not annotate
+A   = Ambiguous                    BIOMEDICAL   a legend this corpus does not annotate
+X   = x|W1                         BIOMEDICAL   from  P (X = x|W1 = w1, . . . , WN = wN )
+```
+
+**Exactly one added pair in this entire table is an equation**, and it needs `BIOMEDICAL` — the one
+shipped profile admitting a single-character short form with no uppercase requirement — to exist at
+all. Under the shipped bounds the same sentence yields nothing;
+`tests/test_extractor.py::test_the_one_equation_a_loosened_gate_admits` pins both halves, so the
+loose profile's behaviour is a decision on the record rather than something to rediscover.
+
+That classification is a hand reading of a listed residue, not a rule, and the list is in
+`results.json` under `added_pairs_not_exactly_gold` so it can be disagreed with. The worst row's
+short-form precision is attributable the same way: the eleven further `BIOMEDICAL` short forms that
+are not exactly gold — `R = Random`, `S = Subject`, `J = Japanese`, `F = Friendship` — are
+single-letter legends this corpus does not tag as acronyms. **That is an explanation of the loss and
+not a deduction from it.** The tables report the raw delta; nothing is adjusted for annotation
+policy, because an extractor scored against a corpus is scored against that corpus's decisions.
+
+### The premise this was asked to test, and what the census says about it
+
+The reason to look at scientific text is that `=` there is equation surface. On the corpora this
+repository actually reads, **the equation surface and the legend class are not in the same corpus**:
+
+| Corpus | separators | opening a number | legend pairs emitted, `HIGH_PRECISION` |
+|---|---:|---:|---:|
+| MED1250 (tuning) | 401<!--claim:shortform.med1250_all.legend_firing.separators--> | 394<!--claim:shortform.med1250_all.legend_firing.separators_numeric_right_hand_side--> (98.25<!--claim:shortform.med1250_all.legend_firing.separators_numeric_right_hand_side_pct:.2f--> %) | 0<!--claim:shortform.med1250_all.legend_firing.high_precision.legend_pairs_emitted--> |
+| SDU-22 AE scientific dev (tuning) | 147<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.separators--> | 5<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.separators_numeric_right_hand_side--> (3.40<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.separators_numeric_right_hand_side_pct:.2f--> %) | 39<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend_cost.legend_pairs_emitted--> |
+| SDU-22 AE legal dev (tuning) | 138<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.separators--> | 0<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.separators_numeric_right_hand_side--> (0.00<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.separators_numeric_right_hand_side_pct:.2f--> %) | 83<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend_cost.legend_pairs_emitted--> |
+
+A separator *opens a number* when the first non-blank character after it starts one — `n = 523`,
+`P = 0.05`, `Ki = 1 microM`. That is deliberately the narrowest checkable reading; a wider one would
+measure a different surface from the one the code refuses.
+
+So the corpus that loads the gate cannot show the class, and the corpora that show the class barely
+load the gate. **None of these three does both**, and the fourth cannot help. PLOD-CW is the one
+held-out corpus, and only 0.89<!--claim:shortform.plod_all.legend_exposure.gold_long_form_spans_after_a_separator_pct:.2f--> %
+of its gold long forms begin after a separator; it emits 12<!--claim:shortform.plod_all.legend_exposure.gate_a_prefix_aligns-->
+predictions across the whole corpus and improves every field, which is agreement worth much less than
+the fact that it agrees.
+
+The genre the risk was named for — engineering and physics body text, `Tsat=Tamb [kPa]`,
+`wC = carbon mass fraction`, `xH2Oexhdry` — remains unmeasured. Those surfaces are refused in
+`tests/test_extractor.py`, which is a pinned decision, not corpus evidence. **That gap, not the
+numbers above, is why the default is off**, and it is the same reason the flag shipped off in the
+first place: the two corpora that show the gain are contaminated for precisely this change.
+
+### The verdict
+
+**Not reverted, and the default does not move.** The objection that a feature nobody can evaluate is
+a maintenance liability is answered by evaluating it, not by deleting it: where the rule fires the
+cost is bounded, decomposed and reproducible from one command, and no F1 falls anywhere. Deleting it
+would have been a revert justified by the same corpus that could not justify shipping it.
+
+**What is retired is the criterion.** "MED1250 precision does not move" is not a safety property of
+this rule and must not be quoted as one again. A replacement has to be evaluated on a corpus where
+`legend_pairs_emitted` is greater than zero, and has to name the *increment* rather than the corpus
+total, because the corpus total is dominated by predictions the flag cannot change. The worst values
+in the tables above are the reference points: a later run below them is a regression, and a later
+run on a corpus that emits nothing is not a result at all.
+
 ## The governed subsystem: its first accuracy figures
 
 The governed half of this package is 9,647 of 26,149 source lines — re-counted for this revision with

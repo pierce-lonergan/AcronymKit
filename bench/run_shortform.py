@@ -68,6 +68,19 @@ Six measurements, each independently selectable:
     ``legend`` row of ``--variants``: a null result on a corpus where the rule
     never fires is a fact about the corpus.
 
+``--legend-cost``
+    What that flag actually costs, measured where it fires. D-039 shipped it
+    against an absolute revert criterion -- "if MED1250 precision moves at all,
+    revert" -- which did not fire; this measures why. On MED1250 it reports the
+    number of pairs the rule emits through ``extract()``, per profile, and a
+    precision criterion evaluated on a prediction set the rule never touches
+    can only ever pass. On the two SDU@AAAI-22 AE dev splits, where it does
+    fire, it reports the corpus-level precision delta, the precision of the
+    added pairs alone, and every added pair matching no gold span. Both tables
+    carry a census of the separators that open a *number*, because "the
+    equation risk lives in scientific text" is a premise and the census is what
+    makes it checkable. SDU-22 AE dev is TUNING and contaminated.
+
 ``--relaxations``
     A rejected relaxation, recorded because it loses: treating a digit in the
     short form as optional when nothing else aligns.
@@ -1189,6 +1202,369 @@ def sdu22_function_word_exposure(documents: Sequence, domain: str, settings: dic
     }
 
 
+# ---------------------------------------------------------------------------
+# 3c. what the legend flag COSTS, on a corpus where it fires
+# ---------------------------------------------------------------------------
+# D-039 shipped the flag against an absolute revert criterion -- "if MED1250
+# precision moves at all, revert" -- and the criterion did not fire. This
+# section exists because that is not the same as the criterion passing.
+#
+# A precision criterion on a corpus where the rule emits NOTHING can only ever
+# pass, whatever the rule does. The exposure funnel above already implied it
+# (``gate_a_prefix_aligns`` is 0 on MED1250); ``legend_cost`` measures the same
+# thing through the real ``extract()`` path, on every profile, and records the
+# firing count as a first-class number so the vacuity is in ``results.json``
+# rather than inferred from two rows being equal.
+#
+# It then measures the cost where the rule DOES fire, decomposed three ways:
+# the corpus-level precision delta, the precision of the increment alone (the
+# added pairs are the only predictions that can move it), and every added pair
+# that matches no gold span at all, printed verbatim.
+#
+# AND IT ASKS R9.5 OF ITSELF. "The equation risk lives in scientific text" is a
+# premise, not a measurement, so the census below counts the separators whose
+# right-hand side opens with a number -- ``n = 523``, ``P = 0.05``, ``Ki = 1
+# microM`` -- corpus by corpus. Where the numbers land decides which corpus is
+# evidence about equations and which is evidence about legends, and in this
+# repository they are not the same corpus.
+
+
+#: Characters that may open a signed number after a separator. The Unicode
+#: minus is spelled by escape because a corpus is not ASCII and a census that
+#: missed a Unicode-signed number would under-count the surface it exists to
+#: count.
+_NUMERIC_SIGN_CHARS = frozenset("+-." + chr(0x2212))
+
+
+def _numeric_right_hand_side(text: str, index: int) -> bool:
+    """Does the ``=`` at ``index`` open a number rather than a phrase?
+
+    The narrowest checkable reading of "this separator is an assignment of a
+    quantity": skip spaces and tabs, then require a digit, or a sign or decimal
+    point followed by one. ``n = 523``, ``P = 0.05``, ``= -0.62`` and
+    ``Ki = 1 microM`` are in; ``GEF = Global Environment Facility`` is out.
+
+    It is deliberately narrow. A wider rule -- "an operator appears somewhere
+    nearby" -- is the one D-039 refused to write into the extractor's own gate,
+    and a census that used it here would be measuring a different surface from
+    the one the code refuses.
+
+    Args:
+        text: The source document.
+        index: Offset of the ``=``.
+
+    Returns:
+        ``True`` when the material after the separator opens with a number.
+    """
+    cursor = index + 1
+    while cursor < len(text) and text[cursor] in " \t":
+        cursor += 1
+    if cursor >= len(text):
+        return False
+    if text[cursor].isdigit():
+        return True
+    return (
+        text[cursor] in _NUMERIC_SIGN_CHARS
+        and cursor + 1 < len(text)
+        and (text[cursor + 1].isdigit() or text[cursor + 1] == ".")
+    )
+
+
+def _legend_pairs_of(text: str, settings: dict) -> list:
+    """The pairs the currently installed engine attributes to a legend."""
+    return [pair for pair in _engine_pairs(text, settings) if pair.pattern == "short=long"]
+
+
+def _overlaps(span: tuple[int, int], gold: Sequence[tuple[int, int]]) -> bool:
+    """Does ``span`` share a character with any span in ``gold``?"""
+    return any(not (span[1] <= start or end <= span[0]) for start, end in gold)
+
+
+def _delta_row(off, on) -> dict:
+    """``{off, on, delta}`` for one precision/recall/F1 triple, as percentages."""
+    return {
+        "precision_off": round(off.precision * 100, 2),
+        "precision_on": round(on.precision * 100, 2),
+        "precision_delta": round((on.precision - off.precision) * 100, 2),
+        "recall_off": round(off.recall * 100, 2),
+        "recall_on": round(on.recall * 100, 2),
+        "recall_delta": round((on.recall - off.recall) * 100, 2),
+        "f1_off": round(off.f1 * 100, 2),
+        "f1_on": round(on.f1 * 100, 2),
+        "f1_delta": round((on.f1 - off.f1) * 100, 2),
+        "false_positives_off": off.false_positives,
+        "false_positives_on": on.false_positives,
+    }
+
+
+def legend_cost(
+    documents: Sequence,
+    *,
+    corpus: str,
+    split: str,
+    profile: str,
+    ceiling_pct: Optional[float] = None,
+) -> dict:
+    """What turning ``legend_syntax`` on costs a char-span corpus, decomposed.
+
+    Three questions, in the order that makes the third readable:
+
+    1. **Does the rule fire here at all**, through the real ``extract()`` path?
+       A corpus-level precision delta of zero means one thing when the rule
+       emitted eighty pairs and something else entirely when it emitted none,
+       and D-039's revert criterion was read without that distinction.
+    2. **How much equation surface did the gate actually refuse**, counted as
+       separators opening a number. This is the R9.5 question asked of *this*
+       measurement rather than of the previous one.
+    3. **What did the added pairs cost**, at corpus level and on their own.
+       The increment is the only thing that can move precision, so its own
+       precision is the sharpest available statement, and every added pair
+       that matches no gold span is listed rather than summarised.
+
+    The short-form recall ceiling is carried in the same record because every
+    recall point above it is bought by emitting a definition the corpus does
+    not annotate, which is paid for in long-form precision (R9.6).
+
+    Args:
+        documents: A corpus whose documents carry ``.text``, ``.short_form_spans``
+            and ``.long_form_spans`` as character offsets.
+        corpus: Corpus name for the record.
+        split: Split label, including its role.
+        profile: Key into :data:`_PROFILES`.
+        ceiling_pct: The corpus's short-form recall ceiling, printed and
+            recorded beside the recall numbers.
+
+    Returns:
+        One ``results.json`` record.
+    """
+    settings = _PROFILES[profile]
+    separators = 0
+    numeric = 0
+    _install(balanced_trim=True, two_word=False, function_word=False, legend=True)
+    scores_on = _score_char_spans(documents, settings)
+    added: list[dict] = []
+    documents_firing = 0
+    numeric_firings = 0
+    for document in documents:
+        text = document.text
+        cursor = 0
+        while True:
+            index = text.find("=", cursor)
+            if index < 0:
+                break
+            cursor = index + 1
+            separators += 1
+            numeric += _numeric_right_hand_side(text, index)
+        pairs = _legend_pairs_of(text, settings)
+        documents_firing += bool(pairs)
+        for pair in pairs:
+            separator = text.find("=", pair.short_form_span[1])
+            numeric_firings += separator >= 0 and _numeric_right_hand_side(text, separator)
+            added.append(
+                {
+                    "sample": document.uid,
+                    "short_form": pair.short_form,
+                    "long_form": pair.long_form,
+                    "short_form_span_exact": pair.short_form_span in set(document.short_form_spans),
+                    "short_form_span_overlaps": _overlaps(
+                        pair.short_form_span, document.short_form_spans
+                    ),
+                    "long_form_span_exact": pair.long_form_span in set(document.long_form_spans),
+                    "long_form_span_overlaps": _overlaps(
+                        pair.long_form_span, document.long_form_spans
+                    ),
+                }
+            )
+    _install(balanced_trim=True, two_word=False, function_word=False, legend=False)
+    scores_off = _score_char_spans(documents, settings)
+    _restore()
+
+    emitted = len(added)
+    unmatched = [row for row in added if not row["long_form_span_overlaps"]]
+    tallies = {
+        "short_form_exact": sum(row["short_form_span_exact"] for row in added),
+        "short_form_overlap": sum(row["short_form_span_overlaps"] for row in added),
+        "long_form_exact": sum(row["long_form_span_exact"] for row in added),
+        "long_form_overlap": sum(row["long_form_span_overlaps"] for row in added),
+    }
+    # "The flag adds candidates and re-ranks none" is asserted by a unit test on
+    # synthetic documents. This is the same property checked at corpus scale, on
+    # every label and convention: if the flag only adds, then every new false
+    # positive is an added pair that missed gold, and the two counts agree
+    # exactly. A disagreement would mean an added pair displaced an existing
+    # prediction, which is the region where D-012's pseudo-precision diagnosis
+    # starts to bite. Recorded rather than printed so a document can cite it.
+    reconciles = all(
+        scores_on[f"{label}.{convention}"].false_positives
+        - scores_off[f"{label}.{convention}"].false_positives
+        == emitted - tallies[f"{label}_{convention}"]
+        for label in _SPAN_LABELS
+        for convention in _SPAN_CONVENTIONS
+    )
+
+    print(f"\nlegend cost on {corpus} [{split}], profile {profile}")
+    print(
+        f"  separators {separators}, of which {numeric} open a number "
+        f"({numeric / separators * 100:.2f}% -- the equation surface this corpus offers)"
+        if separators
+        else "  no separators in this corpus"
+    )
+    print(
+        f"  legend pairs emitted through extract(): {emitted}, in {documents_firing} of "
+        f"{len(documents)} documents; {numeric_firings} of them on a numeric right-hand side"
+    )
+    if ceiling_pct is not None:
+        print(f"  short-form recall ceiling: {ceiling_pct:.2f}% -- read every recall below it")
+    header = f"  {'label / convention':<26} {'P off':>7} {'P on':>7} {'dP':>7} {'R off':>7} {'R on':>7} {'dR':>7}"
+    print(header)
+    print("  " + "-" * (len(header) - 3))
+    deltas: dict = {}
+    for label in _SPAN_LABELS:
+        for convention in _SPAN_CONVENTIONS:
+            key = f"{label}.{convention}"
+            row = _delta_row(scores_off[key], scores_on[key])
+            deltas[key] = row
+            print(
+                f"  {key:<26} {row['precision_off']:7.2f} {row['precision_on']:7.2f} "
+                f"{row['precision_delta']:+7.2f} {row['recall_off']:7.2f} "
+                f"{row['recall_on']:7.2f} {row['recall_delta']:+7.2f}"
+            )
+    if emitted:
+        print(
+            f"  increment alone: SF exact {tallies['short_form_exact']}/{emitted}, "
+            f"LF exact {tallies['long_form_exact']}/{emitted}, "
+            f"LF overlap {tallies['long_form_overlap']}/{emitted}"
+        )
+    print(
+        "  every new false positive is an added pair that missed gold: "
+        f"{'yes' if reconciles else 'NO -- the flag displaced a prediction'}"
+    )
+    for row in unmatched:
+        print(f"    no gold span: [{row['sample']}] {row['short_form']!r} -> {row['long_form']!r}")
+    return {
+        "corpus": corpus,
+        "split": split,
+        "profile": profile,
+        "profile_settings": {key: settings[key] for key in sorted(settings)},
+        "documents": len(documents),
+        "comparator": "balanced_trim",
+        "separators": separators,
+        "separators_numeric_right_hand_side": numeric,
+        "separators_numeric_right_hand_side_pct": (
+            round(numeric / separators * 100, 2) if separators else 0.0
+        ),
+        "legend_pairs_emitted": emitted,
+        "documents_emitting_a_legend_pair": documents_firing,
+        "legend_pairs_on_a_numeric_right_hand_side": numeric_firings,
+        "short_form_recall_ceiling_pct": ceiling_pct,
+        **{f"{key}.{field}": value for key, row in deltas.items() for field, value in row.items()},
+        "increment_short_form_exact_hits": tallies["short_form_exact"],
+        "increment_short_form_overlap_hits": tallies["short_form_overlap"],
+        "increment_long_form_exact_hits": tallies["long_form_exact"],
+        "increment_long_form_overlap_hits": tallies["long_form_overlap"],
+        "increment_short_form_exact_precision": (
+            round(tallies["short_form_exact"] / emitted * 100, 2) if emitted else 0.0
+        ),
+        "increment_long_form_exact_precision": (
+            round(tallies["long_form_exact"] / emitted * 100, 2) if emitted else 0.0
+        ),
+        "increment_long_form_overlap_precision": (
+            round(tallies["long_form_overlap"] / emitted * 100, 2) if emitted else 0.0
+        ),
+        "increment_accounts_for_every_new_false_positive": reconciles,
+        "label_convention_cells_checked": len(_SPAN_LABELS) * len(_SPAN_CONVENTIONS),
+        # The count is a field of its own and not just the length of the list
+        # below, because a list flattens into ``...[i].field`` paths and there
+        # is nothing in it for a document to cite. A number a claim cannot name
+        # is a number that will be transcribed by hand.
+        "added_pairs_matching_no_gold_long_form_count": len(unmatched),
+        "added_pairs_matching_no_gold_long_form": unmatched,
+        # Only the pairs that MOVE something is recorded, not all of them: a
+        # pair whose two spans are both exactly gold cannot lower precision, and
+        # a list of those is the recall story, which the tallies above already
+        # carry. What a reader has to be able to audit by hand is the residue.
+        "added_pairs_not_exactly_gold": [
+            row
+            for row in added
+            if not (row["short_form_span_exact"] and row["long_form_span_exact"])
+        ],
+    }
+
+
+def legend_firing(documents: Sequence, *, corpus: str, split: str) -> dict:
+    """How many pairs the legend rule emits on a PAIR corpus, per profile.
+
+    The narrow instrument D-039's revert criterion needed and did not have.
+    MED1250 has no character spans to score a span delta against, so what this
+    records is the count alone -- through ``extract()`` rather than through a
+    re-implementation of its gates -- for every profile the library ships, plus
+    the exact precision the criterion was actually watching.
+
+    Args:
+        documents: MED1250, or any corpus of ``.text`` with ``.pairs``.
+        corpus: Corpus name for the record.
+        split: Split label, including its role.
+
+    Returns:
+        One ``results.json`` record.
+    """
+    record: dict = {"corpus": corpus, "split": split, "comparator": "balanced_trim"}
+    separators = sum(document.text.count("=") for document in documents)
+    numeric = 0
+    for document in documents:
+        text = document.text
+        cursor = 0
+        while True:
+            index = text.find("=", cursor)
+            if index < 0:
+                break
+            cursor = index + 1
+            numeric += _numeric_right_hand_side(text, index)
+    record["documents"] = len(documents)
+    record["separators"] = separators
+    record["separators_numeric_right_hand_side"] = numeric
+    record["separators_numeric_right_hand_side_pct"] = (
+        round(numeric / separators * 100, 2) if separators else 0.0
+    )
+    print(f"\nlegend firing count on {corpus} [{split}], through extract()")
+    print(
+        f"  separators {separators}, of which {numeric} open a number "
+        f"({record['separators_numeric_right_hand_side_pct']:.2f}%)"
+    )
+    print(
+        f"  {'profile':<16} {'pairs emitted':>14} {'docs firing':>12} {'exact P off':>12} {'exact P on':>11}"
+    )
+    for profile, settings in _PROFILES.items():
+        emitted = 0
+        firing = 0
+        precisions = {}
+        for legend in (False, True):
+            _install(balanced_trim=True, two_word=False, function_word=False, legend=legend)
+            if legend:
+                for document in documents:
+                    pairs = _legend_pairs_of(document.text, settings)
+                    emitted += len(pairs)
+                    firing += bool(pairs)
+            evaluation = scoring.evaluate(
+                documents,
+                dedupe_per_document(predict_acronymkit(documents, **settings)),
+                corpus=corpus,
+                system=f"{profile}/{'legend' if legend else 'balanced_trim'}",
+            )
+            precisions[legend] = evaluation.scores["exact"].precision * 100
+        record[f"{profile}.legend_pairs_emitted"] = emitted
+        record[f"{profile}.documents_emitting_a_legend_pair"] = firing
+        record[f"{profile}.exact_precision_off"] = round(precisions[False], 2)
+        record[f"{profile}.exact_precision_on"] = round(precisions[True], 2)
+        record[f"{profile}.exact_precision_delta"] = round(precisions[True] - precisions[False], 2)
+        print(
+            f"  {profile:<16} {emitted:>14} {firing:>12} {precisions[False]:>12.2f} "
+            f"{precisions[True]:>11.2f}"
+        )
+    _restore()
+    return record
+
+
 def span_variants(profile: str = "high_precision") -> dict:
     """Score every variant on PLOD and SDU@AAAI-22 AE, decomposed by corpus.
 
@@ -1633,6 +2009,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="count how far every '=' gets through the legend gates, per corpus",
     )
+    parser.add_argument(
+        "--legend-cost",
+        action="store_true",
+        help="what legend_syntax costs where it fires, and how often it fires where it does not",
+    )
     parser.add_argument("--relaxations", action="store_true")
     parser.add_argument("--gates", type=Path, help="directory holding Lf1chSf and SingTermFreq.dat")
     parser.add_argument(
@@ -1649,17 +2030,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         or args.variants
         or args.relaxations
         or args.legend
+        or args.legend_cost
         or bool(args.gates)
     )
     if not (med1250_wanted or args.spans):
         parser.error(
             "choose at least one of --attribute, --ceiling, --variants, --spans, "
-            "--legend, --relaxations, --gates"
+            "--legend, --legend-cost, --relaxations, --gates"
         )
 
     recorded: dict = {}
     if args.spans:
         recorded.update(span_variants())
+    if args.legend_cost:
+        for domain in ("legal", "scientific"):
+            documents = corpora.read_sdu22_ae(domain=domain, split="dev")
+            ceiling = corpora.sdu22_ae_recall_ceiling(documents)["ceiling_pct"]
+            for profile in _PROFILES:
+                recorded[f"shortform.sdu22_ae_{domain}_dev.{profile}.legend_cost"] = legend_cost(
+                    documents,
+                    corpus=f"sdu22_ae_{domain}",
+                    split="dev (tuning, contaminated)",
+                    profile=profile,
+                    ceiling_pct=ceiling,
+                )
     if not med1250_wanted:
         if args.save:
             path = save_results(recorded)
@@ -1668,6 +2062,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     documents = corpora.load("med1250")
 
+    if args.legend_cost:
+        recorded["shortform.med1250_all.legend_firing"] = legend_firing(
+            documents, corpus="med1250", split="all (tuning)"
+        )
     if args.attribute:
         recorded["analysis.med1250.miss_attribution"] = attribute(documents, args.interpreter)
     if args.ceiling:

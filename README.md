@@ -32,11 +32,15 @@ all, on 34.93<!--claim:governed_gold.socrata.columns.unmarked.exact_pct:.2f--> %
 is the price of refusing to guess, and it is in the same table as the first, along with the SEC arms
 and the recall ceiling: [docs/EVALUATION.md](docs/EVALUATION.md).
 
-**Generation is measured, and nothing else measures it.** Fed the 1,221 human-authored
+**Generation is measured, and nothing else measures it.** Fed the
+1,221<!--claim:generation.med1250.strict_initialism.gold_pairs:,--> human-authored
 short-form/long-form pairs of the MED1250 gold standard *backwards*, `acronymkit` returns the
-abbreviation the human actually chose at **rank 1 for 75.5 %** of the 546 pairs an initialism
-generator can address, and within the top 25 for 89.7 %. No competing library has a number
-here, because no competing library generates.
+abbreviation the human actually chose at **rank 1 for
+75.5<!--claim:generation.med1250.strict_initialism.initialism_recall_at_1:.1f--> %** of the
+546<!--claim:generation.med1250.strict_initialism.initialism_n:,--> pairs an initialism
+generator can address, and within the top 25 for
+89.7<!--claim:generation.med1250.strict_initialism.initialism_recall_at_25:.1f--> %. MED1250 is a
+**tuning split**. No competing library has a number here, because no competing library generates.
 
 Extraction is measured too, against four other systems through one harness: precision
 92.46<!--claim:extraction.med1250.acronymkit.exact_precision:.2f--> %, recall 77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f--> %, F1 **84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> %**. We are third of five there, and the table showing
@@ -213,7 +217,8 @@ Both arrangements are supported — `Long Form (Short Form)` and the inverted
 always holds) and a confidence estimate. Prose parentheticals such as `(see Figure 3)` and
 enumerations such as `(1) … (2) …` are correctly rejected.
 
-**Measured, not asserted.** On the MED1250 gold standard (1,221 human-annotated pairs from the Ab3P
+**Measured, not asserted.** On the MED1250 gold standard
+(1,221<!--claim:extraction.med1250.acronymkit.gold_pairs:,--> human-annotated pairs from the Ab3P
 corpus): **precision 92.46<!--claim:extraction.med1250.acronymkit.exact_precision:.2f--> %, recall 77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f--> %, F1 84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> %**, at 5,496<!--claim:extraction.med1250.acronymkit.docs_per_second:,.0f--> documents/second. High
 precision with recall the weak side is the expected shape for this algorithm — it refuses rather than
 guesses. The full breakdown, including where the misses come from and one optimisation that was tried
@@ -317,11 +322,21 @@ Config(language=Language.FR, lexicon_path=Path("~/fr.txt").expanduser())
 
 | Tier | `EngineTier` | Dependencies | Latency | Use for |
 |---|---|---|---|---|
-| 0 | `ZERO_DEPENDENCY` | stdlib + Pydantic | **98 µs/call**, 2.3 ms to import | Edge, high-throughput indexing, hot paths |
+| 0 | `ZERO_DEPENDENCY` | stdlib + Pydantic | **98<!--claim:micro.generate_fast.median:.0f--> µs/call**, 2.3<!--claim:micro.import.cold_import_ms:.1f--> ms to import | Edge, high-throughput indexing, hot paths |
 | 1 | `STATISTICAL_NLP` | spaCy **or** NLTK | single-digit ms | POS-aware generation on messy human text |
 | 1 | `HYBRID_NLP` | optional | either | Production default — degrades gracefully |
 | 2 | `NEURAL` | ONNX Runtime | — | **Phase 3, not in this release** |
 | — | `AUTO` | — | — | Best tier available at import time |
+
+**The import figure is the shell, not the engine, and quoting it alone would flatter us.**
+`import acronymkit` is cheap because the package resolves its re-exports lazily; `from acronymkit
+import AcronymEngine` still costs
+128.1<!--claim:micro.import.cold_import_engine_ms:.1f--> ms and import-plus-first-result
+196.0<!--claim:micro.import.cold_first_result_ms:.1f--> ms. Laziness **moves** the Pydantic cost to
+first use rather than removing it, so the win is confined to a process that imports the package
+without using it. All three come from `micro.import` in
+[bench/results.json](bench/results.json) and are read together in
+[docs/EVALUATION.md](docs/EVALUATION.md).
 
 Degradation is never silent in the payload: the effective tier lands in `metadata.engine_tier`, the
 requested one in `metadata.requested_tier`, and the reason in `metadata.warnings`. Set
@@ -342,8 +357,11 @@ $$S(A, T) = \alpha \sum_{i} \omega(c_i, w_{j(i)}) \;+\; \beta \, \Phi(A) \;+\; \
 
 `Φ` behaves the way you would hope: Φ("SCALE") = −2.29, Φ("PDF") = −6.22, Φ("XKCD") = −7.46.
 
-The syllable heuristic underpinning it is measured, not asserted: against the 117,485 CMUdict
-entries it scores **84.1 % exact** and **99.5 % within one syllable** (mean absolute error 0.16).
+The syllable heuristic underpinning it is measured, not asserted: against the
+117,485<!--claim:validation.syllables_cmudict.words_scored:,.0f--> CMUdict
+entries it scores **84.1<!--claim:validation.syllables_cmudict.exact_match_pct:.1f--> % exact** and
+**99.5<!--claim:validation.syllables_cmudict.within_one_pct:.1f--> % within one syllable** (mean
+absolute error 0.16<!--claim:validation.syllables_cmudict.mean_absolute_error:.2f-->).
 Reproduce with `python tools/build_lexicons.py --validate-syllables`.
 
 ### Presets
@@ -521,20 +539,29 @@ python tools/fetch_data.py --verify      # re-check every checksum
 - **System rankings are corpus-dependent, and we have measured that.** `pyab3p` beats us on
   MED1250; we beat it on PLOD's span-detection task. Any single-corpus ranking, including ours,
   should be read with that in mind.
-- **14.01 % of that corpus is found by no system at all**, ours or anyone's. The practical
-  ceiling is 85.99 %, not 100 %, and every figure here should be read against it.
+- **14.01<!--claim:oracle.med1250.universal_miss_pct:.2f--> % of that corpus is found by no system
+  at all**, ours or anyone's. The practical ceiling is
+  85.99<!--claim:oracle.med1250.oracle_union_recall:.2f--> % rather than perfect recall, and every
+  figure here should be read against it.
 - **English only.** French, Spanish and German ship no lexicon; those languages degrade honestly and
   say so in `metadata.warnings`.
-- **Disambiguation is measured and it loses.** On SDU@AAAI-21 it scores 41.65 % accuracy against
-  72.84 % for simply always picking the most common expansion. It beats random, so the context
+- **Disambiguation is measured and it loses.** On SDU@AAAI-21 it scores
+  41.65<!--claim:disambiguation.sdu21.acronymkit.accuracy:.2f--> % accuracy against
+  72.84<!--claim:disambiguation.sdu21.most_frequent.accuracy:.2f--> % for simply always picking the
+  most common expansion. It beats random, so the context
   signal is real, but on that benchmark it is worth less than memorising frequencies. Use it for
   document-local resolution, where inline definitions carry it; do not expect it to win a
   disambiguation benchmark.
 - **Abstention is a precision instrument, not an accuracy fix, and there is a region where it is
   worse than doing nothing.** Raising `min_margin` lowers F1 monotonically, and below gate `0.10`
   the shared task's own most-frequent-expansion baseline beats the gated system on the gated
-  system's own answered subset. At the gate where the pooled comparison finally crosses over, the
-  baseline still wins on three- and four-candidate sets —
+  system's own answered subset. Read against that baseline at **full** coverage —
+  72.84<!--claim:disambiguation.sdu21.abstention_curve.gate_0.00_most_frequent_accuracy_same_subset:.2f--> % —
+  no gate on the published curve wins until `0.15`, where the system answers
+  16.77<!--claim:disambiguation.sdu21.abstention_curve.gate_0.15_coverage_pct:.2f--> % of the split
+  at F1 20.95<!--claim:disambiguation.sdu21.abstention_curve.gate_0.15_f1:.2f-->. At the gate where
+  the pooled same-subset comparison crosses over, the baseline still wins on three- and
+  four-candidate sets —
   32.38<!--claim:disambiguation.sdu21.abstention_curve.instances_in_those_arities_pct:.2f--> % of
   that split. The curve, the losing comparison and the decomposition are in
   [docs/EVALUATION.md](docs/EVALUATION.md).
@@ -572,6 +599,10 @@ python tools/fetch_data.py --verify      # re-check every checksum
   generation recall@k, disambiguation against a trivial baseline, and the abstention curve scored
   against that same baseline on its own answered subset
 - [Decisions](docs/DECISIONS.md) — what was tried and rejected, and why
+- [Definition of done](docs/DEFINITION-OF-DONE.md) — the eight criteria this library is held to,
+  swept and verdicted: which are met, which are not, what evidence each rests on, and the ninth
+  criterion nobody had written down — that neither the flagship extraction figure nor the
+  disambiguation figure has a corpus that could adjudicate it
 - [Enterprise review](docs/ENTERPRISE.md) — the short answer for someone deciding whether to allow
   this package: air-gapped install, security posture with each claim's proof named, and the exact
   error text when something is missing

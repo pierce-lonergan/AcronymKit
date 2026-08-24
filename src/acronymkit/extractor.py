@@ -22,6 +22,14 @@ default path changes when it is off, which is deliberate: ``=`` is also the
 surface of every equation and assignment, and this module's precision on
 scientific prose is the library's whole thesis.
 
+Its cost is now measured rather than assumed, and the two are different claims.
+The corpus the flag first shipped against emits no legend pair at all, so the
+"nothing moved" it reported was a fact about that corpus; the arrangement's
+actual precision cost is measured where it fires, on tuning splits, and is
+published decomposed in ``docs/EVALUATION.md``. The default stays off for the
+reason it always did -- no uncontaminated corpus here is structurally capable of
+showing the class -- and no longer because the cost is unknown.
+
 The module is Tier 0 pure: it imports only the standard library, ``pydantic``
 (transitively, via :mod:`acronymkit.models`) and other ``acronymkit`` modules.
 :class:`~acronymkit.tokenizer.Tokenizer` is imported lazily, and only when
@@ -831,7 +839,12 @@ class AbbreviationExtractor:
             legend_syntax: Also read ``SF = LF`` abbreviation legends, which no
                 bracket introduces. **Off by default**, and the default path is
                 unchanged when it is off -- see :meth:`_legend_pair_at` for what
-                the rule refuses and why the default is what it is.
+                the rule refuses and why the default is what it is. The
+                admission bounds above apply to a legend's short form too, and
+                they are what decides the one measured case where an equation is
+                read as a definition: loosening them to one character with no
+                uppercase requirement admits ``X = x|W1``, and the shipped
+                bounds refuse it.
         """
         self._config = config
         self._tokenizer = tokenizer
@@ -1215,9 +1228,23 @@ class AbbreviationExtractor:
 
         What survives all three on biomedical abstracts is nothing at all --
         every ``=`` in MED1250 is refused, under all three shipped profiles,
-        which ``bench/run_shortform.py --legend`` counts gate by gate. The
-        ``=`` in an abstract introduces a number, and a number does not align
-        with the letters of an abbreviation.
+        which ``bench/run_shortform.py --legend`` counts gate by gate and
+        ``--legend-cost`` re-counts through :meth:`AbbreviationExtractor.extract`
+        itself. The ``=`` in an abstract introduces a number, and a number does
+        not align with the letters of an abbreviation.
+
+        **That is a fact about the refusal path, and it is much narrower than a
+        precision measurement of this rule.** ``legend_pairs_emitted`` is zero on
+        every profile in ``shortform.med1250_all.legend_firing``, so what the
+        corpus checks is that the gates refuse a numeric assignment -- it cannot
+        check what the rule costs when it fires, because here it never does.
+        Nearly every separator in MED1250 opens a number and the loosest profile
+        walks almost all of them up to the alignment, which refuses each one;
+        that is a gate tested under load, and it is not evidence about emission.
+        Where the rule emits anything at all, the cost is measured on the two
+        SDU@AAAI-22 AE dev splits, which are declared tuning and contaminated:
+        ``shortform.sdu22_ae_{legal,scientific}_dev.{profile}.legend_cost``, and
+        ``docs/EVALUATION.md`` publishes the table with its worst row.
 
         Args:
             text: The source document.

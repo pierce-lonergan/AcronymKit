@@ -1127,16 +1127,32 @@ def test_the_same_shape_without_a_leading_preposition_is_correct(
 #
 #   bench/results.json:
 #     shortform.med1250_{dev,test,all}.{high_precision,general,biomedical}.legend
-#       -- bit-identical to .balanced_trim on every field, which is what shipped
+#       -- bit-identical to .balanced_trim on every field
+#     shortform.med1250_all.legend_firing
+#       -- WHY it is bit-identical: the rule emits ZERO pairs on MED1250, under
+#          all three profiles, measured through extract() rather than inferred
 #     shortform.med1250_all.legend_exposure{,_biomedical}
 #       -- every separator in the corpus, gate by gate, and none survives
+#     shortform.sdu22_ae_{legal,scientific}_dev.{profile}.legend_cost
+#       -- what the flag costs where it DOES fire, per profile, decomposed
 #     shortform.plod_{dev,test,all}.{tight,spaced}.high_precision.legend
 #     shortform.sdu22_ae_{legal,scientific}_dev.high_precision.legend
 #     shortform.{plod_*,sdu22_ae_*}.legend_exposure
-#   Reproduce with: python bench/run_shortform.py --variants --spans --legend
+#   Reproduce with:
+#     python bench/run_shortform.py --variants --spans --legend --legend-cost
+#
+# READ `legend_firing` BEFORE THE MED1250 ROWS. D-039 shipped this flag against
+# an absolute revert criterion -- "if MED1250 precision moves at all, revert" --
+# and reported that it did not move. It could not move: the rule emits nothing
+# there, so the criterion was evaluated on a prediction set the flag never
+# touches and could only ever pass. What MED1250 does test is the refusal path,
+# under real load: 394 of its 401 separators open a number and every one is
+# refused. What it cannot test is emission, because it annotates no legend.
 #
 # What the tests below pin is the *refusals*, in the same proportion the corpus
-# does: three legends that must be read, and eleven surfaces that must not be.
+# does: four legends that must be read, seventeen surfaces that must not be
+# under the shipped gate, and the one measured surface that IS admitted when the
+# gate is loosened -- pinned so it stays a decision rather than a surprise.
 
 #: ``(text, [(short, long), ...])`` -- legends that must be read.
 _LEGEND_CASES = [
@@ -1178,6 +1194,17 @@ _NOT_A_LEGEND = [
     "Tsat=Tamb [kPa] at the inlet of the compressor.",
     "where wC = carbon mass fraction of the fuel",
     "with xH2Oexhdry the water content of the exhaust",
+    # From the SDU-22 scientific dev split, which is where the flag actually
+    # fires. The first is the one surface in that whole split that the loosest
+    # shipped profile admits, and the shipped gate refuses -- see
+    # `test_the_one_equation_a_loosened_gate_admits` below, which pins the other
+    # half of the same fact. The rest are refused everywhere.
+    "P (X = x|W1 = w1, . . . , WN = wN ).",
+    "We obtain Dbest = argmaxD P (D|B) taking into all the combinations.",
+    "Given query Q = (q1, ? ? ? , qL), for each document D.",
+    "TaskCompletionReward(TCR) = 1000 TurnCost(TC) = 10",
+    "? F1-score = 2*P*R / (P+R)",
+    "information need (0=low, 1=high) are shared by several subagents",
 ]
 
 #: Operator spellings that merely contain an ``=``.
@@ -1240,6 +1267,40 @@ def test_an_equation_is_not_a_legend(legend_extractor: AbbreviationExtractor, te
     switched off is not a rule.
     """
     assert legend_pairs(legend_extractor.extract(text)) == []
+
+
+def test_the_one_equation_a_loosened_gate_admits() -> None:
+    """The measured equation false positive, pinned in both directions.
+
+    ``bench/run_shortform.py --legend-cost`` ran the flag over both SDU@AAAI-22
+    AE dev splits under all three shipped profiles -- 88, 83, 52 and 39 emitted
+    pairs -- and exactly one emission anywhere is an equation rather than a
+    definition:
+
+        shortform.sdu22_ae_scientific_dev.biomedical.legend_cost
+          added_pairs_matching_no_gold_long_form -> sample 348, 'X' -> 'x|W1'
+          from  ``P (X = x|W1 = w1, . . . , WN = wN )``
+
+    It needs the ``biomedical`` profile to exist at all, because that is the
+    only shipped profile admitting a one-character short form with no uppercase
+    requirement. Under the shipped default the same document yields nothing.
+
+    Both halves are asserted here on purpose. Pinning only the refusal would
+    make the loose profile's behaviour a surprise waiting to be rediscovered;
+    pinning only the admission would read as approval of it. What this pins is
+    that the difference lives in the short-form admission bounds and not in the
+    legend rule, so the fix, if one is ever wanted, is a profile question.
+    """
+    text = "P (X = x|W1 = w1, . . . , WN = wN )."
+    loose = Config(
+        extraction_min_short_form_length=1,
+        extraction_max_short_form_length=14,
+        extraction_require_uppercase=False,
+    )
+    admitted = legend_pairs(AbbreviationExtractor(loose, legend_syntax=True).extract(text))
+    assert pair_tuples(admitted) == [("X", "x|W1")]
+    assert_spans_exact(text, admitted)
+    assert legend_pairs(AbbreviationExtractor(Config(), legend_syntax=True).extract(text)) == []
 
 
 def test_a_legend_entry_stops_before_the_next_one(

@@ -49,6 +49,15 @@ previously waved through.
     or configuration corpus was measured. Turn it on for institutional or academic prose where you
     know legends are used; do not turn it on for arbitrary text. `docs/DECISIONS.md` D-039 has the
     decomposed tables including every row where precision falls.
+  - **What it costs you depends on which profile you run, and the worst case is `BIOMEDICAL`.** The
+    cost is now measured on both corpora that can show it, for all three shipped profiles, and
+    published in `docs/EVALUATION.md`. Short version for someone deciding: on institutional prose the
+    flag improves precision as well as recall; on scientific paper text it costs a little precision
+    under `HIGH_PRECISION` and `GENERAL`, and about two points of short-form precision under
+    `BIOMEDICAL`, which is the only shipped profile that will accept a one-character short form with
+    no uppercase requirement and is therefore the only one that will read part of an equation as a
+    definition. No F1 fell in any of the six runs. If you turn this flag on, the profile you pair it
+    with is part of the decision. `docs/DECISIONS.md` D-045.
 
 - **The disambiguator can now refuse to answer.** Every `DisambiguationResult` carries a read-only
   `margin` (the gap between the best and second-best candidate's scores, `None` when there are fewer
@@ -166,6 +175,24 @@ previously waved through.
   half the public symbols, seven of the sixteen CLI commands, and the only half with a streaming batch
   mode another runtime can drive. Ordering and framing only — no API changed. Three sentences that had
   quietly become false were retired in the process, and `docs/DECISIONS.md` D-037 names them.
+- **The `SF = LF` legend flag now has a published cost, and the safety check it shipped under has been
+  retired.** `docs/EVALUATION.md` gains a section measuring what the flag costs on the two corpora
+  where it actually fires — every shipped profile, both labels, both scoring conventions, with the
+  worst row named as the worst row and the recall ceiling printed in the same table. The check the
+  flag originally shipped under was "if MED1250 precision does not move, it is safe"; that corpus
+  turns out to emit **zero** legend pairs, so the check was watching a set of predictions the flag
+  cannot change. It is retired and replaced. Nothing about the flag's behaviour changed and it is
+  still off by default. `docs/DECISIONS.md` D-045 and D-046.
+- **`docs/DEFINITION-OF-DONE.md` is new**: the eight criteria this project treats as "finished",
+  swept in one pass, each with a verdict, the evidence behind it and what would close it. Three are
+  open, including one that had been carried as met — the backronym generator ships with no accuracy
+  number of any kind, and reading "every subsystem" as "every subsystem with a benchmark corpus"
+  would have closed it by definition rather than by measurement.
+- **README figures now cite the measurement they came from.** Every performance and accuracy number
+  in `README.md` names the benchmark run that produced it, so a stale or mistyped figure fails the
+  build instead of sitting there. The import-cost row also now shows the two companion figures
+  beside the shell-import figure, because quoting the cheap one alone is the flattering comparison
+  this project already refused once.
 - **`disambiguate` is labelled honestly in every place a reader lands.** The `dictionary=` argument is
   not optional decoration; it is the whole feature. On the documented default path the engine has two
   candidates to choose between on one instance in 6,189 of the measured split, so it performs no
@@ -174,8 +201,10 @@ previously waved through.
 ### Notes
 
 - **New claims must now cite a run id.** `tools/check_claims.py` still accepts the existing figures
-  that are backed only by matching a value somewhere in `bench/results.json` — 76 of them at the time
-  of writing — but that path is a ratchet and admits nothing new: every number added to the docs from
+  that are backed only by matching a value somewhere in `bench/results.json` — 71 of them across four
+  files, down from 87 across five when the ratchet was installed, with `README.md` now at zero and no
+  longer budgeted at all — but that path is a ratchet and admits nothing new: every number added to
+  the docs from
   here names the measurement it came from, so that a wrong citation can fail the build. Value matching
   cannot tell a correct claim from a coincidence, and a stale figure survived two audits on exactly
   that gap.
@@ -219,6 +248,38 @@ previously waved through.
   declared, but that string is written when a run is saved and nothing rewrites a saved entry. The
   re-save is deliberately queued behind the tokenizer work, because one of the two corpora is a live
   catalog and re-fetching it would move every published figure with nothing visible to say why.
+- **A packaging check that matched a text pattern was replaced by one that runs the code.** The suite
+  carried a scan for test files that read a path the source distribution does not ship. It was beaten
+  twice by spellings it did not match, so it is gone; the sdist job that unpacks the archive and runs
+  the suite inside it catches four of the five ways this has actually broken, because it executes the
+  import instead of describing it. The one remaining gap and the one file now protected by a single
+  line are both written into `.github/workflows/ci.yml` beside the checks concerned.
+  `docs/DECISIONS.md` D-050.
+- **The benchmark runner now shows you what a `--save` would overwrite.** `bench/run_micro.py` prints
+  every stored figure it is about to replace, with the old value, the new value and the size of the
+  move — and, for the import figures, the list of documents that quote them in prose. Re-recording a
+  measurement that drifted with the machine is how a published caveat goes stale in the opposite
+  direction from the number it was written to qualify. `docs/DECISIONS.md` D-051.
+- **The last unread SDU@AAAI-22 split now has an owner.** Two open questions both named the same
+  unread file as their next measurement, and whichever runner reached it first would have spent it
+  for the other. It is allocated in `bench/splits.toml` — with the losing question named, the
+  condition that would reverse the allocation, and, more usefully, the fact that one runner
+  invocation answers both arms anyway. `docs/DECISIONS.md` D-047.
+- **The two tasks this library leads with still have no held-out corpus, and it is now clear that no
+  amount of re-using the corpora here will produce one.** A pair of definitions and a set of tagged
+  spans are not the same annotation under two names: the corpora that pair a short form with its
+  expansion carry no positions, and the corpora that carry positions never say which expansion
+  belongs to which abbreviation. Deriving one from the other was measured and the invented gold is an
+  order of magnitude noisier than the differences it would have adjudicated. If you are evaluating
+  this library, `docs/EVALUATION.md` says which figures are held out and which are tuning; the
+  flagship extraction figure is a tuning figure and this project says so on every page that prints
+  it. `docs/DECISIONS.md` D-048.
+- **A design note on whether `extract()` should report an abbreviation whose expansion it does not
+  know** is now in `docs/notes/w11-emission-model.md`, scoped and costed. Nothing is decided and no
+  behaviour changed. Worth reading before anybody asks for the feature, because a one-line all-caps
+  rule already beats this library's short-form score on the one held-out corpus that can see it, so
+  "we can emit unpaired abbreviations" would not by itself be an improvement. `docs/DECISIONS.md`
+  D-049.
 - **Two documentation tables are wrong about the bundled resources**, and one of them invites a
   reviewer to compare their installation against it. `docs/OFFLINE.md` §7 and `docs/SUPPORT_MATRIX.md`
   each list seven files; the library ships and reports eight. Trust `acronymkit doctor` over the

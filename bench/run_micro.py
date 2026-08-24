@@ -33,14 +33,44 @@ them is visible in ``results.json``:
     nowhere for deferred work to hide. If lazy import were merely shuffling
     cost around, this is the number that would show it.
 
+The three are a triple, and ``--save`` is not a local act
+--------------------------------------------------------
+``--only import`` exists so that a change touching the import path does not
+republish the per-call latency arms as run-to-run noise. It does **not** protect
+the three import figures from each other: they are written as one
+``micro.import`` entry, so the only way to re-record the flattering one is to
+re-record the other two with it.
+
+That matters because the three are quoted *together*, and deliberately so.
+``docs/DECISIONS.md`` D-013 keeps ``cold_import_engine_ms`` and
+``cold_first_result_ms`` beside ``cold_import_ms`` precisely to stop the first
+being read as a win; ``docs/EVALUATION.md``'s import-column caveat,
+``docs/notes/pydantic-cost.md``, ``CHANGELOG.md`` and the *why 30 ms* comment in
+the ``import-time`` CI job all repeat the triple. None of those five is a
+runner's output, so ``--save`` silently ages all of them and nothing fails.
+
+So before saving, ask what changed in the *package*. On 2026-08-24, five
+consecutive medians-of-nine on the development box put ``cold_import_ms`` below
+the recorded figure while ``cold_import_engine_ms`` and ``cold_first_result_ms``
+both sat *above* theirs. Nothing this project did makes the shell cheaper and
+the engine dearer in the same measurement, so that is the machine moving and not
+the package -- and D-038 already measured the one recent change to the import
+path, found it well under a tenth of a millisecond, and recorded it as a
+non-result on purpose. Re-saving there would have published drift as a win and
+staled the other five documents in the opposite direction. It was not saved.
+:func:`render_drift` prints the comparison at the moment ``--save`` is used, so
+the next person makes that call with the numbers in front of them.
+
 Usage::
 
     python bench/run_micro.py --save
+    python bench/run_micro.py --only import          # measure, do not record
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import statistics
 import subprocess
 import sys
@@ -70,6 +100,85 @@ IMPORT_CASES = {
         f"from acronymkit import AcronymEngine;AcronymEngine().generate({PHRASE!r})"
     ),
 }
+
+
+#: Where a saved entry lands, read back so ``--save`` can show what it replaces.
+RESULTS_PATH = REPO_ROOT / "bench" / "results.json"
+
+#: Documents that quote the ``micro.import`` triple in prose. None of them is
+#: generated, so re-saving that entry ages every one of them silently. Listed
+#: here rather than in a comment because the list is what makes the printed
+#: drift actionable: it says where the cost of saving lands.
+TRIPLE_QUOTED_IN = (
+    "docs/DECISIONS.md (D-013's before/after table)",
+    "docs/EVALUATION.md (the import-column caveat)",
+    "docs/notes/pydantic-cost.md",
+    "CHANGELOG.md",
+    ".github/workflows/ci.yml (the 'why 30 ms' comment)",
+)
+
+
+def stored_entries(keys: Sequence[str]) -> dict:
+    """The measurements ``bench/results.json`` already holds for ``keys``.
+
+    Args:
+        keys: Run ids this invocation is about to write.
+
+    Returns:
+        ``{run id: entry}`` for the keys that already exist. Missing keys and a
+        missing results file both yield nothing, because "there is no previous
+        figure" and "there is nothing to compare against" are the same answer
+        here.
+    """
+    if not RESULTS_PATH.is_file():
+        return {}
+    runs = json.loads(RESULTS_PATH.read_text(encoding="utf-8")).get("runs", {})
+    return {key: runs[key] for key in keys if key in runs}
+
+
+def render_drift(stored: dict, fresh: dict) -> list[str]:
+    """``stored -> fresh`` for every numeric field ``--save`` would overwrite.
+
+    A saved figure is quoted in documents no runner regenerates, so overwriting
+    one is a change to those documents made from another file. This puts the
+    size of that change in front of whoever is about to make it.
+
+    Args:
+        stored: Entries currently in ``bench/results.json``, from
+            :func:`stored_entries`.
+        fresh: Entries this run produced.
+
+    Returns:
+        Report lines. Empty when nothing is being replaced, so a first-ever
+        save prints no comparison rather than a column of dashes.
+    """
+    lines: list[str] = []
+    for key in sorted(fresh):
+        previous = stored.get(key)
+        if not previous:
+            continue
+        for field in sorted(fresh[key]):
+            was, now = previous.get(field), fresh[key][field]
+            if not isinstance(was, (int, float)) or isinstance(was, bool):
+                continue
+            if not isinstance(now, (int, float)) or isinstance(now, bool):
+                continue
+            if was == now:  # a settings field, or a figure that did not move
+                continue
+            change = "" if was == 0 else f"  {(now - was) / was:+7.1%}"
+            lines.append(f"  {key}.{field:<24} {was:>8} -> {now:>8}{change}")
+    if lines:
+        lines = ["", "replacing measurements already published:", *lines]
+        if "micro.import" in fresh and "micro.import" in stored:
+            lines += [
+                "",
+                "  micro.import is quoted as a THREE-FIGURE TRIPLE, in prose, in:",
+                *(f"    {where}" for where in TRIPLE_QUOTED_IN),
+                "  none of which any runner regenerates. If the three did not move",
+                "  together and in a direction some change explains, this is the",
+                "  machine and not the package -- do not save it.",
+            ]
+    return lines
 
 
 def cold_ms(statement: str, repeats: int = IMPORT_REPEATS) -> float:
@@ -147,7 +256,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "restrict the run to one half. A change that touches only the import path has "
             "no effect on per-call latency, so re-recording the latency entries would move "
             "a published figure by run-to-run noise alone -- which is precisely the size of "
-            "difference this project reverts changes for. Use '--only import' then."
+            "difference this project reverts changes for. Use '--only import' then. Note "
+            "that it does NOT separate the three import figures from each other: they are "
+            "one entry, they are quoted together on purpose, and --save moves all three."
         ),
     )
     args = parser.parse_args(argv)
@@ -181,6 +292,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.save:
         from run_extraction import save_results
 
+        for line in render_drift(stored_entries(list(entries)), entries):
+            print(line, file=sys.stderr)
         print(f"saved {len(entries)} run(s) to {save_results(entries).relative_to(REPO_ROOT)}")
     return 0
 

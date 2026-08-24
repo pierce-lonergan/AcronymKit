@@ -558,10 +558,58 @@ jobs:
     # `data/LICENSES.md`, then `tests/fixtures/*.json`, then a test that
     # executed `bench/run_governed_gold.py` while it was being imported. Every
     # fix named the file that had just broken, which is exactly why there was a
-    # next one. `tests/test_packaging_manifest.py` now derives two of those
-    # shapes from the tree rather than from memory, which is the right
-    # direction; the hand-written `required = [...]` in `build` below is still
-    # the wrong one.
+    # next one. `tests/test_packaging_manifest.py` derives one of those shapes
+    # from the tree rather than from memory, which is the right direction; the
+    # hand-written `required = [...]` in `build` below is still the wrong one.
+    #
+    # WHAT THIS JOB DOES NOT SEE, MEASURED RATHER THAN ASSUMED. Each of the five
+    # historical breakages was reintroduced one at a time on a scratch copy of
+    # the tree and run through this job's own command sequence:
+    #
+    #   un-gated, workstream measurement, 2026-08-24, CPython 3.13, Windows
+    #   (`Scripts/python.exe` for `bin/python`), gate as written below. The
+    #   third column is the `pytest -q -x` inside `build`'s extracted tree; the
+    #   `test -f` lines that precede it in that step are counted separately.
+    #                                                    THIS JOB  extracted  test -f
+    #                                                              tree       lines
+    #     a  bench/results.json out of the sdist          passes   FAILS      FAILS
+    #     b  data/LICENSES.md out of the sdist            passes   passes     FAILS
+    #     c  tests/fixtures/*.json out of the sdist       FAILS    FAILS      --
+    #     d  test_governed_gold.py loads bench/ unguarded FAILS    FAILS      --
+    #     e  test_splits_manifest.py     "        "       passes   FAILS      --
+    #
+    # It catches two of the five. `a` and `b` are invisible because the run
+    # directory below holds `tests/` and `pyproject.toml` and nothing else --
+    # there is no `bench/` and no `data/` here for their absence to be noticed
+    # in, and the only test that reads `bench/results.json` is one of the two
+    # that cannot collect at all.
+    #
+    # `e` is the one to read twice. It is the *same defect as `d`*, in a file
+    # that is already on EXPECTED_NON_PASSING below, and it produced a log
+    # identical to a clean run -- the same pass, skip, failure and error counts,
+    # and the same eight entries "accounted for exactly". While a file is on
+    # that list this job is blind to any new unshipped-path load inside it,
+    # because the list is keyed on the file and the file was already going to
+    # error. That is not a bug in
+    # the gate -- it is what a list of names costs, and it is why the list is
+    # meant to shrink. `d` and `e` both fail `build`'s extracted-tree step by
+    # construction, verified with `tests/test_packaging_manifest.py` deleted
+    # from the extracted tree so the failure could not be coming from a guard:
+    # rc=1 on both, rc=0 on the unmutated tree.
+    #
+    # The AST guard in `tests/test_packaging_manifest.py` that used to cover
+    # `d` and `e` was retired against that measurement. It matched a pattern,
+    # it had missed the same class twice, and everything it caught the
+    # extracted-tree step catches by executing the import. `b` is now held by
+    # one `test -f` line in `build` and by nothing else.
+    #
+    # HOW THE RETIREMENT FAILS. It rests on `bench/*.py` staying out of the
+    # sdist -- that absence is what makes the import raise in the extracted
+    # tree. `MANIFEST.in` ships `bench/results.json` and nothing else from
+    # `bench/`, and it says why. If a future commit ships the runners too, that
+    # step stops seeing this class entirely and the only net left is this job,
+    # blind in the two files above. Shipping `bench/*.py` is therefore a change
+    # to a check, not just to a manifest.
     #
     # `build`'s "Verify the sdist can run its own test suite" step LOOKS like it
     # already covers the rest, and does not. It extracts the sdist, installs it,
@@ -752,10 +800,16 @@ jobs:
               # runs at collection, the module body at import. `tools/` ships in
               # the sdist but is no part of an installed distribution. 120 tests
               # between them, exercised by the extracted-tree run in `build`.
-              # This is the same shape as the `bench/run_governed_gold.py`
-              # incident that `tests/test_packaging_manifest.py` now guards
-              # against -- its `_UNSHIPPED_ROOTS` knows about `bench` and not
-              # about "shipped in the sdist, absent once installed".
+              #
+              # AND WHILE THEY ARE LISTED HERE, THIS JOB CANNOT SEE A SECOND
+              # DEFECT IN EITHER OF THEM. Measured: reintroducing the
+              # `bench/corpora.py` module-level load into
+              # tests/test_splits_manifest.py -- the fifth historical breakage,
+              # exactly -- produced a run identical to a clean one, because the
+              # file was already going to error and the entry is keyed on the
+              # file. The same defect in a file NOT on this list reds the job
+              # immediately. Two names, two blind spots; that is the argument
+              # for shrinking the list, not for trusting it.
               "tests/test_check_claims.py",
               "tests/test_splits_manifest.py",
               # These read the source text of `src/acronymkit/__init__.py` and
@@ -988,6 +1042,18 @@ jobs:
         # bitten four times. It is not a check on the installed distribution.
         # The `installed-suite` job above is that check, and the difference
         # between the two is the reason both exist.
+        #
+        # DO NOT DELETE THIS STEP AS REDUNDANT WITH THAT JOB. It is now the
+        # ONLY mechanism covering the module-level-unshipped-load shape, and it
+        # covers more of the five historical breakages than `installed-suite`
+        # does -- four of five against two of five, measured; the table is in
+        # that job's comment. `tests/test_packaging_manifest.py` used to hold an
+        # AST guard for two of them and was retired against this step, on the
+        # evidence that deleting the guard from the extracted tree left both
+        # cases failing here anyway, by import rather than by pattern. The `test
+        # -f` lines below are a list of names and are the wrong shape, but
+        # `data/LICENSES.md` is held by one of them and by nothing else in this
+        # file: deleting that line removes the only check on it.
         run: |
           mkdir -p /tmp/sdist && tar -xzf dist/*.tar.gz -C /tmp/sdist --strip-components=1
           test -f /tmp/sdist/tests/conftest.py || { echo "conftest.py missing from sdist"; exit 1; }

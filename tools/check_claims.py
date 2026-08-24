@@ -128,14 +128,21 @@ SCAN_GLOBS = (
 #: documents cite by run id from the start. Regenerate after a migration with
 #: ``python tools/check_claims.py --update-baseline``.
 #:
-#: Recorded 2026-08-23: 87 claims across 5 files.
+#: Recorded 2026-08-23: 87 claims across 5 files. 71 across 4 as of 2026-08-24.
 VALUE_MATCHED_BASELINE: Dict[str, int] = {
     # Lowered from 12 and 28 when the MED1250 extraction headline was migrated to
     # run-id citations after `balanced_trim` shipped (D-032). The ratchet only
     # works if a freed slot is closed rather than left open for the next bare
     # number to occupy quietly, which is why this moves in the same commit as
     # the migration.
-    "README.md": 5,
+    #
+    # `README.md` was 5 and is now ABSENT, which the rule above reads as zero:
+    # the import figure, the per-call latency figure, both CMUdict figures and
+    # the disambiguation headline were migrated to run-id citations in the same
+    # commit as this deletion. The README is the document a first reader lands
+    # on, so it is the right one to take to zero first -- and an absent entry is
+    # a stronger statement than `0`, because re-adding the key is a visible edit
+    # rather than a number nudged upward.
     "docs/DECISIONS.md": 42,
     "docs/EVALUATION.md": 24,
     "docs/notes/scoring-objective.md": 3,

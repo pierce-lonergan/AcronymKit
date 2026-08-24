@@ -257,12 +257,25 @@ available for a sanity check, a curiosity or a second look.
 # offers. They are recorded as such rather than promoted to `role = "held_out"`,
 # because the corpus is one artefact and the roles are declared per corpus.
 #
+# ***  legal/train.json IS ALLOCATED. READ `train_allocation` ON THE LEGAL  ***
+# ***  ENTRY BELOW BEFORE ANY RUNNER TOUCHES IT. Two live claims name this  ***
+# ***  file and it can be read unmined exactly once; D-047 says which one   ***
+# ***  owns the read, which one rides along free, and what the read cannot  ***
+# ***  buy. scientific/train.json is UNALLOCATED and its first spend needs  ***
+# ***  its own D-record -- first-come is refused.                           ***
+#
 # THE DOMAIN LABEL IS THE CORPUS'S WORD, NOT A DESCRIPTION. See below.
 
 [corpora.sdu22_ae_legal]
 role = "tuning"
 task = "span_detection"
-status = "registered; reader in bench/corpora.py; not yet scored through a runner"
+# CORRECTED 2026-08-24. This read "registered; reader in bench/corpora.py; not
+# yet scored through a runner" long after both were false. `status` is free
+# text that tools/splits.py does not validate, which is how it went stale
+# quietly -- the same failure class as the three published sentences D-037
+# retired. If it goes stale again, delete it rather than fixing it: a field
+# nothing checks is a field that lies eventually.
+status = "evaluated; gated in bench/results.json under shortform.sdu22_ae_legal_dev.*"
 # The corpus calls this split "legal". It is not legal text, and the field
 # below says what it actually is. See `domain_finding`.
 domain = "Institutional and development-policy prose (United Nations system)"
@@ -277,6 +290,71 @@ the 30 characters preceding each gold long-form span (669 gold long forms, 263
 missed, legend matches {'=': 127, ':': 4}) and used the result to rank a recall
 proposal. Reading a miss taxonomy is exactly what made MED1250 a tuning split.
 Only `train.json` is unread.
+"""
+train_allocation = """
+ALLOCATED. 3,564 unread samples, ONE unmined read. Decided in docs/DECISIONS.md
+D-047, and written here because the person about to spend it has THIS file open
+and not that one.
+
+WHAT IS SCARCE, because it is less than "held out" implies. This corpus is
+already role = "tuning" and contaminated = true, and both English test splits
+carry zero labels, so there is no blind arm here and never was. What train.json
+holds is the last UNMINED arm: a split nobody has read the misses of, which can
+be run against once before it is as contaminated as the dev split beside it.
+
+  ALLOCATED TO   the legend flag's precision cost, measured on an arm that was
+                 not mined to invent the flag. D-039 shipped `legend_syntax`
+                 off; D-045 measured its cost only on the two dev splits whose
+                 miss taxonomy suggested the rule. That workstream owns the
+                 read: it decides WHEN the split is read, WHICH miss
+                 decomposition is published, and what may be concluded.
+
+  LOSER          experiment nine, the two-word bracketed short form (D-032).
+                 It stays HELD. Holding costs nothing; the legend flag is
+                 SHIPPED with an unmeasured cost, which is a live liability.
+
+  FREE RIDE      `bench/run_shortform.py --variants` scores `two_word` and
+                 `legend` in ONE invocation over the same corpus -- they are
+                 two rows of `_VARIANTS`. The run that spends this split MUST
+                 save the `two_word` row as well. It costs zero extra reads and
+                 it is the only way experiment nine is ever answered once the
+                 arm is mined. Experiment nine may NOT commission a read of its
+                 own, or a miss decomposition of its own.
+
+  LAPSES WHEN    (a) a corpus that annotates legend definitions, is
+                 structurally capable, and can be declared uncontaminated is
+                 registered -- D-039's real precondition, which makes this arm
+                 redundant for the winner; or (b) `legend_syntax` is deleted
+                 rather than defaulted. Then experiment nine inherits it.
+                 NOT a trigger: experiment nine being older, a workstream
+                 needing a number this round, or the legend work stalling.
+
+WHAT THE SPEND CANNOT BUY, and this is the half that gets lost.
+
+  It cannot license flipping the legend default on its own. D-039's first
+  reason for shipping off is that NO uncontaminated structurally capable corpus
+  exists in this repository, and a within-corpus tuning arm does not answer
+  that -- D-039 says so itself: this split buys within-corpus corroboration and
+  not generalisation.
+
+  It cannot address the risk the flag is off for. Of the 138 separators in
+  legal dev, ZERO open a number (bench/results.json,
+  shortform.sdu22_ae_legal_dev.*.legend_cost). This split is where the legend
+  CLASS is dense and where the EQUATION surface is absent. Spending it and then
+  reporting "the equation risk is measured" repeats D-045's own finding one
+  corpus over.
+
+WHAT IT CAN BUY: an honest precision delta for a shipped flag on an arm nobody
+mined to invent it. Nothing else in this repository can buy that.
+
+CAPABILITY, counted before the spend rather than after it (R9's fifth question).
+Legal dev carries 26 multi-token gold short-form spans of 1,213 (2.14%), against
+PLOD's 0 of 2,869 -- which is why PLOD could not score experiment nine even in
+principle and why this split can. Scaling on the ceiling basis below (train
+9,532 gold acronym spans against dev's 1,213, a factor of 7.86), dev density
+projects roughly 200 multi-token spans and about 1,100 separators on train.
+THOSE TWO ARE ARITHMETIC ON A DEV COUNT, NOT MEASUREMENTS. They say the arm is
+worth spending; they are not quotable.
 """
 shortform_recall_ceiling_pct = 55.15
 shortform_recall_ceiling_basis = """
@@ -371,7 +449,8 @@ not the legal domain, and the domain-generalisation gap stays open.
 [corpora.sdu22_ae_scientific]
 role = "tuning"
 task = "span_detection"
-status = "registered; reader in bench/corpora.py; not yet scored through a runner"
+# CORRECTED 2026-08-24, same stale string as the legal entry above.
+status = "evaluated; gated in bench/results.json under shortform.sdu22_ae_scientific_dev.*"
 domain = "Scientific (mixed-discipline papers)"
 licence = "CC BY-NC-SA 4.0 (data); MIT (scorer and baseline only)"
 licence_url = "https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md"
@@ -382,6 +461,19 @@ contamination_reason = """
 Same audit pass as the legal split: dev misses were decomposed by legend
 separator (720 gold long forms, 230 missed, legend matches {'=': 102, ':': 13})
 and the result was used to rank a recall proposal. Only `train.json` is unread.
+"""
+train_allocation = """
+UNALLOCATED, deliberately, and that is a state rather than a drift. Both of the
+live claims on this corpus name the LEGAL train split (D-032 experiment nine,
+D-039's legend default), so assigning this one a use today would mean inventing
+one -- which is the failure D-043 corrected when an unspent reservation attracted
+a proposal it could not serve.
+
+What is written instead is a rule: THE FIRST SPEND OF THIS FILE REQUIRES ITS OWN
+D-RECORD. First-come is refused. Read docs/DECISIONS.md D-047 before proposing
+one, and note in particular that this split is not an answer to the equation
+risk either: 5 of its 147 dev separators open a number (3.40%), and D-045
+records that as a FLOOR on the equation surface rather than a measurement of it.
 """
 shortform_recall_ceiling_pct = 74.23
 shortform_recall_ceiling_basis = """
