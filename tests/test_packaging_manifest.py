@@ -124,3 +124,65 @@ def test_the_manifest_covers_the_conftest_the_suite_cannot_start_without() -> No
     patterns = _manifest_patterns()
     assert _is_covered(REPO_ROOT / "tests" / "conftest.py", patterns)
     assert not _is_covered(REPO_ROOT / "MANIFEST.in.nope", patterns)
+
+
+#: Directories a test may reference by path that the sdist does NOT ship.
+#: `bench/*.py` is the live case: the runners need fetched corpora and optional
+#: dependencies an sdist has no business assuming, so they are deliberately left
+#: out, and `MANIFEST.in` says so.
+_UNSHIPPED_ROOTS = ("bench",)
+
+
+def _module_level_path_loads(source: str) -> list[str]:
+    """Return module-level names that build a path into an unshipped directory.
+
+    Deliberately crude — a textual scan for a `REPO_ROOT / "<root>" / ...`
+    assignment at column zero. A test that does this at import time cannot be
+    rescued by ``pytest.mark.skipif``, because the mark is consulted at
+    collection and the module body has already run by then.
+    """
+    found: list[str] = []
+    for line in source.splitlines():
+        if line.startswith((" ", "\t", "#")) or "REPO_ROOT" not in line:
+            continue
+        for root in _UNSHIPPED_ROOTS:
+            if f'"{root}"' in line and "=" in line:
+                found.append(line.split("=", 1)[0].strip())
+    return found
+
+
+@pytest.mark.skipif(not MANIFEST.is_file(), reason="not a source checkout")
+def test_no_test_imports_an_unshipped_path_at_module_level() -> None:
+    """A test may reference `bench/` — but not while it is being imported.
+
+    This is the third time this distribution has shipped a test without the
+    thing it reads: `bench/results.json`, then `data/LICENSES.md`, then the
+    governed fixtures. Each fix named the file that had just broken, which is
+    why there was a next one. The two earlier shapes are covered above by
+    checking the manifest against the tree.
+
+    This is the remaining shape, and it is not a manifest problem at all: the
+    file is *correctly* absent, and the defect is a module body that reads it
+    anyway. `pytest.mark.skipif` looks like it guards that and does not — the
+    mark runs at collection, the module body at import. The fix is always to
+    make the load conditional on the path existing.
+
+    Caught in CI's sdist job, where the suite runs inside the built artifact.
+    Caught here means caught on a laptop instead.
+    """
+    offenders: dict[str, list[str]] = {}
+    for path in sorted((REPO_ROOT / "tests").rglob("test_*.py")):
+        source = path.read_text(encoding="utf-8")
+        names = _module_level_path_loads(source)
+        if not names:
+            continue
+        # A constant is fine; executing it unconditionally is not.
+        for name in names:
+            unguarded = f"= _load({name}" in source.replace(" ", "").replace("=_load(", "= _load(")
+            if unguarded and f"if {name}.is_file()" not in source:
+                offenders.setdefault(path.name, []).append(name)
+
+    assert not offenders, (
+        "these tests load an unshipped path while being imported, so "
+        f"`pytest.mark.skipif` cannot save them inside an sdist: {offenders}"
+    )

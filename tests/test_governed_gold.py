@@ -75,7 +75,14 @@ def _load(path: Path, name: str) -> ModuleType:
 
 pytestmark = pytest.mark.skipif(not RUNNER.is_file(), reason="not a source checkout")
 
-gold = _load(RUNNER, "_governed_gold_under_test")
+# Loaded only when the runner is present, and that ordering is the whole point.
+# `pytestmark` skips at COLLECTION; a module-level `_load` runs at IMPORT, which
+# is earlier, so guarding with the mark alone still raises FileNotFoundError
+# before the mark can do anything. The sdist ships `tests/` but deliberately not
+# `bench/*.py` -- the runners need fetched corpora and optional dependencies an
+# sdist has no business assuming -- so this module is imported without its
+# subject every time CI runs the suite inside the built sdist.
+gold = _load(RUNNER, "_governed_gold_under_test") if RUNNER.is_file() else None
 
 
 # ---------------------------------------------------------------------------
