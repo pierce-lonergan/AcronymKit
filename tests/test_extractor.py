@@ -20,6 +20,7 @@ from hypothesis import strategies as st
 from acronymkit.config import Config
 from acronymkit.extractor import (
     AbbreviationExtractor,
+    _trim_span,
     find_best_long_form,
     is_valid_long_form,
     is_valid_short_form,
@@ -316,6 +317,27 @@ _EXTRA_EXTRACTION_CASES: list[tuple[str, str, list[tuple[str, str]]]] = [
         "unicode-turkish-dotted-i-inverted",
         "The İTÜ (İstanbul Teknik Üniversitesi) kuruldu.",
         [("İTÜ", "İstanbul Teknik Üniversitesi")],
+    ),
+    # -- a bracketed short form keeps its own closing bracket ---------------
+    # ``_trim_span`` used to strip the trailing ``)`` unconditionally, so these
+    # documents yielded ``FEV(1`` and ``NDS(2`` -- unmatched openers that equal
+    # no annotation under any convention. The long form was unaffected either
+    # way, because the matcher skips non-alphanumeric short-form characters, so
+    # the defect cost a pair outright rather than mis-scoring one.
+    (
+        "balanced-trim-subscripted-short-form",
+        "Forced expiratory volume in 1 second (FEV(1)) fell.",
+        [("FEV(1)", "Forced expiratory volume in 1 second")],
+    ),
+    (
+        "balanced-trim-with-trailing-gloss",
+        "Forced expiratory volume in 1 second (FEV(1); n=42) fell.",
+        [("FEV(1)", "Forced expiratory volume in 1 second")],
+    ),
+    (
+        "balanced-trim-inside-a-square-region",
+        "The report [Northwind Data Standards 2 (NDS(2))] took effect.",
+        [("NDS(2)", "Northwind Data Standards 2")],
     ),
     # -- blank input --------------------------------------------------------
     ("empty-string", "", []),
@@ -964,6 +986,134 @@ def test_long_form_containing_the_short_form_is_rejected_case_sensitively(
 ) -> None:
     """A parenthetical that merely repeats a word of the long form is dropped."""
     assert extractor.extract("The Acme Corporation (Acme) filed.") == []
+
+
+# ---------------------------------------------------------------------------
+# _trim_span: the balanced-bracket restoration
+# ---------------------------------------------------------------------------
+# The trim strips trailing non-alphanumerics, then puts back exactly as much as
+# it takes to close what it opened. Three properties matter and each is pinned
+# below: it never reaches past the span it was given, it restores
+# all-or-nothing, and it costs O(1) whatever it is handed.
+
+
+@pytest.mark.parametrize(
+    ("text", "start", "end", "expected"),
+    [
+        # The case the restoration exists for.
+        ("FEV(1)", 0, 6, "FEV(1)"),
+        ("a FEV(1) b", 2, 8, "FEV(1)"),
+        # Nested, and both levels are restored.
+        ("A((b))", 0, 6, "A((b))"),
+        # A closing bracket that closes nothing is still stripped: the trim is
+        # not "keep every bracket", it is "leave nothing open".
+        ("A(b)c)", 0, 6, "A(b)c"),
+        # Bracket kinds must agree before anything is restored.
+        ("A(b]", 0, 4, "A(b"),
+        # Nothing to restore, so nothing changes.
+        ("...abc...", 0, 9, "abc"),
+        ("RCT; n=42", 0, 9, "RCT; n=42"),
+        ("((((((x))))))", 0, 13, "x"),
+        ("(", 0, 1, ""),
+    ],
+)
+def test_trim_span_leaves_no_bracket_open(text: str, start: int, end: int, expected: str) -> None:
+    """The trimmed span is balanced, and is a slice of what was handed in."""
+    trimmed_start, trimmed_end = _trim_span(text, start, end)
+    assert text[trimmed_start:trimmed_end] == expected
+    assert start <= trimmed_start <= trimmed_end <= end
+
+
+def test_trim_span_restores_all_or_nothing() -> None:
+    """A span that cannot be fully closed is left exactly as the plain trim made it.
+
+    ``A((b)`` holds two openers and one closer, so closing it completely would
+    need a character the text does not have. Restoring the one available closer
+    would produce ``A((b)`` -- still unbalanced, and now a third string that is
+    neither what the text says nor what the trim decided.
+    """
+    start, end = _trim_span("A((b)", 0, 5)
+    assert "A((b)"[start:end] == "A((b"
+
+
+@given(
+    text=st.text(alphabet="ab()[]{}.,;: 12", max_size=40),
+    lower=st.integers(min_value=0, max_value=40),
+    span=st.integers(min_value=0, max_value=40),
+)
+@settings(max_examples=400, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+def test_trim_span_never_reaches_outside_its_input(text: str, lower: int, span: int) -> None:
+    """The restoration may only give back characters this call removed.
+
+    Widening a span is the one thing a *trim* is not supposed to do, and the
+    span invariant every caller relies on -- ``text[span] == form`` -- stops
+    holding the moment an offset escapes the region it was computed for.
+    """
+    start = min(lower, len(text))
+    end = min(start + span, len(text))
+    trimmed_start, trimmed_end = _trim_span(text, start, end)
+    assert start <= trimmed_start <= trimmed_end <= end
+
+
+# ---------------------------------------------------------------------------
+# A long form may still begin with a function word
+# ---------------------------------------------------------------------------
+# Rejecting those was built and measured, and it lost. It is free on MED1250 --
+# three predictions removed, none of them correct -- and asked again on two
+# other corpora it deletes eleven predictions carrying a correct short-form
+# span and three carrying a correct long-form span, because this library emits
+# *pairs* and refusing a long form takes the short form standing beside it.
+#
+#   bench/results.json:
+#     shortform.med1250_all.function_word_exposure
+#     shortform.sdu22_ae_legal_dev.function_word_exposure
+#     shortform.sdu22_ae_scientific_dev.function_word_exposure
+#     shortform.plod_all.tight.high_precision.{baseline,function_word}
+#   Reproduce with: python bench/run_shortform.py --variants --spans
+#
+# The tests below pin the behaviour that was kept, so the rule cannot be
+# re-added without a failing test and a fresh measurement. Note what the rule
+# would *not* have done: ``OMB`` should expand to ``Office of Management and
+# Budget``, and rejecting ``of Management and Budget`` does not recover it --
+# the correct span starts to the *left* of ``of``, and choosing a different
+# long-form starting boundary is what D-008 built, measured and reverted.
+
+
+@pytest.mark.parametrize(
+    ("short_form", "long_form"),
+    [
+        ("OMB", "of Management and Budget"),
+        ("ORM", "of Records Management"),
+        ("TIA", "the Indonesian Armed Forces"),
+        ("AA", "an adverb"),
+    ],
+)
+def test_a_long_form_beginning_with_a_function_word_is_still_valid(
+    short_form: str, long_form: str
+) -> None:
+    """``is_valid_long_form`` has no opinion about the first word's word class."""
+    assert is_valid_long_form(short_form, long_form) is True
+
+
+def test_a_truncated_institutional_long_form_is_still_reported(
+    extractor: AbbreviationExtractor,
+) -> None:
+    """The defect is real and the output is deliberately unchanged.
+
+    The pair is wrong -- the expansion should start at ``Office`` -- and it is
+    reported anyway, because the only rule that removes it also removes a
+    correct short-form span, and because removing it recovers nothing.
+    """
+    text = "The Northwind Office of Records Management (ORM) replied."
+    assert pair_tuples(extractor.extract(text)) == [("ORM", "of Records Management")]
+
+
+def test_the_same_shape_without_a_leading_preposition_is_correct(
+    extractor: AbbreviationExtractor,
+) -> None:
+    """The control: nothing about institutional prose is broken in general."""
+    text = "Northwind Data Standards (NDS) apply from January."
+    assert pair_tuples(extractor.extract(text)) == [("NDS", "Northwind Data Standards")]
 
 
 # ---------------------------------------------------------------------------

@@ -110,6 +110,17 @@ assumed; an earlier reading of the tokenizer's ordinal rule emitted the token
 ``1s``, whose upper-cased form ``1S`` splits into two, and ``normalize("1sT")``
 moved on every pass.
 
+It has a third, and that one is a premise about the **catalog**. Both verbs here
+tokenise through :func:`~acronymkit.governed.expansion._rejoin_digit_tokens`, so
+what the second pass sees depends on which rows exist, and a joined token is
+safe only while splitting it returns the pieces it was joined from. ``1MM`` does;
+``911`` does not, because a digit run has no internal boundary. A catalog holding
+both ``11`` and ``911`` therefore walked ``E_9_1_1`` to ``E_9_11`` and then to
+``E_911`` — changing what the column said on the way — until that pass was
+narrowed to refuse a join whose result is itself all digits. The premise is
+tested by varying the catalog rather than the name, which is the dimension the
+corpus-parametrised test above cannot reach.
+
 Outside ASCII it is **false**, and the honest thing is to say where rather than
 to claim the invariant unqualified. ``str.upper`` is not length-preserving and
 can produce characters that are not letters: ``"ΐ"`` upper-cases to a

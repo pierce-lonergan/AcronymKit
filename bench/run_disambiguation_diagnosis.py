@@ -93,6 +93,7 @@ from acronymkit.config import Config  # noqa: E402
 from acronymkit.disambiguation import ExpansionDictionary, LexicalDisambiguator  # noqa: E402
 from bench import corpora  # noqa: E402
 from bench.corpora import DisambiguationInstance  # noqa: E402
+from bench.run_disambiguation import BUCKETS, bucket_of, predict_most_frequent  # noqa: E402
 from bench.run_extraction import save_results  # noqa: E402
 
 #: Seed for the fold split of the out-of-fold interpolation check. Shares the
@@ -950,6 +951,445 @@ def abstention(records: Sequence[Decomposed]) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# the shipped abstention gate, decomposed
+# ---------------------------------------------------------------------------
+#: The gate used wherever this file needs a single reference threshold: the
+#: per-arity comparison, the split-half stability check and the worst-row
+#: report. Chosen as the lowest gate in :data:`MARGIN_GRID` at which the gated
+#: system's accuracy on the answered subset exceeds the most-frequent
+#: baseline's on that same subset, which is the only threshold on the curve
+#: that means anything. It is a TUNING-split observation, not a default.
+REFERENCE_GATE = 0.10
+
+
+def _harmonic(first: float, second: float) -> float:
+    """Harmonic mean, zero when both operands are zero."""
+    return 2 * first * second / (first + second) if first + second else 0.0
+
+
+def _gate_input(result) -> Optional[float]:
+    """The quantity the shipped gate thresholds, or ``None`` where it exempts.
+
+    ``None`` means "answered at every threshold": no second candidate to have a
+    margin against, or a winner from a different source than the runner-up,
+    where the gap is fixed by ``INLINE_SCORE - MAX_DICTIONARY_SCORE`` and
+    measures nothing. Both exemptions are
+    :func:`acronymkit.disambiguation._below_gate`'s, restated here so that every
+    threshold this file fits is fitted against the same quantity the shipped
+    gate reads.
+
+    Args:
+        result: An ungated :class:`~acronymkit.models.DisambiguationResult`.
+
+    Returns:
+        The margin, or ``None`` when the gate cannot apply.
+    """
+    if result.margin is None:
+        return None
+    if result.candidates[0].source != result.candidates[1].source:
+        return None
+    return result.margin
+
+
+def _gate_admits(result, threshold: float) -> bool:
+    """The harness's own copy of the shipped gate, so it can be checked against it.
+
+    It exists to be *disagreed with*: :func:`abstention_curve` runs the real
+    gate and counts every instance where this predicate differs, which is how a
+    future change to either one gets noticed here instead of in a published
+    table.
+
+    Args:
+        result: An ungated :class:`~acronymkit.models.DisambiguationResult`.
+        threshold: The gate.
+
+    Returns:
+        Whether the shipped gate would answer.
+    """
+    value = _gate_input(result)
+    return value is None or value >= threshold
+
+
+def _curve_rows(flags: Sequence[tuple[bool, bool, bool]], total: int, prefix: str = "gate") -> dict:
+    """Coverage/precision/recall/F1 and the baseline control for one gate.
+
+    Args:
+        flags: ``(answered, correct, baseline_correct)`` per instance.
+        total: Denominator for recall -- the instances the caller was asked
+            about, including the ones refused.
+        prefix: Key prefix.
+
+    Returns:
+        The five figures, or ``None`` values where nothing was answered.
+    """
+    answered = [row for row in flags if row[0]]
+    if not answered:
+        return {
+            f"{prefix}_coverage_pct": 0.0,
+            f"{prefix}_accuracy_when_answered": None,
+            f"{prefix}_recall": 0.0,
+            f"{prefix}_f1": 0.0,
+            f"{prefix}_most_frequent_accuracy_same_subset": None,
+        }
+    correct = sum(row[1] for row in answered)
+    precision = correct / len(answered) * 100
+    recall = correct / total * 100
+    return {
+        f"{prefix}_coverage_pct": round(len(answered) / total * 100, 2),
+        f"{prefix}_accuracy_when_answered": round(precision, 2),
+        f"{prefix}_recall": round(recall, 2),
+        f"{prefix}_f1": round(_harmonic(precision, recall), 2),
+        f"{prefix}_most_frequent_accuracy_same_subset": round(
+            sum(row[2] for row in answered) / len(answered) * 100, 2
+        ),
+    }
+
+
+def abstention_curve(
+    instances: Sequence[DisambiguationInstance],
+    records: Sequence[Decomposed],
+    diction: dict[str, list[str]],
+    train: Sequence[DisambiguationInstance],
+    config: Config,
+) -> dict:
+    """The shipped abstention gate's full curve, decomposed four ways.
+
+    What separates this from :func:`abstention` above
+    ------------------------------------------------
+    That function asked whether a refusal signal *exists* and answered yes. This
+    one measures the signal the library actually ships -- every number here
+    comes from running :class:`LexicalDisambiguator` with ``min_margin`` set,
+    not from re-deriving a margin in the harness -- and then asks the four
+    questions that decide whether the curve means what it looks like.
+
+    **1. Compared with what?** A coverage/accuracy curve read on its own always
+    looks like an improvement, because accuracy rises as coverage falls. The
+    control is the shared task's own most-frequent-expansion baseline scored on
+    *the same answered subset*: if the baseline is also more accurate there,
+    the gate found easy instances rather than good answers. That column is the
+    single most important one in this run.
+
+    **2. Which candidate-set size?** A margin is a difference of two
+    unnormalised blends, so nothing makes a two-way margin commensurable with a
+    fifteen-way one. The per-arity table is reported in full, and the run also
+    tests the *reason* usually given for expecting a problem -- that margins are
+    mechanically larger on small candidate sets -- rather than repeating it.
+
+    **3. Which instances?** The gold expansion has no verbatim word in the
+    sentence for most of this corpus, and those instances are much harder. If
+    the gate simply selects the complement, it is a verbatim-evidence detector
+    wearing a threshold. Reported as the share of the answered set that is
+    gold-verbatim, and as the curve computed inside each half separately.
+
+    **4. Does it hold on half the data?** The thresholds come from a split
+    ``bench/splits.toml`` declares ``role = "tuning"``, and SDU@AAAI-21
+    ``test.json`` is deliberately unspent, so the only corroboration available
+    is within-corpus: the curve is recomputed on each half of a frozen shuffle.
+
+    Args:
+        instances: The dev split.
+        records: The same instances decomposed, for the gold-evidence flag.
+        diction: The candidate sets, for candidate-set size.
+        train: Training instances. Used only by the most-frequent control, which
+            is a MEASUREMENT INSTRUMENT under the same terms as the frequency
+            prior below -- see :data:`LICENCE_NOTICE`.
+        config: Engine configuration.
+
+    Returns:
+        The curve, the per-arity and per-evidence decompositions, the per-arity
+        threshold comparison, the split-half check and the harness check.
+    """
+    total = len(instances)
+    dictionary = ExpansionDictionary(diction)
+    ungated = LexicalDisambiguator(config, dictionary)
+    base = [ungated.disambiguate(item.acronym, item.context) for item in instances]
+
+    hit = [
+        (result.primary_expansion or "") == item.expansion for result, item in zip(base, instances)
+    ]
+    baseline_hit = [
+        prediction == item.expansion
+        for prediction, item in zip(predict_most_frequent(instances, diction, train), instances)
+    ]
+    arity = [bucket_of(len(diction[item.acronym])) for item in instances]
+    gold_verbatim = [
+        any(c.exact_hits for c in record.candidates if c.expansion == record.gold)
+        for record in records
+    ]
+    margins = [result.margin for result in base]
+    #: The quantity the gate actually thresholds, per instance: ``None`` where
+    #: the shipped gate exempts the instance (no second candidate, or a winner
+    #: from a different source than the runner-up) and the margin otherwise.
+    #: Every gating decision in this function goes through it, so the global
+    #: gate and the per-arity fit below are compared on identical terms.
+    gate_key: list[Optional[float]] = [_gate_input(result) for result in base]
+
+    out: dict = {
+        "path": (
+            "dictionary supplied (sdu21_ad diction.json); the engine's no-dictionary "
+            "default path is measured separately by diagnosis.default_path"
+        ),
+        "instances_with_a_margin": sum(m is not None for m in margins),
+        "instances_with_a_margin_pct": round(sum(m is not None for m in margins) / total * 100, 2),
+        "reference_gate": REFERENCE_GATE,
+    }
+
+    # -- the curve, run through the shipped gate rather than re-derived -------
+    disagreements = 0
+    for threshold in MARGIN_GRID:
+        gated = LexicalDisambiguator(config, dictionary, min_margin=threshold)
+        answered = [
+            gated.disambiguate(item.acronym, item.context).primary_expansion is not None
+            for item in instances
+        ]
+        disagreements += sum(
+            shipped != _gate_admits(result, threshold) for shipped, result in zip(answered, base)
+        )
+        out.update(
+            _curve_rows(list(zip(answered, hit, baseline_hit)), total, f"gate_{threshold:.2f}")
+        )
+    out["harness_reproduces_shipped_gate"] = disagreements == 0
+
+    # -- 2. by candidate-set size --------------------------------------------
+    by_arity: dict[str, dict] = {}
+    for label, _, _ in BUCKETS:
+        members = [index for index in range(total) if arity[index] == label]
+        if not members:
+            continue
+        row: dict = {"instances": len(members)}
+        for threshold in MARGIN_GRID:
+            flags = [
+                (
+                    _gate_admits(base[index], threshold),
+                    hit[index],
+                    baseline_hit[index],
+                )
+                for index in members
+            ]
+            row.update(_curve_rows(flags, len(members), f"gate_{threshold:.2f}"))
+        present = [margins[index] for index in members if margins[index] is not None]
+        row["median_margin"] = round(statistics.median(present), 4) if present else None
+        by_arity[label] = row
+    out["by_arity"] = by_arity
+
+    ordered = [
+        by_arity[label]["median_margin"]
+        for label, _, _ in BUCKETS
+        if label in by_arity and by_arity[label]["median_margin"] is not None
+    ]
+    out["median_margin_falls_as_candidate_count_rises"] = all(
+        earlier >= later for earlier, later in zip(ordered, ordered[1:])
+    )
+    key = f"gate_{REFERENCE_GATE:.2f}_accuracy_when_answered"
+    scored = {label: row for label, row in by_arity.items() if row[key] is not None}
+    worst = min(scored, key=lambda label: scored[label][key])
+    out["worst_arity_at_reference_gate"] = worst
+    out["worst_arity_accuracy_at_reference_gate"] = by_arity[worst][key]
+    out["worst_arity_coverage_at_reference_gate"] = by_arity[worst][
+        f"gate_{REFERENCE_GATE:.2f}_coverage_pct"
+    ]
+
+    # The pooled crossover -- the gated system overtaking the trivial baseline
+    # on the same answered subset -- is the one thing on this curve that argues
+    # for gating at all, and it is the reason REFERENCE_GATE sits where it does.
+    # It is not uniform across candidate-set sizes, and the pooled row hides
+    # that completely, so the buckets where it fails are named beside it.
+    losing = [
+        label
+        for label, _, _ in BUCKETS
+        if label in by_arity
+        and by_arity[label][key] is not None
+        and by_arity[label][key]
+        <= by_arity[label][f"gate_{REFERENCE_GATE:.2f}_most_frequent_accuracy_same_subset"]
+    ]
+    out["arities_most_frequent_still_wins_at_reference_gate"] = losing
+    out["instances_in_those_arities"] = sum(by_arity[label]["instances"] for label in losing)
+    out["instances_in_those_arities_pct"] = round(
+        sum(by_arity[label]["instances"] for label in losing) / total * 100, 2
+    )
+    out["arities_most_frequent_still_wins_note"] = (
+        "candidate-set sizes where, at the reference gate, the most-frequent baseline is "
+        "at least as accurate as the gated system on the very same answered subset. The "
+        "pooled crossover that justifies the reference gate does not hold inside these "
+        "buckets, and a caller whose acronyms live there gains nothing from gating"
+    )
+
+    # -- 3. by whether the sentence contains the gold expansion's words -------
+    by_evidence: dict[str, dict] = {}
+    for label, wanted in (("gold_word_in_sentence", True), ("gold_absent_from_sentence", False)):
+        members = [index for index in range(total) if gold_verbatim[index] is wanted]
+        row = {
+            "instances": len(members),
+            "accuracy_ungated": round(sum(hit[index] for index in members) / len(members) * 100, 2),
+        }
+        for threshold in MARGIN_GRID:
+            flags = [
+                (_gate_admits(base[index], threshold), hit[index], baseline_hit[index])
+                for index in members
+            ]
+            row.update(_curve_rows(flags, len(members), f"gate_{threshold:.2f}"))
+        by_evidence[label] = row
+    out["by_gold_evidence"] = by_evidence
+    out["gold_word_in_sentence_base_rate_pct"] = round(sum(gold_verbatim) / total * 100, 2)
+    for threshold in MARGIN_GRID:
+        answered = [index for index in range(total) if _gate_admits(base[index], threshold)]
+        out[f"gate_{threshold:.2f}_share_of_answered_that_is_gold_verbatim_pct"] = round(
+            sum(gold_verbatim[index] for index in answered) / len(answered) * 100, 2
+        )
+
+    # -- per-arity thresholds, the audit's proposed remedy, measured ----------
+    out.update(_per_arity_thresholds(arity, gate_key, hit))
+
+    # -- 4. split-half stability ---------------------------------------------
+    generator = random.Random(RANDOM_SEED)
+    order = list(range(total))
+    generator.shuffle(order)
+    halves = (order[0::2], order[1::2])
+    for name, members in zip(("half_a", "half_b"), halves):
+        flags = [
+            (_gate_admits(base[index], REFERENCE_GATE), hit[index], baseline_hit[index])
+            for index in members
+        ]
+        row = _curve_rows(flags, len(members), f"split_{name}_gate_{REFERENCE_GATE:.2f}")
+        out.update(row)
+    return out
+
+
+def _per_arity_thresholds(
+    arity: Sequence[str],
+    gate_key: Sequence[Optional[float]],
+    hit: Sequence[bool],
+) -> dict:
+    """Would one threshold per candidate-set size beat one global threshold?
+
+    The audit proposed per-arity thresholds and gave a reason: a margin on a
+    two-candidate set is mechanically larger than on a fifteen-candidate one. If
+    that is true, a global gate takes a different slice of each arity, and
+    equalising coverage per arity should recover something.
+
+    Rather than argue, this fits a threshold per bucket so that every bucket
+    answers the same fraction its arity answers under the global reference gate
+    would pool to, then reports the pooled accuracy against the global gate at
+    the same pooled coverage. A gain that a six-parameter fit produces on the
+    split it was fitted to is an upper bound on what per-arity thresholds could
+    ever be worth, not an estimate of it -- so if the *upper bound* is small,
+    the question is closed.
+
+    Args:
+        arity: Bucket label per instance.
+        gate_key: The quantity the shipped gate thresholds, per instance, with
+            ``None`` where it exempts. Taking this rather than the raw margin is
+            what makes the comparison honest: the global gate answers every
+            exempt instance, so a per-arity fit that gated them would be beating
+            a straw man.
+        hit: Correctness per instance.
+
+    Returns:
+        The fitted thresholds and the comparison.
+    """
+    total = len(arity)
+
+    def admits(index: int, threshold: float) -> bool:
+        value = gate_key[index]
+        return value is None or value >= threshold
+
+    globally = [index for index in range(total) if admits(index, REFERENCE_GATE)]
+    target = len(globally) / total
+
+    thresholds: dict[str, Optional[float]] = {}
+    answered_total = 0
+    correct_total = 0
+    for label, _, _ in BUCKETS:
+        members = [index for index in range(total) if arity[index] == label]
+        if not members:
+            continue
+        wanted = max(1, min(len(members), round(target * len(members))))
+        # Exempt instances are answered at every threshold, so they fill the
+        # quota first and only the rest is bought with a threshold.
+        gateable = sorted(
+            (gate_key[index] for index in members if gate_key[index] is not None), reverse=True
+        )
+        exempt = len(members) - len(gateable)
+        if wanted <= exempt or not gateable:
+            threshold = None
+        else:
+            threshold = gateable[min(wanted - exempt, len(gateable)) - 1]
+        chosen = [
+            index
+            for index in members
+            if gate_key[index] is None or (threshold is not None and gate_key[index] >= threshold)
+        ]
+        thresholds[label] = None if threshold is None else round(threshold, 4)
+        answered_total += len(chosen)
+        correct_total += sum(hit[index] for index in chosen)
+
+    global_correct = sum(hit[index] for index in globally)
+    per_arity_accuracy = correct_total / answered_total * 100
+    global_accuracy = global_correct / len(globally) * 100
+    return {
+        "per_arity_thresholds_tuning_split": thresholds,
+        "per_arity_coverage_pct": round(answered_total / total * 100, 2),
+        "per_arity_accuracy_when_answered": round(per_arity_accuracy, 2),
+        "per_arity_gain_over_global_gate": round(per_arity_accuracy - global_accuracy, 2),
+        "per_arity_note": (
+            "six thresholds fitted on the same tuning split they are scored on; the gain "
+            "is an upper bound on what per-arity gating could be worth, not an estimate"
+        ),
+    }
+
+
+def default_path_margin(instances: Sequence[DisambiguationInstance], config: Config) -> dict:
+    """Is a margin available at all when the caller supplies no dictionary?
+
+    Two facts about the default path, both of which the docstrings now state and
+    neither of which was gated before.
+
+    **A margin needs a second candidate.** Without a dictionary the candidate set
+    is whatever the passage defined inline, so this counts how often a margin is
+    even computable. Everything the abstention curve measures is conditional on
+    this number being large, and on this corpus it is not.
+
+    **The derived dictionary cannot contribute.**
+    ``AcronymEngine.disambiguate`` builds an
+    :class:`~acronymkit.disambiguation.ExpansionDictionary` from the same
+    extractor output the disambiguator already consults for inline definitions,
+    and the disambiguator de-duplicates expansions before scoring. So the
+    dictionary half of the default path should supply nothing the inline half
+    has not already claimed. That is an argument from reading the code; this
+    counts it, which is the difference between believing it and knowing it.
+
+    Args:
+        instances: The dev split.
+        config: Engine configuration.
+
+    Returns:
+        Margin availability and the redundancy count.
+    """
+    from acronymkit import AcronymEngine  # local: only this function needs the facade
+
+    engine = AcronymEngine(config)
+    bare = LexicalDisambiguator(config)
+    with_margin = 0
+    novel = 0
+    for instance in instances:
+        result = engine.disambiguate(instance.acronym, instance.context)
+        with_margin += result.margin is not None
+        key = _d._short_form_key(instance.acronym)
+        inline = {
+            _key(expansion) for expansion, _ in bare._inline_expansions(key, instance.context)
+        }
+        derived = ExpansionDictionary.from_pairs(engine.extract_definitions(instance.context))
+        novel += sum(1 for text in derived.candidates(key) if _key(text) not in inline)
+    total = len(instances)
+    return {
+        "default_path_instances": total,
+        "default_path_margin_defined": with_margin,
+        "default_path_margin_defined_pct": round(with_margin / total * 100, 2),
+        "default_path_derived_dictionary_candidates_not_already_inline": novel,
+    }
+
+
+# ---------------------------------------------------------------------------
 # frequency prior -- INSTRUMENT ONLY, see LICENCE_NOTICE
 # ---------------------------------------------------------------------------
 def frequency_prior(records: Sequence[Decomposed], train: Sequence[DisambiguationInstance]) -> dict:
@@ -1246,8 +1686,101 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         f"   verbatim-evidence gate: covers {absten['verbatim_gate_coverage_pct']}%, "
         f"{absten['verbatim_gate_accuracy_when_answered']}% accurate when it answers"
     )
-    print("   => an abstaining disambiguator is available today, needs no data and")
-    print("      no licence, and is the governed subsystem's own stated principle.")
+    print("   => a refusal signal exists. Section 9b measures what it is worth,")
+    print("      which is a different and much less flattering question.")
+
+    curve = abstention_curve(instances, records, diction, train, config)
+    default_margin = default_path_margin(instances, config)
+    print(f"\n9b. THE SHIPPED ABSTENTION GATE ({corpora.label_for('sdu21_ad')})")
+    print(
+        "   harness reproduces the shipped gate: "
+        + ("yes" if curve["harness_reproduces_shipped_gate"] else "NO -- numbers below are not it")
+    )
+    print(
+        f"   a margin is computable on {curve['instances_with_a_margin_pct']}% of instances WITH a "
+        f"dictionary,\n   and {default_margin['default_path_margin_defined_pct']}% without one. "
+        "Abstention is a dictionary-path feature."
+    )
+    print(
+        "   the derived dictionary on the default path supplied "
+        f"{default_margin['default_path_derived_dictionary_candidates_not_already_inline']} "
+        "candidates the inline pass had not already claimed."
+    )
+    print(f"\n   {'gate':>6} {'cover%':>8} {'acc%':>7} {'recall%':>8} {'F1%':>7} {'BASELINE':>9}")
+    for threshold in MARGIN_GRID:
+        stem = f"gate_{threshold:.2f}"
+        print(
+            f"   {threshold:>6.2f} {curve[stem + '_coverage_pct']:>8.2f} "
+            f"{curve[stem + '_accuracy_when_answered']:>7.2f} "
+            f"{curve[stem + '_recall']:>8.2f} {curve[stem + '_f1']:>7.2f} "
+            f"{curve[stem + '_most_frequent_accuracy_same_subset']:>9.2f}"
+        )
+    print(
+        "   BASELINE is most_frequent scored on the SAME answered subset. Where it is\n"
+        "   higher, the gate selected easy instances rather than good answers."
+    )
+    print(f"\n   by candidate-set size, at the reference gate {REFERENCE_GATE:.2f}:")
+    for label, _, _ in BUCKETS:
+        row = curve["by_arity"].get(label)
+        if row is None:
+            continue
+        stem = f"gate_{REFERENCE_GATE:.2f}"
+        print(
+            f"     {label:>4}-way  n={row['instances']:>5,}  covers "
+            f"{row[stem + '_coverage_pct']:>6.2f}%  {row[stem + '_accuracy_when_answered']:>6.2f}% "
+            f"accurate  (median margin {row['median_margin']})"
+        )
+    print(
+        f"   worst row: {curve['worst_arity_at_reference_gate']}-way at "
+        f"{curve['worst_arity_accuracy_at_reference_gate']}%, beside a headline of "
+        f"{curve[f'gate_{REFERENCE_GATE:.2f}_accuracy_when_answered']}%."
+    )
+    losing = curve["arities_most_frequent_still_wins_at_reference_gate"]
+    if losing:
+        print(
+            "   and the crossover that justifies this gate is NOT uniform: on "
+            + ", ".join(f"{label}-way" for label in losing)
+            + " sets\n   the trivial baseline is still at least as accurate on the same answered\n"
+            f"   subset -- {curve['instances_in_those_arities']:,} instances, "
+            f"{curve['instances_in_those_arities_pct']}% of the split."
+        )
+    else:
+        print("   the gate overtakes the baseline in every candidate-set-size bucket.")
+    if curve["median_margin_falls_as_candidate_count_rises"]:
+        print("   median margins do fall as the candidate set grows, as the audit expected.")
+    else:
+        print("   median margins do NOT fall as the candidate set grows. The score is an")
+        print("   unnormalised blend, not a distribution, so the usual reason given for")
+        print("   per-arity thresholds does not apply to this scorer. What does vary with")
+        print("   arity is ACCURACY at a fixed gate, which is why the table above ships.")
+    print(
+        f"   per-arity thresholds fitted to the same coverage: "
+        f"{curve['per_arity_accuracy_when_answered']}% against "
+        f"{curve[f'gate_{REFERENCE_GATE:.2f}_accuracy_when_answered']}% for one global gate "
+        f"({curve['per_arity_gain_over_global_gate']:+.2f} points, fitted in-sample)."
+    )
+    print(
+        f"\n   by evidence, base rate {curve['gold_word_in_sentence_base_rate_pct']}% of instances "
+        "have a gold word in the sentence:"
+    )
+    for label, row in curve["by_gold_evidence"].items():
+        stem = f"gate_{REFERENCE_GATE:.2f}"
+        print(
+            f"     {label:<26} n={row['instances']:>5,}  ungated {row['accuracy_ungated']:>6.2f}%  "
+            f"gated covers {row[stem + '_coverage_pct']:>6.2f}% at "
+            f"{row[stem + '_accuracy_when_answered']:>6.2f}%"
+        )
+    print(
+        f"   at gate {REFERENCE_GATE:.2f} the answered set is "
+        f"{curve[f'gate_{REFERENCE_GATE:.2f}_share_of_answered_that_is_gold_verbatim_pct']}% "
+        "gold-verbatim. The gate is\n   substantially a verbatim-evidence detector."
+    )
+    print(
+        f"   split-half at {REFERENCE_GATE:.2f}: "
+        f"{curve[f'split_half_a_gate_{REFERENCE_GATE:.2f}_accuracy_when_answered']}% and "
+        f"{curve[f'split_half_b_gate_{REFERENCE_GATE:.2f}_accuracy_when_answered']}% "
+        "on the two halves of a frozen shuffle."
+    )
 
     print("\n" + LICENCE_NOTICE)
     prior = frequency_prior(records, train)
@@ -1345,6 +1878,26 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 "split": "dev",
                 "instances": len(records),
                 **absten,
+            },
+            "disambiguation.sdu21.abstention_curve": {
+                "corpus": "sdu21_ad",
+                "split": "dev",
+                "split_role": corpora.label_for("sdu21_ad"),
+                "instances": len(records),
+                "tuning_figures": True,
+                "tuning_note": (
+                    "every threshold here is fitted to, or read off, a split bench/splits.toml "
+                    "declares role='tuning'. No value in this run may be presented as evidence "
+                    "of generalisation, and none of them is a default the library adopts. "
+                    "SDU@AAAI-21 test.json is deliberately unspent, so the only corroboration "
+                    "offered is the split-half check."
+                ),
+                "baseline_control_licence": (
+                    "the most_frequent control is derived from SDU@AAAI-21 train.json, "
+                    "CC BY-NC-SA 4.0 -- a measurement instrument, never shipped or committed"
+                ),
+                **curve,
+                **default_margin,
             },
             "disambiguation.sdu21.diagnosis.frequency_prior": {
                 "corpus": "sdu21_ad",

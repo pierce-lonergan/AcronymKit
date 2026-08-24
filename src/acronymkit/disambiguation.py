@@ -37,6 +37,49 @@ Resolution strategy
    :meth:`LexicalDisambiguator.disambiguate` and in
    :data:`WEIGHT_OVERLAP` / :data:`WEIGHT_INITIALS` / :data:`WEIGHT_REGISTER`.
 
+Saying "I don't know"
+---------------------
+:attr:`~acronymkit.models.DisambiguationResult.margin` -- the score gap between
+the first and second candidate -- is reported on every result, and
+:class:`LexicalDisambiguator` will refuse to answer below a margin the caller
+names (``min_margin``). Four things about that are worth stating before anyone
+builds on it, because the shape of this feature is easy to overstate.
+
+**It is a dictionary-path instrument.** A margin needs two candidates. On the
+engine's default path the candidate set is whatever the passage itself defined,
+which is almost never more than one expansion, so ``margin`` is almost always
+``None`` and the gate almost never fires. Supplying a dictionary is what makes
+either of them mean anything. The measurement is
+``disambiguation.sdu21.diagnosis.default_path`` in ``bench/results.json``.
+
+**The gate is off by default, and stays off.** Turning it on would change
+``primary_expansion`` from "always populated when candidates exist" to
+"sometimes ``None``" for every existing caller, and it would do so to buy a
+trade rather than an improvement: gating raises accuracy *among the questions
+still answered* while lowering the number answered, which is a different
+quantity from being right more often. The full coverage/accuracy curve, split
+by candidate-set size and by whether the gold expansion's words are in the
+sentence at all, is published under ``disambiguation.sdu21.abstention_curve``.
+Every threshold in it comes from a split ``bench/splits.toml`` declares
+``role = "tuning"``, so no value in it is a default this library may adopt --
+it is a curve for a caller to choose a point on, against their own data.
+
+**A margin is not a probability.** It is a difference of two unnormalised
+blends, so it does not sum to anything and does not mean the same thing on a
+two-way choice as on a fifteen-way one. The published curve is decomposed by
+candidate-set size for exactly that reason, and the decomposition matters: at
+the gate the run picks as its reference, the candidate-set sizes where the gate
+still loses to a trivial frequency baseline account for about a third of the
+split, and a pooled row would hide that.
+
+**Read the baseline column before adopting a threshold.** The same run scores
+the shared task's own most-frequent-expansion baseline on the very same
+answered subset. Below the reference gate that baseline is *more* accurate
+there, which means the gate was selecting easy questions rather than producing
+good answers. This is the number that decides whether abstention is worth
+anything to a caller who could instead supply expansion counts, and it is
+reported beside every row rather than left for someone to think of.
+
 Determinism
 -----------
 No randomness, no clock-dependent behaviour and no set-iteration order reaches
@@ -65,7 +108,12 @@ from typing import Iterable, Iterator, Mapping, Optional, Sequence
 
 from .config import Config, ScoringWeights
 from .enums import EngineTier
-from .exceptions import LexiconError, ResourceNotFoundError, TierUnavailableError
+from .exceptions import (
+    ConfigurationError,
+    LexiconError,
+    ResourceNotFoundError,
+    TierUnavailableError,
+)
 from .extractor import AbbreviationExtractor
 from .models import (
     AcronymPair,
@@ -558,6 +606,83 @@ def _coerce_expansions(
     )
 
 
+def _below_gate(result: DisambiguationResult, min_margin: float) -> bool:
+    """Whether ``result`` fails the abstention gate at ``min_margin``.
+
+    Reads the *published*
+    :attr:`~acronymkit.models.DisambiguationResult.margin` rather than
+    recomputing the subtraction, so the field a caller inspects and the field
+    the gate acts on cannot drift apart.
+
+    Two cases are exempt, and both are exemptions from a *comparison that has no
+    content*, not softenings of the policy:
+
+    * **Fewer than two candidates.** No margin was computed because no rival
+      existed. Gating here would refuse most of the engine's default path, where
+      one inline definition is the usual outcome.
+    * **The top two come from different sources.** Today that means an inline
+      definition sitting above dictionary candidates, and the gap between them
+      is bounded by ``INLINE_SCORE - MAX_DICTIONARY_SCORE`` -- a cap this module
+      chose so an inline definition always sorts first, not a measurement of how
+      much better it is. A dictionary candidate that scores at the cap, which is
+      what an expansion whose every word is in the sentence does, would drive
+      that gap to its floor and make any gate above it refuse the document's own
+      definition of its own abbreviation. The exemption can only ever turn a
+      refusal into an answer, never the reverse, because it is skipped exactly
+      when the winner outranks the runner-up by construction.
+
+      **This rests on there being exactly two sources.** With
+      :data:`SOURCE_INLINE` capped above :data:`SOURCE_DICTIONARY`, "the top two
+      differ in source" implies "the winner is an inline definition". The Phase
+      3 ``"neural"`` source has no such ordering against either, so when it
+      lands this exemption must be re-derived rather than inherited: a
+      neural/dictionary pair one point apart is a close call, not an artifact.
+
+    Args:
+        result: The result to test.
+        min_margin: The gate, already validated.
+
+    Returns:
+        ``True`` when the answer should be withheld.
+    """
+    margin = result.margin
+    if margin is None:
+        return False
+    if result.candidates[0].source != result.candidates[1].source:
+        return False
+    return margin < min_margin
+
+
+def _validated_min_margin(value: Optional[float]) -> Optional[float]:
+    """Return ``value`` as a usable abstention gate, or raise.
+
+    Args:
+        value: The caller's ``min_margin``.
+
+    Returns:
+        ``None`` for "no gate", otherwise the threshold as a ``float``.
+
+    Raises:
+        ConfigurationError: If ``value`` is not a real number in ``[0, 1]``.
+            ``bool`` is refused too: ``min_margin=True`` would otherwise mean
+            "abstain unless the margin is a full point", which is not what
+            anybody writing it meant.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ConfigurationError(
+            f"min_margin must be a number in [0.0, {INLINE_SCORE}] or None, not {value!r}"
+        )
+    numeric = float(value)
+    if not 0.0 <= numeric <= INLINE_SCORE:
+        raise ConfigurationError(
+            f"min_margin={numeric!r} is outside [0.0, {INLINE_SCORE}]; a score gap cannot "
+            "exceed the inline-definition score, so this gate would abstain on every input"
+        )
+    return numeric
+
+
 # ---------------------------------------------------------------------------
 # Lexical disambiguator
 # ---------------------------------------------------------------------------
@@ -587,13 +712,15 @@ class LexicalDisambiguator:
         'inline'
     """
 
-    __slots__ = ("_config", "_dictionary", "_extractor", "_tokenizer", "_warnings")
+    __slots__ = ("_config", "_dictionary", "_extractor", "_min_margin", "_tokenizer", "_warnings")
 
     def __init__(
         self,
         config: Config,
         dictionary: Optional[ExpansionDictionary] = None,
         tokenizer: Optional[Tokenizer] = None,
+        *,
+        min_margin: Optional[float] = None,
     ) -> None:
         """Build a disambiguator.
 
@@ -606,17 +733,49 @@ class LexicalDisambiguator:
                 which case only inline definitions can resolve.
             tokenizer: Pre-built tokenizer to reuse. One is constructed lazily
                 from ``config`` when omitted.
+            min_margin: Abstention gate. ``None``, the default, disables it
+                entirely and is why this parameter breaks nothing. Given a
+                number in ``[0.0, 1.0]``, an answer is returned only when
+                :attr:`~acronymkit.models.DisambiguationResult.margin` is at
+                least that large; otherwise ``primary_expansion`` comes back
+                ``None`` with ``abstained`` set and the ranked ``candidates``
+                still attached, so the caller can see what was refused. The
+                comparison is ``margin >= min_margin``, which makes the
+                parameter the same quantity as the ``gate_*`` rows of
+                ``disambiguation.sdu21.abstention_curve``. Two candidate sets
+                are never refused and :func:`_below_gate` says why: one with no
+                second candidate, and one whose top two come from different
+                sources, where the gap is fixed by
+                ``INLINE_SCORE - MAX_DICTIONARY_SCORE`` rather than measured.
 
         Raises:
             TierUnavailableError: If ``config.engine_tier`` is
                 :attr:`~acronymkit.enums.EngineTier.NEURAL` and ``config.strict``
                 is set: the Phase 3 backend does not exist yet, and strict mode
                 forbids silent degradation.
+            ConfigurationError: If ``min_margin`` is not ``None`` and is not a
+                real number in ``[0.0, 1.0]``. A margin cannot exceed
+                :data:`INLINE_SCORE`, so a threshold above it would abstain on
+                everything for ever, and silently doing that is the failure this
+                refusal exists to prevent.
+
+        Note:
+            **Why the gate is opt-in and not on by default.** Defaulting it on
+            would break every caller that treats ``primary_expansion`` as
+            populated whenever ``candidates`` is non-empty, and it would pick a
+            threshold on their behalf out of a curve measured on one tuning
+            split of one corpus in one domain. There is no threshold this
+            library can defend as *theirs*: the curve is a coverage/accuracy
+            trade, and where a caller wants to sit on it is a property of what
+            they do with a refusal, which the library cannot see. So the library
+            reports the margin, publishes the curve, and leaves the choice
+            where the information is.
         """
         self._config = config
         self._dictionary = dictionary if dictionary is not None else ExpansionDictionary()
         self._tokenizer = tokenizer
         self._extractor: Optional[AbbreviationExtractor] = None
+        self._min_margin = _validated_min_margin(min_margin)
         self._warnings: tuple[str, ...] = ()
         if config.engine_tier is EngineTier.NEURAL:
             if config.strict:
@@ -633,6 +792,11 @@ class LexicalDisambiguator:
     def dictionary(self) -> ExpansionDictionary:
         """The expansion index consulted for dictionary-sourced candidates."""
         return self._dictionary
+
+    @property
+    def min_margin(self) -> Optional[float]:
+        """The abstention gate this disambiguator was built with, or ``None``."""
+        return self._min_margin
 
     @property
     def tokenizer(self) -> Tokenizer:
@@ -700,6 +864,18 @@ class LexicalDisambiguator:
         alphabetical and reproducible, and each carries up to
         :data:`MAX_EVIDENCE` sorted context terms that drove its overlap.
 
+        **3. Abstention, when asked for.** The gap between the first and second
+        candidate is reported as
+        :attr:`~acronymkit.models.DisambiguationResult.margin`, always, at no
+        cost and with no policy attached. If this disambiguator was built with
+        ``min_margin``, a result whose margin falls below it comes back with
+        ``primary_expansion = None``, ``abstained = True`` and its ranked
+        ``candidates`` intact. A result with fewer than two candidates has no
+        margin and is never gated, and neither is one whose top two candidates
+        come from different sources -- an inline definition beaten down to a
+        ``0.01`` gap by a dictionary candidate at the cap is an artifact of the
+        cap, not a close call. :func:`_below_gate` states both exemptions.
+
         Args:
             acronym: The short form to resolve, in any case or punctuation
                 style.
@@ -707,9 +883,29 @@ class LexicalDisambiguator:
 
         Returns:
             A :class:`~acronymkit.models.DisambiguationResult` whose
-            ``primary_expansion`` is the highest-scoring expansion, or ``None``
-            when neither an inline definition nor a dictionary entry exists. The
-            result always carries valid metadata.
+            ``primary_expansion`` is the highest-scoring expansion; ``None``
+            when neither an inline definition nor a dictionary entry exists, and
+            ``None`` with ``abstained`` set when ``min_margin`` declined the
+            top candidate. The result always carries valid metadata.
+
+        Example:
+            One gate, two outcomes. A sentence with nothing to go on is refused
+            with its candidates still visible; a sentence that defines the
+            abbreviation itself is answered.
+
+            >>> from acronymkit.config import Config
+            >>> index = ExpansionDictionary(
+            ...     {"BP": ["blood pressure", "boiling point", "British Petroleum"]}
+            ... )
+            >>> picky = LexicalDisambiguator(Config(), index, min_margin=0.10)
+            >>> refused = picky.disambiguate("BP", "The reading was taken twice.")
+            >>> refused.primary_expansion is None, refused.abstained
+            (True, True)
+            >>> [candidate.expansion for candidate in refused.candidates]
+            ['boiling point', 'blood pressure', 'British Petroleum']
+            >>> answered = picky.disambiguate("BP", "Blood pressure (BP) was elevated.")
+            >>> answered.primary_expansion, answered.abstained
+            ('Blood pressure', False)
         """
         started = time.perf_counter()
         acronym_key = _short_form_key(acronym)
@@ -744,13 +940,16 @@ class LexicalDisambiguator:
 
         candidates.sort(key=lambda candidate: (-candidate.score, candidate.expansion))
         elapsed_ms = (time.perf_counter() - started) * 1000.0
-        return DisambiguationResult(
+        result = DisambiguationResult(
             acronym=acronym,
             context=context,
             primary_expansion=candidates[0].expansion if candidates else None,
             candidates=candidates,
             metadata=self._metadata(len(tokens), len(candidates), elapsed_ms),
         )
+        if self._min_margin is not None and _below_gate(result, self._min_margin):
+            return result.model_copy(update={"primary_expansion": None})
+        return result
 
     # -- inline path -------------------------------------------------------
     def _inline_expansions(self, acronym_key: str, context: str) -> list[tuple[str, list[str]]]:

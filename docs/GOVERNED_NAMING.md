@@ -341,7 +341,10 @@ split_identifier(None)                      # ()
 `1MM` splitting is not a bug. Nothing in the string says it should not split — it has exactly the
 shape of `7Code`, which must. `expand_identifier` makes a second, dictionary-aware pass that puts
 the token back **only where the catalog vouches for it**, which keeps the splitter a function of its
-input rather than of somebody's vocabulary.
+input rather than of somebody's vocabulary. That pass restores a digit-*leading* token and nothing
+else: a join whose result is itself all digits is refused, so a catalog carrying `911` does not turn
+`9_1_1` into it. See [Idempotence](#idempotence) for why that refusal is load-bearing rather than
+fastidious.
 
 An unknown token is one half of `is_fully_known`. The other is `unaccounted`, the characters the
 splitter could not read as part of any token — see
@@ -724,6 +727,11 @@ comparison and only one, `append_class_word_when_missing`: rendering appends a c
 evidence of a catalog disagreeing with itself. That shortfall is already reported once, by
 `MISSING_CLASS_WORD`.
 
+**Expect the middle bucket to hold nearly everything on a legacy schema, and `round_trip_inconsistent`
+to read zero, and read that as the standard doing its job rather than as the trip coming back clean**
+— a schema written before the standard existed is a schema full of unapproved tokens, every one of
+them has an approved form the catalog names, and `corrected` is the bucket that says so.
+
 ### One inference, with a fence around it
 
 Every number in this module is a count of something a verb already said. Exactly one thing is not.
@@ -831,7 +839,32 @@ sorted(ACCOUNTED_SEPARATORS)      # ['"', "'", '-', '.', '/', '[', ']', '_', '`'
 
 — those nine characters, plus every character `str.isspace()` accepts. A separator and an
 unaccounted character end the current token identically; the difference is that an unaccounted one is
-also reported:
+also reported.
+
+Seven of the nine are accounted for unconditionally. **The two square brackets are accounted for per
+occurrence**, because a bracket is directional and is also the ordinary spelling of a subscript: it
+is discarded where it is *doing* the quoting — an unnested matched pair, opening where a name could
+open and closing where a name could close — and reported everywhere else.
+
+```python
+split_identifier_parts("[TXN_ID]").unaccounted                # ()
+split_identifier_parts("[db].[schema].[TXN_ID]").unaccounted  # ()
+split_identifier_parts("[my.column]").unaccounted             # ()
+split_identifier_parts("value[x]").unaccounted                # ('[', ']')
+split_identifier_parts("TXN_ID[0]").unaccounted               # ('[', ']')
+split_identifier_parts("[a][b]").unaccounted                  # ('[', ']', '[', ']')
+```
+
+`[db].[schema].[TXN_ID]` is the row that rules out the obvious fix. Discard brackets only when they
+wrap the *whole* identifier and the qualified-path case — the one the rule exists for — stops
+reading. The test is on the character before an opener and the character after a closer, which are
+the same tests the splitter already applies to decide a token has ended; `.` is not privileged, which
+is why `[my.column]` reads as a quoted name rather than as two broken halves.
+
+**The tokens do not move.** A bracket separates whichever branch it takes, so `value[x]` is
+`('value', 'x')` as it always was, and what changed is that the answer no longer claims to have read
+the whole name. Whether `x` should be a token of its own is a larger question — it is the "is a dot a
+path separator" question in different clothes — and this package does not answer it.
 
 ```python
 split_identifier_parts("TXN©ID")
@@ -954,7 +987,7 @@ Four claims, each with the test that carries it. Every example below was run aga
 | Invariant | The statement | Test that carries it, in `tests/test_governed.py` |
 |---|---|---|
 | **Round trip** | Expanding an identifier and rendering the phrase back yields the identifier's governed normal form. | `::test_the_round_trip_lands_on_the_governed_correction`, guarded by `::test_the_corpus_exercises_both_halves_of_the_round_trip` |
-| **Idempotence** | `normalize(normalize(x)) == normalize(x)`, for every ASCII `x` and every policy. The premise it rests on — a token upper-cased splits back to itself — is false outside ASCII, and the section below says where. | `::test_normalize_is_idempotent_under_every_policy`, with `tests/test_governed_edge_cases.py::test_an_ascii_token_upper_cased_splits_back_to_exactly_itself` carrying the premise |
+| **Idempotence** | `normalize(normalize(x)) == normalize(x)`, for every ASCII `x`, every policy **and every catalog**. Two premises hold it up — a token upper-cased splits back to itself, and a rejoined token splits back to the pieces it was joined from — and the first is false outside ASCII. The section below says where, and why the catalog is a dimension of the claim rather than a detail of the fixture. | `::test_normalize_is_idempotent_under_every_policy` and `::test_normalize_is_idempotent_over_catalog_shapes`, with `tests/test_governed_edge_cases.py::test_an_ascii_token_upper_cased_splits_back_to_exactly_itself` carrying the first premise and `::test_a_join_that_would_make_one_longer_number_is_refused` the second |
 | **Length is a flag** | No policy, argument or code path shortens a name or drops a token. | `::test_no_policy_produces_a_shorter_token_list_than_any_other`, `::test_an_over_long_name_is_flagged_and_returned_whole`, `::test_an_unabbreviated_word_is_upper_cased_and_never_clipped` |
 | **Governed hit is final** | A token the vocabulary contains resolves from the vocabulary under every policy. | `::test_policy_contrast_golden`, over `tests/fixtures/governed/golden/policy_contrast.jsonl`; the unknown half is `::test_a_held_out_token_is_reported_unknown_rather_than_approximated` |
 
@@ -1016,6 +1049,27 @@ and the second pass splits that string again — so the argument is only sound w
 cased, splits back to exactly itself.** That holds for all ASCII and is asserted as a property over
 arbitrary ASCII text; an earlier reading of the ordinal rule emitted the token `1s`, whose upper-cased
 form `1S` splits into two, and `normalize("1sT")` moved on every pass until the rule was narrowed.
+
+There is a third, and it is a premise about the **catalog** rather than about a name — which is why
+it survived a test parametrised over every identifier in the corpus and every policy. Between the
+split and the judgement sits the dictionary-aware digit rejoin, so what the second pass sees depends
+on which rows exist. A joined token is safe only while splitting it returns the pieces it was joined
+from: `1MM` does, because `split_identifier` reads it back as `('1', 'MM')` and the pass rejoins it
+every time. `911` does not — a digit run has no internal boundary, so it reads back as one token —
+and a catalog holding both `11` and `911`, which a municipal standard plausibly does, moved a name on
+every pass and changed what the name said while it did:
+
+```
+# with catalog = GovernedDictionary.from_mapping({"11": "Eleven", "911": "Emergency"})
+normalize("E_9_1_1", catalog)          # was 'E_9_11', then 'E_911';  now 'E_9_1_1'
+expand_identifier("E_9_1_1", catalog)  # was 'E 9 Eleven' and then 'E Emergency';  now 'E 9 1 1'
+```
+
+The pass now refuses a join whose result is itself all digits, which is the only shape that does not
+survive its own output. Two digit tokens can only be adjacent because something separated them —
+consecutive digits are one run — so nothing that refusal removes was ever a repair of a split this
+package introduced. The invariant is tested over catalog shapes as well as over names, with the
+nesting catalog above among them.
 
 It is **false outside ASCII**, and that limit is real rather than an oversight. `str.upper` is not
 length-preserving and can produce characters that are not letters at all:

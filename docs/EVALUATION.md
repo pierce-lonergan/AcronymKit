@@ -10,6 +10,7 @@ python tools/fetch_data.py med1250
 python bench/run_extraction.py --save                     # our row
 python bench/run_generation.py --all-presets --save       # generation recall@k
 python bench/run_micro.py --save                          # latency and cold import
+python bench/run_governed_gold.py --save                  # governed cut placement
 
 # competitor rows (pyab3p and scispacy need Python <3.13)
 python bench/run_extraction.py --save     --system acronymkit --system abbreviations     --system abbreviation_extractor --system pyab3p     --interpreter /path/to/python3.12
@@ -19,8 +20,12 @@ Every number on this page is written into [`bench/results.json`](../bench/result
 runners, and `tools/check_claims.py` fails the build if any performance figure in the docs or the
 source is not traceable back to it.
 
-Takes about a second. The corpus is not committed — it is fetched into the git-ignored `data/` and
-verified against a SHA-256 pinned in `tools/fetch_data.py`.
+The first four take about a second between them. The corpus is not committed — it is fetched into
+the git-ignored `data/` and verified against a SHA-256 pinned in `tools/fetch_data.py`.
+
+`run_governed_gold.py` is the exception: it fetches its own two corpora from live endpoints and
+takes a few minutes on a cold cache. It walks the SEC archive's ZIP central directory with range
+requests rather than downloading it, and caches both payloads under `data/governed_gold/`.
 
 ## Corpus
 
@@ -62,7 +67,7 @@ from different harnesses are not comparable. Nothing here is quoted from a paper
 |---|---|---:|---:|---:|---:|---:|---:|---:|---|
 | `pyab3p` | compiled C++ | 96.91 | 82.06 | **88.87** | 3,646 | 0.3 MB | 3.6 ms | 0 | **≤ 3.12** |
 | `abbreviation_extractor` | compiled Rust | 96.42 | 75.10 | **84.44** | 24,603 | 3.0 MB | 22.9 ms | 0 | 3.8+ |
-| **`acronymkit`** | pure Python | 92.07 | 76.99 | **83.85** | 4,219 | 1.3 MB | 2.3 ms † | 1 (pydantic) | **3.9 – 3.13** |
+| **`acronymkit`** | pure Python | 92.46<!--claim:extraction.med1250.acronymkit.exact_precision:.2f--> | 77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f--> | **84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f-->** | 5,496<!--claim:extraction.med1250.acronymkit.docs_per_second:,.0f--> | 1.3 MB | 2.3 ms † | 1 (pydantic) | **3.9 – 3.13** |
 | `abbreviations` | pure Python | 94.03 | 73.46 | **82.48** | 10,746 | 0.03 MB | 31.1 ms | 1 (regex) | 3.x |
 | `scispacy` | spaCy pipeline | 90.45 | 72.89 | **80.73** | 52 | ~400 MB | n/a | many (spaCy) | **< 3.13** |
 
@@ -75,10 +80,12 @@ Footprint is measured on the installed distribution: unpacked size, cold `import
   against this very corpus, so it enjoys a home advantage no other row has. Its 96.96 / 83.62 also
   lands within half a point of the figures published for Ab3P on MED1250, which is the strongest
   available evidence that **this harness, reader and scorer are correct**.
-- We beat the other pure-Python Schwartz & Hearst implementation (83.85 against 82.48),
-  on higher recall (76.99 against 73.46).
-- We lose narrowly to the Rust implementation (83.85 against 84.44). It buys precision
-  (96.42 against 92.07) at the cost of recall (75.10 against 76.99) — a different
+- We beat the other pure-Python Schwartz & Hearst implementation (84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> against 82.48),
+  on higher recall (77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f--> against 73.46).
+- We lose narrowly to the Rust implementation (84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> against 84.44), and the gap is
+  now 0.23 of a point rather than
+  the 0.59 it was before `balanced_trim` shipped (D-032). It buys precision
+  (96.42 against 92.46<!--claim:extraction.med1250.acronymkit.exact_precision:.2f-->) at the cost of recall (75.10 against 77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f-->) — a different
   operating point, not a different league.
 - **† The import column needs a caveat, and refusing it would be dishonest.** `import acronymkit`
   now costs 2.3 ms because the package resolves its re-exports lazily. But
@@ -400,6 +407,185 @@ inside the noise this project has previously reverted changes for, and consisten
 a tenth of a point. There is also no `HIGH_RECALL` profile: the sweep produced no point that beat
 `BIOMEDICAL` on recall, and inventing one would mean shipping a distinction the measurements do not
 support.
+
+## The governed subsystem: its first accuracy figures
+
+The governed half of this package is 9,370 of 25,210 source lines and, until this table, carried no
+accuracy number at all. The justification on file was "exact by construction", which is a tautology
+rather than a measurement: a lookup table is exact about whatever the caller put into it.
+
+There is exactly one thing in that subsystem which decides anything on its own, and
+`src/acronymkit/governed/tokenizer.py` says so in its own docstring — where the identifier is cut
+into tokens. Everything downstream is a lookup against a catalog the caller supplies, and a cut in
+the wrong character position produces a token no catalog can contain. So the accuracy question for
+the governed subsystem is: **does it cut identifiers where the people who named them cut them?**
+
+### The gold, and the rule that makes it defensible
+
+Two public sources publish, for the same column, a machine identifier *and* a human caption written
+by the same organisation: SEC XBRL tag/label pairs and Socrata field/caption pairs. That caption is
+the gold. Nobody was commissioned to produce it for a benchmark, which is the point — the August
+2026 audit's first killed finding was a column corpus whose annotators were *instructed to invent
+abbreviations*, then scored as if it were real schema text.
+
+A caption is admitted only when **its alphanumerics case-fold equal the identifier's and it contains
+whitespace.** Everything where the caption expands, abbreviates, reorders or annotates is thrown
+away — `qty` / `Quantity Ordered` is not in this table, because scoring it would be scoring
+expansion, which is the catalog's job. What survives is a population where the two strings are the
+same characters and **only cut placement can differ**, so a disagreement is a segmentation
+disagreement and nothing else.
+
+Scored through the public API — `expand_identifier(identifier, GovernedDictionary({}))` — with an
+**empty** catalog, which the admission rule forces rather than merely permits: a populated catalog
+would rewrite `TXN` to `Transaction` and the two strings would no longer share a character stream.
+
+### The table, with its ceiling in it
+
+A cut is a position in the shared character stream; punctuation inside a caption is a cut, not only
+whitespace. **Boundary recall ceiling** is the share of gold cuts sitting where the identifier
+itself marks one — a separator, a camelCase change, a letter/digit change, or the end of a capital
+run. Nothing that refuses to guess can exceed it, so a recall figure printed without it is
+unreadable.
+
+| Who wrote the gold | Subset | Pairs | exact % | boundary P % | boundary R % | boundary F1 % | recall ceiling % |
+|---|---|---:|---:|---:|---:|---:|---:|
+| SEC, us-gaap taxonomy | all | 3,090<!--claim:governed_gold.sec_xbrl.us_gaap.all.pairs:,--> | **98.25<!--claim:governed_gold.sec_xbrl.us_gaap.all.exact_pct:.2f-->** | 99.98<!--claim:governed_gold.sec_xbrl.us_gaap.all.boundary_precision_pct:.2f--> | 99.62<!--claim:governed_gold.sec_xbrl.us_gaap.all.boundary_recall_pct:.2f--> | 99.80<!--claim:governed_gold.sec_xbrl.us_gaap.all.boundary_f1_pct:.2f--> | 99.62<!--claim:governed_gold.sec_xbrl.us_gaap.all.boundary_recall_ceiling_pct:.2f--> |
+| SEC, IFRS taxonomy | all | 939<!--claim:governed_gold.sec_xbrl.ifrs.all.pairs:,--> | **85.52<!--claim:governed_gold.sec_xbrl.ifrs.all.exact_pct:.2f-->** | 100.00<!--claim:governed_gold.sec_xbrl.ifrs.all.boundary_precision_pct:.2f--> | 97.50<!--claim:governed_gold.sec_xbrl.ifrs.all.boundary_recall_pct:.2f--> | 98.74<!--claim:governed_gold.sec_xbrl.ifrs.all.boundary_f1_pct:.2f--> | 97.50<!--claim:governed_gold.sec_xbrl.ifrs.all.boundary_recall_ceiling_pct:.2f--> |
+| SEC, filing registrants | all | 57,580<!--claim:governed_gold.sec_xbrl.filer_extension.all.pairs:,--> | **94.73<!--claim:governed_gold.sec_xbrl.filer_extension.all.exact_pct:.2f-->** | 99.73<!--claim:governed_gold.sec_xbrl.filer_extension.all.boundary_precision_pct:.2f--> | 98.76<!--claim:governed_gold.sec_xbrl.filer_extension.all.boundary_recall_pct:.2f--> | 99.25<!--claim:governed_gold.sec_xbrl.filer_extension.all.boundary_f1_pct:.2f--> | 98.76<!--claim:governed_gold.sec_xbrl.filer_extension.all.boundary_recall_ceiling_pct:.2f--> |
+| | marked | 57,312<!--claim:governed_gold.sec_xbrl.filer_extension.marked.pairs:,--> | 95.17<!--claim:governed_gold.sec_xbrl.filer_extension.marked.exact_pct:.2f--> | 99.73<!--claim:governed_gold.sec_xbrl.filer_extension.marked.boundary_precision_pct:.2f--> | 99.16<!--claim:governed_gold.sec_xbrl.filer_extension.marked.boundary_recall_pct:.2f--> | 99.44<!--claim:governed_gold.sec_xbrl.filer_extension.marked.boundary_f1_pct:.2f--> | 99.16<!--claim:governed_gold.sec_xbrl.filer_extension.marked.boundary_recall_ceiling_pct:.2f--> |
+| | **flatcase** | 268<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.pairs:,--> | **0.75<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.exact_pct:.2f-->** | 77.78<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.boundary_precision_pct:.2f--> | **0.47<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.boundary_recall_pct:.2f-->** | 0.93<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.boundary_f1_pct:.2f--> | 0.47<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.boundary_recall_ceiling_pct:.2f--> |
+| Socrata publishers | all | 26,536<!--claim:governed_gold.socrata.columns.all.pairs:,--> | **91.37<!--claim:governed_gold.socrata.columns.all.exact_pct:.2f-->** | 97.63<!--claim:governed_gold.socrata.columns.all.boundary_precision_pct:.2f--> | 98.82<!--claim:governed_gold.socrata.columns.all.boundary_recall_pct:.2f--> | 98.22<!--claim:governed_gold.socrata.columns.all.boundary_f1_pct:.2f--> | 98.82<!--claim:governed_gold.socrata.columns.all.boundary_recall_ceiling_pct:.2f--> |
+| | marked | 25,577<!--claim:governed_gold.socrata.columns.marked.pairs:,--> | 93.49<!--claim:governed_gold.socrata.columns.marked.exact_pct:.2f--> | 97.64<!--claim:governed_gold.socrata.columns.marked.boundary_precision_pct:.2f--> | 99.90<!--claim:governed_gold.socrata.columns.marked.boundary_recall_pct:.2f--> | 98.76<!--claim:governed_gold.socrata.columns.marked.boundary_f1_pct:.2f--> | 99.90<!--claim:governed_gold.socrata.columns.marked.boundary_recall_ceiling_pct:.2f--> |
+| | **flatcase** | 959<!--claim:governed_gold.socrata.columns.unmarked.pairs:,--> | **34.93<!--claim:governed_gold.socrata.columns.unmarked.exact_pct:.2f-->** | 61.29<!--claim:governed_gold.socrata.columns.unmarked.boundary_precision_pct:.2f--> | **2.25<!--claim:governed_gold.socrata.columns.unmarked.boundary_recall_pct:.2f-->** | 4.33<!--claim:governed_gold.socrata.columns.unmarked.boundary_f1_pct:.2f--> | 2.25<!--claim:governed_gold.socrata.columns.unmarked.boundary_recall_ceiling_pct:.2f--> |
+
+The flatcase rows are published beside the headline rather than under it, because they are the price
+of a subsystem whose thesis is that it refuses to guess. `casenumber` carries no mark, its publisher
+captioned it `Case Number`, and there is no way to recover that cut from the characters. The two SEC
+taxonomy arms have no flatcase row at all — XBRL element names are written by a convention that
+capitalises every word, so a flatcase tag barely exists.
+
+### The result that is not in the headline column
+
+**Every miss, on every arm, is a boundary the identifier does not mark.** `false_negatives_marked`
+is zero on all four arms, so boundary recall equals its ceiling to the digit on every row above.
+
+Half of that is arithmetic and should not be sold as a discovery: the splitter only cuts where one
+of its four rules fires, and the ceiling is defined as the union of those same four rules' firing
+positions, so a *spurious* cut at an unsignalled position is impossible by construction. The other
+half is not. Two of the splitter's rules can *suppress* a cut at a signalled position — rule 6 keeps
+an English ordinal suffix with its digits, so `1ST` is one token, and rule 9's two-pass join
+re-merges a split that a catalog vouches for. Either could have cost a boundary the publisher
+wanted. Across every pair in the table above, neither did once.
+
+So the whole of the recall loss is unmarked text, and the whole of the precision loss is a signal
+the publisher chose not to treat as a word break. That makes the precision column the diagnostic
+one, and it decomposes into named rules:
+
+| Arm | Rule that cut where the publisher did not | Count |
+|---|---|---:|
+| Socrata | letter/digit, rule 5 — `_2013_q1_actual` gives `2013 Q 1 Actual`, gold `2013 Q1 Actual` | 1,818<!--claim:governed_gold.socrata.columns.false_positives_by_signal.letter_digit:,--> |
+| Socrata | separator, rule 2 | 16<!--claim:governed_gold.socrata.columns.false_positives_by_signal.separator:,--> |
+| SEC filer | end of a capital run, rule 4 — `ATMandDebitCardExpense` gives `At Mand Debit Card Expense` | 581<!--claim:governed_gold.sec_xbrl.filer_extension.false_positives_by_signal.acronym_run:,--> |
+| SEC filer | letter/digit, rule 5 | 362<!--claim:governed_gold.sec_xbrl.filer_extension.false_positives_by_signal.letter_digit:,--> |
+| SEC us-gaap | camelCase, rule 3 | 2<!--claim:governed_gold.sec_xbrl.us_gaap.false_positives_by_signal.camel_case:,--> |
+| SEC us-gaap | end of a capital run, rule 4 | 1<!--claim:governed_gold.sec_xbrl.us_gaap.false_positives_by_signal.acronym_run:,--> |
+
+Rule 5 is the single largest source of disagreement anywhere in this table and it is a *deliberate*
+rule: digits in a physical name are ordinals and version markers, and `ADDRESS2` really is
+`Address 2`. Publishers write `Q1` and `COVID19` as one word. Nothing was changed in response to
+this — it is a measured cost of a documented decision, not a defect report.
+
+### Two decompositions the headline does not survive, and one it does
+
+**By who wrote the taxonomy.** `us-gaap` and IFRS tags come out of the same file, the same fetch and
+the same scorer, and their exact-match scores are twelve points apart:
+98.25<!--claim:governed_gold.sec_xbrl.us_gaap.all.exact_pct:.2f--> against
+85.52<!--claim:governed_gold.sec_xbrl.ifrs.all.exact_pct:.2f-->. The cause is editorial. `us-gaap`
+capitalises after stripping a hyphen, so `Paid-in` becomes `PaidIn` and the cut survives into the
+identifier; the IFRS taxonomy does not, so `paid-in` becomes `Paidin` and the cut is destroyed by
+the naming convention before this package ever sees the string. Pooling the two into one "SEC XBRL"
+figure would have hidden that spread behind an average.
+
+**By identifier shape.** The whole gold is `snake_lower`, `flat_lower` and `CamelCase`. It contains
+**no UPPER_SNAKE identifier at all**, and the dotted count is
+29<!--claim:governed_gold.sec_xbrl.filer_extension.identifier_shapes.dotted:,--> of
+57,580<!--claim:governed_gold.sec_xbrl.filer_extension.all.pairs:,-->. UPPER_SNAKE is the shape this
+package's own fixtures and documentation are built around, so the largest caveat on this table is a
+counted zero rather than a hedge.
+
+**By publisher.** The Socrata population splits disjointly by portal —
+111<!--claim:governed_gold.socrata.portal_half_a.portals:,--> portals against
+105<!--claim:governed_gold.socrata.portal_half_b.portals:,-->, no portal in both — and the two halves land
+at 91.36<!--claim:governed_gold.socrata.portal_half_a.all.exact_pct:.2f--> and
+91.65<!--claim:governed_gold.socrata.portal_half_b.all.exact_pct:.2f--> exact match. The pooled figure is
+not an artifact of a handful of large portals. This is a robustness check and not a train/test
+split: nothing was fitted, so there was nothing to hold out.
+
+**By name length, which it survives in the direction it has to.** A longer name has more cuts to get
+right, so a whole-identifier metric must fall with length; if it did not, it would be measuring
+something other than what it says. Socrata two-word captions score
+93.45<!--claim:governed_gold.socrata.columns.exact_pct_by_caption_words.2:.2f--> exact and six-word-or-longer
+captions 83.95<!--claim:governed_gold.socrata.columns.exact_pct_by_caption_words.6+:.2f-->, over
+9,628<!--claim:governed_gold.socrata.columns.pairs_by_caption_words.2:,--> and
+4,306<!--claim:governed_gold.socrata.columns.pairs_by_caption_words.6+:,--> pairs respectively. The full
+breakdown is in `bench/results.json` under `exact_pct_by_caption_words`.
+
+### What limits these numbers, in the same paragraph as the numbers
+
+The gold is **how a publisher captioned a column, not how a data-governance function would rule** —
+and the publishers do not agree with each other. Where two portals caption the same identifier,
+68<!--claim:governed_gold.socrata.gold_conflict.contested_identifiers:,--> of
+25,117<!--claim:governed_gold.socrata.gold_conflict.distinct_identifiers:,--> identifiers
+(0.27<!--claim:governed_gold.socrata.gold_conflict.contested_identifiers_pct--> %) are given two different
+cut placements — 2.62<!--claim:governed_gold.socrata.gold_conflict.contested_occurrences_pct--> % of admitted
+column occurrences sit on such an identifier — which is a floor under the disagreement any system
+will record here however good it is. The August 2026 audit also ran a hand pass over a sample of these pairs and judged the automated
+figure optimistic; that comparison is un-gated, is not re-derived by this runner, and its number is
+therefore deliberately not quoted here — read it in [`docs/AUDIT-2026-08.md`](AUDIT-2026-08.md) and
+treat the table above as the optimistic end. The SEC arms also measure something narrower than they
+look: XBRL element names are written by the LC3 convention, under which the element name **is** the
+label with its spaces and punctuation removed, so those rows measure inverting a documented,
+mechanical name-generation rule rather than segmenting an identifier somebody typed. And the shape
+counts above are the transfer limit, stated as counts rather than as a hedge: the gold is
+`snake_lower` and `CamelCase`, it holds **zero** UPPER_SNAKE identifiers, and `dotted`,
+`flat_upper`, `snake_mixed` and `digits_only` appear only in trace amounts. UPPER_SNAKE is what the
+package's own fixtures are written in, and no dotted source publishes a caption to align against, so
+**these figures do not transfer to FEC- or World-Bank-shaped input** and they say nothing at all
+about the `TXN_APPLNT_DOB_DT` shape the documentation is built around.
+
+### What is not measured here
+
+Catalog resolution, class-word detection, compliance checking and physical-name generation are all
+lookups against data the caller supplies, and none of them is in this table. Nor is expansion: the
+admission rule removes every pair whose caption is longer than its identifier, which is exactly the
+abbreviation-expansion task. This is the one judgement the governed subsystem makes on its own,
+measured once, on the shipped code path, with stock defaults.
+
+### Provenance
+
+Both corpora are fetched by the runner, so the table is re-derivable by anyone with a network
+connection. Neither was used to tune anything, and the runner has no thresholds and no arms to
+choose between.
+
+| Corpus | Endpoint | Licence, read from the terms |
+|---|---|---|
+| SEC XBRL | `www.sec.gov/files/dera/data/financial-statement-data-sets/<quarter>.zip`, member `tag.txt` | sec.gov "Website Dissemination", read 2026-08-23: information on sec.gov "may be copied or further distributed by users of the web site without the SEC's permission". The archive's own `readme.htm` carries no licence, copyright or terms statement. **But the SEC does not own these labels** — `readme.htm` section 5.2 says `tlabel` is "the label text provided by the taxonomy" for a standard tag, so us-gaap labels are FASB's and IFRS labels are the IFRS Foundation's. Benchmark use; **not vendorable.** |
+| Socrata | `api.us.socrata.com/api/catalog/v1`, fields `columns_field_name` and `columns_name` | No licence covers the catalog metadata: the Discovery API indexes third-party portals whose datasets carry per-publisher terms. The one licence statement in sight — "Licensed by Tyler Technologies under CC BY-NC-SA 3.0", in the footer of `dev.socrata.com`, read 2026-08-23 — covers the **documentation**, not the API responses, and reading it as the data's licence would be the badge mistake operating rule 4 exists to stop. Column metadata only; no dataset rows are read. Benchmark use; **not vendorable.** |
+
+The SEC archive is fetched with HTTP range requests against the ZIP central directory, so only the
+one member is downloaded rather than the whole quarterly archive. The Socrata catalog is live and
+moves under the runner, so a later run walks a slightly different population; the fetch date and the
+page count travel with every figure in `bench/results.json`.
+
+**Neither corpus is registered in [`bench/splits.toml`](../bench/splits.toml) yet, and every figure
+above carries that fact.** The runner asks `tools/splits.py` for each corpus's declared role, prints
+what it gets, and writes it into `bench/results.json` as `splits_declaration` — currently
+`UNDECLARED`. It refuses to run against a corpus declared `role = "tuning"`. Two things block
+registration and both are somebody else's file: the manifest's `task` vocabulary is closed and holds
+no value for identifier segmentation, and `headline_capable()` in `tools/splits.py` is task-blind, so
+registering a segmentation corpus as `held_out` would silence the advisory that says this project
+still has no held-out short-form/long-form pair corpus. That advisory is about extraction and is
+still true. Until both are settled, read these numbers as measured-but-undeclared.
 
 ## What is deliberately not claimed
 

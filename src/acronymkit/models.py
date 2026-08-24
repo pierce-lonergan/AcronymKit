@@ -333,14 +333,74 @@ class DisambiguationCandidate(_Frozen):
     )
 
 
+#: Decimal places :attr:`DisambiguationResult.margin` is rounded to. Mirrors
+#: ``acronymkit.disambiguation.SCORE_PRECISION``, which is where candidate
+#: scores are rounded; the value is repeated rather than imported because
+#: ``disambiguation`` imports *this* module and the dependency may not reverse.
+#: ``tests/test_disambiguation.py`` asserts the two stay equal, so the
+#: duplication is checked rather than hoped for.
+_MARGIN_PRECISION = 6
+
+
 class DisambiguationResult(_Frozen):
-    """Resolution of one acronym occurrence within its context."""
+    """Resolution of one acronym occurrence within its context.
+
+    ``primary_expansion`` is ``None`` in two different situations, and
+    :attr:`abstained` is what tells them apart: nothing was proposed at all
+    (``candidates`` is empty), or something was proposed and the configured
+    abstention gate refused it (``candidates`` is not empty).
+    """
 
     acronym: str
     context: str
     primary_expansion: Optional[str] = None
     candidates: list[DisambiguationCandidate] = Field(default_factory=list)
     metadata: EngineMetadata
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def margin(self) -> Optional[float]:
+        """Score gap between the top two candidates, or ``None`` if there is no pair.
+
+        ``candidates[0].score - candidates[1].score``, rounded to
+        :data:`_MARGIN_PRECISION` places so the value is byte-stable across
+        platforms the way the scores themselves are. It is positional, exactly
+        as ``primary_expansion`` is: the library emits ``candidates`` already
+        sorted by ``(-score, expansion)``, so for a library-produced result the
+        margin is non-negative and is the gap below the winner.
+
+        **What it is not.** Not a probability, not a calibrated confidence, and
+        not comparable across candidate-set sizes: the score is an unnormalised
+        blend rather than a distribution, so nothing makes a two-way margin and
+        a fifteen-way margin mean the same thing. The measured consequence is
+        published per candidate-set size by
+        ``bench/run_disambiguation_diagnosis.py`` under the run id
+        ``disambiguation.sdu21.abstention_curve`` -- a tuning split, so those
+        figures may not be quoted as evidence of generalisation.
+
+        **When it is ``None``.** Fewer than two candidates exist, so no gap was
+        computed. That is the ordinary case on the engine's default path, where
+        the candidate set comes from the passage's own inline definitions and is
+        almost never larger than one; see
+        :meth:`acronymkit.engine.AcronymEngine.disambiguate`. A margin is
+        routinely available only when the caller supplies a dictionary.
+        """
+        if len(self.candidates) < 2:
+            return None
+        return round(self.candidates[0].score - self.candidates[1].score, _MARGIN_PRECISION)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def abstained(self) -> bool:
+        """Whether an answer was withheld rather than never found.
+
+        ``True`` when candidates were produced and ``primary_expansion`` is
+        still ``None``, which the library only does when an abstention gate
+        (``LexicalDisambiguator(min_margin=...)``) declined the top candidate.
+        ``False`` both when an answer was given and when nothing was proposed in
+        the first place.
+        """
+        return self.primary_expansion is None and bool(self.candidates)
 
 
 class BatchResult(_Frozen):

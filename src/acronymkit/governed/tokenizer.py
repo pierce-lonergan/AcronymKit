@@ -47,7 +47,9 @@ The rules, in order
    Rule 3 wins over it: a suffix written lower-then-upper is two words by the
    writer's own capitalisation, so ``1sT`` is ``1|s|T``. See below.
 7. Identifier quoting separates and is discarded without comment: the double
-   quote, the apostrophe, the backtick and square brackets. See below.
+   quote, the apostrophe, the backtick and square brackets. A square bracket is
+   discarded only where it is *doing* the quoting; otherwise it is reported by
+   rule 8. See below.
 8. Every other character that is neither a letter nor a digit separates too,
    and is **reported** rather than discarded. See below.
 9. Digit-leading catalog tokens are **not** special-cased here. See below.
@@ -90,6 +92,23 @@ dialects quote an identifier, so ``"TXN_ID"``, ``[TXN_ID]`` and a backtick-quote
 name read exactly like the bare one. A name that made a round trip through a
 catalog query is the same name.
 
+**The two square brackets are the one pair that has to earn it.** The other six
+quoting characters are the same character opening and closing, so a stray one is
+indistinguishable from a real one and there is nothing to test. A bracket is
+directional, and it is also the ordinary spelling of a subscript: ``value[x]``
+is not a quoted name, and reading it as one discarded two characters and left a
+report saying the whole name had been accounted for. So a bracket is treated as
+quoting only where it is *positioned* as quoting — see :func:`_quoting_brackets`
+for the exact test — and every other bracket separates and is reported by rule 8,
+like any other character this module cannot read as part of a name.
+
+The tokens are the same either way: a bracket separates whichever branch it takes,
+so ``value[x]`` yields ``('value', 'x')`` as it always did. What changes is that
+the answer no longer claims to have read the whole name. Whether ``x`` should be
+a token of its own is a different and larger question — it is the "is a dot a path
+separator" question wearing a different hat, because the honest reading depends on
+how the segment around it is delimited — and this module does not answer it.
+
 Everything else is rule 8, and rule 8 is the point. An emoji pasted out of a
 spreadsheet, a currency sign, a combining accent left behind by a decomposed
 Unicode spelling, a control character from a bad export: each of those was part
@@ -104,6 +123,13 @@ not one of the accounted separators, the number of times that character occurs
 in the input equals the number of times it occurs across the returned tokens
 plus the number of times it appears in ``unaccounted``. Nothing is invented, and
 nothing leaves without being either kept or reported.
+
+Seven of the nine accounted separators are accounted for unconditionally. The two
+square brackets are accounted for **per occurrence**: an occurrence that is doing
+the quoting is discarded, and one that is not is reported, so for those two
+characters the equation holds with the discarded occurrences taken out of the
+left-hand side rather than as a flat exemption. A name that carries no bracket, or
+whose brackets are all quoting, reads exactly as it did.
 
 An unaccounted character is deliberately *not* made into a token of its own.
 A token is a lookup key and it is a word: it goes to the catalog, it comes back
@@ -123,10 +149,18 @@ exactly the shape of ``7Code``, which must split.
 The repair belongs to the caller. ``expand_identifier`` makes a second,
 dictionary-aware pass over this function's output: before expanding a digit
 token it tries that token joined to the one after it as a lookup key, consumes
-both when the joined form is a catalog entry, and otherwise falls back to the
-split tokens exactly as they came. One literal pass, then one greedy pass —
-hence "two-pass", and hence a joined token surviving only where a governed
-vocabulary actually vouches for it.
+both when the joined form is a catalog entry and the joined form is not itself
+all digits, and otherwise falls back to the split tokens exactly as they came.
+One literal pass, then one greedy pass — hence "two-pass", and hence a joined
+token surviving only where a governed vocabulary actually vouches for it.
+
+The all-digit condition is this function's rule read backwards. The pass exists
+to undo a split *this* function made, and this function never puts two digit
+tokens next to each other: a run of digits is one token, so two adjacent digit
+tokens mean something separated them. Joining those would not be a repair, and
+``911`` does not survive the round trip in any case — it splits back to one token
+rather than to the two it was made from, which is what made ``normalize``
+non-idempotent against a catalog carrying both ``11`` and ``911``.
 
 Doing it here instead would mean a tokenizer that consults a dictionary, which
 is not a tokenizer. Its output would stop being a function of its input: the
@@ -220,7 +254,18 @@ __all__ = [
 #: losslessness guarantee: a character outside this set, and outside whitespace,
 #: is either inside a token or inside ``unaccounted``, and a caller checking that
 #: for itself needs to know where the line is drawn.
+#:
+#: Seven of the nine are unconditional. ``[`` and ``]`` are members because a
+#: bracket *can* be quoting, not because every bracket is: an occurrence that is
+#: not positioned as quoting is reported like any other unreadable character, and
+#: :func:`_quoting_brackets` is where that is decided. Membership here therefore
+#: reads as "may be discarded without a signal", which is what a caller checking
+#: the guarantee for itself needs — a character outside the set is *always*
+#: reported, and that direction is unqualified.
 ACCOUNTED_SEPARATORS = frozenset("_-./\"'`[]")
+
+#: The two accounted separators whose accounting is decided per occurrence.
+_BRACKETS = frozenset("[]")
 
 #: The closed set of English ordinal suffixes, lower-cased for comparison.
 #: Rule 6 is exactly this set and nothing else; there is no morphology behind it
@@ -258,6 +303,12 @@ def _classify(char: str) -> int:
     separates exactly the same way, and the scan records it. A stray comma from
     a hand-edited CSV of column names is the everyday case and is precisely the
     one worth a signal.
+
+    This function reads one character with no idea where it sits, so it answers
+    for ``[`` and ``]`` the way rule 7 hopes — :data:`_SEPARATOR` — and
+    :func:`_quoting_brackets` demotes the occurrences that are not quoting back
+    to :data:`_UNACCOUNTED` before the scan sees them. Both public functions do
+    that; nothing calls this one and trusts its answer about a bracket.
 
     Letters with no case of their own — CJK ideographs, Hebrew, Devanagari — get
     their own class instead of being folded into one of the cased ones. They take
@@ -340,6 +391,139 @@ def _classes(identifier: str) -> list[int]:
         One class constant per character, in input order.
     """
     return [_classify(char) for char in identifier]
+
+
+def _opens_a_quoted_name(identifier: str, position: int) -> bool:
+    """Whether a ``[`` at ``position`` is where a quoted name could begin.
+
+    A quoted name begins where a name begins: at the start of the input, or after
+    something that ended whatever came before. So the test is on the preceding
+    character, and it is the same test the scan applies to decide a token is
+    over — a separator, whitespace, or a character the module could not read.
+
+    Another bracket does not count. ``[a][b]`` is not two quoted names in this
+    module's reading, because nothing separates them; treating it as one would
+    mean inventing the boundary that the brackets are being asked to justify.
+
+    Args:
+        identifier: The whole input.
+        position: Index of a ``[``.
+
+    Returns:
+        ``True`` when a name could open here.
+    """
+    if position == 0:
+        return True
+    previous = identifier[position - 1]
+    return previous not in _BRACKETS and _classify(previous) <= _UNACCOUNTED
+
+
+def _closes_a_quoted_name(identifier: str, position: int) -> bool:
+    """Whether a ``]`` at ``position`` is where a quoted name could end.
+
+    The mirror of :func:`_opens_a_quoted_name`, read forwards: the end of the
+    input, or a character that could not continue a name anyway.
+
+    Args:
+        identifier: The whole input.
+        position: Index of a ``]``.
+
+    Returns:
+        ``True`` when a name could close here.
+    """
+    if position == len(identifier) - 1:
+        return True
+    following = identifier[position + 1]
+    return following not in _BRACKETS and _classify(following) <= _UNACCOUNTED
+
+
+def _quoting_brackets(identifier: str) -> frozenset[int]:
+    """Which ``[`` and ``]`` occurrences are identifier quoting, by index.
+
+    Rule 7 accounts for a bracket because ``[TXN_ID]`` is how T-SQL writes
+    ``TXN_ID``, and a name that made a round trip through a catalog query is the
+    same name. It is not because the character carries no information: in
+    ``value[x]`` the brackets are a subscript, and discarding them silently made
+    a losslessness report say a whole name had been read when two characters of
+    it had not.
+
+    So a bracket is quoting when it is **positioned** as quoting: an unnested
+    matched pair, opening where a name could open and closing where a name could
+    close. Every other occurrence is reported.
+
+    ::
+
+        [TXN_ID]                 both quoting
+        [db].[schema].[TXN_ID]   all six quoting  -- the case rule 7 exists for
+        [my.column]              both quoting     -- brackets are how a dot gets
+                                                     inside a name, so this reads
+        value[x]                 both reported    -- a subscript, not a name
+        A[0]                     both reported
+        [a][b]                   all four reported -- nothing separates them
+        [TXN_ID                  reported          -- never closed
+        [[TXN]]                  all four reported -- the doubled-bracket escape
+                                                      is not read here
+
+    **Why the test is not per dot-segment.** The obvious reading of ``value[x]``
+    is that a segment either is a bracketed name or is not, which means splitting
+    on ``.`` first — and that decides, on the caller's behalf, that a dot
+    introduces a path, which is the one thing this module refuses to decide.
+    ``.`` is not privileged here: it is one of several characters that can end a
+    name, and ``_``, ``/``, whitespace and an unreadable character all end one the
+    same way. That is also why ``[my.column]`` reads as quoting rather than as two
+    broken segments, which is the answer T-SQL's own reason for having brackets
+    calls for.
+
+    The scan is deliberately unforgiving. Anything it cannot pair off is
+    reported, on the same principle as the rest of the module: "there was
+    something in this name I could not read" is a cheap, recoverable answer, and
+    a confident one is not.
+
+    Args:
+        identifier: The whole input. Callers check for a bracket first; this
+            returns an empty set for a string with none, at the cost of a scan.
+
+    Returns:
+        The indices of the bracket characters that are quoting. Every other
+        bracket index is reported by both public functions.
+    """
+    quoting: set[int] = set()
+    pending: Optional[int] = None
+    for position, char in enumerate(identifier):
+        if char == "[":
+            # An unclosed opener is abandoned rather than allowed to reach past a
+            # second one: nesting is the shape this cannot read.
+            pending = position if _opens_a_quoted_name(identifier, position) else None
+        elif char == "]":
+            if pending is not None and _closes_a_quoted_name(identifier, position):
+                quoting.add(pending)
+                quoting.add(position)
+            pending = None
+    return frozenset(quoting)
+
+
+def _reportable_brackets(identifier: str) -> frozenset[int]:
+    """The complement of :func:`_quoting_brackets`: the brackets rule 8 reports.
+
+    Args:
+        identifier: The whole input.
+
+    Returns:
+        The indices of ``[`` and ``]`` occurrences that are not quoting. Empty
+        for a name with no bracket and for a correctly quoted one, which is
+        every name a catalog query returns.
+    """
+    # Two substring searches in C before any per-character work, because this
+    # runs on every identifier a schema walk hands the splitter and almost none
+    # of them contains a bracket at all.
+    if "[" not in identifier and "]" not in identifier:
+        return frozenset()
+    quoting = _quoting_brackets(identifier)
+    return frozenset(
+        position
+        for position, char in enumerate(identifier)
+        if char in _BRACKETS and position not in quoting
+    )
 
 
 class IdentifierParts(NamedTuple):
@@ -465,6 +649,12 @@ def _scan(identifier: str) -> tuple[list[str], list[str]]:
         order, one entry per occurrence.
     """
     classes = _classes(identifier)
+    # Rule 7's one conditional member. A bracket that is not doing the quoting is
+    # demoted to :data:`_UNACCOUNTED` here rather than anywhere in the loop, so
+    # the loop keeps one statement of "what does a character of this class do"
+    # and the positional rule keeps one statement of its own.
+    for position in _reportable_brackets(identifier):
+        classes[position] = _UNACCOUNTED
     total = len(classes)
     tokens: list[str] = []
     unaccounted: list[str] = []
@@ -586,11 +776,25 @@ def split_identifier_parts(identifier: Optional[str]) -> IdentifierParts:
         # Two passes over the string, both in C. The second is skipped outright
         # for the overwhelmingly common name that has nothing to report, which
         # is why it is a search before it is a findall.
-        found = (
-            tuple(_ASCII_UNACCOUNTED.findall(identifier))
-            if _ASCII_UNACCOUNTED.search(identifier) is not None
-            else ()
-        )
+        #
+        # A bracket that is not quoting is reported too, and its position has to
+        # be interleaved with the pattern's, because ``unaccounted`` is in input
+        # order. That is the one branch that walks the string in Python, and it
+        # is reached only by a name that actually carries such a bracket: a name
+        # with none, and a correctly quoted one — which is every name an
+        # information-schema query returns — takes the cheap branch below.
+        brackets = _reportable_brackets(identifier)
+        if brackets:
+            positions = brackets.union(
+                match.start() for match in _ASCII_UNACCOUNTED.finditer(identifier)
+            )
+            found = tuple(identifier[position] for position in sorted(positions))
+        else:
+            found = (
+                tuple(_ASCII_UNACCOUNTED.findall(identifier))
+                if _ASCII_UNACCOUNTED.search(identifier) is not None
+                else ()
+            )
         return IdentifierParts(tuple(_ASCII_TOKEN.findall(identifier)), found)
     tokens, unaccounted = _scan(identifier)
     return IdentifierParts(tuple(tokens), tuple(unaccounted))

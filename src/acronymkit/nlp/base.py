@@ -89,6 +89,25 @@ class BackendUnavailable(AcronymKitError):  # noqa: N818 - name fixed by the API
 class NlpBackend(Protocol):
     """Structural contract implemented by every linguistic annotator.
 
+    Exported as ``acronymkit.NlpBackend``, because implementing it is the
+    documented way to plug in your own tagger and the contract should not have
+    to be imported from a private sub-module to be named in an annotation.
+    Structural, and :func:`typing.runtime_checkable`: an unrelated class with
+    the right three members satisfies ``isinstance`` without inheriting from
+    anything here.
+
+    Hand an implementation to :class:`~acronymkit.engine.AcronymEngine` as
+    ``backend=``. That replaces tier *resolution*, not merely its result:
+    :func:`resolve_backend` is not called, so :meth:`is_available` is never
+    consulted on an injected backend — supplying it is itself the availability
+    decision — and :attr:`name` becomes the sole capability signal, from which
+    :attr:`~acronymkit.engine.AcronymEngine.engine_tier` is recomputed
+    (``"heuristic"`` reads as Tier 0, any other name as Tier 1). The engine
+    stores the object as given and calls :meth:`annotate` on the same instance
+    from every thread that uses the engine, so an implementation that is not
+    itself thread-safe makes the engine holding it not thread-safe either; see
+    "Thread safety" in :mod:`acronymkit.engine`.
+
     Attributes:
         name: Stable identifier recorded on
             :attr:`~acronymkit.models.EngineMetadata.nlp_backend`, e.g.

@@ -26,7 +26,7 @@ generator can address, and within the top 25 for 89.7 %. No competing library ha
 here, because no competing library generates.
 
 Extraction is measured too, against four other systems through one harness: precision
-92.07 %, recall 76.99 %, F1 **83.85 %**. We are third of five there, and the table showing
+92.46<!--claim:extraction.med1250.acronymkit.exact_precision:.2f--> %, recall 77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f--> %, F1 **84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> %**. We are third of five there, and the table showing
 exactly that is in [docs/EVALUATION.md](docs/EVALUATION.md) — including where we lose.
 
 ## Why
@@ -130,7 +130,7 @@ always holds) and a confidence estimate. Prose parentheticals such as `(see Figu
 enumerations such as `(1) … (2) …` are correctly rejected.
 
 **Measured, not asserted.** On the MED1250 gold standard (1,221 human-annotated pairs from the Ab3P
-corpus): **precision 92.07 %, recall 76.99 %, F1 83.85 %**, at 4,219 documents/second. High
+corpus): **precision 92.46<!--claim:extraction.med1250.acronymkit.exact_precision:.2f--> %, recall 77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f--> %, F1 84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> %**, at 5,496<!--claim:extraction.med1250.acronymkit.docs_per_second:,.0f--> documents/second. High
 precision with recall the weak side is the expected shape for this algorithm — it refuses rather than
 guesses. The full breakdown, including where the misses come from and one optimisation that was tried
 and reverted, is in [docs/EVALUATION.md](docs/EVALUATION.md). Reproduce with:
@@ -156,8 +156,18 @@ engine.disambiguate("MS", "Peak intensity in the MS spectrum identified the ioni
                     dictionary=vocab).primary_expansion   # 'mass spectrometry'
 ```
 
-With no dictionary supplied, the engine builds one from the document's own inline definitions, so a
-term defined once on first use resolves everywhere afterwards.
+The dictionary is what makes this a choice. With none supplied, the engine looks only for a
+parenthetical definition **inside the string you passed** — there is no cross-call state, so
+`engine.disambiguate("MS", a_later_sentence)` returns `None` no matter how many earlier calls defined
+`MS`. Carry the definitions yourself if you want them to persist:
+`ExpansionDictionary.from_pairs(engine.extract_definitions(whole_document))`.
+
+Every result also reports `margin`, the score gap between the top two candidates, and
+`LexicalDisambiguator(config, vocab, min_margin=...)` will decline to answer below a margin you
+choose — off by default, because the answer is a coverage/accuracy trade rather than an improvement
+and where to sit on it is yours. The full curve, decomposed by candidate-set size, is
+`disambiguation.sdu21.abstention_curve` in [bench/results.json](bench/results.json); it is measured on
+a **tuning split**, so no point on it is a default this library adopts.
 
 ### Governed naming — expansion with no sentence to lean on
 

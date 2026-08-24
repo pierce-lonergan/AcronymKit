@@ -7,6 +7,141 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing here changes what the library does by default. Two behaviour changes are called out under
+**Changed** — both of them make an existing report *stricter* rather than different, and one of them
+will newly flag identifiers a pipeline previously waved through.
+
+### Added
+
+- **The disambiguator can now refuse to answer.** Every `DisambiguationResult` carries a read-only
+  `margin` (the gap between the best and second-best candidate's scores, `None` when there are fewer
+  than two candidates) and a derived `abstained` flag, which separates "refused" from "nothing was
+  ever proposed". `LexicalDisambiguator(config, dictionary, tokenizer, min_margin=0.1)` answers only
+  when the margin clears the threshold you set. **It is off by default and will stay off**: gating
+  trades coverage for precision, and where you want to sit on that trade depends on what a wrong
+  answer costs you, which this library cannot see. Read `docs/DECISIONS.md` D-030 before choosing a
+  threshold — in particular the part where, below the crossover point, the shared task's own trivial
+  baseline is *more* accurate on the same answered questions. Abstention is a precision instrument,
+  not an accuracy fix.
+  - Practical note: the margin is only meaningful when you supply a dictionary. On the default
+    no-dictionary path the engine almost never has two candidates to compare, so nothing to gate.
+  - A gate above 0.01 would otherwise have refused a document's own inline definition of its own
+    abbreviation, because dictionary candidates are capped just below inline ones and the cap is not
+    evidence. Pairs whose top two candidates come from different sources are exempt; the exemption
+    can only turn a refusal into an answer.
+
+- **You can now supply your own collaborators to `AcronymEngine`.** Four keyword-only arguments:
+  `AcronymEngine(config, backend=..., tokenizer=..., extractor=..., scorer=...)`. The README has
+  advertised "implement the `NlpBackend` protocol" since 0.1.0 and there was no way to pass one in;
+  now there is. `NlpBackend` is a public export (`acronymkit.NlpBackend`). Plain constructor wiring —
+  no plugin registry, no entry-point scan, nothing new at import time.
+  - Supplying a backend *replaces* tier resolution rather than its result: availability is not
+    probed, no degradation warning is raised, and `Config(strict=True)` does not apply, because
+    handing the engine an annotator is itself the availability decision. `engine_tier` is recomputed
+    from the backend you passed while `requested_tier` is preserved, so the metadata still says both
+    what was asked for and what ran.
+  - **The thread-safety guarantee is now conditional and says so.** It held because the engine built
+    everything it held; an object you inject may carry state the engine cannot inspect. Inject
+    nothing and the unconditional guarantee stands.
+  - **A custom `Scorer` re-ranks; it does not re-search.** The generator's beam bound is derived in
+    closed form from `ScoringWeights` and never calls your scorer, so a custom term reorders the
+    candidates the search kept and cannot make it keep different ones. `metadata.truncated` tells you
+    when that limit bound your result. If you need a custom objective to be decisive, raise
+    `max_search_nodes` until the search runs exhaustively — that removes the cut rather than biasing
+    it. Documented in full on `Scorer` and in `docs/ARCHITECTURE.md`.
+
+- **The governed subsystem has an accuracy number for the first time.** `bench/run_governed_gold.py`
+  scores identifier segmentation against two public sources that publish, for the same column, both a
+  machine identifier and a human caption written by the same organisation — SEC XBRL taxonomy and
+  filer labels, and Socrata open-data portal captions. Results are decomposed by gold author, by
+  identifier shape and by caption length in `docs/EVALUATION.md`, with the recall ceiling printed in
+  the same table as the recall it bounds and the worst row printed beside the headline. Read the
+  caveats: the SEC arms measure inverting a documented naming convention, the gold contains no
+  UPPER_SNAKE identifiers at all, and the Socrata catalog is live rather than frozen. No library
+  behaviour changed as a result.
+
+- **A `--spans` mode on `bench/run_shortform.py`**, which scores short-form and long-form span
+  detection on the corpora that annotate spans without pairing them, each on its own task and with no
+  derived pairing.
+
+### Changed
+
+- **`is_fully_known` is stricter about square brackets, and a pipeline gating on it will newly flag
+  names it used to pass.** A bracket is treated as quoting — silently discarded — only where it is
+  actually positioned as quoting: an unnested matched pair, opening where a name could open and
+  closing where a name could close. So `[TXN_ID]`, `[db].[schema].[TXN_ID]` and `[my.column]` still
+  read clean, while `value[x]` and `TXN_ID[0]` now report the two brackets as unaccounted and come
+  back `is_fully_known=False`. Previously those characters were dropped and the report said the whole
+  name had been read. **The tokens are unchanged for every input** — only the accounting moved. See
+  `docs/DECISIONS.md` D-034.
+
+- **The digit rejoin no longer glues two numbers into one.** The pass that reunites a digit token with
+  the token after it now refuses any join whose result is itself all digits. The consequence you may
+  notice: with a catalog carrying `2020`, the name `FY_20_20` no longer resolves to it. Write
+  `FY_2020` if that is what you mean. See **Fixed** below for why this was not optional.
+
+### Fixed
+
+- **`normalize()` is idempotent again.** With a catalog holding both `11` and `911`, `normalize` on a
+  name like `E_9_1_1` used to return a *different* name each time it was called — and the meaning of
+  the column moved with it, from "E 9 Eleven" to "E Emergency". A digit run has no internal boundary,
+  so a joined number does not split back into the pieces it was joined from, and each pass handed the
+  next one a fresh adjacency to glue. Two catalog rows and plain ASCII were enough. The existing
+  idempotence test could not have caught this at any length of run: it varied identifiers and
+  policies but never the catalog, and idempotence here is a joint property of a name *and* a catalog.
+  It now varies catalogs too. `docs/DECISIONS.md` D-033.
+
+- **The extractor no longer emits a short form with an unmatched bracket.** Trimming a candidate's
+  trailing punctuation could turn a bracketed region such as `FEV(1)` into a string carrying an opener
+  with no closer — a form that matches no annotation under any convention, so the pair was lost
+  outright rather than mis-scored. The right edge is now put back exactly far enough to close what the
+  trim opened, all-or-nothing, and never past the span it was handed. Measured neutral on every
+  held-out and second-corpus field; the improvement is on a tuning split, and `docs/DECISIONS.md`
+  D-032 says plainly how much weight that deserves.
+
+- **`GovernedDictionary.with_custom()` keeps a subclass whole.** A subclass's own attributes were
+  dropped from the copy. The base class declares `__slots__` and still carries no instance dictionary,
+  so nothing got heavier.
+
+### Documentation
+
+- **A term defined once does not "resolve everywhere afterwards".** `README.md` and the
+  `engine.disambiguate` docstring both said it did. There is no cross-call state; the docs now say so
+  and show the alternative that works. The engine's example now leads with the dictionary path, where
+  a selection actually happens, and labels the default path as performing none.
+- **The governed round-trip report gets the sentence it was missing.** On a legacy schema, expect
+  `corrected` to hold nearly everything and `round_trip_inconsistent` to read zero, and read that as
+  the standard doing its job rather than as the trip coming back clean. The counter was always
+  counting what the docs said it counted; what was absent was one sentence about how to read it.
+- Module doctests for `acronymkit.disambiguation`, `acronymkit.engine` and `acronymkit.scoring` now
+  execute in the test suite. They did not before, which is how a docstring example that abstains when
+  it should answer survived being written.
+- `docs/EVALUATION.md` gains a decomposed section for the governed accuracy figures, behind run-id
+  citations.
+
+### Notes
+
+- **New claims must now cite a run id.** `tools/check_claims.py` still accepts the 87 existing
+  figures that are backed only by matching a value somewhere in `bench/results.json`, but that path is
+  a ratchet and admits nothing new: every number added to the docs from here names the measurement it
+  came from, so that a wrong citation can fail the build. Value matching cannot tell a correct claim
+  from a coincidence, and a stale figure survived two audits on exactly that gap.
+- **`bench/splits.toml` is now executable.** `tools/splits.py` loads and validates it, CI runs
+  `python tools/splits.py --check`, and `bench/corpora.py` consults it before a reader is registered.
+  Both SDU@AAAI-22 AE dev splits are declared tuning and contaminated.
+- **Three changes were measured and not shipped**, which is the point of recording them: per-arity
+  abstention thresholds (experiment eight), preferring the whole two-word bracketed text as a short
+  form (experiment nine), and rejecting a long form that begins with a function word (experiment ten).
+  Each is in `docs/DECISIONS.md` D-030 and D-032 with the numbers that refused it and the conditions
+  under which it should be reopened. The last of the three is free on one corpus and a recall
+  regression on every other one it was asked about, because this library emits *pairs* — a rule that
+  rejects a long form deletes the short form standing beside it.
+- **The published MED1250 extraction headline is stale in this working tree.** The trim fix above
+  moved it, and the results file and the eleven prose sites that quote it have to move in one change.
+  Do not cut a release until that has happened.
+- Two corpora used for the governed accuracy work are measured but not yet declared in
+  `bench/splits.toml`; the drafted entries and the two blockers are parked in that file as comments.
+
 ## [0.3.0] — 2026-08-11
 
 First release published to PyPI. Adds the governed-naming subsystem, and closes the two

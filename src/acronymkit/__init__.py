@@ -149,6 +149,7 @@ if TYPE_CHECKING:
         ScoreBreakdown,
         Token,
     )
+    from .nlp.base import NlpBackend
 
     #: Installed distribution version; the single source of truth for
     #: ``EngineMetadata.library_version``. Resolved on first access, because
@@ -213,6 +214,13 @@ _EXPORT_SOURCES = {
     "GovernedEntry": "governed.models",
     "to_physical_name": "governed.naming",
     "NamingPolicy": "governed.policy",
+    # The one export that is a contract rather than an implementation. README
+    # and docs/ARCHITECTURE.md both tell callers to implement it; it is exported
+    # so that "implement the NlpBackend protocol" can be written down in a type
+    # annotation and checked with isinstance, without reaching into a private
+    # sub-module. Resolving it costs the ``nlp.base`` import and nothing more —
+    # no spaCy adapter, no NLTK adapter, no availability probe.
+    "NlpBackend": "nlp.base",
 }
 
 #: Public name -> the name its own module gives it, for the exports whose two
@@ -299,6 +307,7 @@ __all__ = [
     "LexiconError",
     "MappingKind",
     "NamingPolicy",
+    "NlpBackend",
     "NoCandidateError",
     "NumeralPolicy",
     "OfflineError",

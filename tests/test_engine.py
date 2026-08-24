@@ -784,3 +784,304 @@ def test_english_generates_without_any_resource_warning() -> None:
         if "lexicon" in warning.lower() or "n-gram" in warning.lower()
     ]
     assert resource_warnings == []
+
+
+# ---------------------------------------------------------------------------
+# Injected collaborators
+# ---------------------------------------------------------------------------
+class RecordingBackend:
+    """A minimal structural :class:`~acronymkit.nlp.base.NlpBackend`.
+
+    Deliberately unrelated to anything in ``acronymkit.nlp``: the point of a
+    protocol is that an unrelated class satisfies it, so a test inheriting from
+    the shipped heuristic backend would prove nothing about the seam.
+    """
+
+    def __init__(self, name: str = "recording") -> None:
+        self.name = name
+        self.calls = 0
+
+    def is_available(self) -> bool:
+        raise AssertionError("is_available() must not be consulted on an injected backend")
+
+    def annotate(self, text: str, tokens: list) -> list:
+        self.calls += 1
+        return tokens
+
+
+def test_the_documented_protocol_is_exported_and_structural() -> None:
+    """README and ARCHITECTURE both say "implement NlpBackend"; it is reachable."""
+    assert acronymkit.NlpBackend is acronymkit.nlp.base.NlpBackend
+    assert isinstance(RecordingBackend(), acronymkit.NlpBackend)
+    assert not isinstance(object(), acronymkit.NlpBackend)
+
+
+def test_an_injected_backend_is_the_one_that_annotates() -> None:
+    """The socket is real: the supplied object does the work and is reported."""
+    backend = RecordingBackend()
+    engine = AcronymEngine(backend=backend)
+
+    result = engine.generate("Portable Document Format")
+
+    assert backend.calls >= 1
+    assert engine.backend is backend
+    assert engine.nlp_backend == "recording"
+    assert result.metadata.nlp_backend == "recording"
+    assert result.primary_acronym == "PDF"
+
+
+def test_an_injected_backend_recomputes_the_reported_tier() -> None:
+    """``engine_tier`` describes the backend that ran, not the one resolved.
+
+    Reporting Tier 0 here because ``resolve_backend`` would have returned the
+    heuristic backend is the metadata lie this argument exists to prevent.
+    """
+    engine = AcronymEngine(
+        Config(engine_tier=EngineTier.ZERO_DEPENDENCY), backend=RecordingBackend()
+    )
+
+    assert engine.engine_tier is EngineTier.STATISTICAL_NLP
+    metadata = engine.generate("Portable Document Format").metadata
+    assert metadata.engine_tier is EngineTier.STATISTICAL_NLP
+    # ``requested_tier`` still records what was asked for, so the two fields
+    # together remain the honest account of what happened.
+    assert metadata.requested_tier is EngineTier.ZERO_DEPENDENCY
+
+
+def test_an_injected_backend_named_heuristic_reports_tier_zero() -> None:
+    """The name is the only capability signal a structural collaborator carries."""
+    engine = AcronymEngine(backend=RecordingBackend(name="heuristic"))
+    assert engine.engine_tier is EngineTier.ZERO_DEPENDENCY
+
+
+@pytest.mark.parametrize("tier", [EngineTier.STATISTICAL_NLP, EngineTier.NEURAL])
+@pytest.mark.parametrize("strict", [False, True], ids=["lenient", "strict"])
+def test_an_injected_backend_replaces_resolution_including_strict(
+    tier: EngineTier, strict: bool
+) -> None:
+    """Injection replaces tier *resolution*, not merely its result.
+
+    Pinned as a decision so it cannot drift into an accident. Supplying the
+    annotator is itself the availability decision, so no probe runs, no
+    degradation warning is produced, and ``strict`` has no degradation to
+    object to -- including for ``NEURAL``, which raises unconditionally under
+    ``strict`` when the engine resolves its own backend. The alternative,
+    keying a ``TierUnavailableError`` off the magic string ``"heuristic"`` in a
+    name the caller chose, is a policy nobody could predict from outside.
+    """
+    engine = AcronymEngine(Config(engine_tier=tier, strict=strict), backend=RecordingBackend())
+
+    assert engine.engine_tier is EngineTier.STATISTICAL_NLP
+    assert engine.warnings == ()
+    assert engine.generate("Portable Document Format").metadata.warnings == []
+
+
+def test_injecting_a_backend_skips_resolution_entirely(monkeypatch) -> None:
+    """Not just its result: ``resolve_backend`` is never called.
+
+    That is what makes the seam cheap -- the availability probe is the part
+    that tries to import spaCy or NLTK and load a model -- and it is what makes
+    ``strict`` and ``TierUnavailableError`` inapplicable to an injected
+    backend. Asserting it by making resolution explode is machine-independent,
+    where asserting on ``sys.modules`` would only be measuring which optional
+    runtimes happen to be installed here.
+    """
+
+    def explode(config):
+        raise AssertionError("resolve_backend() must not run when a backend was injected")
+
+    monkeypatch.setattr("acronymkit.engine.resolve_backend", explode)
+
+    engine = AcronymEngine(backend=RecordingBackend())
+    assert engine.generate("Portable Document Format").primary_acronym == "PDF"
+
+    # ...and the same patch proves the default path really does resolve.
+    with pytest.raises(AssertionError, match="must not run"):
+        AcronymEngine()
+
+
+def test_an_injected_tokenizer_reaches_the_default_extractor() -> None:
+    """The default extractor is built from the *effective* tokenizer."""
+    from acronymkit.tokenizer import Tokenizer
+
+    tokenizer = Tokenizer(Config())
+    engine = AcronymEngine(tokenizer=tokenizer)
+
+    assert engine.tokenizer is tokenizer
+    # ``AbbreviationExtractor`` keeps its tokenizer private; reading the slot
+    # is the only way to pin that the wiring actually happened.
+    assert engine.extractor._tokenizer is tokenizer
+
+
+def test_an_injected_extractor_is_the_one_extraction_uses() -> None:
+    """``extract`` and ``extract_definitions`` both route through it."""
+    from acronymkit.extractor import AbbreviationExtractor
+    from acronymkit.models import AcronymPair
+
+    class FixedExtractor(AbbreviationExtractor):
+        """Answers with one fictional Northwind Data Standards pair, always."""
+
+        def extract(self, text: str) -> list[AcronymPair]:
+            return [
+                AcronymPair(
+                    short_form="NDS",
+                    long_form="Northwind Data Standards",
+                    short_form_span=(0, 3),
+                    long_form_span=(0, 24),
+                    confidence=1.0,
+                )
+            ]
+
+    engine = AcronymEngine(extractor=FixedExtractor(Config(), AcronymEngine().tokenizer))
+
+    assert [pair.short_form for pair in engine.extract_definitions("anything")] == ["NDS"]
+    assert [pair.short_form for pair in engine.extract("anything").pairs] == ["NDS"]
+
+
+def test_an_injected_scorer_decides_the_ranking() -> None:
+    """A custom term reaches every candidate the engine returns."""
+    from acronymkit.scoring import Scorer
+
+    class Preferring(Scorer):
+        """Promotes any candidate spelling ``PODOFO``."""
+
+        def score(self, acronym, tokens, mappings, covered):
+            breakdown = super().score(acronym, tokens, mappings, covered)
+            if acronym == "PODOFO":
+                breakdown = breakdown.model_copy(update={"total": breakdown.total + 5000.0})
+            return breakdown
+
+    config = Config(max_candidates=5)
+    assert AcronymEngine(config).generate("Portable Document Format").primary_acronym == "PDF"
+
+    engine = AcronymEngine(config, scorer=Preferring(config))
+    result = engine.generate("Portable Document Format")
+
+    assert engine.scorer is engine.generator.scorer
+    assert result.primary_acronym == "PODOFO"
+    assert result.score > 5000.0
+
+
+def test_an_injected_scorer_ranks_but_does_not_search() -> None:
+    """The documented limit, pinned as behaviour rather than as prose.
+
+    ``ForwardGenerator._beam_bound`` re-derives the beam ranking key from
+    ``ScoringWeights`` and never calls the scorer, so a custom term can only
+    promote a state the search retained. ``metadata.truncated`` is the field
+    that says whether anything was cut, which is what makes the limit
+    detectable rather than silent.
+    """
+    from acronymkit.scoring import Scorer
+
+    phrase = (
+        "Global Distributed Ledger Settlement Reconciliation Platform Regional "
+        "Interbank Clearing Networks Enterprise Modernisation Programme"
+    )
+
+    class Counting(Scorer):
+        """Records every acronym the search actually asked it to score."""
+
+        def __init__(self, config, lexicon=None, ngram=None):
+            super().__init__(config, lexicon, ngram)
+            self.seen: set[str] = set()
+
+        def score(self, acronym, tokens, mappings, covered):
+            self.seen.add(acronym)
+            return super().score(acronym, tokens, mappings, covered)
+
+    narrow = Config(search_beam_width=4, max_search_nodes=200, max_candidates=1000)
+    wide = Config(max_search_nodes=100_000_000, max_candidates=1000)
+
+    narrow_scorer, wide_scorer = Counting(narrow), Counting(wide)
+    narrow_result = AcronymEngine(narrow, scorer=narrow_scorer).generate(phrase)
+    wide_result = AcronymEngine(wide, scorer=wide_scorer).generate(phrase)
+
+    # The cut happened, it is reported, and it cost the scorer states it never
+    # saw -- which no custom term could have rescued, because none was called.
+    assert narrow_result.metadata.truncated is True
+    assert narrow_scorer.seen < wide_scorer.seen
+    # ``truncated is False`` is the guarantee the docstring sells: nothing was
+    # discarded, so the scorer ranked the whole configured search space.
+    assert wide_result.metadata.truncated is False
+
+
+def test_a_scorer_can_be_handed_one_candidate_with_truncated_still_false() -> None:
+    """The documented exception to the ``truncated`` reading, pinned.
+
+    With skipping disabled and a length cap every remaining branch overflows,
+    ``ForwardGenerator._search`` finds no successors, abandons the frontier
+    unscored and returns only the injected plain initialism -- and nothing sets
+    ``truncated``, because neither a beam cut nor a budget was responsible. A
+    caller substituting a scorer needs to know this, so it is written down on
+    :class:`~acronymkit.scoring.Scorer` and asserted here rather than left to be
+    rediscovered.
+    """
+    from acronymkit.scoring import Scorer
+
+    class Counting(Scorer):
+        """Records every acronym the search actually asked it to score."""
+
+        def __init__(self, config, lexicon=None, ngram=None):
+            super().__init__(config, lexicon, ngram)
+            self.seen: list[str] = []
+
+        def score(self, acronym, tokens, mappings, covered):
+            self.seen.append(acronym)
+            return super().score(acronym, tokens, mappings, covered)
+
+    config = Config(
+        allow_token_skipping=False,
+        max_acronym_length=3,
+        max_letters_per_token=3,
+        max_candidates=50,
+    )
+    scorer = Counting(config)
+    result = AcronymEngine(config, scorer=scorer).generate(
+        "Portable Document Format Interchange Standard Authority"
+    )
+
+    assert result.metadata.truncated is False
+    assert scorer.seen == ["PDF"]
+    assert len(result.alternatives) == 1
+
+
+def test_an_injected_scorer_skips_loading_the_lexicon_and_ngram_model() -> None:
+    """Supplying a scorer means the two expensive resources stay unread."""
+    from acronymkit.scoring import Scorer
+
+    config = Config()
+    engine = AcronymEngine(config, scorer=Scorer(config))
+
+    assert engine.generate("Portable Document Format").primary_acronym == "PDF"
+    assert engine._lexicon is None
+    assert engine._ngram is None
+
+
+def test_injecting_nothing_leaves_every_documented_default_in_place() -> None:
+    """The four arguments are additive: omitting them changes nothing at all."""
+    left = AcronymEngine(Config())
+    right = AcronymEngine(Config())
+
+    assert left.nlp_backend == right.nlp_backend
+    assert left.engine_tier is right.engine_tier
+    assert left.warnings == right.warnings
+    assert _stable(left.generate("Portable Document Format")) == _stable(
+        right.generate("Portable Document Format")
+    )
+
+
+def test_engine_and_scoring_module_doctests_pass() -> None:
+    """The injection example in the class docstring is executable, not prose.
+
+    Nothing else runs these two modules' doctests, and this workstream exists
+    because documentation claimed a rule the code did not implement.
+    """
+    import doctest
+
+    from acronymkit import engine as engine_module
+    from acronymkit import scoring as scoring_module
+
+    for module in (engine_module, scoring_module):
+        results = doctest.testmod(module, verbose=False, report=False)
+        assert results.failed == 0, f"{results.failed} doctest failure(s) in {module.__name__}"
+        assert results.attempted > 0, f"no doctests collected from {module.__name__}"

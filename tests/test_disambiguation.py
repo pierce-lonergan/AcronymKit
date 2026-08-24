@@ -21,7 +21,12 @@ from hypothesis import strategies as st
 from acronymkit.config import Config
 from acronymkit.disambiguation import ExpansionDictionary, LexicalDisambiguator
 from acronymkit.enums import EngineTier, Language
-from acronymkit.exceptions import LexiconError, ResourceNotFoundError, TierUnavailableError
+from acronymkit.exceptions import (
+    ConfigurationError,
+    LexiconError,
+    ResourceNotFoundError,
+    TierUnavailableError,
+)
 from acronymkit.extractor import AbbreviationExtractor
 from acronymkit.models import DisambiguationResult, EngineMetadata
 from acronymkit.tokenizer import Tokenizer
@@ -802,3 +807,311 @@ def test_disambiguation_is_deterministic_and_bounded(acronym: str, context: str)
         assert first.primary_expansion == first.candidates[0].expansion
     else:
         assert first.primary_expansion is None
+
+
+# ---------------------------------------------------------------------------
+# The margin, and the opt-in abstention gate
+# ---------------------------------------------------------------------------
+#: A two-candidate index whose winner is decided by one obvious content word.
+PAIR_EXPANSIONS = ["alpha alpha", "beta beta"]
+
+#: Context that makes an inline definition of ``AA`` collide with a dictionary
+#: entry scoring at :data:`MAX_DICTIONARY_SCORE`. This is the case that forces
+#: the gate's different-source exemption to exist, so it is pinned here rather
+#: than described.
+INLINE_AT_THE_CAP = "Alpha alpha (AA) is defined right here."
+
+
+@pytest.fixture(scope="module")
+def pair_dictionary() -> ExpansionDictionary:
+    """A two-way index, the smallest set that has a margin at all."""
+    return ExpansionDictionary({"AA": PAIR_EXPANSIONS})
+
+
+def test_margin_is_the_gap_between_the_top_two_candidates(
+    config: Config, pair_dictionary: ExpansionDictionary
+) -> None:
+    """``margin`` is exactly ``candidates[0].score - candidates[1].score``."""
+    result = LexicalDisambiguator(config, pair_dictionary).disambiguate("AA", "Nothing relevant.")
+
+    assert len(result.candidates) == 2
+    assert result.margin == pytest.approx(
+        result.candidates[0].score - result.candidates[1].score, abs=1e-9
+    )
+    assert result.margin > 0.0
+
+
+@pytest.mark.parametrize(
+    ("index", "context"),
+    [
+        (ExpansionDictionary(), "No definition and no dictionary."),
+        (ExpansionDictionary({"AA": ["alpha alpha"]}), "Nothing relevant."),
+    ],
+    ids=["no-candidates", "one-candidate"],
+)
+def test_margin_is_none_without_a_second_candidate(
+    config: Config, index: ExpansionDictionary, context: str
+) -> None:
+    """No rival, no margin -- ``None`` rather than a fabricated ``1.0``."""
+    result = LexicalDisambiguator(config, index).disambiguate("AA", context)
+
+    assert len(result.candidates) < 2
+    assert result.margin is None
+
+
+def test_margin_precision_matches_the_score_precision() -> None:
+    """The rounding constant duplicated into ``models`` tracks the real one.
+
+    ``models`` cannot import ``disambiguation`` -- the dependency runs the other
+    way -- so the value is written twice. This is what keeps the copies honest.
+    """
+    from acronymkit import models
+    from acronymkit.disambiguation import SCORE_PRECISION
+
+    assert models._MARGIN_PRECISION == SCORE_PRECISION
+
+
+def test_margin_carries_no_floating_point_noise(config: Config) -> None:
+    """A difference of two rounded scores is rounded again before publication."""
+    index = ExpansionDictionary({"AA": ["alpha alpha", "beta beta", "gamma gamma"]})
+    result = LexicalDisambiguator(config, index).disambiguate("AA", "Alpha and gamma appear.")
+
+    assert result.margin is not None
+    assert result.margin == round(result.margin, 6)
+
+
+def test_abstained_is_false_when_an_answer_was_given(
+    config: Config, pair_dictionary: ExpansionDictionary
+) -> None:
+    """An answered result never reads as a refusal."""
+    result = LexicalDisambiguator(config, pair_dictionary).disambiguate("AA", "Nothing relevant.")
+
+    assert result.primary_expansion is not None
+    assert result.abstained is False
+
+
+def test_abstained_is_false_when_nothing_was_ever_proposed(config: Config) -> None:
+    """An empty candidate set is *not* an abstention: nothing was withheld."""
+    result = LexicalDisambiguator(config).disambiguate("ZZ", "No definition anywhere.")
+
+    assert result.candidates == []
+    assert result.primary_expansion is None
+    assert result.abstained is False
+
+
+def test_the_gate_is_off_by_default(config: Config, pair_dictionary: ExpansionDictionary) -> None:
+    """Omitting ``min_margin`` and passing ``None`` are the same thing, and answer."""
+    default = LexicalDisambiguator(config, pair_dictionary)
+    explicit = LexicalDisambiguator(config, pair_dictionary, min_margin=None)
+
+    assert default.min_margin is None
+    assert explicit.min_margin is None
+    for engine in (default, explicit):
+        result = engine.disambiguate("AA", "Nothing relevant.")
+        assert result.primary_expansion == result.candidates[0].expansion
+        assert result.abstained is False
+
+
+def test_the_gate_withholds_the_answer_but_not_the_candidates(
+    config: Config, pair_dictionary: ExpansionDictionary
+) -> None:
+    """A refusal still shows its work: the ranked candidates survive."""
+    ungated = LexicalDisambiguator(config, pair_dictionary).disambiguate("AA", "Nothing relevant.")
+    assert ungated.margin is not None
+
+    gated = LexicalDisambiguator(
+        config, pair_dictionary, min_margin=ungated.margin + 0.01
+    ).disambiguate("AA", "Nothing relevant.")
+
+    assert gated.primary_expansion is None
+    assert gated.abstained is True
+    assert [c.expansion for c in gated.candidates] == [c.expansion for c in ungated.candidates]
+    assert gated.margin == ungated.margin
+
+
+def test_the_gate_boundary_is_inclusive(
+    config: Config, pair_dictionary: ExpansionDictionary
+) -> None:
+    """``margin >= min_margin`` answers, so a gate set to the margin itself does."""
+    ungated = LexicalDisambiguator(config, pair_dictionary).disambiguate("AA", "Nothing relevant.")
+    assert ungated.margin is not None
+
+    exact = LexicalDisambiguator(config, pair_dictionary, min_margin=ungated.margin)
+    assert exact.disambiguate("AA", "Nothing relevant.").primary_expansion is not None
+
+
+def test_a_lone_candidate_is_never_gated(config: Config) -> None:
+    """No second candidate means no margin, and refusing on that would refuse the
+    engine's whole default path."""
+    single = ExpansionDictionary({"AA": ["alpha alpha"]})
+    result = LexicalDisambiguator(config, single, min_margin=1.0).disambiguate("AA", "Anything.")
+
+    assert result.margin is None
+    assert result.primary_expansion == "alpha alpha"
+    assert result.abstained is False
+
+
+def test_an_inline_definition_is_not_gated_by_a_dictionary_candidate_at_the_cap(
+    config: Config, pair_dictionary: ExpansionDictionary
+) -> None:
+    """The inline/dictionary gap is a cap, not evidence, so the gate skips it.
+
+    ``INLINE_SCORE - MAX_DICTIONARY_SCORE`` bounds this margin at ``0.01``. If
+    the gate read it, any threshold above that would refuse the document's own
+    definition of its own abbreviation -- the one answer this module documents
+    as authoritative.
+    """
+    from acronymkit.disambiguation import INLINE_SCORE, MAX_DICTIONARY_SCORE, SOURCE_INLINE
+
+    ungated = LexicalDisambiguator(config, pair_dictionary).disambiguate("AA", INLINE_AT_THE_CAP)
+    assert ungated.candidates[0].source == SOURCE_INLINE
+    assert ungated.candidates[1].score == MAX_DICTIONARY_SCORE
+    assert ungated.margin == pytest.approx(INLINE_SCORE - MAX_DICTIONARY_SCORE, abs=1e-9)
+
+    gated = LexicalDisambiguator(config, pair_dictionary, min_margin=0.5).disambiguate(
+        "AA", INLINE_AT_THE_CAP
+    )
+    assert gated.abstained is False
+    assert gated.primary_expansion == ungated.candidates[0].expansion
+
+
+def test_two_competing_inline_definitions_are_gated(config: Config) -> None:
+    """Same source, tied at ``1.0``: the document itself is ambiguous, so refuse."""
+    from acronymkit.disambiguation import SOURCE_INLINE
+
+    context = "Blood pressure (BP) rose; boiling point (BP) fell."
+    ungated = LexicalDisambiguator(config).disambiguate("BP", context)
+    assert [c.source for c in ungated.candidates[:2]] == [SOURCE_INLINE, SOURCE_INLINE]
+    assert ungated.margin == 0.0
+
+    gated = LexicalDisambiguator(config, min_margin=0.01).disambiguate("BP", context)
+    assert gated.primary_expansion is None
+    assert gated.abstained is True
+
+
+@pytest.mark.parametrize("value", [-0.01, 1.01, 2.0, float("nan"), "0.1", True, object()])
+def test_min_margin_rejects_what_cannot_be_a_gate(config: Config, value: object) -> None:
+    """A gate outside ``[0, 1]``, or not a number at all, is a configuration error."""
+    with pytest.raises(ConfigurationError):
+        LexicalDisambiguator(config, min_margin=value)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("value", [0, 0.0, 0.5, 1, 1.0])
+def test_min_margin_accepts_the_whole_closed_interval(config: Config, value: float) -> None:
+    """Both endpoints are legal, and an ``int`` is coerced to ``float``."""
+    engine = LexicalDisambiguator(config, min_margin=value)
+
+    assert engine.min_margin == float(value)
+    assert isinstance(engine.min_margin, float)
+
+
+def test_a_zero_gate_answers_everything(
+    config: Config, pair_dictionary: ExpansionDictionary
+) -> None:
+    """``min_margin=0.0`` is the ``gate_0.00`` row: full coverage, nothing refused."""
+    result = LexicalDisambiguator(config, pair_dictionary, min_margin=0.0).disambiguate(
+        "AA", "Nothing relevant."
+    )
+
+    assert result.abstained is False
+    assert result.primary_expansion == result.candidates[0].expansion
+
+
+def test_the_engine_facade_never_abstains(config: Config) -> None:
+    """``AcronymEngine.disambiguate`` exposes no gate, so it cannot start refusing."""
+    from acronymkit import AcronymEngine
+
+    result = AcronymEngine(config).disambiguate("BP", "Blood pressure (BP) was elevated.")
+
+    assert result.primary_expansion == "Blood pressure"
+    assert result.abstained is False
+
+
+def test_the_engine_has_no_cross_call_memory(config: Config) -> None:
+    """The README and the engine docstring assert this; nothing tested it."""
+    from acronymkit import AcronymEngine
+
+    engine = AcronymEngine(config)
+    assert engine.disambiguate("MS", "Multiple sclerosis (MS) was diagnosed.").primary_expansion
+    assert engine.disambiguate("MS", "The MS progressed slowly.").primary_expansion is None
+
+
+@pytest.mark.parametrize("field", ["margin", "abstained"])
+def test_computed_fields_are_not_constructor_arguments(field: str) -> None:
+    """``margin`` and ``abstained`` are derived, so they cannot be asserted into."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        DisambiguationResult(
+            acronym="AA",
+            context="",
+            metadata=EngineMetadata(
+                engine_tier=EngineTier.ZERO_DEPENDENCY,
+                execution_time_ms=0.0,
+                tokens_processed=0,
+                language=Language.EN,
+            ),
+            **{field: 0.5},
+        )
+
+
+@given(
+    st.text(alphabet="ABC", min_size=1, max_size=4),
+    st.text(alphabet="abcdefgh ", max_size=60),
+    st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+)
+@settings(max_examples=150, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+def test_gating_only_ever_removes_the_answer(acronym: str, context: str, gate: float) -> None:
+    """Property: a gate changes ``primary_expansion`` and nothing else.
+
+    Scores, ordering, evidence and candidate membership are identical with the
+    gate on and off, and the answer is either the ungated one or ``None``. A
+    gate that could change *which* expansion wins would be a scoring change
+    wearing an abstention's clothes.
+    """
+    index = ExpansionDictionary({"ABC": ["alpha beta charlie", "a big cat"]})
+    ungated = LexicalDisambiguator(Config(), index).disambiguate(acronym, context)
+    gated = LexicalDisambiguator(Config(), index, min_margin=gate).disambiguate(acronym, context)
+
+    ignore = {"metadata", "primary_expansion", "abstained"}
+    assert gated.model_dump(exclude=ignore) == ungated.model_dump(exclude=ignore)
+    assert gated.primary_expansion in (ungated.primary_expansion, None)
+    assert gated.abstained == (gated.primary_expansion is None and bool(gated.candidates))
+
+
+@given(
+    st.text(alphabet="abcdefgh ", max_size=60),
+    st.lists(st.floats(min_value=0.0, max_value=0.6), min_size=2, max_size=4, unique=True),
+)
+@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+def test_a_higher_gate_answers_a_subset(context: str, gates: list[float]) -> None:
+    """Property: coverage is monotone in the threshold.
+
+    That is what makes the published curve a curve rather than a scatter, and it
+    is the assumption a caller makes when they move their threshold up.
+    """
+    index = ExpansionDictionary({"ABC": ["alpha beta charlie", "a big cat", "atomic bond count"]})
+    answered = {
+        gate: LexicalDisambiguator(Config(), index, min_margin=gate)
+        .disambiguate("ABC", context)
+        .primary_expansion
+        is not None
+        for gate in gates
+    }
+    for lower, higher in zip(sorted(gates), sorted(gates)[1:]):
+        assert answered[lower] or not answered[higher]
+
+
+def test_module_doctests_pass() -> None:
+    """The examples in :mod:`acronymkit.disambiguation` are executed, not decorative.
+
+    Nothing ran them before this workstream, so the abstention example added to
+    :meth:`LexicalDisambiguator.disambiguate` would have been prose.
+    """
+    import doctest
+
+    from acronymkit import disambiguation as module
+
+    results = doctest.testmod(module, verbose=False, report=False)
+    assert results.failed == 0, f"{results.failed} doctest failure(s) in {module.__name__}"
+    assert results.attempted > 0, "no doctests collected"

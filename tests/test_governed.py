@@ -190,6 +190,68 @@ ALL_POLICIES = [
     NamingPolicy.strict_length(),
 ]
 
+#: Catalog **shapes**, for the invariants that are properties of the vocabulary
+#: rather than of a name.
+#:
+#: ``NDS`` is one catalog. Parametrising an invariant over identifiers and
+#: policies against one catalog varies everything except the dimension a
+#: catalog-dependent defect lives in, and ``normalize``'s idempotence is
+#: catalog-dependent: the second pass re-splits the name the first pass built,
+#: and what the digit rejoin does to that re-split depends entirely on which
+#: rows exist. The nesting row below — a catalog holding both ``11`` and ``911``,
+#: which a municipal standard plausibly does — is the shape that broke it, and
+#: no fixture catalog has ever had it.
+#:
+#: Each row is ``(name, {token: long form}, approved tokens, identifiers)``. The
+#: identifiers are chosen to make the catalog's rows reachable, including by
+#: routes a writer would not take deliberately.
+IDEMPOTENCE_CATALOGS: list[tuple[str, dict[str, str], list[str], list[str]]] = [
+    (
+        "empty",
+        {},
+        [],
+        ["TXN_ID", "txnNum", "E_9_1_1", "1MM", "ADDR_LINE_1_TXT", ""],
+    ),
+    (
+        "nesting-digit-keys",
+        {"11": "Eleven", "911": "Emergency", "E": "East"},
+        ["E"],
+        ["E_9_1_1", "E_9_11", "E_911", "1_1_1", "9_1_1_1", "E_9_1_1_1", "e 9 1 1"],
+    ),
+    (
+        "digit-leading-token",
+        {"1MM": "One Million", "TXN": "Transaction", "MM": "Millimetre"},
+        ["1MM", "TXN"],
+        ["TXN_1MM", "TXN_1_MM", "TXN_1_MM_1MM", "1MM_1MM"],
+    ),
+    (
+        "digit-leading-nested",
+        {"1MM": "One Million", "91MM": "Ninety One Million", "9": "Nine"},
+        ["1MM", "91MM"],
+        ["E_9_1MM", "E_9_1_MM", "9_1_MM"],
+    ),
+    (
+        "ordinal-suffix",
+        {"1ST": "First", "ST": "Street", "ADDR": "Address"},
+        ["1ST", "ADDR"],
+        ["ADDR_1_ST", "1ST_TXN_DT", "ADDR_1ST", "1sT"],
+    ),
+    (
+        "rewrite-to-approved",
+        {"CUSTMR": "Customer", "CUST": "Customer", "ACCNT": "Account", "ACCT": "Account"},
+        ["CUST", "ACCT"],
+        ["CUSTMR_ACCNT_NUM", "custmrAccnt", "CUST_ACCT"],
+    ),
+]
+
+#: The catalog shapes above, built once, paired with the identifiers to run each
+#: against.
+IDEMPOTENCE_CASES: list[tuple[str, GovernedDictionary, str]] = [
+    (name, GovernedDictionary.from_mapping(mapping, approved_abbreviations=approved), identifier)
+    for name, mapping, approved, identifiers in IDEMPOTENCE_CATALOGS
+    for identifier in identifiers
+]
+
 
 # --------------------------------------------------------------------------
 # Golden-file driver
@@ -493,6 +555,65 @@ def test_normalize_is_idempotent_under_every_policy(identifier: str) -> None:
     for policy in ALL_POLICIES:
         once = normalize(identifier, NDS, policy)
         assert normalize(once, NDS, policy) == once
+
+
+@pytest.mark.parametrize(
+    ("shape", "catalog", "identifier"),
+    IDEMPOTENCE_CASES,
+    ids=[f"{shape}-{identifier or 'empty-name'}" for shape, _, identifier in IDEMPOTENCE_CASES],
+)
+def test_normalize_is_idempotent_over_catalog_shapes(
+    shape: str, catalog: GovernedDictionary, identifier: str
+) -> None:
+    """The same invariant, with the **catalog** varied instead of the name.
+
+    The test above parametrises over identifiers and policies against a single
+    fixture catalog, so no catalog shape is ever varied — and idempotence is a
+    joint property of the two. ``normalize`` rebuilds a name out of the tokens it
+    found, the next call splits that name again, and the digit rejoin then reads
+    the catalog to decide what to put back together. A catalog whose digit-leading
+    rows nest — ``11`` inside ``911`` — could therefore move a name on every pass
+    while every name in the fixture corpus sat still.
+
+    Two passes are not enough to state the property, because the failure it is
+    guarding against moved the name on the *second* step and stopped on the
+    third. The fixed point is asserted directly instead.
+    """
+    for policy in ALL_POLICIES:
+        once = normalize(identifier, catalog, policy)
+        twice = normalize(once, catalog, policy)
+        assert twice == once, f"{shape}: {identifier!r} -> {once!r} -> {twice!r}"
+        assert normalize(twice, catalog, policy) == once
+
+
+@pytest.mark.parametrize(
+    ("shape", "catalog", "identifier"),
+    IDEMPOTENCE_CASES,
+    ids=[f"{shape}-{identifier or 'empty-name'}" for shape, _, identifier in IDEMPOTENCE_CASES],
+)
+def test_the_governed_normal_form_means_what_the_name_it_came_from_meant(
+    shape: str, catalog: GovernedDictionary, identifier: str
+) -> None:
+    """Correcting a name does not change what the name says.
+
+    Idempotence on its own would be satisfied by a ``normalize`` that moved a
+    name once and then stood still, and that is worth ruling out separately: the
+    defect this pair was written for turned ``E_9_1_1`` into ``E_911``, and the
+    two names expand to *different phrases*. A normal form whose expansion
+    differs from its own source's expansion is a rewrite, not a correction.
+
+    The tokens are compared rather than the phrase, because a rewritten token
+    legitimately changes the phrase — ``CUSTMR`` and ``CUST`` are both Customer
+    only when the catalog says so, and it is the token sequence that says the
+    splitter and the rejoin agreed about where the words are.
+    """
+    for policy in ALL_POLICIES:
+        before = expand_identifier(identifier, catalog, policy)
+        after = expand_identifier(normalize(identifier, catalog, policy), catalog, policy)
+        assert len(after.tokens) == len(before.tokens), (
+            f"{shape}: {identifier!r} expands to {before.phrase!r} and its normal form to "
+            f"{after.phrase!r}"
+        )
 
 
 def test_the_reverse_index_resolves_a_contested_long_form_by_the_documented_rule() -> None:

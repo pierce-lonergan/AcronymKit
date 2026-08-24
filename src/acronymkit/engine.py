@@ -15,13 +15,61 @@ loaded the first time a call actually needs them and then cached on the
 instance. A process that constructs an engine and never generates anything pays
 for neither.
 
+Injected collaborators
+----------------------
+:meth:`AcronymEngine.__init__` takes four keyword-only collaborators —
+``backend``, ``tokenizer``, ``extractor`` and ``scorer`` — each of which
+replaces the object the engine would otherwise have built. This is the socket
+:class:`~acronymkit.nlp.base.NlpBackend` was always documented as: a caller with
+their own tagger hands it over, rather than assigning to a private slot.
+
+Injection is plain constructor wiring. There is no registry, no entry-point
+group and no discovery, so nothing here is reachable at import time and nothing
+new lands in :data:`sys.modules`.
+
+Supplying a ``backend`` skips :func:`~acronymkit.nlp.base.resolve_backend`
+entirely, so no *availability probe* runs — and the probe is the part that
+tries to import spaCy or NLTK and load a model. It does not skip the adapter
+modules themselves: :mod:`acronymkit.nlp` binds ``heuristic``, ``spacy_backend``
+and ``nltk_backend`` eagerly in its own ``__init__``, so importing anything from
+:mod:`acronymkit.nlp.base` binds all three whatever this class does. Those
+modules import no optional dependency at module scope, which is why that is a
+purity question already settled elsewhere rather than one injection can move.
+
+Two consequences are worth stating outright rather than leaving to be
+discovered.
+
+**An injected backend replaces tier resolution, not just its result.**
+:attr:`AcronymEngine.engine_tier` is recomputed from the supplied backend, so
+the metadata never describes an annotator that did not run. Because no
+resolution happens, no availability probe runs, no degradation warning is
+produced, and :attr:`~acronymkit.config.Config.strict` and
+:class:`~acronymkit.exceptions.TierUnavailableError` do not apply: the caller
+handing over the annotator *is* the availability decision. ``requested_tier``
+still records what the configuration asked for, so the two fields together
+remain the honest account of what happened.
+
+**An injected scorer re-ranks; it does not re-search.** See "Substituting a
+scorer" on :class:`~acronymkit.scoring.Scorer` for the exact boundary and for
+the metadata field that says when it binds.
+
 Thread safety
 -------------
-Everything the engine stores after construction is immutable — a frozen
-:class:`~acronymkit.config.Config`, a stateless backend, stateless generators —
-so a single engine is safe to share across a thread pool or an event loop, which
-is exactly what :meth:`AcronymEngine.batch_generate` and
-:meth:`AcronymEngine.abatch_generate` do.
+An engine built with no injected collaborators is safe to share across a thread
+pool or an event loop, which is exactly what
+:meth:`AcronymEngine.batch_generate` and :meth:`AcronymEngine.abatch_generate`
+do. That is not a property of the class. It holds because the engine *builds*
+everything it holds, and everything it builds is immutable — a frozen
+:class:`~acronymkit.config.Config`, a stateless backend, stateless generators.
+
+**Injection makes the guarantee conditional, and the engine cannot check it.**
+An object arriving through ``backend``, ``tokenizer``, ``extractor`` or
+``scorer`` may carry per-call state, memoise into a mutable attribute, or wrap a
+runtime that is not reentrant — spaCy pipelines and NLTK's model loaders both
+have shapes like this — and no inspection at construction time can tell. An
+engine built with such a collaborator is exactly as safe to share as that
+collaborator is, and no safer. A caller who needs the unconditional guarantee
+either injects nothing, or injects only objects that are themselves immutable.
 
 The lazy resources are initialised with plain double-checked assignment and no
 lock. That is correct here rather than merely convenient, for two reasons:
@@ -142,9 +190,15 @@ def _achieved_tier(backend_name: str) -> EngineTier:
     caller needs to read off the metadata is which path ran. Tier 2 is not
     implemented in this release, so no backend ever reports it.
 
+    Applied to an *injected* backend as well as a resolved one, which is the
+    whole point: the name is the only capability signal a structurally typed
+    collaborator carries, so a backend that calls itself ``"heuristic"`` is
+    reported as Tier 0 and every other name as Tier 1. A caller who wants their
+    tagger to read as Tier 0 names it accordingly.
+
     Args:
         backend_name: :attr:`~acronymkit.nlp.base.NlpBackend.name` of the
-            resolved annotator.
+            backend in force, whether resolved or supplied by the caller.
 
     Returns:
         :attr:`~acronymkit.enums.EngineTier.ZERO_DEPENDENCY` for the heuristic
@@ -159,8 +213,10 @@ def _achieved_tier(backend_name: str) -> EngineTier:
 class AcronymEngine:
     """Configured, reusable entry point to every ``acronymkit`` capability.
 
-    Construct one per configuration and share it: instances are thread-safe and
-    hold no per-call state.
+    Construct one per configuration and share it. An engine built from a
+    configuration alone holds no per-call state and is thread-safe; see "Thread
+    safety" in :mod:`acronymkit.engine` for what an injected collaborator does
+    to that guarantee.
 
     Example:
         >>> from acronymkit import AcronymEngine, Config
@@ -173,14 +229,59 @@ class AcronymEngine:
         >>> engine.extract_definitions("The World Health Organization (WHO) met.")[0].short_form
         'WHO'
 
+    Supplying a tagger of your own, which is what
+    :class:`~acronymkit.nlp.base.NlpBackend` is for:
+
+        >>> from acronymkit import AcronymEngine, NlpBackend
+        >>> class PassThrough:
+        ...     name = "passthrough"
+        ...     def is_available(self) -> bool:
+        ...         return True
+        ...     def annotate(self, text, tokens):
+        ...         return tokens
+        >>> isinstance(PassThrough(), NlpBackend)
+        True
+        >>> engine = AcronymEngine(backend=PassThrough())
+        >>> engine.nlp_backend
+        'passthrough'
+        >>> engine.generate("Portable Document Format").primary_acronym
+        'PDF'
+
     Args:
         config: Engine configuration. ``None`` uses the shipped defaults
             (Tier 0, English, balanced-pronounceable weights).
+        backend: Annotator to use instead of resolving one. Supplying it
+            replaces tier resolution outright:
+            :func:`~acronymkit.nlp.base.resolve_backend` is not called, no
+            availability probe runs, no degradation warning is produced, and
+            ``config.strict`` cannot raise
+            :class:`~acronymkit.exceptions.TierUnavailableError` — handing over
+            the annotator *is* the availability decision.
+            :attr:`engine_tier` is recomputed from ``backend.name`` (see
+            :func:`_achieved_tier`) so the metadata still names the tier that
+            actually ran, and :attr:`~acronymkit.models.EngineMetadata.requested_tier`
+            still records what the configuration asked for.
+            :meth:`~acronymkit.nlp.base.NlpBackend.is_available` is never
+            consulted on an injected backend.
+        tokenizer: Tokenizer to use instead of building one from ``config``.
+            It is the token stream every method works from, including the one
+            the default ``extractor`` and the disambiguator are built on.
+        extractor: Definition extractor to use instead of building one. When
+            omitted, the default is built from the *effective* tokenizer, so
+            injecting only ``tokenizer`` propagates to extraction.
+        scorer: Scorer to use instead of building one from the lexicon and the
+            n-gram model. It decides the ranking of every candidate the engine
+            returns and it does **not** decide which candidates the forward
+            search produces; that boundary, and the metadata field that says
+            when it binds, are documented under "Substituting a scorer" on
+            :class:`~acronymkit.scoring.Scorer`. Supplying one also means the
+            lexicon and the n-gram model are never loaded on its behalf.
 
     Raises:
         TierUnavailableError: If ``config`` demands a tier whose runtime is not
             installed and forbids degradation (``STATISTICAL_NLP`` with no
             spaCy/NLTK, ``NEURAL``/``HYBRID_NLP`` under ``Config.strict``).
+            Never raised when ``backend`` is supplied.
     """
 
     __slots__ = (
@@ -198,19 +299,39 @@ class AcronymEngine:
         "_warnings",
     )
 
-    def __init__(self, config: Optional[Config] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[Config] = None,
+        *,
+        backend: Optional[NlpBackend] = None,
+        tokenizer: Optional[Tokenizer] = None,
+        extractor: Optional[AbbreviationExtractor] = None,
+        scorer: Optional[Scorer] = None,
+    ) -> None:
         self._config: Config = config if config is not None else Config()
-        backend, warnings = resolve_backend(self._config)
+        notices: Sequence[str] = ()
+        if backend is None:
+            backend, notices = resolve_backend(self._config)
         self._backend: NlpBackend = backend
-        self._warnings: tuple[str, ...] = tuple(warnings)
+        self._warnings: tuple[str, ...] = tuple(notices)
+        # Derived from the backend that will actually annotate, injected or
+        # resolved. Reading it off the resolution result instead would report
+        # the tier of a backend that never ran.
         self._engine_tier: EngineTier = _achieved_tier(backend.name)
         self._version: str = _library_version()
-        self._tokenizer = Tokenizer(self._config)
-        self._extractor = AbbreviationExtractor(self._config, self._tokenizer)
+        self._tokenizer = tokenizer if tokenizer is not None else Tokenizer(self._config)
+        # Built from the *effective* tokenizer, so injecting one propagates.
+        self._extractor = (
+            extractor
+            if extractor is not None
+            else AbbreviationExtractor(self._config, self._tokenizer)
+        )
         # Lazily populated; see the module docstring for the locking rationale.
+        # An injected scorer is simply the resolved value of that slot, so the
+        # lexicon and the n-gram model are never loaded to build one.
         self._lexicon: Optional[Lexicon] = None
         self._ngram: Optional[CharNGramModel] = None
-        self._scorer: Optional[Scorer] = None
+        self._scorer: Optional[Scorer] = scorer
         self._generator: Optional[ForwardGenerator] = None
         self._backronym: Optional[BackronymGenerator] = None
 
@@ -228,28 +349,43 @@ class AcronymEngine:
         return self._config
 
     @property
+    def backend(self) -> NlpBackend:
+        """The annotator in force — the injected one, or the resolved one."""
+        return self._backend
+
+    @property
     def nlp_backend(self) -> str:
-        """Name of the resolved annotation backend, e.g. ``'heuristic'``."""
+        """Name of the annotation backend in force, e.g. ``'heuristic'``."""
         return self._backend.name
 
     @property
     def engine_tier(self) -> EngineTier:
-        """The tier actually in force, after availability resolution."""
+        """The tier actually in force, derived from the backend that will run.
+
+        Computed from :attr:`nlp_backend` by :func:`_achieved_tier`, for an
+        injected backend exactly as for a resolved one, so this never reports
+        the tier of an annotator that was replaced.
+        """
         return self._engine_tier
 
     @property
     def warnings(self) -> tuple[str, ...]:
-        """Degradation notices stamped onto every result this engine produces."""
+        """Degradation notices stamped onto every result this engine produces.
+
+        Empty when a ``backend`` was injected: no resolution ran, so there is
+        no degradation to report. Missing-resource notices raised later by
+        :attr:`lexicon` and :attr:`ngram` still accumulate here.
+        """
         return self._warnings
 
     @property
     def tokenizer(self) -> Tokenizer:
-        """The configured tokenizer."""
+        """The tokenizer in force — the injected one, or one built from config."""
         return self._tokenizer
 
     @property
     def extractor(self) -> AbbreviationExtractor:
-        """The configured Schwartz & Hearst extractor."""
+        """The Schwartz & Hearst extractor in force, injected or built."""
         return self._extractor
 
     @property
@@ -308,7 +444,13 @@ class AcronymEngine:
 
     @property
     def scorer(self) -> Scorer:
-        """The shared scorer, built on first access from the lazy resources."""
+        """The shared scorer: the injected one, else built from the resources.
+
+        When a ``scorer`` was supplied to :meth:`__init__` this returns it and
+        neither :attr:`lexicon` nor :attr:`ngram` is loaded on its behalf. See
+        "Substituting a scorer" on :class:`~acronymkit.scoring.Scorer` for what
+        a custom scorer does and does not control.
+        """
         scorer = self._scorer
         if scorer is None:
             scorer = Scorer(self._config, self.lexicon, self.ngram)
@@ -609,18 +751,44 @@ class AcronymEngine:
     ) -> DisambiguationResult:
         """Resolve a standalone ``acronym`` against the text it occurred in.
 
-        When no ``dictionary`` is supplied the engine builds one from the
-        context's own inline definitions (via
-        :meth:`~acronymkit.disambiguation.ExpansionDictionary.from_pairs`), so a
-        document that defines its abbreviations anywhere can resolve them
-        everywhere without the caller assembling a vocabulary.
+        **There are two paths here and only one of them disambiguates.**
+
+        *Default path, no ``dictionary``.* The candidate set is built from the
+        inline definitions found in **this call's** ``context`` and nothing
+        else. There is no cross-call state anywhere in this engine: a term
+        defined in one string is not remembered for the next one, and
+        ``disambiguate("MS", later_sentence)`` returns ``None`` however many
+        earlier calls defined ``MS``. To carry a definition across calls, pass
+        the ``dictionary``. Within a single call the derived index is also
+        *unable to add anything*: it is
+        :meth:`~acronymkit.disambiguation.ExpansionDictionary.from_pairs` over
+        this engine's extractor output, the disambiguator runs an extractor
+        built from the same ``config`` and tokenizer over the same string, and
+        it de-duplicates expansions before scoring -- so every candidate the
+        derived index can supply has already been claimed at ``score = 1.0``
+        with ``source == "inline"``. The one exception is an ``extractor``
+        injected into this engine's constructor, which the disambiguator does
+        not receive and therefore does not reproduce. The default path is
+        otherwise an inline-definition lookup that performs no selection;
+        ``disambiguation.sdu21.diagnosis.default_path`` and
+        ``disambiguation.sdu21.abstention_curve`` in ``bench/results.json``
+        measure both halves of that sentence on the SDU@AAAI-21 dev split.
+
+        *Dictionary path.* Passing ``dictionary`` is what turns this into a
+        choice: the blend documented on
+        :meth:`~acronymkit.disambiguation.LexicalDisambiguator.disambiguate`
+        scores every registered expansion against the context, and
+        :attr:`~acronymkit.models.DisambiguationResult.margin` becomes
+        meaningful because there is finally more than one candidate to have a
+        margin between.
 
         Args:
             acronym: The short form to resolve, in any case or punctuation
                 style.
             context: The surrounding sentence, paragraph or document.
             dictionary: Candidate expansions to consider. ``None`` derives one
-                from ``context``.
+                from ``context``, which as above can only reproduce that
+                context's own inline definitions.
 
         Returns:
             A :class:`~acronymkit.models.DisambiguationResult` whose
@@ -628,13 +796,45 @@ class AcronymEngine:
             when nothing could be proposed. An expansion the document itself
             defined scores ``1.0`` with ``source == "inline"``.
 
+        Note:
+            This facade has no abstention gate. ``min_margin`` is a constructor
+            argument of
+            :class:`~acronymkit.disambiguation.LexicalDisambiguator`, which a
+            caller who wants to refuse low-margin answers should build directly
+            over their dictionary. The gap is deliberate rather than pending:
+            the gate needs two candidates to compare, and the default path here
+            almost never has them.
+
         Example:
+            The dictionary path, where a selection actually happens -- the same
+            three-way vocabulary resolved two ways by two different sentences:
+
             >>> from acronymkit import AcronymEngine
-            >>> result = AcronymEngine().disambiguate(
-            ...     "BP", "Blood pressure (BP) was elevated at admission."
+            >>> from acronymkit.disambiguation import ExpansionDictionary
+            >>> engine = AcronymEngine()
+            >>> vocab = ExpansionDictionary(
+            ...     {"MS": ["multiple sclerosis", "Microsoft", "mass spectrometry"]}
             ... )
-            >>> result.primary_expansion
+            >>> engine.disambiguate(
+            ...     "MS", "An MRI showed lesions consistent with MS.", vocab
+            ... ).primary_expansion
+            'multiple sclerosis'
+            >>> engine.disambiguate(
+            ...     "MS", "The MS suite bundles Word and Excel.", vocab
+            ... ).primary_expansion
+            'Microsoft'
+
+            The default path, where none does. The answer comes from the
+            sentence's own parenthetical definition, and a second call cannot
+            reuse it:
+
+            >>> engine.disambiguate(
+            ...     "BP", "Blood pressure (BP) was elevated at admission."
+            ... ).primary_expansion
             'Blood pressure'
+            >>> engine.disambiguate("BP", "BP was elevated again today.") \\
+            ...     .primary_expansion is None
+            True
         """
         started = time.perf_counter()
         index = (

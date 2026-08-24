@@ -359,6 +359,43 @@ def _rejoin_digit_tokens(
     either way — but it means the join is over the token sequence, not over the
     original spelling.
 
+    A joined form that is **itself all digits is refused**
+    ----------------------------------------------------
+    ``1MM``, ``2FA`` and ``3DS`` are digit-*leading*: a digit run and then
+    letters. ``911`` is not one of those, it is two numbers written next to each
+    other, and joining them is the one case where this pass does not survive its
+    own output.
+
+    The reason is mechanical rather than a matter of taste, and it is the same
+    shape as the ordinal repair recorded in D-024. Every verb here rebuilds a
+    name out of the tokens it found and the next call splits that name again, so
+    a joined token is only safe while **splitting it returns the pieces it was
+    joined from**. ``1MM`` does: :func:`split_identifier` reads it back as
+    ``('1', 'MM')`` and this pass rejoins it, unchanged, on every subsequent
+    call. ``911`` does not: it reads back as the single token ``('911',)``,
+    because a digit run has no internal boundary. So a catalog holding both
+    ``11`` and ``911`` — a municipal standard plausibly does — moved a name on
+    every pass::
+
+        normalize('E_9_1_1')  ->  'E_9_11'  ->  'E_911'
+        expand_identifier('E_9_1_1').phrase   'E 9 Eleven'
+        expand_identifier('E_911').phrase     'E Emergency'
+
+    The first pass joined ``1`` and ``1``; the name it rebuilt put ``9`` next to
+    the new token ``11``; the second pass joined *those*. The meaning of the
+    column moved with it, which is what makes this worse than an aesthetic
+    wobble. Refusing an all-digit join removes the step that starts it, and does
+    so without a fixed-point loop — which would let the catalog reach across two
+    separators the writer put there — and without rejecting rows at build time,
+    which would break the very catalog that motivates the rule.
+
+    Two digit tokens can only ever be adjacent because something separated them:
+    the tokenizer collapses consecutive digits into one run, so ``E9911`` is
+    already one token and needs nothing put back. The refused join is therefore
+    always a join across a separator, an unaccounted character or a space —
+    never a repair of a split this package introduced, which is the only thing
+    the pass exists to do.
+
     Args:
         tokens: The tokenizer's output, in order.
         dictionary: The vocabulary, with any call-scoped overlay layered.
@@ -375,7 +412,7 @@ def _rejoin_digit_tokens(
         current = tokens[index]
         if current.isdigit() and index + 1 < total:
             joined = current + tokens[index + 1]
-            if dictionary.resolve(joined, policy) is not None:
+            if not joined.isdigit() and dictionary.resolve(joined, policy) is not None:
                 merged.append(joined)
                 index += 2
                 continue

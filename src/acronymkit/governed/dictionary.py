@@ -1131,16 +1131,41 @@ class GovernedDictionary:
         benefit from memoisation: it is a new vocabulary every call, and it is
         answered as one.
 
+        A subclass keeps its own state
+        ------------------------------
+        The clone is built with ``object.__new__(type(self))`` and its fields are
+        assigned one by one rather than through ``__init__``, because rebuilding
+        the indexes would cost more than the layering does and there is nothing
+        to rebuild them from. That skips a subclass's ``__init__`` too, so
+        anything a subclass set on the instance has to be carried across here or
+        it is silently absent from the copy.
+
+        This class declares ``__slots__``, so ``self.__dict__`` exists only when
+        a subclass added one — which is exactly the case that needs copying, and
+        the exact base class pays nothing. Without it the loss did not surface at
+        the call: it surfaced later, as an ``AttributeError`` raised from inside a
+        lookup on an object that was still the right type and answered every
+        other question correctly. Subclass attributes are copied by reference,
+        the same way every index above is; ``with_custom`` copies a vocabulary,
+        it does not deep-copy a caller's objects.
+
         Args:
             custom: The overlay to layer. ``None`` and an empty mapping both
                 yield an equivalent dictionary rather than the receiver itself.
 
         Returns:
-            A new :class:`GovernedDictionary`. The receiver is unchanged.
+            A new instance of the receiver's own class. The receiver is
+            unchanged.
         """
         layered = dict(self._custom)
         layered.update(_overlay_index(custom))
         clone = object.__new__(type(self))
+        # Before the slots below, so that a subclass attribute can never shadow
+        # one of them: a slot is a data descriptor on the class and wins over an
+        # instance dict either way, and copying first keeps that fact local.
+        subclass_state = getattr(self, "__dict__", None)
+        if subclass_state:
+            clone.__dict__.update(subclass_state)
         clone._entries = self._entries
         clone._approved = self._approved
         clone._common = self._common

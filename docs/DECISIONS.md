@@ -9,6 +9,954 @@ Newest first.
 
 ---
 
+## D-035 — Collaborators are injected, not discovered; and a custom `Scorer` re-ranks without re-searching
+
+**Status:** shipped · **Evidence:** `src/acronymkit/engine.py`, `src/acronymkit/scoring.py`,
+`src/acronymkit/nlp/base.py`, `tests/test_engine.py`, [`ARCHITECTURE.md`](ARCHITECTURE.md)
+
+README.md and `docs/ARCHITECTURE.md` both advertised "plug in your own tagger — implement the
+`NlpBackend` protocol". The protocol was real and `isinstance` passed against it, but
+`AcronymEngine.__init__` took `config` and nothing else. The documentation described a rule the code
+did not implement, and the only route in was assigning to an underscore slot on a `__slots__` class.
+
+### The seam
+
+```
+AcronymEngine(config=None, *, backend=None, tokenizer=None, extractor=None, scorer=None)
+```
+
+Keyword-only, plain constructor wiring. No registry, no entry-point group, no discovery, nothing
+reachable at import time — R10 is not negotiable here and a seam that scans the environment to find
+its collaborators would have breached it. The default `extractor` is built from the *effective*
+tokenizer, so injecting only `tokenizer` propagates into extraction and disambiguation rather than
+being quietly half-applied. An injected `scorer` is the resolved value of the existing lazy slot, so
+the lexicon and the n-gram model are never read on its behalf. `NlpBackend` is exported as
+`acronymkit.NlpBackend` through the lazy `_EXPORT_SOURCES` table, so the import cost is unchanged.
+
+**A premise in the audit's proposal is false and was not made true by inventing the missing pieces.**
+It said to promote `NlpBackend` "alongside `SupportsLexicon` and `SupportsPronounceability`, which
+`Scorer` already duck-types". Those two protocols do not exist. A grep of the whole repository
+returns exactly one hit, the audit's own sentence at `docs/AUDIT-2026-08.md:687`. Writing them into
+existence to satisfy the phrasing would have widened the pinned public surface for a promise nobody
+had documented. The gap they gesture at is real and is recorded below as still open.
+
+### An injected backend replaces tier *resolution*, not merely its result
+
+`resolve_backend` is not called, `is_available` is never consulted, no degradation warning is
+produced, and `Config.strict` / `TierUnavailableError` do not apply. Supplying the annotator is
+itself the availability decision. `engine_tier` is recomputed from `backend.name` so the metadata
+never describes an annotator that did not run, and `requested_tier` is preserved, so the two fields
+together remain an honest account of what was asked for and what happened.
+
+Raising under `strict` was considered and rejected: it would key a `TierUnavailableError` off the
+magic string `"heuristic"` appearing in a name the *caller* chose, which is a policy nobody can
+predict from outside the library.
+
+### No `bound(state)` hook on `Scorer`; the limit is documented instead
+
+`ForwardGenerator._beam_bound` re-derives the objective in closed form from `ScoringWeights` and
+never calls the scorer. So a custom scoring term re-ranks the frontier the search retained and
+cannot enlarge it — it changes the ordering, not the search *space*. Four reasons the hook was
+refused rather than built: the audit's `bound(state) -> float` signature is unimplementable without
+also publishing `_State`, `_completion_table` and `_PrefixProbe`; admissibility cannot be enforced on
+a caller's override, so a stated library property would become a promise about unverifiable code; the
+exhaustive regime already hands any objective the complete space, reached by raising
+`max_search_nodes`; and a new public hook on the search needs its own D-number and its own `--save`,
+which is precisely the bundle R6 forbids.
+
+`metadata.truncated` is the runtime signal for when that limit binds, **with one documented
+exception found by reading `_search` for a path that discards states without setting the flag**:
+
+```
+allow_token_skipping = False, plus a max_acronym_length every remaining branch overflows
+  -> successors comes back empty, the whole frontier is abandoned unscored,
+     the result is the injected plain initialism alone,
+     and truncated stays False, because neither a cut nor a budget was responsible
+  measured on three such configurations: the scorer was called exactly once each time
+```
+
+That is a `generator.py` wart, described rather than fixed because `generator.py` was not in scope.
+**If someone repairs it by setting `truncated = True` there, the paragraph in `Scorer`'s docstring
+and its test become stale and must be deleted rather than edited.**
+
+### The thread-safety guarantee is now conditional, and says so in four places
+
+It held *because* the engine built everything it held. An injected collaborator may carry state the
+engine cannot inspect at construction time, so the guarantee is stated conditionally in the engine
+module docstring, the `AcronymEngine` class docstring, the `NlpBackend` docstring and
+`ARCHITECTURE.md`. Injecting nothing keeps the unconditional guarantee.
+
+### Two false sentences this workstream wrote and then killed with its own tests
+
+Recorded because both were already in a docstring when the test that killed them ran, and both are
+the flattering reading of a mechanism nobody had checked.
+
+*"Supplying a `backend` imports less, because the spaCy and NLTK adapter modules are never touched."*
+False: `src/acronymkit/nlp/__init__.py` imports `heuristic`, `nltk_backend` and `spacy_backend`
+eagerly, so `from .nlp.base import ...` binds all three whatever the engine does. Replaced with the
+true statement — injection skips the *availability probe*, the part that tries to import spaCy or
+NLTK and load a model — and pinned by a monkeypatch test asserting `resolve_backend` is not called,
+which is machine-independent where a `sys.modules` assertion would only have measured which optional
+runtimes happen to be installed on the box that ran it.
+
+*"`Config.fast()` ships `beam=32`, so the footgun bites at shipped settings."* True and inverted.
+`fast()` also sets `allow_multi_letter_tokens=False`, which collapses the branching factor:
+
+```
+un-gated mechanism probe -- phrase-length ladder, published nowhere
+  stock Config()     runs exhaustively up to  9 eligible tokens, beam mode at 10
+  Config.fast()      runs exhaustively up to 14 eligible tokens, beam mode at 15
+```
+
+Naming a beam width without the node budget beside it reverses which configuration is exposed.
+
+### How it fails
+
+The thread-safety warning is prose, and prose does not fail a build: nothing stops a caller injecting
+a mutable spaCy pipeline and sharing the engine across `batch_generate`'s pool. `_achieved_tier` on
+an injected backend is a string comparison, so a caller who names their Tier 0 wrapper
+`"my-heuristic"` gets `STATISTICAL_NLP` in the metadata — a magic string that is now load-bearing on
+caller-supplied data rather than on three names the package controls. `strict` is silently
+inapplicable under injection, which is argued for above and is still a behaviour change hidden behind
+a keyword argument. And `acronymkit.NlpBackend` is now in the pinned `EXPECTED_ALL`, so removing it
+later is a downstream `ImportError`.
+
+---
+
+## D-034 — A square bracket is accounted for because it *can* be quoting, not because every bracket is
+
+**Status:** reporting half fixed and shipped; the tokenisation half deliberately open ·
+**Amends:** D-024 · **Evidence:** `src/acronymkit/governed/tokenizer.py`,
+`tests/test_governed_edge_cases.py::test_a_bracket_is_discarded_only_where_it_is_quoting`,
+`::test_a_discarded_bracket_is_always_half_of_a_pair`,
+[`GOVERNED_NAMING.md`](GOVERNED_NAMING.md#what-the-splitter-accounts-for)
+
+D-024 drew a line between the characters a physical name is made of and everything else, and put
+nine characters on the silent side of it. Two of those nine were on the wrong side unconditionally:
+
+```
+before   split_identifier_parts('value[x]')  ->  tokens ('value','x')   unaccounted ()
+after    split_identifier_parts('value[x]')  ->  tokens ('value','x')   unaccounted ('[', ']')
+```
+
+Two characters were discarded and the report said the whole name had been read. That is D-024's own
+headline arriving through the one door D-024 left open, and the fix is the same fix: not the tokens,
+which are unavoidable, but the accounting, which is the bit a pipeline gates on.
+
+### Why the obvious fix is wrong, and why the next one is worse
+
+Strip brackets only when they wrap the whole identifier — auditor 1's proposal, on the *do not build*
+list at the end of the audit's question 1 — and `[db].[schema].[TXN_ID]`, the case the rule exists
+for, stops reading, because the brackets do not wrap the whole of that either. The next reading, a
+matched-pair test per dot-segment, fails more subtly: it decides on the caller's behalf that a dot
+introduces a path, which is the one thing this subsystem refuses to decide, and it makes
+`[my.column]` unreadable when brackets exist in T-SQL precisely so a dot can sit inside a name.
+
+### The rule
+
+A bracket is quoting when it is *positioned* as quoting: an unnested matched pair, opening where a
+name could open and closing where a name could close. The test is on the character before an opener
+and the character after a closer, and it is the same test the splitter already applies to decide a
+token has ended — a separator, whitespace, or a character it could not read. `.` is not privileged;
+it ends a name exactly as `_` and `/` do.
+
+```
+re-derived here against the shipped tokenizer, not quoted from the workstream
+  [TXN_ID]                 ()                    [a][b]      ('[', ']', '[', ']')
+  [db].[schema].[TXN_ID]   ()                    [TXN_ID     ('[',)
+  [my.column]              ()                    TXN_ID]     (']',)
+  TXN_[ID]                 ()                    value[x]    ('[', ']')
+                                                 TXN_ID[0]   ('[', ']')
+```
+
+`ACCOUNTED_SEPARATORS` keeps all nine characters and keeps its published value. What changes is what
+membership *means*: "may be discarded without a signal" rather than "is". The direction a caller
+actually checks against is unqualified and unchanged — a character outside the set is always
+reported.
+
+### What a pipeline sees
+
+```
+catalog {TXN: Transaction, ID: Identifier, 0: Zero}
+  expand_identifier('TXN_ID')      phrase 'Transaction Identifier'        is_fully_known True
+  expand_identifier('TXN_ID[0]')   phrase 'Transaction Identifier Zero'   is_fully_known False
+```
+
+Every token resolved in both. The second is not fully known because two characters were dropped and
+are now said to have been dropped. That is the same behaviour change D-024 shipped, one door further
+in, and it deserves a release note rather than a footnote.
+
+### The tokens do not move, and that is the deferral
+
+A bracket separates whichever branch it takes, so `value[x]` is `('value', 'x')` before and after.
+Whether `x` should be a token of its own — a lookup key, a row somebody owes the catalog — is the
+larger question, and it is the dot-as-path-separator question wearing different clothes. That half is
+not answered here. What could not be deferred, and was not, is a guarantee reporting a clean result
+while a character is gone.
+
+### The guarantee, restated rather than weakened
+
+Seven of the nine accounted separators are accounted for unconditionally. The two brackets are
+accounted for **per occurrence**, so for those two the counting equation holds as a bound in both
+directions — nothing invented, nothing both kept and reported — rather than as a flat exemption. The
+property test states it that way instead of re-deriving the positional rule, which would be the
+implementation written twice; beside it sits a property that does not depend on the rule at all: a
+bracket is discarded only as one end of a matched pair, so openers and closers are discarded in equal
+numbers. The rule itself is a table of inputs and expected reports, and the module's two readings —
+the reference scan and the ASCII pattern — are checked against each other exhaustively over
+`[]A1_.` up to length four, because a positional rule goes wrong at the ends of a string and where
+two brackets meet.
+
+### What a port must change, and has not yet
+
+`docs/notes/governed-json-contract.md` §6 classifies `[` and `]` as SEPARATOR unconditionally and
+carries the worked line `"[TXN_ID]" -> ["TXN","ID"] unaccounted []`. It needs the positional test
+above and the `value[x]` row beside that line. **The contract file is not updated, so a port built
+from it diverges from this implementation on exactly this rule.** R8 says a wire-contract change gets
+a design first; this record is that design, and applying it is the open follow-up.
+
+### How it fails
+
+The rule is over-permissive in one direction — `TXN_[ID]` reads as quoting, because an opener after
+any separator is treated as a place a name can open — and it reads `[]` as an empty quoted name,
+reporting nothing, which inherits the vacuous-empty-name case D-024 already left standing. Both are
+pinned rather than hidden. D-024's recorded DTO gap is also untouched: `ComplianceResult` and
+`PhysicalName` carry no accounting, so a bracket reaching `is_compliant` still surfaces only as a
+`NOT_UPPER_SNAKE` finding.
+
+---
+
+## D-033 — The digit rejoin was gluing two numbers together, and `normalize` moved the name every time it did
+
+**Status:** fixed, shipped · **Evidence:** `src/acronymkit/governed/expansion.py::_rejoin_digit_tokens`,
+`tests/test_governed.py::test_normalize_is_idempotent_over_catalog_shapes`,
+`tests/test_governed_edge_cases.py::test_a_join_that_would_make_one_longer_number_is_refused`,
+[`GOVERNED_NAMING.md`](GOVERNED_NAMING.md#idempotence)
+
+Two catalog rows and pure ASCII were enough to break an invariant this project states as holding *by
+construction*:
+
+```
+before -- catalog {'11': 'Eleven', '911': 'Emergency'}
+  normalize('E_9_1_1')          ->  'E_9_11'  ->  'E_911'
+  expand_identifier('E_9_1_1')      'E 9 Eleven'
+  expand_identifier('E_911')        'E Emergency'
+
+after -- re-derived here against the shipped code, same catalog
+  expand_identifier('E_9_1_1')      'E 9 1 1'
+  normalize('E_9_1_1')          ->  'E_9_1_1'  ->  'E_9_1_1'
+  expand_identifier('E_911')        'E Emergency'
+```
+
+The meaning of the column moved with the name, which is what makes this worse than a cosmetic
+wobble. `11` and `911` are not a contrived pair; a municipal or emergency-services standard
+plausibly carries both.
+
+### Why the test suite could not see it
+
+`test_normalize_is_idempotent_under_every_policy` parametrises over every identifier in the fixture
+corpus and every named policy — and varies everything except the dimension the defect lives in.
+Idempotence is a joint property of a name *and a catalog*: between the split and the judgement sits a
+dictionary-aware pass, so what the second call sees depends on which rows exist. No identifier in the
+forty-line fixture corpus carries two adjacent all-digit tokens and no fixture catalog has nesting
+digit-leading rows, so the test was structurally incapable of firing however long it ran. This is
+R9's fifth question — *is the corpus capable of showing the phenomenon* — asked of a test suite
+rather than of a benchmark, and it is the more useful place to ask it.
+
+The invariant is now also parametrised over catalog *shapes*, with the nesting catalog among them,
+and a companion test asserts that the normal form expands to what its source expanded to — so
+idempotence cannot be satisfied by a rewrite that moves a name once and then stands still.
+
+### The rule that changed, and the mechanical reason for it
+
+A joined form that is itself all digits is refused. One condition, in one pass, so all four verbs
+keep running it identically and `naming.py` needed no edit.
+
+Every verb here rebuilds a name out of its tokens and the next call splits that name again, so **a
+joined token is safe only while splitting it returns the pieces it was joined from.** `1MM` does: it
+reads back as two tokens and is rejoined, unchanged, every time. `911` does not — a digit run has no
+internal boundary, so it reads back as one token — and that is how the first pass's output handed the
+second pass a `9` sitting beside a new `11`.
+
+There is a second argument for the same line and it is the stronger one. This pass exists to undo a
+split *the tokenizer* made. The tokenizer never puts two digit tokens next to each other, because a
+run of digits is one token — so two adjacent digit tokens mean a separator, a space or an unreadable
+character stood between them, and joining across that is not a repair. It is the catalog reaching
+across a boundary somebody typed.
+
+### What was refused
+
+**Running the pass to a fixed point.** It terminates — the pass strictly reduces token count — and
+the fixed point is idempotent. It also makes `E_9_1_1` mean "E Emergency", which is the catalog
+reaching across two writer-placed separators in the one subsystem whose whole thesis is refusing to
+guess.
+
+**Rejecting nesting digit-leading keys at dictionary build time.** It breaks the catalog that
+motivates the rule. Under the shipped fix that catalog keeps both rows and both stay reachable —
+`expand_token('911')` is Emergency and `E_911` is fully known — and only `9_1_1` stops silently
+becoming it.
+
+**The rule its author preferred, which is better than the one that shipped.** Join only tokens that
+were contiguous in the *source*, so the pass undoes only splits the tokenizer itself made. That is
+the rule the docstrings already claim the pass follows, it is a strict superset of what shipped
+(an all-digit adjacency always crosses a separator), and it would also stop `TXN_1_MM` becoming
+`1MM`. It was not built for two reasons, both worth keeping: it needs token spans threaded through
+`_rejoin_digit_tokens`, whose third caller is `naming.py::to_physical_name`, and splitting the
+behaviour across the four verbs would break the contract's "all four, identically"; and it is not
+required for idempotence, which the shipped fix restores on its own. It is the open question here
+rather than a thing done quietly.
+
+### What a port must change, and has not yet
+
+`docs/notes/governed-json-contract.md` §6.4's pseudocode has no all-digit condition and its
+"consequence a port must reproduce" line is unchanged, so it now describes an algorithm this code
+does not run. The pseudocode gains one condition:
+
+```
+i = 0
+while i < len(tokens):
+    if tokens[i] is all digits and i + 1 < len(tokens):
+        joined = tokens[i] + tokens[i + 1]
+        if joined is NOT all digits and dictionary.resolve(joined, policy) is not None:
+            emit joined; i += 2; continue
+    emit tokens[i]; i += 1
+```
+
+and the consequence paragraph gains a sentence: a join whose result is itself all digits is refused,
+because two digit tokens can only be adjacent across a separator and a joined digit run does not
+split back into the tokens it was made from. "All digits" is the Unicode digit test in both places.
+
+### How it fails
+
+A catalog carrying `2020` no longer turns `FY_20_20` into it, and that two-token case *was* already
+idempotent — so a working behaviour was removed to close a three-token one. It was taken because the
+mechanism is the same, because a decimal point manufactures the same adjacency in real identifiers
+(`9.875` splits at the dot into two digit tokens, and the old rule would have joined them for any
+catalog carrying that row), and because a rule that fired on three tokens but not two would be tuned
+to the example rather than to the cause. If a caller wants `FY_20_20` to mean 2020, the honest fix is
+to write the name `FY_2020`.
+
+Idempotence also still rests on a premise about rewrite targets: an approved token that itself
+re-splits and re-joins to something other than itself would move a name. No fixture or plausible
+catalog carries such a row. It is stated in the code and the docs rather than enforced, because the
+enforcement point would be dictionary build time — the design refused above.
+
+**One figure that exists and is deliberately unpublished.** A scratch sweep over the
+identifier-shaped strings in the governed gold showed adjacent all-digit tokens are common there,
+which is what turned this from a two-row curiosity into a live hazard for real schemas. That sweep
+went through no runner, so its counts appear in no document. If they are wanted in `docs/`, the work
+is building the runner.
+
+---
+
+## D-032 — Two short-form-span fixes that looked like one change, and a long-form rule that was free on exactly one corpus
+
+**Status:** one shipped, one held, one reverted · **experiments nine and ten** ·
+**Evidence:** `bench/run_shortform.py --variants --spans`, `shortform.*` in `bench/results.json`,
+`src/acronymkit/extractor.py::_trim_span`, `tests/test_extractor.py`
+
+Three candidates arrived together. Measured together they are 85.18<!--claim:shortform.med1250_all.high_precision.both.exact_f1:.2f--> exact F1 on MED1250
+against a baseline of 83.85<!--claim:shortform.med1250_all.high_precision.baseline.exact_f1:.2f-->, and they look like one change. They are not: alone they are
+84.21<!--claim:shortform.med1250_all.high_precision.balanced_trim.exact_f1:.2f--> and 84.74<!--claim:shortform.med1250_all.high_precision.two_word.exact_f1:.2f-->, and only one of them is free. That is what R6 is for and this is the record of it.
+
+### Shipped: `_trim_span` no longer leaves a bracket open
+
+The trim stripped trailing non-alphanumerics unconditionally, turning the bracketed region `FEV(1)`
+into a candidate with an unmatched opener — a string that equals no annotation under any convention.
+The long form was unaffected either way, because the matcher skips non-alphanumeric short-form
+characters, so the defect cost a pair outright rather than mis-scoring one. The right edge is now
+restored exactly far enough to close what the trim opened, all-or-nothing, never past the span handed
+in, with the balance scan bounded at 32 characters and short-circuited unless the first character
+removed was a closing bracket. That guard is not cosmetic: without it the balance scan runs on every
+call and costs measurable extraction throughput. The cost was found by interleaved re-measurement —
+twelve alternating passes in one process — after a naive before/after in one direction had reported
+the fix as *faster*, an ordering effect larger than the effect. No throughput figure is quoted here
+because none of them went through a runner.
+
+| MED1250 exact F1 (tuning split, `all`, high_precision) | value |
+|---|---:|
+| baseline | 83.85<!--claim:shortform.med1250_all.high_precision.baseline.exact_f1:.2f--> |
+| **balanced trim (shipped)** | **84.21<!--claim:shortform.med1250_all.high_precision.balanced_trim.exact_f1:.2f-->** |
+| two-word short form (held) | 84.74<!--claim:shortform.med1250_all.high_precision.two_word.exact_f1:.2f--> |
+| both, as first measured together | 85.18<!--claim:shortform.med1250_all.high_precision.both.exact_f1:.2f--> |
+
+On PLOD-CW (dev, test and pooled, both detokenisations) and on both SDU@AAAI-22 AE dev splits the
+shipped fix is bit-identical to the baseline on every recorded field. **That is weaker evidence than
+it looks and this entry says so.** R9's fifth question again:
+
+```
+bench/results.json, shortform.*.corpus -- how much of each corpus the fix can even touch
+  PLOD-CW all      gold short-form spans carrying a bracket    43 of 2,869    1.50 %
+  SDU-22 legal dev                                              7 of 1,213    0.58 %
+  SDU-22 scientific dev                                         6 of   970    0.62 %
+```
+
+Four corpora agreeing on "no change" is mostly four corpora saying there was almost nothing to see.
+The defensible claim is the narrow one: it stops the extractor emitting an unbalanced string, and it
+takes nothing away anywhere measured. It is **not** "validated on held-out data". The MED1250 gain
+also rides on an annotator convention — Ab3P's annotators wrote the parenthetical subscript into the
+short form, and annotators who wrote `FEV1` would make the fix neutral rather than positive.
+
+Two behaviours a reader could be surprised by, both deliberate and both tested: restoration is
+all-or-nothing, so `A((b` stays as it is rather than becoming a third string that is neither balanced
+nor what the trim decided; and a caller who raises `extraction_max_short_form_length` past the
+32-character scan bound gets the old behaviour on longer candidates. That loses a candidate rather
+than inventing one.
+
+### Experiment nine — preferring the whole two-word bracketed text. Held, not shipped.
+
+```
+bench/results.json, shortform.*.two_word against .baseline
+  MED1250 all, exact F1        high_precision 83.85 -> 84.74
+                               general        83.97 -> 84.94
+                               biomedical     82.94 -> 84.08
+  SDU-22 legal dev, short form exact P 93.66 -> 96.11, R 37.76 -> 38.75, F1 53.82 -> 55.23
+                               long form unchanged; overlap unchanged
+  SDU-22 scientific dev, PLOD dev, PLOD test (both styles)   every field identical
+  PLOD all / tight, the only held-out measurement
+    short form   1048/71/1821 -> 1045/74/1824  tp/fp/fn
+    long  form    939/180/865 ->  938/181/866
+```
+
+Every point in its favour is a tuning point, which R2 forbids presenting as generalisation, and the
+one held-out corpus declines. Held under R7.
+
+**The complication is worth more than the verdict.** PLOD carries zero multi-token gold short-form
+spans in 2,869, so every two-word short form emitted there is a guaranteed false positive and the
+corpus cannot show the upside even in principle. Its decline is a measurement of an annotation
+convention, not of the fix — which means there is no held-out evidence about this change in either
+direction, and none is available from PLOD. One part of the loss *is* adjudicable: long-form spans
+are not structurally blind and one long-form true positive becomes a false positive. It is one span.
+
+Precondition for reopening: a corpus that annotates multi-token acronym spans and has not been mined.
+SDU-22 legal `train.json`, 3,564 unread samples, is the obvious candidate.
+
+### Experiment ten — rejecting a long form that begins with a function word. Reverted.
+
+`find_best_long_form` returns a suffix starting at the word that supplied the short form's first
+character, so `OMB -> of Management and Budget` is a parse in which the `O` came from `of`.
+Rejecting those is free on MED1250 and that fact does not survive being asked anywhere else. The
+rejection set is the project's own 16-word `_strategies.SKIPPABLE`, deliberately, because a set
+chosen after seeing the corpus is a tuned parameter wearing a rule's clothes.
+
+| Corpus (`shortform.*.function_word_exposure`) | predictions the rule deletes | carrying a correct short form | a correct long form |
+|---|---:|---:|---:|
+| MED1250 (tuning) | 3 of 1,021 | 0 | 0 |
+| SDU-22 legal dev (tuning) | 6 of 489 | 6 | 1 |
+| SDU-22 scientific dev (tuning) | 5 of 585 | 5 | 2 |
+
+**The mechanism is structural, not incidental. This library emits pairs, so a rule that rejects a
+long form deletes the short form standing beside it** — and on corpora that score the two labels
+separately, every long-form false positive it removes costs a short-form true positive at the same
+moment. Eleven of eleven deletions across the two SDU-22 splits carried a correct short-form span.
+
+```
+bench/results.json, shortform.*.function_word against .baseline
+  SDU-22 legal      SF exact F1 53.82 -> 53.30, SF overlap R 40.23 -> 39.74
+                    LF exact F1 70.00 -> 70.19 but LF overlap R 71.00 -> 70.10
+  SDU-22 scientific SF exact F1 72.15 -> 71.74, LF overlap R 79.03 -> 78.33
+  PLOD all / tight  SF 1048/71/1821 -> 1044/68/1825, LF 939/180/865 -> 937/175/867
+                    removes 3 SF and 5 LF false positives; destroys 4 SF and 2 LF true positives
+```
+
+It buys a little long-form exact precision and pays for it in recall on every label of every corpus
+that can see it. **And it recovers nothing.** `OHCHR` should expand to `Office of the United Nations
+High Commissioner for Human Rights`; the correct span starts to the *left* of `of`, so reaching it
+means choosing a different long-form starting boundary — which is exactly what D-008 built, measured
+and reverted. Four gold MED1250 long forms do begin with a function word and the rule would cap them
+permanently; that count is recorded at `shortform.med1250_all.function_word_exposure` rather than
+asserted in a test, because nothing under `tests/` reads a corpus. `tests/test_extractor.py` pins the
+counterexamples instead, so the rule cannot be re-added without a failing test.
+
+Three of the SDU-22 long-form golds the rule would delete look like annotation artefacts. The revert
+survives discounting them entirely: even thrown out, the rule still deletes 11 correct short-form
+spans on SDU-22 and 4 on PLOD, and an acronym token is the least ambiguous annotation these corpora
+carry.
+
+### Recall ceilings, printed here because R9.6 says they belong beside the scores
+
+```
+bench/results.json
+  shortform.plod_all.corpus.short_form_spans_bracket_adjacent_pct       46.11
+    -- share of PLOD gold short forms standing in a parenthetical arrangement at all
+  shortform.sdu22_ae_legal_dev.corpus.ceiling_pct                       55.15
+  shortform.sdu22_ae_scientific_dev.corpus.ceiling_pct                  74.23
+```
+
+Neither SDU figure is a bound: every point above it is bought by emitting a definition the corpus
+does not annotate, paid for in long-form precision.
+
+### This is not the bracket fix on the *do not build* list
+
+Auditor 1's proposal strips `[` and `]` when they wrap a whole identifier, in the governed subsystem,
+and breaks `[db].[schema].[TXN_ID]` — see D-034, which reaches the same problem from the other side.
+This one restores a closer inside `extractor._trim_span`, which is private to `extractor.py`, used in
+three places there, and not imported by `acronymkit.governed`. Different mechanism, different module.
+
+### The methodological point, which outlives all three results
+
+A bundle hides which half is free. A single corpus hides which convention you are fitting. The rule
+that is free on MED1250 is a recall regression on institutional prose, and the fix that gains on
+biomedical abstracts cannot be scored at all on the one corpus this project treats as held out. Both
+facts required measuring one change at a time on more than one corpus, and neither was visible from
+the number the batch arrived with.
+
+### How it fails, and one thing that must not be dropped
+
+**The published MED1250 headline is now stale.** Shipping the trim fix moved the shipped extractor's
+score, and `extraction.med1250.acronymkit` was not re-saved, because saving it alone would red
+`tools/check_claims.py` — `README.md`, `docs/EVALUATION.md` and this file carry the old figures on
+the value-matched path, and the results file and the prose have to move in one change. Two ways to
+close it: re-run `bench/run_extraction.py --save` and `bench/run_profiles.py --save` and update the
+prose sites in the same commit; or cite the already-gated successor by run id, which the ratchet
+prefers anyway. `docs/EVALUATION.md`'s sentence comparing this library to the Rust implementation
+must be re-read rather than find-and-replaced, because the gap it describes has narrowed.
+`spans.plod.*` is **not** stale — the shipped fix is bit-identical to baseline on every PLOD field.
+
+Several runs downstream of the extractor — `admission.*`, `analysis.med1250.*`, `oracle.med1250`,
+`cascade.*`, `rerank.*`, `termfreq.*`, `relaxation.med1250_*` — were not re-derived and may have
+moved. Someone should sweep them after the headline is fixed.
+
+The reverts could be wrong in the other direction. Experiment nine is the largest improvement in the
+batch and was held on the strength of one held-out corpus that cannot score it positively even in
+principle. Someone weighting "two corpora in two genres improve" above R7 as written would ship it,
+and the run ids are there to argue from. Nothing here was measured outside biomedical abstracts, PLOS
+article text, UN institutional prose and mixed-discipline paper abstracts — no legal, financial or
+general-web prose, and the SDU-22 split named "legal" is not legal text, which `bench/splits.toml`
+already records.
+
+---
+
+## D-031 — The governed subsystem now has an accuracy number, and it is a number about one function
+
+**Status:** shipped; both corpora still undeclared in the manifest · **Evidence:**
+`bench/run_governed_gold.py`, `tests/test_governed_gold.py`, [`EVALUATION.md`](EVALUATION.md),
+`governed_gold.*` in `bench/results.json`
+
+The governed half is a little over a third of the library by volume and carried no accuracy figure
+for three releases. The justification on file was "exact by construction", which is a tautology: a
+lookup table is exact about whatever the caller put in it.
+
+```
+re-derived for this record, 2026-08-23
+  find src -name '*.py' | xargs wc -l                     26,117 lines
+  find src/acronymkit/governed -name '*.py' | xargs wc -l  9,647 lines
+```
+
+(The workstream that built the runner quoted 9,370 of 25,210. Both halves have grown during this
+session's edits, which is exactly why a line count belongs in a fenced block with the command beside
+it rather than in a sentence.)
+
+There is exactly one thing in the subsystem that decides anything on its own, and `tokenizer.py` says
+so in its own docstring — where the identifier is cut. Everything else is a lookup against a
+caller-supplied catalog. So the accuracy question is: **does it cut identifiers where the people who
+named them cut them?**
+
+### The gold, and why it is not the corpus section 0 killed
+
+Two public sources publish, for the same column, a machine identifier and a human caption written by
+the same organisation: SEC XBRL `tag`/`tlabel` and Socrata `columns_field_name`/`columns_name`. A
+caption is admitted only when its alphanumerics case-fold equal the identifier's **and** it contains
+whitespace. That discards every pair where the caption expands or abbreviates — the catalog's job,
+not the splitter's — and leaves a population where only cut placement can differ. Nobody was
+commissioned to write this gold, which is the point: section 0 of the August 2026 audit killed a
+corpus whose annotators were instructed to *invent* abbreviations. Scored through
+`expand_identifier(x, GovernedDictionary({}))` — public API, empty catalog, which the admission rule
+forces rather than merely permits.
+
+| Gold author | Subset | Pairs | exact % | bP % | bR % | ceiling % |
+|---|---|---:|---:|---:|---:|---:|
+| SEC us-gaap taxonomy | all | 3,090<!--claim:governed_gold.sec_xbrl.us_gaap.all.pairs:,--> | **98.25<!--claim:governed_gold.sec_xbrl.us_gaap.all.exact_pct:.2f-->** | 99.98<!--claim:governed_gold.sec_xbrl.us_gaap.all.boundary_precision_pct:.2f--> | 99.62<!--claim:governed_gold.sec_xbrl.us_gaap.all.boundary_recall_pct:.2f--> | 99.62<!--claim:governed_gold.sec_xbrl.us_gaap.all.boundary_recall_ceiling_pct:.2f--> |
+| SEC IFRS taxonomy | all | 939<!--claim:governed_gold.sec_xbrl.ifrs.all.pairs:,--> | **85.52<!--claim:governed_gold.sec_xbrl.ifrs.all.exact_pct:.2f-->** | 100.00<!--claim:governed_gold.sec_xbrl.ifrs.all.boundary_precision_pct:.2f--> | 97.50<!--claim:governed_gold.sec_xbrl.ifrs.all.boundary_recall_pct:.2f--> | 97.50<!--claim:governed_gold.sec_xbrl.ifrs.all.boundary_recall_ceiling_pct:.2f--> |
+| SEC filing registrants | all | 57,580<!--claim:governed_gold.sec_xbrl.filer_extension.all.pairs:,--> | 94.73<!--claim:governed_gold.sec_xbrl.filer_extension.all.exact_pct:.2f--> | 99.73<!--claim:governed_gold.sec_xbrl.filer_extension.all.boundary_precision_pct:.2f--> | 98.76<!--claim:governed_gold.sec_xbrl.filer_extension.all.boundary_recall_pct:.2f--> | 98.76<!--claim:governed_gold.sec_xbrl.filer_extension.all.boundary_recall_ceiling_pct:.2f--> |
+| | **unmarked** | 268<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.pairs:,--> | **0.75<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.exact_pct:.2f-->** | 77.78<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.boundary_precision_pct:.2f--> | **0.47<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.boundary_recall_pct:.2f-->** | 0.47<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.boundary_recall_ceiling_pct:.2f--> |
+| Socrata publishers | all | 26,536<!--claim:governed_gold.socrata.columns.all.pairs:,--> | 91.37<!--claim:governed_gold.socrata.columns.all.exact_pct:.2f--> | 97.63<!--claim:governed_gold.socrata.columns.all.boundary_precision_pct:.2f--> | 98.82<!--claim:governed_gold.socrata.columns.all.boundary_recall_pct:.2f--> | 98.82<!--claim:governed_gold.socrata.columns.all.boundary_recall_ceiling_pct:.2f--> |
+| | **unmarked** | 959<!--claim:governed_gold.socrata.columns.unmarked.pairs:,--> | **34.93<!--claim:governed_gold.socrata.columns.unmarked.exact_pct:.2f-->** | 61.29<!--claim:governed_gold.socrata.columns.unmarked.boundary_precision_pct:.2f--> | **2.25<!--claim:governed_gold.socrata.columns.unmarked.boundary_recall_pct:.2f-->** | 2.25<!--claim:governed_gold.socrata.columns.unmarked.boundary_recall_ceiling_pct:.2f--> |
+
+### Three things this establishes that the audit's un-gated version did not
+
+**Every miss anywhere is a boundary the identifier does not mark.** `false_negatives_marked` is 0 on
+all four arms and boundary recall equals its ceiling to the digit on every row. Half of that is
+arithmetic — the ceiling is the union of the four rules the splitter reads, so a spurious cut at an
+unsignalled position is impossible by construction — and saying only the empirical half is the
+difference between a discovery and a definition. The empirical half: rule 6 (ordinal suffix stays
+with its digits) and rule 9 (two-pass catalog join) can each *suppress* a signalled cut, and across
+every pair measured neither did once.
+
+**Pooling "SEC XBRL" hides twelve points.** us-gaap and IFRS come out of the same file, the same
+fetch and the same scorer. us-gaap capitalises after stripping a hyphen (`Paid-in` -> `PaidIn`, the
+cut survives); IFRS does not (`paid-in` -> `Paidin`, the cut is destroyed by the naming convention
+before this package sees the string). Same lesson as PLOD and NameGuess arriving through a third
+door: what the corpus's author was doing decides what the number means.
+
+**The unmarked row is a bound, not a failure.** Boundary recall of 2.25<!--claim:governed_gold.socrata.columns.unmarked.boundary_recall_pct:.2f--> % on unmarked Socrata
+identifiers is the whole of the 2.25<!--claim:governed_gold.socrata.columns.unmarked.boundary_recall_ceiling_pct:.2f--> % that is reachable without guessing. It is the price of the
+refuse-to-guess design, and it is printed beside the headline rather than below it.
+
+### The largest error class is a deliberate rule and was not changed
+
+```
+bench/results.json, governed_gold.*.false_positives_by_signal
+  socrata.columns.letter_digit         1,818   _2013_q1_actual -> '2013 Q 1 Actual', gold '2013 Q1 Actual'
+  socrata.columns.separator               16
+  sec_xbrl.filer_extension.acronym_run    581   ATMandDebitCardExpense -> 'At Mand Debit Card Expense'
+  sec_xbrl.filer_extension.letter_digit   362
+  sec_xbrl.us_gaap.camel_case               2   .acronym_run 1
+```
+
+Rule 5 exists because `ADDRESS2` really is `Address 2`; publishers write `Q1` as one word. It is a
+measured cost of a documented decision (D-024), recorded rather than acted on. If anyone takes it up,
+the cheap version — do not split between a single letter and a digit run when the letter is the last
+of its token — needs measuring against MED1250's `2D` / `T3` gold too, where the same shape means the
+opposite thing.
+
+### The gold's own noise floor, which the audit did not measure
+
+```
+bench/results.json, governed_gold.socrata.gold_conflict
+  identifiers captioned with two different cut placements by two publishers
+    contested_identifiers        68 of 25,117      0.27 %
+    contested_occurrences_pct                      2.62 %
+```
+
+That is a floor under the disagreement any system can record against this gold, and it turns "the
+gold is only one publisher's opinion" from an unfalsifiable caveat into a number. It was built
+deliberately *instead of* re-deriving the audit's hand-annotated pass: a hand pass over this system's
+own output is the gold-standard-I-partly-invented problem `bench/splits.toml` already refuses, and
+its figure is not re-derivable by a runner, so R1 keeps it out of the docs entirely.
+
+One decomposition the headline survives: a publisher-disjoint split, 111 portals against 105 with no
+portal in both, lands within a third of a point of itself. Not an artifact of a handful of large
+portals. A robustness check, not a train/test split — nothing was fitted.
+
+### Licences, read from terms on 2026-08-23, and one correction back to the audit
+
+**SEC.** `https://www.sec.gov/privacy`, "Website Dissemination": information presented on sec.gov is
+public and may be copied or further distributed without the SEC's permission. That is **broader than
+the audit's licence-table row for EDGAR**, which said no licence and no copyright statement is
+published. It does not make the labels vendorable: the archive's own `readme.htm` §5.2 makes `tlabel`
+taxonomy-authored (FASB, IFRS Foundation) or filer-authored, and the SEC cannot license text it does
+not own.
+
+**Socrata.** `https://dev.socrata.com/docs/other/discovery`. No licence covers the catalog metadata
+at all. The one licence statement in sight — a CC BY-NC-SA 3.0 footer on the developer site — covers
+the **documentation**, not the API responses. Recording it as the data's licence would be GLADIS
+again with a different badge, which is the mistake R4 exists to stop.
+
+### Both corpora are still UNDECLARED, and that is the open blocker
+
+Every saved figure carries `splits_declaration: "UNDECLARED"`. The runner asks the manifest and hard-
+fails on `role = "tuning"`, but only *warns* on a corpus nobody declared — which is exemption from R2
+by omission, the failure the manifest exists to prevent. Registration is blocked on `tools/splits.py`,
+which was not in the recorder's file scope either:
+
+* `TASKS` is a closed vocabulary of `extraction`, `span_detection`, `disambiguation`. Neither corpus
+  is any of those, and identifier segmentation is a genuinely different task — `bench/corpora.py`
+  returns a different type per task, so widening the vocabulary is a decision about that contract and
+  not a one-word patch.
+* `headline_capable()` is task-blind: it returns any uncontaminated `held_out` corpus regardless of
+  what task it is for. **The workstream's stated consequence — that registering here would silence
+  the "no uncontaminated held-out corpus" advisory — is wrong today and was checked rather than
+  inherited: `plod` and `sdu21_ai` already satisfy it, so the advisory is already silent.** The
+  design gap is real; the specific harm claimed for it is not. What the task-blindness would actually
+  buy is worse and quieter: a segmentation corpus would become an eligible source for a *pair*
+  headline.
+
+The drafted entries, with their licence URLs and read dates, are parked as a comment block in
+`bench/splits.toml` so nothing is lost while the vocabulary question is decided.
+
+### How it fails
+
+**The SEC arms measure inverting LC3, not segmentation.** XBRL element names follow Label CamelCase
+Concatenation — the element name *is* the standard label with spaces and punctuation removed — and
+FRTA requires element names to be based on a presentation label. Both halves of each pair are real
+production strings, so this is not the NameGuess failure; but it is a documented mechanical rule
+being inverted, which is far more regular than an identifier somebody typed. us-gaap is close to a
+ceiling effect for the same reason: LC3 guarantees a case change at every word cut.
+
+**Zero UPPER_SNAKE identifiers in the entire gold**, and 29 dotted ones on one arm. UPPER_SNAKE is
+what this package's own fixtures, docstrings and `REFERENCE_IDENTIFIER` are written in. These figures
+say nothing about `TXN_APPLNT_DOB_DT`. Do not let anyone quote them as governed accuracy generally:
+catalog resolution, class-word detection, compliance and naming are not in this table at all.
+
+**The Socrata corpus is not frozen.** The Discovery API is live and re-orders under the scroll; only
+`fetched_on` and the page count make that visible. `identifier_shapes.dotted` in particular is a thin
+citation that could vanish on a different SEC quarter, which is the intended failure mode of a
+citation and a thing whoever changes `--quarter` must expect.
+
+**The admission rule keeps a biased third of Socrata columns** — only pairs whose caption is a
+re-spacing of the identifier. That is by design the single-variable experiment, and it means the
+population is unabbreviated columns whose publisher bothered to caption them, not a sample of schema
+columns.
+
+**The gold is a publisher's caption, not a governance ruling.** A data-governance function ruling on
+`_2013_q1_actual` might side with the splitter against the publisher on all 1,818 rule-5
+disagreements, which would move Socrata several points in the direction this table does not report.
+
+**Re-run required after the in-flight tokenizer change lands.** D-034's bracket work touches
+`tokenizer.py`. Re-running against it produced byte-identical entries, but whoever finalises it must
+run `python bench/run_governed_gold.py --save` then `python tools/check_claims.py --render`, or
+`docs/EVALUATION.md` carries stale figures behind correct-looking citations.
+
+**The audit's own un-gated leads did not fully reproduce**, and nobody can say why: close on us-gaap
+and Socrata, far apart on the unmarked row. The auditor's derivation is not recorded. This one's is,
+in the runner, and this one is what is gated.
+
+---
+
+## D-030 — The disambiguator can say "I don't know". The number that makes that worth doing is the one nobody had measured.
+
+**Status:** margin shipped as a read-only field; gate shipped opt-in and defaulted off; per-arity
+thresholds measured and refused (**experiment eight**) · **Evidence:**
+`disambiguation.sdu21.abstention_curve` in `bench/results.json`,
+`src/acronymkit/disambiguation.py`, `src/acronymkit/models.py`, `tests/test_disambiguation.py`
+
+### What shipped
+
+`DisambiguationResult.margin` — top1 minus top2, `None` below two candidates — and `.abstained` are
+computed fields on every result. `LexicalDisambiguator(..., min_margin=x)` answers only when
+`margin >= x`, rejecting anything outside `[0.0, 1.0]`, non-numbers, `bool` and NaN with
+`ConfigurationError`.
+
+**It is off by default and the default is the decision, not an oversight.** Gating is a
+coverage/accuracy trade, and where a caller sits on it depends on what a refusal is worth to them,
+which the library cannot observe. D-029 establishes there are no external users, which removes the
+compatibility argument for keeping it off but not the epistemic one.
+
+### The measurement that reframes it
+
+The audit's abstention table showed accuracy rising as the gate rose and called it the largest
+measured improvement in the batch. Read as an improvement, that is wrong twice over.
+
+First, F1 falls monotonically. Second — and this is the control that was missing — score the shared
+task's own most-frequent baseline **on the same answered subset**:
+
+```
+bench/results.json, disambiguation.sdu21.abstention_curve
+SDU@AAAI-21 AD dev, split_role = "tuning split, contaminated"
+
+  gate   coverage %   accuracy when answered   F1      most_frequent on the same subset
+  0.00      100.00            41.65            41.65             72.84
+  0.02       50.91            52.27            35.27             72.14
+  0.05       29.52            64.81            29.54             69.40
+  0.10       22.78            70.00            25.98             68.30
+  0.20       11.33            74.04            15.07             64.05
+```
+
+Below gate 0.10 the gate is not producing better answers, it is selecting easier questions. The
+crossover at 0.10 is the whole case for gating at all, and R5 requires saying it is not uniform: on
+3-way and 4-way candidate sets — 2,004 instances, 32.38 % of the split — the trivial baseline is
+still at least as accurate on the very same answered subset. Abstention is a **precision instrument,
+not an accuracy fix**.
+
+### Experiment eight — per-arity thresholds. Measured, refused, recorded.
+
+The audit proposed them and gave a reason: "a margin on a two-candidate set is mechanically larger
+than on a fifteen-candidate one". That is true of a normalised distribution and false of this scorer,
+which blends three unnormalised terms.
+
+```
+bench/results.json, disambiguation.sdu21.abstention_curve
+  median_margin_falls_as_candidate_count_rises        false
+  median margins        2 -> 0.0244   3 -> 0.0221   4 -> 0.0149
+                        5 -> 0.0214   6-9 -> 0.0171  10+ -> 0.0201
+  coverage at a fixed gate is HIGHEST on 10+ sets (29.98 %), not lowest
+
+  per_arity_coverage_pct                22.80    (global gate 0.10: 22.78)
+  per_arity_accuracy_when_answered      70.59    (global gate 0.10: 70.00)
+  per_arity_gain_over_global_gate       +0.59
+  per_arity_thresholds_tuning_split     {2: 0.1069, 3: 0.0911, 4: 0.0392,
+                                         5: 0.1512, 6-9: 0.1102, 10+: 0.1512}
+  split_half_a / split_half_b accuracy at the same single global gate   72.16 / 67.85
+```
+
+Six free parameters, fitted in-sample, on a split declared `role = "tuning"`, for six tenths of a
+point — and that is an **upper bound**, not an estimate, because nothing was held out. Against a
+4.3-point spread from nothing but resampling one frozen shuffle, it is inside the noise. Not shipped.
+
+*(The threshold vector above is the one in the results file. The workstream's own report quoted a
+different vector for the same field; the gated file wins, and the discrepancy is recorded rather than
+silently reconciled.)*
+
+What *does* vary with arity is accuracy:
+
+```
+bench/results.json, disambiguation.sdu21.abstention_curve.by_arity, at the reference gate
+  2-way   76.98      3-way   79.44      4-way   70.08
+  5-way   66.67      6-9     57.92      10+     53.89
+```
+
+which is why a per-arity **table** ships beside the headline instead of a per-arity **threshold**.
+`worst_arity_accuracy_at_reference_gate` is a recorded field for exactly this reason: R5 wants the
+worst row printed beside the headline, not derivable from it.
+
+### The gate is substantially a verbatim-evidence detector
+
+At gate 0.10 the answered set is 64.82 % gold-verbatim against an 18.15 % base rate. Not entirely:
+within the gold-absent subset the gate does still lift the system's own score, at a tenth of the
+coverage.
+
+**That consolation does not survive its own control, and this record applies R9.2 to the workstream
+that wrote it.** Read the next field along in the same run:
+
+```
+bench/results.json, disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_absent_from_sentence
+  n = 5,066
+  gate 0.00   accuracy 32.83   most_frequent on the same subset  74.32
+  gate 0.10   accuracy 40.93   most_frequent on the same subset  70.97
+```
+
+Where the evidence the gate detects is absent, the trivial baseline is roughly thirty points ahead
+both before and after gating. "It still helps inside the gold-absent subset" is true of the gated
+system against itself and false of the gated system against the only control anyone would use. The
+honest statement is that the gate is a verbatim-evidence detector nearly all the way down, and a
+caller should expect coverage to **collapse**, not degrade, on text where expansions do not appear
+near their acronyms.
+
+### The inline/dictionary cap is not a margin
+
+`INLINE_SCORE - MAX_DICTIONARY_SCORE` bounds the gap between the document's own definition and a
+dictionary candidate at 0.01. A dictionary entry whose every word appears in the sentence reaches the
+cap, so a naive gate above 0.01 would refuse the document's own definition of its own abbreviation —
+the one answer this module documents as authoritative. **This was found by running the workstream's
+own first docstring example and watching it abstain.** The gate therefore skips pairs whose top two
+candidates differ in source; the exemption can only turn a refusal into an answer, never the reverse,
+and the genuinely ambiguous case (two competing inline definitions, same source, margin 0.0) still
+abstains.
+
+**It assumes exactly two sources ordered by the cap.** "Top two differ in source" implies "the winner
+is inline" only because inline is capped above dictionary. The Phase-3 `"neural"` source this module
+explicitly plans for has no such ordering, and a neural/dictionary pair one point apart is a close
+call rather than an artifact. **Re-derive this when that source lands; do not inherit it.**
+
+### Scope, stated plainly
+
+This is a dictionary-path feature.
+
+```
+bench/results.json, disambiguation.sdu21.abstention_curve
+  instances_with_a_margin_pct                                        100.0   (dictionary path)
+  default_path_margin_defined_pct                                     0.02   (1 of 6,189)
+  default_path_derived_dictionary_candidates_not_already_inline          0
+```
+
+The audit's "the engine already computes a top1-top2 margin and discards it" is true of the path a
+caller reaches by supplying a dictionary, and effectively vacuous on the path the README's
+no-dictionary example takes. That correction came from D-029's re-derivation and is what descoped the
+weighted-dictionary work this feature was supposed to arrive alongside.
+
+### How it fails
+
+**One corpus, one domain, one tuning split, and no second corpus exists for this task.** SDU-21 AD
+`test.json` is R3-locked, so the only corroboration offered is the split-half check above, and a
+4.3-point spread from resampling is the scale at which any threshold choice here should be trusted.
+The reference gate is itself read off the split it is scored on — a defensible construction and still
+a tuning-split observation. Nothing in `src/` reads it.
+
+Two computed fields are now in the wire payload, so `model_dump()` / `to_dict()` / `to_json()` carry
+them and a consumer round-tripping `DisambiguationResult(**result.to_dict())` will fail on extra
+fields, exactly as it already does for `AcronymCandidate.length`. `DisambiguationResult` is not in
+`schemas/acronym-engine-result.schema.json` and the governed contract and golden fixtures are
+untouched, so R8 does not bite. `abstained` is inferred rather than recorded — nothing the library
+produces can have that shape without having abstained, but a caller hand-constructing a result with
+candidates and no primary will read as having abstained when they did not.
+
+`AcronymEngine.disambiguate` has no gate: `min_margin` lives only on `LexicalDisambiguator`, and the
+facade is the path the README advertises. The clean fix is a `Config` field, which would propagate
+through `AcronymEngine(config)` with no signature change at all. Worth its own D-number and one line
+in each of two files.
+
+`disambiguation.sdu21.diagnosis.abstention` is left in place with its pre-exemption figures because
+the audit cites it. Its rows differ slightly from this run — it gates on the raw margin where the
+shipped gate exempts different-source pairs — and two runs measuring nearly-but-not-quite the same
+thing is exactly the re-quote hazard `tools/check_claims.py` exists to catch. Someone should decide
+whether to retire the old id.
+
+---
+
+## D-029 — Nobody passes a dictionary to `disambiguate`, because nobody uses the package yet
+
+**Status:** accepted; descopes the weighted-dictionary work · **Evidence:** live public signals
+re-verified for this record on 2026-08-23 (below), plus
+`disambiguation.sdu21.abstention_curve.default_path_*` in `bench/results.json`
+
+Three workstreams were about to spend effort on backward compatibility, on a default blend, and on
+the last unspent held-out split, all on behalf of users. The question nobody had asked was whether
+there are any.
+
+### What is checkable, and was re-checked for this record rather than inherited
+
+```
+un-gated -- GitHub REST API, api.github.com/repos/pierce-lonergan/AcronymKit, read 2026-08-23
+  stargazers_count   0     forks_count     0     subscribers_count  0     network_count  0
+  open_issues_count  6     -- and all 7 issues/PRs ever opened, state=all, are dependabot[bot]
+                              dependency bumps. Zero human-filed issues, zero human PRs.
+  created_at 2026-08-09     first PyPI release 0.3.0, the only release
+```
+
+The repository is two weeks old and has no human outside its author in its history. That much is
+first-hand.
+
+### What the workstream reported and this record could not re-derive
+
+```
+reported by W1, NOT reproduced here -- the traffic and download endpoints need
+credentials this recorder does not hold
+  GitHub dependents                                     0
+  external code-search hits                             0
+  PyPI downloads                                      156, of which ~27 carry a real interpreter signature
+  repository "clones"                                1,338, at 6.5-7.0 per workflow run -- i.e. this project's own CI
+```
+
+The clone figure is the interesting one and it is the shape of the whole finding: a number that reads
+as adoption and decomposes into the project measuring itself.
+
+### The consequence that changed other people's work
+
+The abstention curve is a **dictionary-path** measurement, and the default path almost never has two
+candidates to put a margin between. That is now gated:
+
+```
+bench/results.json, disambiguation.sdu21.abstention_curve
+  instances_with_a_margin_pct                                     100.0    dictionary supplied
+  default_path_margin_defined_pct                                  0.02    1 of 6,189
+  default_path_derived_dictionary_candidates_not_already_inline       0
+```
+
+W1 reports the same shape at a larger scale — 56,223 instances across both splits, every candidate
+the default path produced carrying `source == "inline"`, not one from a dictionary — but that sweep
+went through no runner, so the gated figures above are the ones to cite. So "abstention ships today
+and is free"
+survives only as *the field is free*, and the audit's headline gate accuracy is the shipped blend
+**with** `diction.json` supplied. The weighted-dictionary work is descoped on the strength of this:
+no default blend shipped, and SDU-21 AD `test.json` stays unspent under R3.
+
+It also removes the compatibility argument from three decisions at once — there is nobody to break —
+without removing the epistemic ones. D-030 keeps its gate off by default anyway, and says why.
+
+### How this finding fails, which matters more than the finding
+
+**No public instrument can distinguish a caller who passes a dictionary from one who does not.** The
+`default_path_*` figures above are a fact about a benchmark corpus and about what the library's own
+code paths can produce; they are not observations of anybody's usage. The inference from "the default
+path cannot form a margin" to "callers are not getting abstention" is sound; the inference from
+"downloads are mostly CI" to "nobody has a private deployment" is not available to any instrument.
+
+**Private use leaves no trace.** A vendored copy, an internal mirror, a corporate index, an air-gapped
+install — the package is explicitly designed to work in the last of those — produce zero public
+signal by construction. Absence of evidence is the only kind of evidence this finding has.
+
+**It decays, and fast.** Every number above is a reading of a live counter on one day of a two-week-
+old project. A single downstream adopter inverts the conclusion, and nothing in this repository will
+notice. **Anything that cites this record as a reason not to preserve compatibility must re-run the
+checks first.** The block at the top of this entry is the re-runnable half; the block below it is
+not, and needs credentials.
+
+**One thing it is not.** "No users" is not "no obligation". It is the removal of one specific
+argument — that a change would break somebody — from decisions that mostly turn on other things.
+
+---
+
 ## D-028 — The JVM can now host this library directly. Measured, that is still the worse route.
 
 **Status:** spike; not adopted. `governed-batch` remains the supported JVM route · **Evidence:**

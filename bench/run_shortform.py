@@ -7,7 +7,7 @@ which *short form* is admitted in the first place -- and re-derives the
 selection-ceiling statistic that D-012 used to close the long-form line of
 attack.
 
-Four measurements, each independently selectable:
+Six measurements, each independently selectable:
 
 ``--attribute``
     Every acronymkit miss on MED1250, attributed with the extractor's own
@@ -25,11 +25,34 @@ Four measurements, each independently selectable:
     ``match(..., start=0)`` so a longer span is a genuinely different claim.
 
 ``--variants``
-    Two short-form-span defects, measured alone and together, on the frozen
-    dev/test halves and on the whole corpus, across all three extraction
-    profiles. Both are bugs rather than knobs: ``_trim_span`` strips a balanced
-    closing bracket off ``FEV(1)``, and ``_short_form_in`` never offers a
-    two-word short form when the first word alone is admissible.
+    Three candidate fixes, measured alone (and the first two also together), on
+    the frozen dev/test halves and on the whole corpus, across all three
+    extraction profiles. Two are short-form-span bugs rather than knobs:
+    ``_trim_span`` strips a balanced closing bracket off ``FEV(1)``, and
+    ``_short_form_in`` never offers a two-word short form when the first word
+    alone is admissible. The third is a long-form admission rule: reject a long
+    form whose first word is a function word, because
+    ``find_best_long_form`` returns a suffix starting at the word that supplied
+    the short form's first character, so ``OMB -> of Management and Budget`` is
+    a parse in which the ``O`` came from ``of``.
+
+    ``both`` stays in the table on purpose. The two span fixes were first
+    measured together, they look like one change, and R6 exists because they are
+    not: one is free everywhere and one is a trade.
+
+``--spans``
+    The same variants on the two corpora that annotate spans without pairing
+    them -- PLOD-CW (dev and test) and SDU@AAAI-22 AE (legal and scientific
+    dev) -- scored the way each corpus's own task is scored, short forms and
+    long forms separately, with no derived pairing anywhere. MED1250 is a
+    declared tuning split, so it cannot answer whether a fix generalises; this
+    can, for PLOD.
+
+    Every table prints the corpus's structure above its scores, because a
+    neutral result only means something on a corpus capable of showing the
+    phenomenon (R9.5) and a recall figure only means something beside its
+    ceiling (R9.6). SDU-22 AE dev is registered ``tuning`` and contaminated --
+    see ``bench/splits.toml`` -- so its rows are tuning rows.
 
 ``--relaxations``
     A rejected relaxation, recorded because it loses: treating a digit in the
@@ -48,6 +71,7 @@ records the corpus as contaminated and there is still no held-out pair corpus.
 Usage::
 
     python bench/run_shortform.py --ceiling --variants --save
+    python bench/run_shortform.py --variants --spans --save
     python bench/run_shortform.py --attribute --interpreter C:/akbench/Scripts/python.exe
     python bench/run_shortform.py --gates C:/akbench/Lib/site-packages/word_data
 """
@@ -71,7 +95,12 @@ from acronymkit._pseudo_precision import (  # noqa: E402
     harvest_candidates,
     short_form_group,
 )
-from acronymkit._strategies import STRATEGIES, match, split_long_form  # noqa: E402
+from acronymkit._strategies import (  # noqa: E402
+    SKIPPABLE,
+    STRATEGIES,
+    match,
+    split_long_form,
+)
 from acronymkit.config import Config  # noqa: E402
 from acronymkit.extractor import (  # noqa: E402
     AbbreviationExtractor,
@@ -79,7 +108,7 @@ from acronymkit.extractor import (  # noqa: E402
     is_valid_long_form,
     is_valid_short_form,
 )
-from bench import corpora, scoring  # noqa: E402
+from bench import corpora, run_spans, scoring  # noqa: E402
 from bench.run_cascade import split_corpus  # noqa: E402
 from bench.run_extraction import (  # noqa: E402
     dedupe_per_document,
@@ -122,21 +151,74 @@ _CLOSERS = {closer: opener for opener, closer in _OPENERS.items()}
 
 
 # ---------------------------------------------------------------------------
-# the two candidate short-form-span fixes, as patches rather than edits
+# the candidate fixes, as patches rather than edits
 # ---------------------------------------------------------------------------
+# THE "OFF" SIDE OF EACH SWITCH IS SPELLED OUT HERE RATHER THAN CAPTURED FROM
+# THE LIBRARY, for the same reason ``_PROFILES`` above is: a variant table is a
+# statement about a *delta*, and a delta measured against "whatever the library
+# does today" stops being reproducible the moment one of these ships. Capture
+# the installed implementation and the day ``balanced_trim`` lands in
+# ``extractor.py`` this runner starts reporting ``baseline == balanced_trim ==
+# 0.00`` difference and calls it a null result. So the pre-fix behaviour is
+# frozen in this file and the runner installs one side or the other explicitly.
+#
+# ``_ORIGINAL_*`` is still captured, but only to restore the process to the
+# shipped extractor when the runner is done with it.
 _ORIGINAL_TRIM = extractor_module._trim_span
 _ORIGINAL_PAIR_FOR_REGION = AbbreviationExtractor._pair_for_region
+_ORIGINAL_IS_VALID_LONG_FORM = extractor_module.is_valid_long_form
 
 
-def _unmatched_openers(text: str) -> list[str]:
-    """Opening brackets in ``text`` that nothing closes."""
-    stack: list[str] = []
-    for character in text:
-        if character in _OPENERS:
-            stack.append(character)
-        elif character in _CLOSERS and stack and _OPENERS[stack[-1]] == character:
-            stack.pop()
-    return stack
+def trim_span_unbalanced(
+    text: str, start: int, end: int, *, limit: int = extractor_module._MAX_TRIM
+) -> tuple[int, int]:
+    """``_trim_span`` as it stood before the balanced-bracket fix.
+
+    Transcribed rather than imported. This is the "off" side of the
+    ``balanced_trim`` switch and it must keep meaning what it meant when the
+    variant table was recorded, whatever ``acronymkit.extractor`` does later.
+    """
+    budget = limit
+    while start < end and budget > 0 and not text[start].isalnum():
+        start += 1
+        budget -= 1
+    budget = limit
+    while end > start and budget > 0 and not text[end - 1].isalnum():
+        end -= 1
+        budget -= 1
+    return start, end
+
+
+#: How far back from the right edge the balance scan looks. Matches
+#: ``acronymkit.extractor._MAX_BALANCE_SCAN``; spelled out here for the same
+#: reason the pre-fix trim is.
+_MAX_BALANCE_SCAN = 32
+
+
+def _orphaned_openers(text: str, start: int, end: int) -> list[str]:
+    """Opening brackets near the right edge of ``[start, end)`` that nothing closes.
+
+    Right-to-left, bounded. An unbounded scan over the kept span would make
+    ``_trim_span`` cost time proportional to the bracketed region it is handed,
+    which on a whole-paragraph parenthetical is exactly the quadratic behaviour
+    ``_MAX_TRIM`` exists to prevent.
+    """
+    pending: list[str] = []
+    orphans: list[str] = []
+    cursor = end
+    budget = _MAX_BALANCE_SCAN
+    while cursor > start and budget > 0:
+        cursor -= 1
+        budget -= 1
+        character = text[cursor]
+        if character in _CLOSERS:
+            pending.append(character)
+        elif character in _OPENERS:
+            if pending and _OPENERS[character] == pending[-1]:
+                pending.pop()
+            else:
+                orphans.append(character)
+    return orphans
 
 
 def trim_span_balanced(
@@ -147,19 +229,24 @@ def trim_span_balanced(
     ``_trim_span`` strips trailing non-alphanumerics unconditionally, so the
     bracketed region ``FEV(1)`` yields the short form ``FEV(1`` -- an unmatched
     opener that can never equal any annotation. The right edge is put back
-    exactly far enough to close what the trim opened.
+    exactly far enough to close what the trim opened, all-or-nothing.
+
+    This is the "on" side of the switch, and it is the algorithm that shipped
+    rather than a looser sketch of it -- otherwise the recorded delta would
+    describe code nobody runs.
     """
-    trimmed_start, trimmed_end = _ORIGINAL_TRIM(text, start, end, limit=limit)
-    stack = _unmatched_openers(text[trimmed_start:trimmed_end])
-    if not stack:
+    trimmed_start, trimmed_end = trim_span_unbalanced(text, start, end, limit=limit)
+    if trimmed_end >= end or text[trimmed_end] not in _CLOSERS:
+        return trimmed_start, trimmed_end
+    orphans = _orphaned_openers(text, trimmed_start, trimmed_end)
+    if not orphans:
         return trimmed_start, trimmed_end
     cursor = trimmed_end
-    while stack and cursor < end and text[cursor] in _CLOSERS:
-        if _OPENERS[stack[-1]] != text[cursor]:
-            break
-        stack.pop()
+    for opener in orphans:
+        if cursor >= end or text[cursor] != _OPENERS[opener]:
+            return trimmed_start, trimmed_end
         cursor += 1
-    return (trimmed_start, cursor) if not stack else (trimmed_start, trimmed_end)
+    return trimmed_start, cursor
 
 
 def pair_for_region_two_word(
@@ -201,12 +288,67 @@ def pair_for_region_two_word(
     return pair if pair is not None else first
 
 
-def _install(*, balanced_trim: bool, two_word: bool) -> None:
-    """Patch the two candidate fixes in or out, in place."""
-    extractor_module._trim_span = trim_span_balanced if balanced_trim else _ORIGINAL_TRIM
+def long_form_valid_permissive(short_form: str, long_form: str) -> bool:
+    """``is_valid_long_form`` as it stood before the function-word rule.
+
+    The "off" side of the ``function_word`` switch, transcribed for the same
+    reason :func:`trim_span_unbalanced` is.
+    """
+    short = short_form.strip()
+    expansion = long_form.strip()
+    if not short or not expansion:
+        return False
+    if len(expansion) <= len(short):
+        return False
+    if extractor_module._alnum_count(expansion) < extractor_module._alnum_count(short):
+        return False
+    if len(extractor_module._split_words(expansion)) > len(short) + 5:
+        return False
+    return not extractor_module._contains_standalone(expansion, short)
+
+
+def leads_with_function_word(long_form: str) -> bool:
+    """Does ``long_form``'s first word belong to :data:`SKIPPABLE`?
+
+    ``find_best_long_form`` returns a suffix beginning at the word that supplied
+    the short form's *first* character, so a long form that starts with ``of``
+    is a parse in which the ``O`` of ``OMB`` was taken from ``of``. The set is
+    ``acronymkit._strategies.SKIPPABLE`` -- the project's own list of words a
+    coiner omits -- rather than one invented here, because a rejection set
+    chosen after seeing the corpus is a tuned parameter wearing a rule's
+    clothes.
+    """
+    words = long_form.split()
+    return bool(words) and words[0].strip(".,;:").lower() in SKIPPABLE
+
+
+def long_form_valid_strict(short_form: str, long_form: str) -> bool:
+    """``is_valid_long_form`` plus the leading-function-word rejection (W6)."""
+    if not long_form_valid_permissive(short_form, long_form):
+        return False
+    return not leads_with_function_word(long_form)
+
+
+def _install(*, balanced_trim: bool, two_word: bool, function_word: bool = False) -> None:
+    """Patch the candidate fixes in or out, in place.
+
+    Both sides of every switch are this module's own functions, so a cell of the
+    variant table means the same thing before and after any of them ships.
+    """
+    extractor_module._trim_span = trim_span_balanced if balanced_trim else trim_span_unbalanced
     AbbreviationExtractor._pair_for_region = (
         pair_for_region_two_word if two_word else _ORIGINAL_PAIR_FOR_REGION
     )
+    extractor_module.is_valid_long_form = (
+        long_form_valid_strict if function_word else long_form_valid_permissive
+    )
+
+
+def _restore() -> None:
+    """Put the shipped extractor back, so nothing downstream inherits a patch."""
+    extractor_module._trim_span = _ORIGINAL_TRIM
+    AbbreviationExtractor._pair_for_region = _ORIGINAL_PAIR_FOR_REGION
+    extractor_module.is_valid_long_form = _ORIGINAL_IS_VALID_LONG_FORM
 
 
 # ---------------------------------------------------------------------------
@@ -509,24 +651,29 @@ def ceiling(documents: Sequence, table) -> dict:
 # ---------------------------------------------------------------------------
 # 3. variants
 # ---------------------------------------------------------------------------
+#: ``(name, balanced_trim, two_word, function_word)``. ``both`` is kept because
+#: it is the R6 counterexample this table exists to make visible: the two
+#: short-form-span fixes were first measured together, they look like one
+#: change, and they are not -- one is free everywhere and one is a trade.
 _VARIANTS = (
-    ("baseline", False, False),
-    ("balanced_trim", True, False),
-    ("two_word", False, True),
-    ("both", True, True),
+    ("baseline", False, False, False),
+    ("balanced_trim", True, False, False),
+    ("two_word", False, True, False),
+    ("both", True, True, False),
+    ("function_word", False, False, True),
 )
 
 
 def variants(documents: Sequence) -> dict:
-    """Score the two short-form-span fixes across profiles and splits."""
+    """Score the candidate fixes across profiles and splits, on MED1250 pairs."""
     dev, test = split_corpus(documents)
     splits = (("dev", dev), ("test", test), ("all", documents))
     recorded: dict = {}
     print(f"\n{'profile':<16} {'variant':<14} {'split':<5} {'P %':>7} {'R %':>7} {'F1 %':>7}")
     print("-" * 62)
     for profile, settings in _PROFILES.items():
-        for name, balanced, two_word in _VARIANTS:
-            _install(balanced_trim=balanced, two_word=two_word)
+        for name, balanced, two_word, function_word in _VARIANTS:
+            _install(balanced_trim=balanced, two_word=two_word, function_word=function_word)
             for split_name, subset in splits:
                 evaluation = scoring.evaluate(
                     subset,
@@ -547,6 +694,7 @@ def variants(documents: Sequence) -> dict:
                     "variant": name,
                     "balanced_trim": balanced,
                     "two_word_short_form": two_word,
+                    "reject_leading_function_word": function_word,
                     "exact_precision": round(score.precision * 100, 2),
                     "exact_recall": round(score.recall * 100, 2),
                     "exact_f1": round(score.f1 * 100, 2),
@@ -554,7 +702,419 @@ def variants(documents: Sequence) -> dict:
                     "exact_false_positives": score.false_positives,
                     "exact_false_negatives": score.false_negatives,
                 }
-    _install(balanced_trim=False, two_word=False)
+    _restore()
+    recorded["shortform.med1250_all.function_word_exposure"] = function_word_exposure(documents)
+    return recorded
+
+
+def function_word_exposure(documents: Sequence) -> dict:
+    """What the leading-function-word rule removes on MED1250, and what it caps.
+
+    Two counts, and the second is the point. The rule deletes predictions whose
+    long form begins with a function word; it also makes a whole class of gold
+    long form permanently unreachable, and that cost is invisible today only
+    because the extractor reaches none of them. Counting the gold side here --
+    and asserting it in ``tests/test_extractor.py`` -- is what turns a future
+    recall improvement into a measured cost rather than a silent one.
+
+    The rule does **not** recover the right answer. ``OHCHR -> of the United
+    Nations High Commissioner for Human Rights`` is wrong because the span
+    should start at ``Office``, which is to the *left* of ``of``; reaching it
+    means choosing a different long-form starting boundary, which is exactly
+    what D-008 built, measured and reverted.
+    """
+    _restore()
+    predictions = dedupe_per_document(predict_acronymkit(documents))
+    predicted = 0
+    predicted_leading = 0
+    predicted_leading_correct = 0
+    for document in documents:
+        gold = {
+            (scoring.normalise_exact(pair.short_form), scoring.normalise_relaxed(pair.long_form))
+            for pair in document.pairs
+        }
+        for short_form, long_form in predictions.get(document.uid, []):
+            predicted += 1
+            if not leads_with_function_word(long_form):
+                continue
+            predicted_leading += 1
+            key = (scoring.normalise_exact(short_form), scoring.normalise_relaxed(long_form))
+            predicted_leading_correct += key in gold
+    gold_pairs = sum(len(document.pairs) for document in documents)
+    gold_leading = sum(
+        leads_with_function_word(pair.long_form)
+        for document in documents
+        for pair in document.pairs
+    )
+    print(
+        f"\nMED1250 leading-function-word exposure: {predicted_leading} of {predicted} "
+        f"predictions ({predicted_leading_correct} of them correct); "
+        f"{gold_leading} of {gold_pairs} gold long forms are capped by the rule"
+    )
+    return {
+        "corpus": "med1250",
+        "split": "all (tuning)",
+        "rule": "reject a long form whose first word is in _strategies.SKIPPABLE",
+        "function_words": sorted(SKIPPABLE),
+        "predicted_pairs": predicted,
+        "predicted_leading_function_word": predicted_leading,
+        "predicted_leading_function_word_correct": predicted_leading_correct,
+        "gold_pairs": gold_pairs,
+        "gold_leading_function_word": gold_leading,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 3b. the same fixes, on the two span-detection corpora
+# ---------------------------------------------------------------------------
+# MED1250 is a declared tuning split, so a variant table measured only there
+# cannot say whether a fix generalises -- and R6 wants every component measured
+# on at least two corpora before it ships. These are the two corpora that can be
+# scored without inventing any part of the gold standard: both annotate spans
+# and neither pairs them, so short forms and long forms are scored separately,
+# exactly as each corpus's own scorer does. No pairing is derived anywhere.
+#
+# READ THE STRUCTURE TABLE BEFORE THE SCORE TABLE. A neutral result is only
+# evidence of neutrality on a corpus capable of showing the phenomenon, and
+# PLOD is not: it has no multi-token gold short form for ``two_word`` to get
+# right and almost no bracketed one for ``balanced_trim`` to reach. The
+# structure counts are printed above the scores so the two cannot be read apart.
+_SPAN_LABELS = ("short_form", "long_form")
+_SPAN_CONVENTIONS = ("exact", "overlap")
+
+
+def _char_span_set(span: tuple[int, int]) -> frozenset:
+    """One half-open character span as the set of offsets it covers."""
+    return frozenset(range(span[0], span[1]))
+
+
+def _engine_pairs(text: str, settings: dict) -> list:
+    """Whatever the engine currently installed reports for ``text``."""
+    from acronymkit import AcronymEngine
+
+    return AcronymEngine(Config(**settings)).extract_definitions(text)  # type: ignore[arg-type]
+
+
+def _engine_spans(text: str, settings: dict) -> dict[str, tuple[frozenset, ...]]:
+    """Run the shipped engine over ``text`` and keep its own character offsets.
+
+    No localiser: this corpus is real prose with real offsets, so the spans the
+    extractor reports can be compared to the annotation directly. That is a
+    privilege ``bench/run_spans.py`` deliberately denies itself on PLOD, where
+    external baselines have to have their spans string-searched; here there is
+    no external baseline in the table, so there is nothing to flatter.
+    """
+    shorts: list[frozenset] = []
+    longs: list[frozenset] = []
+    for pair in _engine_pairs(text, settings):
+        shorts.append(_char_span_set(pair.short_form_span))
+        longs.append(_char_span_set(pair.long_form_span))
+    return {"short_form": run_spans._distinct(shorts), "long_form": run_spans._distinct(longs)}
+
+
+def _tally(gold: dict, predicted: dict) -> dict[str, list[int]]:
+    """``(true positives, false positives, false negatives)`` for one document.
+
+    Matching is ``bench/run_spans.match`` rather than a second implementation of
+    it, so ``exact`` and ``overlap`` mean here exactly what they mean on PLOD --
+    including the one-to-one claim that stops a single sprawling prediction
+    scoring against every gold span it touches.
+    """
+    counts: dict[str, list[int]] = {}
+    for label in _SPAN_LABELS:
+        for convention in _SPAN_CONVENTIONS:
+            claimed = run_spans.match(gold[label], predicted[label], convention)
+            counts[f"{label}.{convention}"] = [
+                len(claimed),
+                len(predicted[label]) - len(claimed),
+                len(gold[label]) - len(claimed),
+            ]
+    return counts
+
+
+def _score_char_spans(documents: Sequence, settings: dict) -> dict:
+    """Score the engine's own character offsets against a char-span corpus."""
+    totals = {f"{label}.{c}": [0, 0, 0] for label in _SPAN_LABELS for c in _SPAN_CONVENTIONS}
+    for document in documents:
+        gold = {
+            "short_form": [_char_span_set(s) for s in document.short_form_spans],
+            "long_form": [_char_span_set(s) for s in document.long_form_spans],
+        }
+        counts = _tally(gold, _engine_spans(document.text, settings))
+        for key, values in counts.items():
+            for index in range(3):
+                totals[key][index] += values[index]
+    return {
+        key: run_spans.SpanScore(key.split(".")[0], key.split(".")[1], *values)
+        for key, values in totals.items()
+    }
+
+
+def _score_token_spans(documents: Sequence, settings: dict, style: str) -> dict:
+    """Score the engine's own offsets against PLOD, mapped into token space."""
+    predictions, _ = run_spans.predict_acronymkit_native(documents, style, **settings)
+    scores, _ = run_spans.score(documents, predictions)
+    return scores
+
+
+def plod_structure(documents: Sequence) -> dict:
+    """Is PLOD structurally capable of showing either short-form-span defect?
+
+    ``two_word`` can only change an answer where a gold short form spans more
+    than one token; ``balanced_trim`` can only change one where a gold short
+    form carries a bracket character. Both counts are near zero here, so a
+    neutral PLOD row is a statement about this corpus's annotation and not about
+    the fix. R9.5, and the reason it is printed in the same table as the score.
+    """
+    statistics = dict(run_spans.corpus_statistics(documents))
+    multi_token = 0
+    bracketed = 0
+    for document in documents:
+        for start, end in document.short_form_spans:
+            multi_token += end - start > 1
+            surface = " ".join(document.tokens[start:end])
+            bracketed += any(character in surface for character in "()[]{}")
+    total = statistics["short_form_spans"]
+    statistics.update(
+        {
+            "gold_short_form_spans_multi_token": multi_token,
+            "gold_short_form_spans_multi_token_pct": round(100 * multi_token / max(total, 1), 2),
+            "gold_short_form_spans_with_bracket": bracketed,
+            "gold_short_form_spans_with_bracket_pct": round(100 * bracketed / max(total, 1), 2),
+        }
+    )
+    return statistics
+
+
+def sdu22_structure(documents: Sequence) -> dict:
+    """The SDU-22 recall ceiling, recomputed, plus the same two capability counts."""
+    statistics = dict(corpora.sdu22_ae_recall_ceiling(documents))
+    multi_token = 0
+    bracketed = 0
+    for document in documents:
+        for surface in document.short_forms():
+            multi_token += len(surface.split()) > 1
+            bracketed += any(character in surface for character in "()[]{}")
+    total = statistics["gold_short_form_spans"]
+    statistics.update(
+        {
+            "documents": len(documents),
+            "gold_short_form_spans_multi_token": multi_token,
+            "gold_short_form_spans_multi_token_pct": round(100 * multi_token / max(total, 1), 2),
+            "gold_short_form_spans_with_bracket": bracketed,
+            "gold_short_form_spans_with_bracket_pct": round(100 * bracketed / max(total, 1), 2),
+        }
+    )
+    return statistics
+
+
+def sdu22_function_word_exposure(documents: Sequence, domain: str, settings: dict) -> dict:
+    """Every SDU-22 prediction the function-word rule would delete, and its fate.
+
+    The MED1250 exposure count says the rule removes three wrong answers and no
+    right ones. That is a statement about one tuning corpus in one domain, and
+    it does not survive being asked again somewhere else. Here it is asked
+    again, on institutional and on scientific prose, and the answer is
+    different -- which is the whole reason R6 wants two corpora.
+
+    The asymmetry is structural rather than incidental. acronymkit emits
+    *pairs*, so a rule that rejects a long form deletes the short form standing
+    beside it. On a corpus that scores short forms and long forms separately,
+    every long-form false positive this removes costs a short-form true positive
+    at the same time.
+    """
+    _restore()
+    rows: list[dict] = []
+    short_form_correct = 0
+    long_form_correct = 0
+    predicted = 0
+    for document in documents:
+        gold_short = set(document.short_form_spans)
+        gold_long = set(document.long_form_spans)
+        spans = _engine_spans(document.text, settings)
+        predicted += len(spans["short_form"])
+        for pair in _engine_pairs(document.text, settings):
+            if not leads_with_function_word(pair.long_form):
+                continue
+            short_hit = pair.short_form_span in gold_short
+            long_hit = pair.long_form_span in gold_long
+            short_form_correct += short_hit
+            long_form_correct += long_hit
+            rows.append(
+                {
+                    "sample": document.uid,
+                    "short_form": pair.short_form,
+                    "long_form": pair.long_form,
+                    "short_form_span_correct": short_hit,
+                    "long_form_span_correct": long_hit,
+                }
+            )
+    print(
+        f"\nSDU-22 {domain} dev: {len(rows)} of {predicted} predictions lead with a function "
+        f"word; {short_form_correct} carry a correct short-form span and "
+        f"{long_form_correct} a correct long-form span -- all of which the rule deletes"
+    )
+    for row in rows:
+        print(
+            f"    [{row['sample']}] {row['short_form']!r} -> {row['long_form']!r}  "
+            f"SF {'hit' if row['short_form_span_correct'] else 'miss'}, "
+            f"LF {'hit' if row['long_form_span_correct'] else 'miss'}"
+        )
+    return {
+        "corpus": f"sdu22_ae_{domain}",
+        "split": "dev (tuning, contaminated)",
+        "rule": "reject a long form whose first word is in _strategies.SKIPPABLE",
+        "predicted_short_form_spans": predicted,
+        "predicted_leading_function_word": len(rows),
+        "predicted_leading_function_word_short_form_correct": short_form_correct,
+        "predicted_leading_function_word_long_form_correct": long_form_correct,
+        "cases": rows,
+    }
+
+
+def span_variants(profile: str = "high_precision") -> dict:
+    """Score every variant on PLOD and SDU@AAAI-22 AE, decomposed by corpus.
+
+    One profile, because the axis under test here is the fix rather than the
+    admission gate, and ``high_precision`` is what ``Config()`` gives a caller
+    who chooses nothing. The MED1250 table above sweeps all three.
+
+    PLOD is scored on ``dev``, ``test`` **and** the pooled corpus, under both
+    detokenisation styles, for a reason that decides one of these fixes: the
+    two halves hold 263 and 270 gold short-form spans, so a delta of a fifth of
+    a percentage point is one span and neither half can resolve it. The pooled
+    split holds 2,869. Reporting only the halves would print "neutral" for an
+    effect the corpus can in fact see, and reporting only the pooled split would
+    hide whether it decomposes. Both styles, because
+    ``bench/run_spans.py`` already established that choosing one puts an
+    arbitrary decision inside a number -- and the two disagree here.
+
+    Args:
+        profile: Key into :data:`_PROFILES`.
+
+    Returns:
+        ``{run_id: record}`` for :func:`save_results`.
+    """
+    settings = _PROFILES[profile]
+    styles = tuple(corpora.DETOKENISE_STYLES)
+    recorded: dict = {}
+
+    plod = {split: corpora.read_plod_cw(split=split) for split in ("dev", "test", "all")}
+    sdu22 = {
+        domain: corpora.read_sdu22_ae(domain=domain, split="dev")
+        for domain in ("legal", "scientific")
+    }
+
+    print("\ncorpus structure -- read this before the scores below")
+    print(
+        f"{'corpus':<28} {'docs':>6} {'gold SF':>8} {'gold LF':>8} "
+        f"{'multi-tok SF':>13} {'bracketed SF':>13} {'SF recall ceiling':>18}"
+    )
+    print("-" * 100)
+    for split, documents in plod.items():
+        statistics = plod_structure(documents)
+        recorded[f"shortform.plod_{split}.corpus"] = {
+            "corpus": f"plod_cw_{split}",
+            "split": f"{split} (held_out, span detection)",
+            **statistics,
+        }
+        print(
+            f"{'plod_cw_' + split:<28} {statistics['documents']:>6} "
+            f"{statistics['short_form_spans']:>8} {statistics['long_form_spans']:>8} "
+            f"{statistics['gold_short_form_spans_multi_token_pct']:>12.2f}% "
+            f"{statistics['gold_short_form_spans_with_bracket_pct']:>12.2f}% "
+            f"{statistics['short_form_spans_bracket_adjacent_pct']:>17.2f}%"
+        )
+    for domain, documents in sdu22.items():
+        statistics = sdu22_structure(documents)
+        recorded[f"shortform.sdu22_ae_{domain}_dev.corpus"] = {
+            "corpus": f"sdu22_ae_{domain}",
+            "split": "dev (tuning, contaminated)",
+            **statistics,
+        }
+        print(
+            f"{'sdu22_ae_' + domain + '_dev':<28} {statistics['documents']:>6} "
+            f"{statistics['gold_short_form_spans']:>8} "
+            f"{statistics['gold_long_form_spans']:>8} "
+            f"{statistics['gold_short_form_spans_multi_token_pct']:>12.2f}% "
+            f"{statistics['gold_short_form_spans_with_bracket_pct']:>12.2f}% "
+            f"{statistics['ceiling_pct']:>17.2f}%"
+        )
+    print(
+        "\nSF recall ceiling: for PLOD, the share of gold short forms standing in one of the\n"
+        "two parenthetical arrangements; for SDU-22, gold long forms / gold short forms.\n"
+        "Neither is a bound -- see bench/splits.toml, shortform_recall_ceiling_basis -- and\n"
+        "every point above the SDU-22 figure is bought in long-form precision."
+    )
+
+    header = (
+        f"\n{'corpus / detokenisation':<30} {'variant':<14} {'label':<11} "
+        f"{'exP':>6} {'exR':>6} {'exF1':>6} | {'ovP':>6} {'ovR':>6} {'ovF1':>6}"
+    )
+    print(header)
+    print("-" * (len(header) - 1))
+    for name, balanced, two_word, function_word in _VARIANTS:
+        _install(balanced_trim=balanced, two_word=two_word, function_word=function_word)
+        rows: list[tuple[str, str, dict, int, dict]] = []
+        for split, documents in plod.items():
+            for style in styles:
+                rows.append(
+                    (
+                        f"plod_cw_{split}",
+                        f"shortform.plod_{split}.{style}.{profile}.{name}",
+                        _score_token_spans(documents, settings, style),
+                        len(documents),
+                        {
+                            "split": f"{split} (held_out, span detection)",
+                            "detokenisation": style,
+                            "scorer": "PLOD token-index spans, per label",
+                        },
+                    )
+                )
+        for domain, documents in sdu22.items():
+            rows.append(
+                (
+                    f"sdu22_ae_{domain}_dev",
+                    f"shortform.sdu22_ae_{domain}_dev.{profile}.{name}",
+                    _score_char_spans(documents, settings),
+                    len(documents),
+                    {
+                        "split": "dev (tuning, contaminated)",
+                        "scorer": "SDU-22 AE phrase-level char spans, per label",
+                    },
+                )
+            )
+        for corpus_name, run_id, scores, count, extra in rows:
+            recorded[run_id] = run_spans.entry(
+                scores,
+                corpus=corpus_name,
+                system="acronymkit",
+                profile=profile,
+                variant=name,
+                balanced_trim=balanced,
+                two_word_short_form=two_word,
+                reject_leading_function_word=function_word,
+                span_source="native offsets",
+                documents=count,
+                **extra,
+            )
+            label_for_row = f"{corpus_name}/{extra.get('detokenisation', 'char')}"
+            for index, label in enumerate(_SPAN_LABELS):
+                exact = scores[f"{label}.exact"]
+                overlap = scores[f"{label}.overlap"]
+                print(
+                    f"{label_for_row if index == 0 else '':<30} "
+                    f"{name if index == 0 else '':<14} {label:<11} "
+                    f"{exact.precision * 100:6.2f} {exact.recall * 100:6.2f} "
+                    f"{exact.f1 * 100:6.2f} | "
+                    f"{overlap.precision * 100:6.2f} {overlap.recall * 100:6.2f} "
+                    f"{overlap.f1 * 100:6.2f}"
+                )
+    _restore()
+    for domain, documents in sdu22.items():
+        recorded[f"shortform.sdu22_ae_{domain}_dev.function_word_exposure"] = (
+            sdu22_function_word_exposure(documents, domain, settings)
+        )
     return recorded
 
 
@@ -694,7 +1254,7 @@ def gates(documents: Sequence, directory: Path) -> dict:
     )
     _install(balanced_trim=True, two_word=True)
     predictions = dedupe_per_document(predict_acronymkit(documents, **_PROFILES["biomedical"]))
-    _install(balanced_trim=False, two_word=False)
+    _restore()
 
     rows = []
     for document in documents:
@@ -839,6 +1399,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--attribute", action="store_true")
     parser.add_argument("--ceiling", action="store_true")
     parser.add_argument("--variants", action="store_true")
+    parser.add_argument(
+        "--spans",
+        action="store_true",
+        help="score every variant on PLOD and SDU@AAAI-22 AE, decomposed by corpus",
+    )
     parser.add_argument("--relaxations", action="store_true")
     parser.add_argument("--gates", type=Path, help="directory holding Lf1chSf and SingTermFreq.dat")
     parser.add_argument(
@@ -849,13 +1414,25 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--save", action="store_true")
     args = parser.parse_args(argv)
 
-    if not (args.attribute or args.ceiling or args.variants or args.relaxations or args.gates):
+    med1250_wanted = (
+        args.attribute or args.ceiling or args.variants or args.relaxations or bool(args.gates)
+    )
+    if not (med1250_wanted or args.spans):
         parser.error(
-            "choose at least one of --attribute, --ceiling, --variants, --relaxations, --gates"
+            "choose at least one of --attribute, --ceiling, --variants, --spans, "
+            "--relaxations, --gates"
         )
 
-    documents = corpora.load("med1250")
     recorded: dict = {}
+    if args.spans:
+        recorded.update(span_variants())
+    if not med1250_wanted:
+        if args.save:
+            path = save_results(recorded)
+            print(f"\nsaved {len(recorded)} run(s) to {path.relative_to(REPO_ROOT)}")
+        return 0
+
+    documents = corpora.load("med1250")
 
     if args.attribute:
         recorded["analysis.med1250.miss_attribution"] = attribute(documents, args.interpreter)

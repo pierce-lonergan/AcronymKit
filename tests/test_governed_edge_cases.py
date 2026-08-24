@@ -43,6 +43,8 @@ produced it. Nothing here describes a real organisation's naming standard.
 
 from __future__ import annotations
 
+import itertools
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -60,6 +62,7 @@ from acronymkit.governed import (
 from acronymkit.governed.tokenizer import (
     ACCOUNTED_SEPARATORS,
     IdentifierParts,
+    _scan,
     split_identifier,
     split_identifier_parts,
     strip_qualifier,
@@ -94,6 +97,11 @@ NDS = GovernedDictionary.from_mapping(
 #: two of the cases below turn on the difference between two spellings that look
 #: identical, and one of them is a combining mark with no glyph of its own.
 UNACCOUNTABLE = ["\U0001f600", "\u20ac", "\u00a9", "#", "\x00"]
+
+#: The two accounted separators whose accounting is decided per occurrence
+#: rather than by membership. Written out here so the properties below can say
+#: which characters they are talking about without importing a private name.
+BRACKETS = frozenset("[]")
 
 
 # --------------------------------------------------------------------------
@@ -214,10 +222,38 @@ def test_nothing_leaves_without_being_kept_or_reported(text: str) -> None:
 
     for character in set(text):
         seen = joined.count(character) + unaccounted.count(character)
-        if character in ACCOUNTED_SEPARATORS or character.isspace():
+        if character in BRACKETS:
+            # The two conditional members of the accounted set. An occurrence is
+            # discarded only where it is doing the quoting, so the equation holds
+            # as a bound in both directions rather than as an equality: nothing
+            # is invented, nothing that was reported was also kept, and a name
+            # with no bracket is unaffected either way.
+            assert joined.count(character) == 0, f"{character!r} survived inside a token"
+            assert 0 <= seen <= text.count(character), f"{character!r} was invented"
+        elif character in ACCOUNTED_SEPARATORS or character.isspace():
             assert seen == 0, f"accounted separator {character!r} survived the split"
         else:
             assert seen == text.count(character), f"{character!r} was lost or invented"
+
+
+@settings(max_examples=400, deadline=None)
+@given(ANY_TEXT)
+def test_a_discarded_bracket_is_always_half_of_a_pair(text: str) -> None:
+    """Quoting comes in twos, so the two brackets are discarded in equal numbers.
+
+    The rule that decides which brackets are quoting is positional, and a test
+    that re-derived it here would be the implementation written twice. This is
+    the property that holds however the rule is spelled: a bracket is dropped
+    only as one end of a matched pair, so the count of dropped ``[`` and the
+    count of dropped ``]`` are the same number — and if a future reading of the
+    rule ever drops an opener without its closer, a character has gone missing
+    for a reason nobody can point at.
+    """
+    unaccounted = split_identifier_parts(text).unaccounted
+    dropped_open = text.count("[") - unaccounted.count("[")
+    dropped_close = text.count("]") - unaccounted.count("]")
+
+    assert dropped_open == dropped_close, f"{text!r} dropped an unmatched bracket"
 
 
 @settings(max_examples=400, deadline=None)
@@ -353,6 +389,125 @@ def test_a_lower_then_upper_ordinal_suffix_is_not_one() -> None:
     assert split_identifier("1sT") == ("1", "s", "T")
     assert normalize("1sT", NDS) == "1_S_T"
     assert normalize(normalize("1sT", NDS), NDS) == "1_S_T"
+
+
+# --------------------------------------------------------------------------
+# The digit rejoin, and the join it refuses
+# --------------------------------------------------------------------------
+#: A catalog whose digit-leading rows **nest**: ``11`` sits inside ``911``, and
+#: both are rows a municipal or emergency-services standard plausibly carries.
+#: ``1MM`` is the row the rejoin pass exists for, and ``91MM`` is there so the
+#: refusal below cannot be mistaken for "long joins are refused".
+NESTED_DIGITS = GovernedDictionary.from_mapping(
+    {
+        "1MM": "One Million",
+        "91MM": "Ninety One Million",
+        "11": "Eleven",
+        "911": "Emergency",
+        "E": "East",
+        "MM": "Millimetre",
+    },
+    approved_abbreviations=["1MM", "91MM", "11", "911", "E", "MM"],
+)
+
+
+@pytest.mark.parametrize(
+    ("identifier", "phrase"),
+    [
+        ("E_1MM", "East One Million"),
+        ("E_1_MM", "East One Million"),
+        ("E_91MM", "East Ninety One Million"),
+        ("E_9_1MM", "East 9 One Million"),
+        ("E_911", "East Emergency"),
+        ("E_11", "East Eleven"),
+    ],
+    ids=[
+        "written-together",
+        "written-apart",
+        "longer-digit-run",
+        "digit-then-digit-leading",
+        "one-run",
+        "one-run-short",
+    ],
+)
+def test_the_rejoin_still_restores_a_digit_leading_token(identifier: str, phrase: str) -> None:
+    """The case the pass exists for is untouched.
+
+    ``1MM`` has exactly the shape of ``7Code`` so the splitter must cut it, and
+    the catalog is the only thing that can say it should not have been. The join
+    is still made wherever a governed row vouches for the joined form and the
+    result is a digit-leading *token* rather than a longer number.
+
+    ``E_9_1MM`` is here to pin what the pass has never done rather than what it
+    stopped doing: the join takes one following token, so reaching ``91MM``
+    would need two steps, and it is not attempted. That was true before the
+    all-digit refusal and is unchanged by it — ``9`` and ``1`` were separated by
+    something a writer typed.
+    """
+    assert expand_identifier(identifier, NESTED_DIGITS).phrase == phrase
+
+
+@pytest.mark.parametrize(
+    ("identifier", "tokens"),
+    [
+        ("E_9_1_1", ("E", "9", "1", "1")),
+        ("E_1_1", ("E", "1", "1")),
+        ("9_1_1", ("9", "1", "1")),
+        ("E 9 1 1", ("E", "9", "1", "1")),
+    ],
+)
+def test_a_join_that_would_make_one_longer_number_is_refused(
+    identifier: str, tokens: tuple[str, ...]
+) -> None:
+    """``11`` is a catalog row, and ``1`` next to ``1`` is still two numbers.
+
+    The pass repairs a split the *splitter* introduced — a digit run welded to
+    the letters after it — and two digit tokens can only be adjacent because
+    something separated them, since consecutive digits are one run. So an
+    all-digit join is never a repair; it is the catalog reaching across a
+    boundary somebody wrote.
+
+    It is refused for a mechanical reason as well as a principled one. A joined
+    token is safe only while splitting it returns the pieces it was joined from,
+    and ``911`` reads back as one token rather than two — so the name the first
+    pass rebuilt put ``9`` beside a new ``11`` and the second pass joined
+    *those*. See the test below for the whole slide.
+    """
+    assert tuple(token.raw for token in expand_identifier(identifier, NESTED_DIGITS).tokens) == (
+        tokens
+    )
+
+
+def test_a_nesting_digit_catalog_no_longer_moves_a_name_on_every_pass() -> None:
+    """The defect, written out end to end, with the meaning it moved.
+
+    Two catalog rows and pure ASCII were enough. ``normalize`` returned
+    ``E_9_11`` and then ``E_911``, and the two names do not mean the same thing —
+    "East 9 Eleven" became "East Emergency" — so this was a rewrite wearing a
+    correction's clothes, not a cosmetic wobble.
+
+    Both halves are asserted: the name stands still, and the normal form expands
+    to what the name it came from expanded to.
+    """
+    once = normalize("E_9_1_1", NESTED_DIGITS)
+
+    assert once == "E_9_1_1"
+    assert normalize(once, NESTED_DIGITS) == once
+    assert expand_identifier("E_9_1_1", NESTED_DIGITS).phrase == "East 9 1 1"
+    assert expand_identifier(once, NESTED_DIGITS).phrase == "East 9 1 1"
+
+
+def test_a_digit_only_row_is_still_reachable_by_writing_the_digits_together() -> None:
+    """Refusing the join does not put the row out of reach.
+
+    A catalog holding both ``11`` and ``911`` keeps both, and a name that means
+    Emergency says so by spelling it ``911``. What the standard cannot do any
+    more is have ``9_1_1`` silently become it, which it should not have been able
+    to do: nothing in that string says the writer meant one number.
+    """
+    assert expand_token("911", NESTED_DIGITS).long == "Emergency"
+    assert expand_identifier("E_911", NESTED_DIGITS).is_fully_known is True
+    assert expand_identifier("E_9_1_1", NESTED_DIGITS).is_fully_known is False
 
 
 # --------------------------------------------------------------------------
@@ -505,6 +660,114 @@ def test_the_accounted_separators_are_the_published_ones() -> None:
     not listable, which is why the constant carries the punctuation only.
     """
     assert frozenset("_-./\"'`[]") == ACCOUNTED_SEPARATORS
+
+
+# --------------------------------------------------------------------------
+# A bracket has to be doing the quoting to be discarded
+# --------------------------------------------------------------------------
+#: The rule, written down as a table rather than inferred from the code. Each row
+#: is an input and the brackets it reports; ``()`` means every bracket in it was
+#: quoting. The three characters that make a difference are the one before an
+#: opener, the one after a closer, and whether the two pair off at all.
+BRACKET_CASES: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
+    ("[TXN_ID]", ("TXN", "ID"), ()),
+    ("[db].[TXN_ID]", ("db", "TXN", "ID"), ()),
+    ("[db].[schema].[TXN_ID]", ("db", "schema", "TXN", "ID"), ()),
+    ("[my.column]", ("my", "column"), ()),
+    ("[ TXN_ID ]", ("TXN", "ID"), ()),
+    ("TXN_[ID]", ("TXN", "ID"), ()),
+    ("value[x]", ("value", "x"), ("[", "]")),
+    ("TXN_ID[0]", ("TXN", "ID", "0"), ("[", "]")),
+    ("[TXN_ID", ("TXN", "ID"), ("[",)),
+    ("TXN_ID]", ("TXN", "ID"), ("]",)),
+    ("]TXN_ID[", ("TXN", "ID"), ("]", "[")),
+    ("[a][b]", ("a", "b"), ("[", "]", "[", "]")),
+    ("[[TXN_ID]]", ("TXN", "ID"), ("[", "[", "]", "]")),
+]
+
+
+@pytest.mark.parametrize(("identifier", "tokens", "reported"), BRACKET_CASES)
+def test_a_bracket_is_discarded_only_where_it_is_quoting(
+    identifier: str, tokens: tuple[str, ...], reported: tuple[str, ...]
+) -> None:
+    """``[TXN_ID]`` is a quoted name; ``value[x]`` is a subscript, and it said so.
+
+    Rule 7 accounts for a bracket so that a name read out of ``information_schema``
+    is the same name it was in the catalog. It is not because the character is
+    meaningless — in ``value[x]`` two characters were discarded and the
+    losslessness report said the whole name had been accounted for, which is the
+    exact failure D-024 was written about arriving through the one door D-024 left
+    open.
+
+    The tokens do not move. A bracket separates whichever branch it takes, so
+    ``value[x]`` is two tokens either way and the fix here is entirely in the
+    reporting. Whether ``x`` should be a token at all is a separate question this
+    change does not answer.
+
+    ``[db].[schema].[TXN_ID]`` is the row that rules out the obvious fix. Strip
+    brackets only when they wrap the *whole* identifier and this name — the case
+    the rule exists for — stops reading as a qualified path.
+    """
+    parts = split_identifier_parts(identifier)
+
+    assert parts.tokens == tokens
+    assert parts.unaccounted == reported
+    assert split_identifier(identifier) == tokens
+
+
+def test_the_reporting_of_a_subscript_reaches_is_fully_known() -> None:
+    """The bit a pipeline gates on is the one that was wrong.
+
+    The phrase is unavoidable and unchanged — no catalog row expands a bracket —
+    and it is identical to what a clean ``TXN_ID`` produces, which is precisely
+    why the accounting has to carry the difference. ``is_fully_known`` is the
+    field a caller filters on, and it now says that part of this name was not
+    read.
+    """
+    subscript = expand_identifier("TXN_ID[0]", NDS)
+    clean = expand_identifier("TXN_ID", NDS)
+
+    assert subscript.unaccounted == ("[", "]")
+    assert subscript.is_fully_known is False
+    assert clean.unaccounted == ()
+    assert clean.is_fully_known is True
+
+
+def test_the_two_readings_agree_on_every_short_bracketed_string() -> None:
+    """Exhaustive over the alphabet the new rule lives in, because it is positional.
+
+    The bracket rule reads the character before an opener and the character
+    after a closer, so it goes wrong at the ends of a string and where two
+    brackets meet — corners a sampled property test can miss and a four-character
+    enumeration cannot. The reference scan and the ASCII pattern are asked the
+    same question about every string, and the tokens have to match as well as the
+    reporting: a demoted bracket ends a token exactly as an accounted one does,
+    and if that ever stopped being true the tokens would move under a name whose
+    brackets were only ever punctuation.
+    """
+    for length in range(1, 5):
+        for combination in itertools.product("[]A1_.", repeat=length):
+            text = "".join(combination)
+            fast = split_identifier_parts(text)
+            tokens, unaccounted = _scan(text)
+
+            assert fast.tokens == tuple(tokens), text
+            assert fast.unaccounted == tuple(unaccounted), text
+            assert split_identifier(text) == fast.tokens, text
+
+
+def test_a_quoted_name_out_of_a_catalog_query_is_still_not_flagged() -> None:
+    """The regression the reporting change could have caused, pinned separately.
+
+    Every row of a schema read out of ``information_schema`` arrives quoted. If
+    the new rule reported those brackets, a governance pipeline gating on
+    ``is_fully_known`` would light up on its entire input and the field would
+    become noise — the failure mode D-024 names as the reason the accounted set
+    exists at all.
+    """
+    for quoted in ("[TXN_ID]", "[db].[schema].[TXN_ID]", "[TXN_ID].[DT]"):
+        result = expand_identifier(quoted, NDS)
+        assert result.unaccounted == (), quoted
 
 
 # --------------------------------------------------------------------------
@@ -732,3 +995,80 @@ def test_a_quoted_name_normalises_to_the_bare_one() -> None:
     """
     assert normalize('"txn_id"', NDS) == "TXN_ID"
     assert normalize("[txn_id]", NDS) == "TXN_ID"
+
+
+# --------------------------------------------------------------------------
+# Layering a vocabulary somebody else subclassed
+# --------------------------------------------------------------------------
+class _AuditedDictionary(GovernedDictionary):
+    """A subclass of the shape the docs invite: state, plus a hook that reads it.
+
+    ``GovernedDictionary`` is a plain class with public methods and no
+    ``__init_subclass__`` guard, so subclassing it is a supported extension
+    route, and the natural subclass keeps something of its own on the instance
+    and consults it from an overridden lookup. That is what makes the failure
+    below late and confusing rather than immediate: the object is the right
+    type and answers most questions correctly.
+    """
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.seen: list[str] = []
+
+    def lookup(self, token: object) -> object:
+        """Record the question, then answer it the ordinary way."""
+        self.seen.append(str(token))
+        return super().lookup(str(token) if token is not None else None)
+
+
+def test_layering_an_overlay_keeps_a_subclass_whole() -> None:
+    """``with_custom`` skips ``__init__``, so it has to carry the state across.
+
+    The clone is built field by field out of ``object.__new__`` — rebuilding the
+    indexes would cost more than the layering saves, and there is nothing to
+    rebuild them from — which skips a subclass's ``__init__`` along with the base
+    one. Anything the subclass put on the instance was therefore dropped, and the
+    drop was silent: the copy is the right class, passes ``isinstance``, and
+    answers every question the base class knows how to answer.
+
+    It surfaced one call later, as an ``AttributeError`` from *inside* a lookup,
+    on a code path that had nothing to do with overlays — and every governed verb
+    layers an overlay for the caller whenever ``custom=`` is passed, so a caller
+    need never have called this method themselves.
+    """
+    base = _AuditedDictionary.from_mapping({"TXN": "Transaction"})
+    layered = base.with_custom({"ZZ": "Zed"})
+
+    assert isinstance(layered, _AuditedDictionary)
+    assert hasattr(layered, "seen"), "subclass state was dropped by with_custom"
+    assert expand_token("ZZ", layered).long == "Zed"
+    assert expand_token("TXN", layered).long == "Transaction"
+    assert layered.seen, "the subclass hook never ran, so its state was not the live one"
+
+
+def test_a_call_scoped_overlay_reaches_a_subclass_the_same_way() -> None:
+    """The route a caller actually takes: ``custom=`` on a verb, not the method.
+
+    ``expand_identifier`` layers the overlay itself, so a subclass that survives
+    :meth:`with_custom` survives every verb, and one that does not fails inside
+    whichever verb the caller happened to pass ``custom=`` to.
+    """
+    catalog = _AuditedDictionary.from_mapping({"TXN": "Transaction", "ID": "Identifier"})
+
+    result = expand_identifier("TXN_ZZ_ID", catalog, custom={"ZZ": "Zed"})
+
+    assert result.phrase == "Transaction Zed Identifier"
+    assert result.is_fully_known is True
+
+
+def test_the_base_class_pays_nothing_for_the_subclass_copy() -> None:
+    """``__slots__`` is still doing its job on the class the library ships.
+
+    The state copy is guarded on the instance having a ``__dict__`` at all, which
+    a slotted class does not. This is the assertion that stops the fix above from
+    quietly adding a dict to every dictionary the library builds.
+    """
+    layered = GovernedDictionary.from_mapping({"TXN": "Transaction"}).with_custom({"ZZ": "Zed"})
+
+    assert not hasattr(layered, "__dict__")
+    assert expand_token("ZZ", layered).long == "Zed"

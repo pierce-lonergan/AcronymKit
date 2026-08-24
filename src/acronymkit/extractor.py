@@ -48,6 +48,9 @@ _BRACKETS: dict[str, str] = {")": "(", "]": "[", "}": "{"}
 _OPENING_BRACKETS = frozenset(_BRACKETS.values())
 _CLOSING_BRACKETS = frozenset(_BRACKETS)
 
+#: Opening bracket -> the closing bracket that balances it.
+_CLOSERS: dict[str, str] = {opening: closing for closing, opening in _BRACKETS.items()}
+
 #: Characters that terminate the backwards scan for the long-form window.
 #: A bracket or a ``;``/``:`` delimiter means the preceding material belongs to
 #: a different syntactic unit and may not be absorbed into the long form.
@@ -100,6 +103,18 @@ _CONFIDENCE_RANGE = 1.0 - _MIN_CONFIDENCE
 #: Longest punctuation run trimmed from either end of a candidate. Bounding the
 #: trim keeps deeply nested bracket runs from degrading to quadratic time.
 _MAX_TRIM = 8
+
+#: How far back from the right edge :func:`_trim_span` looks for an opening
+#: bracket its own trim has just orphaned. Wide enough to span any short form
+#: the shipped profiles admit (the widest caps ``extraction_max_short_form_length``
+#: at 14) with slack, and bounded for the same reason ``_MAX_TRIM`` is: the
+#: bracketed region handed to :func:`_trim_span` can be a whole paragraph, and
+#: an unbounded balance scan would make an enormous parenthetical cost time
+#: proportional to its length before anything has decided it is too long to be a
+#: short form. A caller who raises ``extraction_max_short_form_length`` past this
+#: gets the old behaviour on candidates longer than the bound: a trailing bracket
+#: stays stripped, which loses a candidate rather than inventing one.
+_MAX_BALANCE_SCAN = 32
 
 #: Longest whitespace run tolerated between a token and a following bracket.
 _MAX_GAP = 64
@@ -245,12 +260,58 @@ def _contains_standalone(haystack: str, needle: str) -> bool:
         start = index + 1
 
 
+def _orphaned_openers(text: str, start: int, end: int) -> list[str]:
+    """Opening brackets near the right edge of ``[start, end)`` that nothing closes.
+
+    Scans right-to-left over at most :data:`_MAX_BALANCE_SCAN` characters,
+    cancelling each opener against a closing bracket of the matching kind seen
+    to its right. What survives is what a trailing trim has orphaned.
+
+    Args:
+        text: The text the offsets index into.
+        start: Inclusive start offset.
+        end: Exclusive end offset.
+
+    Returns:
+        The unclosed opening brackets, rightmost first -- so the caller closes
+        them in the order it must emit their closers.
+    """
+    pending: list[str] = []
+    orphans: list[str] = []
+    cursor = end
+    budget = _MAX_BALANCE_SCAN
+    while cursor > start and budget > 0:
+        cursor -= 1
+        budget -= 1
+        character = text[cursor]
+        if character in _CLOSING_BRACKETS:
+            pending.append(character)
+        elif character in _OPENING_BRACKETS:
+            if pending and _BRACKETS[pending[-1]] == character:
+                pending.pop()
+            else:
+                orphans.append(character)
+    return orphans
+
+
 def _trim_span(text: str, start: int, end: int, *, limit: int = _MAX_TRIM) -> tuple[int, int]:
     """Shrink ``[start, end)`` until both ends sit on alphanumeric characters.
 
     At most ``limit`` characters are removed from each end: real candidates
     carry a character or two of punctuation, and the bound keeps pathological
     input such as ``"((((((...))))))"`` linear rather than quadratic.
+
+    The right-hand trim then puts back exactly as much as it takes to leave the
+    span balanced. Stripping trailing non-alphanumerics unconditionally turns
+    the bracketed region ``FEV(1)`` into the candidate ``FEV(1`` -- an
+    unmatched opener that cannot equal any annotation under any convention, so
+    the definition is lost rather than merely mis-scored. Restoration is
+    all-or-nothing: a span that cannot be closed completely is left as the plain
+    trim produced it, because half-closing it would be a third string that is
+    neither what the text says nor what the trim decided.
+
+    Only characters this call removed are ever restored, so the result is always
+    inside the ``[start, end)`` it was given.
 
     Args:
         text: The text the offsets index into.
@@ -262,6 +323,7 @@ def _trim_span(text: str, start: int, end: int, *, limit: int = _MAX_TRIM) -> tu
         The trimmed ``(start, end)`` pair; ``start == end`` when nothing
         alphanumeric survives.
     """
+    ceiling = end
     budget = limit
     while start < end and budget > 0 and not text[start].isalnum():
         start += 1
@@ -270,7 +332,21 @@ def _trim_span(text: str, start: int, end: int, *, limit: int = _MAX_TRIM) -> tu
     while end > start and budget > 0 and not text[end - 1].isalnum():
         end -= 1
         budget -= 1
-    return start, end
+
+    # Nothing can be restored unless the first character the trim removed is a
+    # closing bracket, so the balance scan never runs on the overwhelming
+    # majority of spans -- which is what keeps this off the extraction hot path.
+    if end >= ceiling or text[end] not in _CLOSING_BRACKETS:
+        return start, end
+    orphans = _orphaned_openers(text, start, end)
+    if not orphans:
+        return start, end
+    cursor = end
+    for opener in orphans:
+        if cursor >= ceiling or text[cursor] != _CLOSERS[opener]:
+            return start, end
+        cursor += 1
+    return start, cursor
 
 
 def _bracket_regions(text: str) -> list[tuple[int, int]]:

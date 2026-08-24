@@ -73,6 +73,7 @@ EXPECTED_ALL = [
     "LexiconError",
     "MappingKind",
     "NamingPolicy",
+    "NlpBackend",
     "NoCandidateError",
     "NumeralPolicy",
     "OfflineError",

@@ -130,9 +130,14 @@ SCAN_GLOBS = (
 #:
 #: Recorded 2026-08-23: 87 claims across 5 files.
 VALUE_MATCHED_BASELINE: Dict[str, int] = {
-    "README.md": 12,
+    # Lowered from 12 and 28 when the MED1250 extraction headline was migrated to
+    # run-id citations after `balanced_trim` shipped (D-032). The ratchet only
+    # works if a freed slot is closed rather than left open for the next bare
+    # number to occupy quietly, which is why this moves in the same commit as
+    # the migration.
+    "README.md": 5,
     "docs/DECISIONS.md": 42,
-    "docs/EVALUATION.md": 28,
+    "docs/EVALUATION.md": 24,
     "docs/notes/scoring-objective.md": 3,
     "src/acronymkit/enums.py": 2,
 }

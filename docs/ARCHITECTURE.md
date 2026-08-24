@@ -61,9 +61,15 @@ together. `acronymkit` is that missing single library: bi-directional, multi-tie
           └──────────────────────────────────────────────┘
 ```
 
-Everything above `Tokenizer` consumes frozen Pydantic DTOs from `models.py`; nothing mutates state
-after construction, which is what makes a single `AcronymEngine` safe to share across a thread pool or
-an asyncio event loop.
+Everything above `Tokenizer` consumes frozen Pydantic DTOs from `models.py`; nothing the engine builds
+mutates state after construction, which is what makes a single `AcronymEngine` safe to share across a
+thread pool or an asyncio event loop.
+
+That guarantee is about what the engine *builds*. Four of those collaborators can instead be supplied
+by the caller (see **Extension points**), and an injected object may hold whatever state it likes — so
+an engine constructed with `backend=`, `tokenizer=`, `extractor=` or `scorer=` is exactly as
+thread-safe as the object passed in, and no more. An engine constructed from a `Config` alone keeps
+the unconditional guarantee.
 
 ## Execution tiers
 
@@ -79,6 +85,13 @@ Tier resolution happens once, in `AcronymEngine.__init__`, via `nlp.base.resolve
 is never silent in the payload: the effective tier lands in `metadata.engine_tier`, what you asked for
 lands in `metadata.requested_tier`, and the reason lands in `metadata.warnings`. Set `Config.strict` to
 turn degradation into a `TierUnavailableError` instead.
+
+Passing `backend=` replaces resolution rather than its result: `resolve_backend` is not called, no
+availability probe runs, no degradation warning is produced, and `Config.strict` therefore has nothing
+to raise about — supplying the annotator *is* the availability decision. `metadata.engine_tier` is
+recomputed from the supplied backend's `name` (`"heuristic"` reads as Tier 0, anything else as Tier 1),
+so it still names the tier that actually ran, and `metadata.requested_tier` still records what the
+configuration asked for.
 
 ## The scoring function
 
@@ -136,8 +149,28 @@ apart.
 | Add a language | Add `stopwords_<lang>.json`, `lexicon_<lang>.txt`, generate `ngram_<lang>.json`, add a `Language` member |
 | Change ranking behaviour | `Config(scoring_strategy=ScoringStrategy.CUSTOM, scoring_weights=ScoringWeights(alpha=…, beta=…))` |
 | Suppress domain noise | `Config(custom_stop_words=frozenset({"solution", "platform"}))` |
-| Plug in your own tagger | Implement the `NlpBackend` protocol (`name`, `is_available`, `annotate`) |
+| Plug in your own tagger | Implement `acronymkit.NlpBackend` (`name`, `is_available`, `annotate`), then `AcronymEngine(config, backend=MyTagger())` |
+| Replace the tokenizer or the definition extractor | `AcronymEngine(config, tokenizer=..., extractor=...)` |
+| Add a scoring term | Subclass `Scorer`, override `score`, then `AcronymEngine(config, scorer=MyScorer(config))` — read the limit below first |
 | Resolve acronyms against your own vocabulary | `ExpansionDictionary` + `engine.disambiguate(...)` |
+
+The four collaborators are keyword-only, replace exactly the object the engine would otherwise have
+built, and are plain constructor arguments: no registry, no entry-point group, no discovery, nothing
+resolved at import time.
+
+**What a custom `Scorer` does and does not control.** It owns the ranking of every candidate the engine
+returns. It does not own the search that produced them: `ForwardGenerator._beam_bound` re-derives the
+objective in closed form from `ScoringWeights` and never calls the scorer, so a custom term re-ranks the
+states the search retained and cannot make it retain one it would otherwise have cut. That limit binds
+only when the search discards something, and the result usually says whether it did —
+`metadata.truncated is False` means no cut and no budget discarded anything, so the custom scorer ranked
+every candidate the search reached. The one exception is `allow_token_skipping=False` with a
+`max_acronym_length` every remaining branch overflows: the search abandons its frontier unscored and
+returns the plain initialism alone, with `truncated` still `False`. Raising `Config.max_search_nodes`
+until the whole space fits removes
+the frontier cut entirely (the *exhaustive* regime described in `generator.py`), which is the supported
+way to make a custom objective decisive on a phrase where it currently is not. See "Substituting a
+scorer" in `scoring.py` for the full statement.
 
 ## Roadmap seams
 
@@ -158,8 +191,12 @@ builder patterns over the same option names, immutable DTOs, and the same `Scori
 - **Frozen DTOs everywhere.** Results are cacheable and shareable with no defensive copying. The cost
   is that annotation passes rebuild tokens via `model_copy(update=...)` rather than mutating.
 - **`scoring.py` has no runtime import of `lexicon.py` or `phonetics.py`.** Those types are imported
-  under `TYPE_CHECKING` only, and the `Scorer` duck-types what it is handed. The dependency graph stays
-  acyclic, and a caller can substitute their own `Λ`/`Φ` implementations.
+  under `TYPE_CHECKING` only, and the `Scorer` duck-types what it is handed — a `Λ` needs only
+  `contains(word) -> bool`, a `Φ` only `score(acronym)` and `normalized_score(acronym)`. The dependency
+  graph stays acyclic, and a caller can substitute their own implementations *at run time*. They are not
+  yet substitutable under a type checker: the constructor is annotated with the concrete `Lexicon` and
+  `CharNGramModel`, so mypy rejects a substitute that the code accepts. Naming those two duck-types as
+  exported protocols would close the gap and is not done here.
 - **The plain initialism is always a candidate.** Beam search is free to explore multi-character and
   skip-token branches, but the naive first-letter acronym is injected unconditionally so that
   `"Portable Document Format"` can never fail to produce `"PDF"`.

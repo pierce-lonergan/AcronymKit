@@ -86,7 +86,17 @@ Every function here is pure: no I/O, no clock, no randomness, no
 set-iteration-order dependence in any returned value (index collections are
 sorted before they leave the module). :class:`Scorer` stores only immutable
 references and therefore holds no mutable state, so a single instance is safe
-to share across threads.
+to share across threads. A *substituted* scorer inherits none of that by
+default, which is why :class:`~acronymkit.engine.AcronymEngine` documents its
+thread-safety guarantee as conditional on what was injected.
+
+Substituting a scorer
+---------------------
+
+:class:`~acronymkit.engine.AcronymEngine` accepts ``scorer=``. A custom scorer
+owns the ranking of every candidate the engine returns and owns none of the
+search that produced them — see "Substituting a scorer" on :class:`Scorer` for
+the exact boundary, and for the result field that reports when it binds.
 """
 
 from __future__ import annotations
@@ -264,6 +274,63 @@ class Scorer:
     * ``lexicon is None`` -> ``Lambda(A)`` is always ``0.0``;
     * ``ngram is None`` -> ``Phi(A)`` is ``0.0`` and the reported
       pronounceability is the neutral ``0.5``.
+
+    Substituting a scorer
+    ---------------------
+    This is a plain class, so a caller may subclass it, override :meth:`score`
+    or :meth:`build_candidate`, and hand the result to
+    :class:`~acronymkit.engine.AcronymEngine` as ``scorer=``. Doing so decides
+    the ranking of every candidate the engine returns, everywhere: forward
+    generation, backronym alignment and :meth:`AcronymEngine.score
+    <acronymkit.engine.AcronymEngine.score>` all read
+    :attr:`~acronymkit.models.AcronymCandidate.score` off this object.
+
+    It decides the ranking. It does **not** decide which candidates exist, and
+    the difference is not a detail. Forward generation is a search, and the
+    search ranks its own partial frontier with
+    ``ForwardGenerator._beam_bound``, which re-derives the objective in closed
+    form from :class:`~acronymkit.config.ScoringWeights` — the ``alpha``,
+    ``gamma`` and ``delta`` coefficients, the ``omega`` schedule and the length
+    penalty — and never calls this object at all. A custom term therefore
+    re-ranks the states the search retained; it cannot cause the search to
+    retain a state it would otherwise have cut, no matter how large the term
+    is. Nor can it change the search *space*: that is fixed by
+    ``max_acronym_length``, ``max_letters_per_token``,
+    ``allow_multi_letter_tokens`` and ``allow_token_skipping``, which a scorer
+    does not see.
+
+    **The limit binds only when the search actually discards something, and
+    the result usually says whether it did.**
+    :attr:`~acronymkit.models.EngineMetadata.truncated` is ``True`` exactly when
+    a frontier cut, a node budget or a time budget cost the search states it
+    never scored. When it is ``False`` — which covers the exhaustive regime
+    :mod:`acronymkit.generator` documents, and every beam-mode call whose
+    frontier never overflowed — no cut and no budget discarded anything, so a
+    custom scorer ranked every candidate the search reached and the limit above
+    is vacuous.
+
+    One configuration escapes that reading, and a caller substituting a scorer
+    is the caller most likely to hit it. With ``allow_token_skipping=False`` and
+    a ``max_acronym_length`` that every remaining branch of some later token
+    overflows, the search cannot continue: it abandons the whole frontier
+    unscored and the result is the injected plain initialism alone — with
+    ``truncated`` still ``False``, because neither a cut nor a budget was
+    responsible. A custom scorer is handed exactly one candidate there,
+    whatever it would have preferred. ``len(result.alternatives) == 1`` on a
+    multi-token phrase is the symptom.
+
+    The supported way to buy that regime back on a phrase where it does not
+    hold is to raise :attr:`~acronymkit.config.Config.max_search_nodes` until
+    the whole space fits, which removes the frontier cut entirely rather than
+    biasing it; :mod:`acronymkit.generator` documents what that costs. Widening
+    :attr:`~acronymkit.config.Config.search_beam_width` narrows the gap without
+    closing it. Neither is a workaround for a missing hook — the exhaustive
+    regime is the generator's documented exactness guarantee, and it is the
+    only regime in which any objective, custom or shipped, ranks the complete
+    space.
+
+    Extraction and disambiguation do not consult a scorer at all, so nothing
+    here applies to them.
 
     Example:
         >>> from acronymkit.config import Config
