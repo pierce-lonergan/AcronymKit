@@ -40,7 +40,6 @@ import acronymkit
 from acronymkit import diagnostics as diagnostics_module
 from acronymkit import resources as resources_module
 from acronymkit.diagnostics import (
-    DATA_PACK_GROUP,
     OFFLINE_ENV_VAR,
     capabilities,
     format_report,
@@ -69,9 +68,14 @@ DOCUMENTED_TOP_LEVEL_KEYS = {
     "network",
     "tiers",
     "backends",
-    "data_packs",
     "resources",
 }
+
+#: Keys that were documented once and are deliberately gone. The superset
+#: assertion above cannot catch a resurrection, because re-adding a key is an
+#: addition and additions are permitted. These are named separately so that
+#: putting one back is a test failure rather than a silent revival.
+WITHDRAWN_TOP_LEVEL_KEYS = {"data_packs"}
 
 #: Optional distributions the report is expected to describe.
 DOCUMENTED_BACKENDS = {"click", "spacy", "nltk", "transformers", "onnxruntime", "jsonschema"}
@@ -244,10 +248,53 @@ def test_backend_importability_matches_this_interpreter(name: str) -> None:
     assert capabilities(include_checksums=False)["backends"][name]["importable"] is expected
 
 
-def test_capabilities_reports_the_data_pack_group_as_empty() -> None:
-    """Nothing ships a data pack yet, and the report must not invent one."""
-    assert DATA_PACK_GROUP == "acronymkit.data"
-    assert capabilities(include_checksums=False)["data_packs"] == []
+def test_capabilities_does_not_report_a_withdrawn_key() -> None:
+    """The data pack group is gone from the report, the module and the export list.
+
+    It was declared, discovered here and printed by ``doctor`` while nothing in
+    the library could load from it, so the key could only ever be ``[]``. The
+    value of this test is that re-adding it would otherwise pass every other
+    check in this file: the shape assertions are supersets, and under that
+    contract an addition is legal.
+    """
+    report = capabilities(include_checksums=False)
+
+    assert WITHDRAWN_TOP_LEVEL_KEYS.isdisjoint(report)
+    assert not hasattr(diagnostics_module, "DATA_PACK_GROUP")
+    assert "DATA_PACK_GROUP" not in diagnostics_module.__all__
+    assert not any("pack" in name.lower() for name in diagnostics_module.__all__)
+
+
+def test_capabilities_scans_exactly_one_entry_point_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only ``pydantic`` is enumerated, and it is enumerated once.
+
+    The scan is the expensive part of this function, and the group that was
+    removed was the second of two. Asserting the count rather than the absence
+    of the old name also catches the cheaper mistake of scanning ``pydantic``
+    twice.
+
+    ``None`` entries are ignored rather than asserted away: on Python 3.9
+    ``entry_points`` takes no arguments, so the keyword call raises and the
+    fallback re-enumerates everything: one un-named call per named one. That is
+    the 3.9 shape of the same single lookup, not a second group.
+    """
+    from importlib import metadata
+
+    groups: list[Any] = []
+    real = metadata.entry_points
+
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        groups.append(kwargs.get("group"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(metadata, "entry_points", spy)
+
+    capabilities(include_checksums=False)
+
+    assert [group for group in groups if group is not None] == ["pydantic"]
+    assert "acronymkit.data" not in groups
 
 
 def test_capabilities_resources_section_matches_the_bundled_inventory() -> None:
@@ -433,7 +480,18 @@ def test_format_report_says_none_when_nothing_is_installed() -> None:
     text = format_report(capabilities(include_checksums=False))
 
     assert report_line(text, "pydantic plugins").endswith(": none")
-    assert report_line(text, "data packs").endswith(": none")
+
+
+def test_format_report_has_no_data_pack_line() -> None:
+    """The rendered report advertises no mechanism the library cannot use.
+
+    ``doctor`` is read by people deciding what an installation can do. A line
+    reading ``data packs : none`` told them a pack was a thing they could
+    install, which was never true.
+    """
+    text = format_report(capabilities(include_checksums=False))
+
+    assert "pack" not in text.lower()
 
 
 # ---------------------------------------------------------------------------

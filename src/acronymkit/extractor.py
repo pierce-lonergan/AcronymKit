@@ -14,6 +14,14 @@ a word boundary, which is what gives the method its high precision.
 Both the canonical ``Long Form (Short Form)`` arrangement and the inverted
 ``Short Form (Long Form)`` arrangement are supported.
 
+A third arrangement -- the ``SF = LF`` abbreviation legend that institutional
+and scientific documents print above or below a table -- is implemented and is
+**off by default**. It is reached only by constructing the extractor with
+``legend_syntax=True``; see :class:`AbbreviationExtractor`. Nothing about the
+default path changes when it is off, which is deliberate: ``=`` is also the
+surface of every equation and assignment, and this module's precision on
+scientific prose is the library's whole thesis.
+
 The module is Tier 0 pure: it imports only the standard library, ``pydantic``
 (transitively, via :mod:`acronymkit.models`) and other ``acronymkit`` modules.
 :class:`~acronymkit.tokenizer.Tokenizer` is imported lazily, and only when
@@ -124,6 +132,24 @@ _WINDOW_CHAR_BUDGET_PER_WORD = 40
 
 #: The line terminators a blank line is built from. ``\r\n`` counts once.
 _LINE_BREAK_CHARS = frozenset("\n\r")
+
+#: The one legend separator this module reads. ``:`` is deliberately excluded:
+#: where the class was counted it accounts for a twentieth of the gold long
+#: forms ``=`` does, while being the surface of every section heading
+#: (``RESULTS:``), every list introduction and every ratio. Admitting it would
+#: multiply the candidate surface for a fraction of the return. The counts are
+#: in ``bench/splits.toml`` under the two SDU-22 corpora.
+_LEGEND_SEPARATOR = "="
+
+#: Characters that, standing **immediately** either side of an ``=``, make it an
+#: operator rather than a legend separator: ``==``, ``<=``, ``>=``, ``!=``,
+#: ``+=``, ``:=``, ``=-1``. Adjacency is the whole test, so ``= -0.62`` -- with
+#: the space -- passes this gate and is refused later by the alignment instead.
+#: That is deliberate rather than a hole: widening the test to "an operator
+#: appears somewhere nearby" would start guessing at syntax, and the alignment
+#: is the gate that is actually load-bearing. This one is here because it is
+#: free and removes an unambiguous class before any window is built.
+_LEGEND_OPERATOR_CHARS = frozenset("=<>!+-*/~^%&|:")
 
 
 # ---------------------------------------------------------------------------
@@ -545,6 +571,82 @@ def _confidence(short_form: str, long_form: str) -> float:
     return round(min(1.0, max(_MIN_CONFIDENCE, value)), 4)
 
 
+def _is_initialism_of(short_form: str, long_form: str) -> bool:
+    """Report whether every short-form character starts a word of ``long_form``.
+
+    This is the gate on the legend arrangement, and it is deliberately the
+    *strictest* alignment this module already computes rather than a new one.
+    :func:`find_best_long_form` cannot serve here: it scans right-to-left from
+    the end of its window and returns a suffix, so on ``AOS`` over
+    ``"administrative and operational services"`` it takes the ``A`` from
+    ``and`` and answers ``"and operational services"``. In the bracketed
+    arrangements that is safe, because the long form genuinely ends at the
+    bracket and only its left edge is in dispute. In a legend the long form
+    *begins* at the separator and only its right edge is in dispute, so the
+    alignment has to be anchored at the first word instead -- which is exactly
+    what :func:`_initial_match_fraction` measures, plus a check that the first
+    character landed on the first word rather than on a later one.
+
+    The cost of that strictness is a real and deliberate miss class: a short
+    form that truncates a single word (``INT`` -> ``interrupted``) never aligns
+    with word initials and is not admitted here. Admitting it would mean
+    admitting an alignment that runs *inside* a word, which is the reading that
+    makes ``Tsat=Tamb`` and ``wC = carbon mass fraction`` look like definitions.
+
+    Args:
+        short_form: The abbreviation.
+        long_form: Candidate expansion.
+
+    Returns:
+        ``True`` when the first short-form character starts the first word and
+        every remaining character starts some later word, in order.
+    """
+    characters = [char for char in short_form if char.isalnum()]
+    if not characters:
+        return False
+    words = _split_words(long_form)
+    if not words or not words[0][0].isalnum():
+        return False
+    if _casefold_char(characters[0]) != _casefold_char(words[0][0]):
+        return False
+    return _initial_match_fraction(short_form, long_form) >= 1.0
+
+
+def _pair_anchor(pair: AcronymPair) -> int:
+    """Leftmost offset either of a pair's spans covers."""
+    return min(pair.short_form_span[0], pair.long_form_span[0])
+
+
+def _merge_in_document_order(
+    bracketed: list[AcronymPair], legend: list[AcronymPair]
+) -> list[AcronymPair]:
+    """Interleave legend pairs into the bracketed ones without reordering them.
+
+    A stable insert rather than a sort: the bracketed list keeps the exact
+    order :meth:`AbbreviationExtractor.extract` has always produced, so turning
+    the legend flag on adds pairs and moves none.
+
+    Args:
+        bracketed: Pairs from the bracket scan, in the order it produced them.
+        legend: Legend pairs, in ascending separator offset.
+
+    Returns:
+        A single list in document order.
+    """
+    if not legend:
+        return bracketed
+    merged: list[AcronymPair] = []
+    index = 0
+    for pair in legend:
+        anchor = _pair_anchor(pair)
+        while index < len(bracketed) and _pair_anchor(bracketed[index]) <= anchor:
+            merged.append(bracketed[index])
+            index += 1
+        merged.append(pair)
+    merged.extend(bracketed[index:])
+    return merged
+
+
 # ---------------------------------------------------------------------------
 # Public predicate / matching functions
 # ---------------------------------------------------------------------------
@@ -690,11 +792,33 @@ class AbbreviationExtractor:
         ... )
         >>> [(p.short_form, p.long_form) for p in pairs]
         [('WHO', 'World Health Organization')]
+
+    The ``SF = LF`` abbreviation legend is off unless it is asked for, and it is
+    asked for here rather than through :class:`~acronymkit.config.Config`
+    because it is a change to *which surfaces are scanned*, not a knob on the
+    existing scan. :class:`~acronymkit.engine.AcronymEngine` takes an
+    ``extractor``, so a caller who wants it opts in for the whole engine:
+
+        >>> legend = AbbreviationExtractor(Config(), legend_syntax=True)
+        >>> [(p.short_form, p.long_form) for p in legend.extract(
+        ...     "Abbreviations: GEF = Global Environment Facility"
+        ... )]
+        [('GEF', 'Global Environment Facility')]
+        >>> AbbreviationExtractor(Config()).extract(
+        ...     "Abbreviations: GEF = Global Environment Facility"
+        ... )
+        []
     """
 
-    __slots__ = ("_config", "_tokenizer")
+    __slots__ = ("_config", "_legend_syntax", "_tokenizer")
 
-    def __init__(self, config: Config, tokenizer: Optional[Tokenizer] = None) -> None:
+    def __init__(
+        self,
+        config: Config,
+        tokenizer: Optional[Tokenizer] = None,
+        *,
+        legend_syntax: bool = False,
+    ) -> None:
         """Build an extractor.
 
         Args:
@@ -704,14 +828,24 @@ class AbbreviationExtractor:
             tokenizer: Optional pre-built tokenizer reused for sentence
                 splitting. One is constructed on demand when sentence capture is
                 enabled and none was supplied.
+            legend_syntax: Also read ``SF = LF`` abbreviation legends, which no
+                bracket introduces. **Off by default**, and the default path is
+                unchanged when it is off -- see :meth:`_legend_pair_at` for what
+                the rule refuses and why the default is what it is.
         """
         self._config = config
         self._tokenizer = tokenizer
+        self._legend_syntax = legend_syntax
 
     @property
     def config(self) -> Config:
         """The configuration governing this extractor."""
         return self._config
+
+    @property
+    def legend_syntax(self) -> bool:
+        """Whether ``SF = LF`` legends are read in addition to brackets."""
+        return self._legend_syntax
 
     # -- public API --------------------------------------------------------
     def extract(self, text: str) -> list[AcronymPair]:
@@ -720,6 +854,11 @@ class AbbreviationExtractor:
         Scans balanced ``()``/``[]``/``{}`` regions in document order, applies
         the Schwartz & Hearst matcher to each, and returns the surviving pairs.
         Identical ``(short form, long form, spans)`` tuples are reported once.
+
+        When this extractor was built with ``legend_syntax=True`` the text is
+        additionally scanned for ``SF = LF`` legends and those pairs are
+        interleaved in document order. With the flag off -- the default -- not a
+        character of the document is read for them.
 
         Args:
             text: Source document. Empty or whitespace-only input yields ``[]``.
@@ -743,6 +882,9 @@ class AbbreviationExtractor:
                 continue
             seen.add(key)
             pairs.append(pair)
+
+        if self._legend_syntax:
+            pairs = _merge_in_document_order(pairs, self._legend_pairs(text, seen))
 
         if pairs and self._config.extraction_capture_sentences:
             pairs = self._attach_sentences(text, pairs)
@@ -1018,6 +1160,186 @@ class AbbreviationExtractor:
         return _limit_to_last_words(
             text, boundary, open_index, word_limit, char_budget=char_budget + 1
         )
+
+    # -- the SF = LF legend arrangement ------------------------------------
+    def _legend_pairs(
+        self, text: str, seen: set[tuple[str, str, tuple[int, int], tuple[int, int]]]
+    ) -> list[AcronymPair]:
+        """Read every ``SF = LF`` legend in ``text``, in document order.
+
+        One ``str.find`` walk over the separators, so a document holding no
+        ``=`` costs a single scan and nothing else. ``seen`` is the key set the
+        bracket scan already filled, so a definition recovered both ways -- a
+        legend that is also parenthesised -- is reported once.
+
+        Args:
+            text: The source document.
+            seen: Keys already emitted; extended in place.
+
+        Returns:
+            The legend pairs, ordered by separator offset.
+        """
+        pairs: list[AcronymPair] = []
+        cursor = 0
+        while True:
+            index = text.find(_LEGEND_SEPARATOR, cursor)
+            if index < 0:
+                return pairs
+            cursor = index + 1
+            pair = self._legend_pair_at(text, index)
+            if pair is None:
+                continue
+            key = (pair.short_form, pair.long_form, pair.short_form_span, pair.long_form_span)
+            if key in seen:
+                continue
+            seen.add(key)
+            pairs.append(pair)
+
+    def _legend_pair_at(self, text: str, index: int) -> Optional[AcronymPair]:
+        """Build the pair defined by the ``=`` at ``index``, if any.
+
+        Three gates, in increasing cost, and the order matters because the
+        common case is not a legend at all:
+
+        1. **Neither immediate neighbour is an operator character.** ``==``,
+           ``<=``, ``>=``, ``!=``, ``:=`` and ``+=`` are removed before any
+           token is read. ``= -0.62`` is *not* -- the minus is not adjacent --
+           and is refused by gate 3 instead.
+        2. **The token to the left is an admissible short form**, under exactly
+           the configured bounds the bracketed arrangements use -- so
+           ``n = 523`` and ``P = 0.05`` are refused outright under the shipped
+           profile, and are refused by the alignment below even under
+           ``biomedical``, which admits a one-character lowercase short form.
+        3. **The text to the right aligns as an initialism** (see
+           :func:`_is_initialism_of`) and passes :func:`is_valid_long_form`.
+
+        What survives all three on biomedical abstracts is nothing at all --
+        every ``=`` in MED1250 is refused, under all three shipped profiles,
+        which ``bench/run_shortform.py --legend`` counts gate by gate. The
+        ``=`` in an abstract introduces a number, and a number does not align
+        with the letters of an abbreviation.
+
+        Args:
+            text: The source document.
+            index: Offset of the ``=``.
+
+        Returns:
+            The recovered pair, or ``None``.
+        """
+        if index == 0 or index + 1 >= len(text):
+            return None
+        if text[index - 1] in _LEGEND_OPERATOR_CHARS or text[index + 1] in _LEGEND_OPERATOR_CHARS:
+            return None
+        preceding = self._preceding_token(text, index)
+        if preceding is None:
+            return None
+        short_form, short_start, short_end = preceding
+        window = self._legend_window(text, index, len(short_form))
+        if window is None:
+            return None
+        return self._legend_long_form(text, short_form, (short_start, short_end), window)
+
+    def _legend_window(self, text: str, index: int, short_length: int) -> Optional[tuple[int, int]]:
+        """Compute the search window following a legend separator.
+
+        The mirror image of :meth:`_long_form_window`, and it stops on the same
+        characters: a bracket or a ``;``/``:`` delimiter belongs to a different
+        syntactic unit, and so does a sentence terminator. Two further stops are
+        specific to this arrangement -- a second ``=``, because a legend line
+        holds several entries and the next one's short form must not be absorbed
+        into this one's expansion, and a line break, because a legend entry is a
+        line. The same character budget applies, so an enormous run of text
+        after an ``=`` costs no more than a small one.
+
+        Args:
+            text: The source document.
+            index: Offset of the ``=``.
+            short_length: Length of the short form in characters.
+
+        Returns:
+            ``(start, end)`` offsets of the window, or ``None`` when the
+            separator is followed by a line break or by nothing at all.
+        """
+        budget = _window_char_budget(_window_word_limit(short_length))
+        cursor = index + 1
+        gap = _MAX_GAP
+        while cursor < len(text) and text[cursor].isspace():
+            if gap <= 0 or text[cursor] in _LINE_BREAK_CHARS:
+                return None
+            cursor += 1
+            gap -= 1
+        start = cursor
+        while cursor < len(text) and budget > 0:
+            char = text[cursor]
+            if char in _WINDOW_STOP_CHARS or char == _LEGEND_SEPARATOR:
+                break
+            if char in _LINE_BREAK_CHARS:
+                break
+            if char in _SENTENCE_END_CHARS and _is_sentence_boundary(text, cursor):
+                break
+            cursor += 1
+            budget -= 1
+        return (start, cursor) if cursor > start else None
+
+    def _legend_long_form(
+        self,
+        text: str,
+        short_form: str,
+        short_span: tuple[int, int],
+        window: tuple[int, int],
+    ) -> Optional[AcronymPair]:
+        """Choose where the legend's expansion ends, and assemble the pair.
+
+        In the bracketed arrangements the long form's right edge is given by the
+        bracket and only its left edge is searched. Here it is the other way
+        round: the expansion starts at the separator and its end has to be
+        chosen. The choice is the **shortest** prefix that aligns, taken word by
+        word, because the alternative -- the longest -- swallows the rest of the
+        line, and because the shortest prefix that spends every short-form
+        character is the span the coiner wrote: ``AOS`` stops at ``services``
+        and cannot reach into the ``STS`` entry beside it.
+
+        At most :func:`_window_word_limit` words are considered, the same bound
+        the backwards scan uses, so this is O(1) in the length of the document.
+
+        Args:
+            text: The source document.
+            short_form: The abbreviation to the left of the separator.
+            short_span: Exact offsets of ``short_form`` in ``text``.
+            window: ``(start, end)`` offsets of the material after the separator.
+
+        Returns:
+            The recovered pair, or ``None`` when no prefix aligns.
+        """
+        window_start, window_end = window
+        word_limit = _window_word_limit(len(short_form))
+        cursor = window_start
+        words = 0
+        while cursor < window_end and words < word_limit:
+            while cursor < window_end and text[cursor].isspace():
+                cursor += 1
+            if cursor >= window_end:
+                break
+            while cursor < window_end and not text[cursor].isspace():
+                cursor += 1
+            words += 1
+            start, end = _trim_span(text, window_start, cursor)
+            if start >= end:
+                continue
+            candidate = text[start:end]
+            if not is_valid_long_form(short_form, candidate):
+                continue
+            if not _is_initialism_of(short_form, candidate):
+                continue
+            return AcronymPair(
+                short_form=short_form,
+                long_form=candidate,
+                short_form_span=short_span,
+                long_form_span=(start, end),
+                confidence=_confidence(short_form, candidate),
+                pattern="short=long",
+            )
+        return None
 
     def _is_short_form(self, candidate: str) -> bool:
         """Apply :func:`is_valid_short_form` using the configured bounds."""

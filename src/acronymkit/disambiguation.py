@@ -42,15 +42,18 @@ Saying "I don't know"
 :attr:`~acronymkit.models.DisambiguationResult.margin` -- the score gap between
 the first and second candidate -- is reported on every result, and
 :class:`LexicalDisambiguator` will refuse to answer below a margin the caller
-names (``min_margin``). Four things about that are worth stating before anyone
+names (``min_margin``). Six things about that are worth stating before anyone
 builds on it, because the shape of this feature is easy to overstate.
 
 **It is a dictionary-path instrument.** A margin needs two candidates. On the
 engine's default path the candidate set is whatever the passage itself defined,
-which is almost never more than one expansion, so ``margin`` is almost always
-``None`` and the gate almost never fires. Supplying a dictionary is what makes
-either of them mean anything. The measurement is
-``disambiguation.sdu21.diagnosis.default_path`` in ``bench/results.json``.
+which is almost never more than one expansion -- on the measured split it is
+usually *no* expansion at all, and the path performs no selection whatever, so
+``margin`` is almost always ``None`` and the gate almost never fires. Supplying
+a dictionary is what makes either of them mean anything. The measurements are
+``disambiguation.sdu21.diagnosis.default_path.no_candidate_pct`` and
+``disambiguation.sdu21.abstention_curve.default_path_margin_defined`` in
+``bench/results.json``.
 
 **The gate is off by default, and stays off.** Turning it on would change
 ``primary_expansion`` from "always populated when candidates exist" to
@@ -64,21 +67,39 @@ Every threshold in it comes from a split ``bench/splits.toml`` declares
 ``role = "tuning"``, so no value in it is a default this library may adopt --
 it is a curve for a caller to choose a point on, against their own data.
 
+**It is a precision instrument, not an accuracy fix.** Raising the gate raises
+accuracy *among the questions still answered* and lowers F1 at every step of
+the published curve, monotonically, with no turning point. Those are different
+quantities and only one of them is an improvement. A caller who wants to be
+right more often should not reach for this; a caller who needs a refusal they
+can act on should.
+
 **A margin is not a probability.** It is a difference of two unnormalised
 blends, so it does not sum to anything and does not mean the same thing on a
 two-way choice as on a fifteen-way one. The published curve is decomposed by
 candidate-set size for exactly that reason, and the decomposition matters: at
-the gate the run picks as its reference, the candidate-set sizes where the gate
-still loses to a trivial frequency baseline account for about a third of the
-split, and a pooled row would hide that.
+the gate the run picks as its reference, the three- and four-candidate sets --
+about a third of the split -- are still *lost* to a trivial frequency baseline,
+and a pooled row would hide that.
 
 **Read the baseline column before adopting a threshold.** The same run scores
 the shared task's own most-frequent-expansion baseline on the very same
 answered subset. Below the reference gate that baseline is *more* accurate
-there, which means the gate was selecting easy questions rather than producing
-good answers. This is the number that decides whether abstention is worth
-anything to a caller who could instead supply expansion counts, and it is
-reported beside every row rather than left for someone to think of.
+there, at every threshold measured, which means the gate was selecting easy
+questions rather than producing good answers. This is the number that decides
+whether abstention is worth anything to a caller who could instead supply
+expansion counts, and it is reported beside every row rather than left for
+someone to think of. ``docs/EVALUATION.md`` prints the whole curve with that
+column in it.
+
+**What the gate is mostly detecting is verbatim evidence.** The share of
+answered instances whose gold expansion has a word in the sentence more than
+triples between the ungated and the reference gate. Where that evidence is
+absent -- four fifths of the measured split -- coverage does not degrade under
+the gate, it collapses, and the frequency baseline is thirty to forty points
+ahead both before and after gating. Expect the gate to work on prose that
+defines or echoes its abbreviations and to refuse nearly everything on prose
+that does not.
 
 Determinism
 -----------
@@ -770,6 +791,16 @@ class LexicalDisambiguator:
             they do with a refusal, which the library cannot see. So the library
             reports the margin, publishes the curve, and leaves the choice
             where the information is.
+
+            **And there is a region of that curve where the gate is worse than
+            doing nothing.** Below the reference gate, the shared task's own
+            most-frequent-expansion baseline -- ignore the context, return the
+            commonest expansion -- is more accurate on the gated system's own
+            answered subset, and at the reference gate it is still ahead on
+            three- and four-candidate sets. F1 falls throughout. Read
+            ``disambiguation.sdu21.abstention_curve`` with its
+            ``*_most_frequent_accuracy_same_subset`` column, or the decomposed
+            tables in ``docs/EVALUATION.md``, before choosing a value here.
         """
         self._config = config
         self._dictionary = dictionary if dictionary is not None else ExpansionDictionary()
@@ -875,6 +906,11 @@ class LexicalDisambiguator:
         come from different sources -- an inline definition beaten down to a
         ``0.01`` gap by a dictionary candidate at the cap is an artifact of the
         cap, not a close call. :func:`_below_gate` states both exemptions.
+
+        Gating buys precision and spends coverage and F1; it is not a way to be
+        right more often, and on part of the measured curve it is beaten by
+        ignoring the context entirely. The module docstring and
+        ``docs/EVALUATION.md`` carry the comparison.
 
         Args:
             acronym: The short form to resolve, in any case or punctuation

@@ -333,6 +333,150 @@ because tuning to a benchmark is how a number stops meaning anything.
 exists precisely because a bag-of-words overlap was never expected to be competitive here; this
 quantifies by how much.
 
+**The default path is not what this table measures.** Every row above has `diction.json` supplied.
+With no dictionary the engine returns no candidate at all on
+97.45<!--claim:disambiguation.sdu21.diagnosis.default_path.no_candidate_pct:.2f--> % of these same
+instances and has two candidates to choose between on
+1<!--claim:disambiguation.sdu21.diagnosis.default_path.two_or_more_candidates:,--> of
+6,189<!--claim:disambiguation.sdu21.diagnosis.default_path.instances:,--> — it is an inline-definition
+lookup that performs no selection, and it is the path the README's short example takes.
+`disambiguation.sdu21.diagnosis.default_path` is the run.
+
+### Abstention: a precision instrument, and where it is worse than doing nothing
+
+`DisambiguationResult.margin` — the score gap between the top two candidates — is reported on every
+result, and `LexicalDisambiguator(config, vocab, min_margin=x)` declines to answer below a threshold
+the caller names. It is **off by default**, and this is the table that says why. D-030 in
+[docs/DECISIONS.md](DECISIONS.md) records what shipped and what was refused.
+
+"Doing nothing" here means the shared task's own most-frequent-expansion baseline: ignore the context
+completely and return whichever expansion was commonest in `train.json`. It is scored **on the very
+same answered subset** at every gate — not on the whole split — so the last column and the one before
+it answer an identical question about an identical set of instances. Publishing the curve without
+that column is what makes abstention look like an improvement.
+
+Nothing in these tables is capped by retrieval. The gold expansion is among the candidates on
+6,189<!--claim:disambiguation.sdu21.ceiling.gold_in_candidates:,--> of
+6,189<!--claim:disambiguation.sdu21.ceiling.instances:,--> instances, a ceiling of
+100.00<!--claim:disambiguation.sdu21.ceiling.ceiling_accuracy:.2f--> %, so every miss below is a
+selection error and not a missing candidate.
+
+| margin gate | coverage % | accuracy when answered % | recall % | F1 % | `most_frequent`, same answered subset % |
+|---|---:|---:|---:|---:|---:|
+| **0.00** — shipped default, gate off | 100.00<!--claim:disambiguation.sdu21.abstention_curve.gate_0.00_coverage_pct:.2f--> | 41.65<!--claim:disambiguation.sdu21.abstention_curve.gate_0.00_accuracy_when_answered:.2f--> | 41.65<!--claim:disambiguation.sdu21.abstention_curve.gate_0.00_recall:.2f--> | **41.65<!--claim:disambiguation.sdu21.abstention_curve.gate_0.00_f1:.2f-->** | **72.84<!--claim:disambiguation.sdu21.abstention_curve.gate_0.00_most_frequent_accuracy_same_subset:.2f-->** |
+| 0.01 | 70.53<!--claim:disambiguation.sdu21.abstention_curve.gate_0.01_coverage_pct:.2f--> | 46.32<!--claim:disambiguation.sdu21.abstention_curve.gate_0.01_accuracy_when_answered:.2f--> | 32.67<!--claim:disambiguation.sdu21.abstention_curve.gate_0.01_recall:.2f--> | 38.32<!--claim:disambiguation.sdu21.abstention_curve.gate_0.01_f1:.2f--> | **72.78<!--claim:disambiguation.sdu21.abstention_curve.gate_0.01_most_frequent_accuracy_same_subset:.2f-->** |
+| 0.02 | 50.91<!--claim:disambiguation.sdu21.abstention_curve.gate_0.02_coverage_pct:.2f--> | 52.27<!--claim:disambiguation.sdu21.abstention_curve.gate_0.02_accuracy_when_answered:.2f--> | 26.61<!--claim:disambiguation.sdu21.abstention_curve.gate_0.02_recall:.2f--> | 35.27<!--claim:disambiguation.sdu21.abstention_curve.gate_0.02_f1:.2f--> | **72.14<!--claim:disambiguation.sdu21.abstention_curve.gate_0.02_most_frequent_accuracy_same_subset:.2f-->** |
+| 0.05 | 29.52<!--claim:disambiguation.sdu21.abstention_curve.gate_0.05_coverage_pct:.2f--> | 64.81<!--claim:disambiguation.sdu21.abstention_curve.gate_0.05_accuracy_when_answered:.2f--> | 19.13<!--claim:disambiguation.sdu21.abstention_curve.gate_0.05_recall:.2f--> | 29.54<!--claim:disambiguation.sdu21.abstention_curve.gate_0.05_f1:.2f--> | **69.40<!--claim:disambiguation.sdu21.abstention_curve.gate_0.05_most_frequent_accuracy_same_subset:.2f-->** |
+| 0.10 — the run's reference gate | 22.78<!--claim:disambiguation.sdu21.abstention_curve.gate_0.10_coverage_pct:.2f--> | **70.00<!--claim:disambiguation.sdu21.abstention_curve.gate_0.10_accuracy_when_answered:.2f-->** | 15.95<!--claim:disambiguation.sdu21.abstention_curve.gate_0.10_recall:.2f--> | 25.98<!--claim:disambiguation.sdu21.abstention_curve.gate_0.10_f1:.2f--> | 68.30<!--claim:disambiguation.sdu21.abstention_curve.gate_0.10_most_frequent_accuracy_same_subset:.2f--> |
+| 0.15 | 16.77<!--claim:disambiguation.sdu21.abstention_curve.gate_0.15_coverage_pct:.2f--> | 72.93<!--claim:disambiguation.sdu21.abstention_curve.gate_0.15_accuracy_when_answered:.2f--> | 12.23<!--claim:disambiguation.sdu21.abstention_curve.gate_0.15_recall:.2f--> | 20.95<!--claim:disambiguation.sdu21.abstention_curve.gate_0.15_f1:.2f--> | 66.09<!--claim:disambiguation.sdu21.abstention_curve.gate_0.15_most_frequent_accuracy_same_subset:.2f--> |
+| 0.20 | 11.33<!--claim:disambiguation.sdu21.abstention_curve.gate_0.20_coverage_pct:.2f--> | 74.04<!--claim:disambiguation.sdu21.abstention_curve.gate_0.20_accuracy_when_answered:.2f--> | 8.39<!--claim:disambiguation.sdu21.abstention_curve.gate_0.20_recall:.2f--> | **15.07<!--claim:disambiguation.sdu21.abstention_curve.gate_0.20_f1:.2f-->** | 64.05<!--claim:disambiguation.sdu21.abstention_curve.gate_0.20_most_frequent_accuracy_same_subset:.2f--> |
+
+Bold marks the two ends of the F1 column, the one accuracy figure the reference gate buys, and every
+row where ignoring the context outscores the gated system on the gated system's own answered
+subset.
+
+**F1 falls at every step.** From 41.65<!--claim:disambiguation.sdu21.abstention_curve.gate_0.00_f1:.2f--> %
+ungated to 15.07<!--claim:disambiguation.sdu21.abstention_curve.gate_0.20_f1:.2f--> % at the tightest
+gate measured, monotonically, with no turning point anywhere on the curve. Gating never produces more
+right answers. It produces fewer answers, a larger share of which are right. Accuracy-when-answered
+and F1 are different quantities and only one of them is an improvement, which is why both are
+printed.
+
+**Below the reference gate, ignoring the context wins outright.** At every threshold under 0.10 —
+including the shipped default of 0.00, where the gate does nothing at all — the most-frequent
+baseline is more accurate on the identical answered subset. The gate is not producing better answers
+there; it is selecting easier questions. A caller who can count expansion frequencies is better off
+counting them. That is the losing comparison, and it belongs in this table rather than in a paragraph
+somewhere below it.
+
+#### The crossover at 0.10 is real, and it is not uniform
+
+At the reference gate the pooled numbers finally favour the gate. Decomposed by candidate-set size
+they do not, in two of six buckets:
+
+| candidates | instances | coverage % | accuracy when answered % | `most_frequent`, same subset % | more accurate here |
+|---|---:|---:|---:|---:|---|
+| 2 | 2,178<!--claim:disambiguation.sdu21.abstention_curve.by_arity.2.instances:,--> | 23.74<!--claim:disambiguation.sdu21.abstention_curve.by_arity.2.gate_0.10_coverage_pct:.2f--> | 76.98<!--claim:disambiguation.sdu21.abstention_curve.by_arity.2.gate_0.10_accuracy_when_answered:.2f--> | 75.63<!--claim:disambiguation.sdu21.abstention_curve.by_arity.2.gate_0.10_most_frequent_accuracy_same_subset:.2f--> | the gate |
+| **3** | 1,150<!--claim:disambiguation.sdu21.abstention_curve.by_arity.3.instances:,--> | 21.57<!--claim:disambiguation.sdu21.abstention_curve.by_arity.3.gate_0.10_coverage_pct:.2f--> | 79.44<!--claim:disambiguation.sdu21.abstention_curve.by_arity.3.gate_0.10_accuracy_when_answered:.2f--> | **82.26<!--claim:disambiguation.sdu21.abstention_curve.by_arity.3.gate_0.10_most_frequent_accuracy_same_subset:.2f-->** | **the baseline** |
+| **4** | 854<!--claim:disambiguation.sdu21.abstention_curve.by_arity.4.instances:,--> | 14.87<!--claim:disambiguation.sdu21.abstention_curve.by_arity.4.gate_0.10_coverage_pct:.2f--> | 70.08<!--claim:disambiguation.sdu21.abstention_curve.by_arity.4.gate_0.10_accuracy_when_answered:.2f--> | **70.87<!--claim:disambiguation.sdu21.abstention_curve.by_arity.4.gate_0.10_most_frequent_accuracy_same_subset:.2f-->** | **the baseline** |
+| 5 | 424<!--claim:disambiguation.sdu21.abstention_curve.by_arity.5.instances:,--> | 26.18<!--claim:disambiguation.sdu21.abstention_curve.by_arity.5.gate_0.10_coverage_pct:.2f--> | 66.67<!--claim:disambiguation.sdu21.abstention_curve.by_arity.5.gate_0.10_accuracy_when_answered:.2f--> | 63.06<!--claim:disambiguation.sdu21.abstention_curve.by_arity.5.gate_0.10_most_frequent_accuracy_same_subset:.2f--> | the gate |
+| 6–9 | 1,026<!--claim:disambiguation.sdu21.abstention_curve.by_arity.6-9.instances:,--> | 23.39<!--claim:disambiguation.sdu21.abstention_curve.by_arity.6-9.gate_0.10_coverage_pct:.2f--> | 57.92<!--claim:disambiguation.sdu21.abstention_curve.by_arity.6-9.gate_0.10_accuracy_when_answered:.2f--> | 57.50<!--claim:disambiguation.sdu21.abstention_curve.by_arity.6-9.gate_0.10_most_frequent_accuracy_same_subset:.2f--> | the gate, barely |
+| **10+** — worst row | 557<!--claim:disambiguation.sdu21.abstention_curve.by_arity.10+.instances:,--> | 29.98<!--claim:disambiguation.sdu21.abstention_curve.by_arity.10+.gate_0.10_coverage_pct:.2f--> | **53.89<!--claim:disambiguation.sdu21.abstention_curve.by_arity.10+.gate_0.10_accuracy_when_answered:.2f-->** | 41.92<!--claim:disambiguation.sdu21.abstention_curve.by_arity.10+.gate_0.10_most_frequent_accuracy_same_subset:.2f--> | the gate |
+
+The three- and four-candidate buckets are
+2,004<!--claim:disambiguation.sdu21.abstention_curve.instances_in_those_arities:,--> instances,
+32.38<!--claim:disambiguation.sdu21.abstention_curve.instances_in_those_arities_pct:.2f--> % of the
+split. A caller whose acronyms live there gains nothing the pooled row appears to promise. The worst
+answered-accuracy row is the ten-or-more bucket at
+53.89<!--claim:disambiguation.sdu21.abstention_curve.worst_arity_accuracy_at_reference_gate:.2f--> %,
+printed here rather than left to be derived.
+
+The obvious repair — one threshold per bucket — was measured and refused. The premise that a margin
+shrinks as the candidate set grows is false of this scorer, and six in-sample parameters bought
+0.59<!--claim:disambiguation.sdu21.abstention_curve.per_arity_gain_over_global_gate:.2f--> of a point
+against a four-point spread between two halves of the same split. D-030 has the working; that is
+experiment eight, and it is spent.
+
+#### What the gate is actually detecting
+
+Verbatim evidence. The share of answered instances whose gold expansion has a word in the sentence
+rises from a base rate of
+18.15<!--claim:disambiguation.sdu21.abstention_curve.gold_word_in_sentence_base_rate_pct:.2f--> % to
+64.82<!--claim:disambiguation.sdu21.abstention_curve.gate_0.10_share_of_answered_that_is_gold_verbatim_pct:.2f--> %
+at the reference gate and
+89.44<!--claim:disambiguation.sdu21.abstention_curve.gate_0.20_share_of_answered_that_is_gold_verbatim_pct:.2f--> %
+at 0.20. Split the corpus on that property and the gate's value splits with it:
+
+| subset | instances | gate | coverage % | accuracy when answered % | `most_frequent`, same subset % |
+|---|---:|---|---:|---:|---:|
+| gold words in the sentence | 1,123<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_word_in_sentence.instances:,--> | 0.00 | 100.00<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_word_in_sentence.gate_0.00_coverage_pct:.2f--> | 81.48<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_word_in_sentence.gate_0.00_accuracy_when_answered:.2f--> | 66.16<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_word_in_sentence.gate_0.00_most_frequent_accuracy_same_subset:.2f--> |
+| | | 0.10 | 81.39<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_word_in_sentence.gate_0.10_coverage_pct:.2f--> | 85.78<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_word_in_sentence.gate_0.10_accuracy_when_answered:.2f--> | 66.85<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_word_in_sentence.gate_0.10_most_frequent_accuracy_same_subset:.2f--> |
+| **gold absent from the sentence** | 5,066<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_absent_from_sentence.instances:,--> | 0.00 | 100.00<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_absent_from_sentence.gate_0.00_coverage_pct:.2f--> | 32.83<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_absent_from_sentence.gate_0.00_accuracy_when_answered:.2f--> | **74.32<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_absent_from_sentence.gate_0.00_most_frequent_accuracy_same_subset:.2f-->** |
+| | | 0.10 | **9.79<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_absent_from_sentence.gate_0.10_coverage_pct:.2f-->** | 40.93<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_absent_from_sentence.gate_0.10_accuracy_when_answered:.2f--> | **70.97<!--claim:disambiguation.sdu21.abstention_curve.by_gold_evidence.gold_absent_from_sentence.gate_0.10_most_frequent_accuracy_same_subset:.2f-->** |
+
+Four fifths of this split is text where the expansion's words are not in the sentence, and there the
+baseline is thirty to forty points ahead **both before and after gating**. Coverage in that subset does
+not degrade under the gate, it collapses. So the practical statement for a caller is: on prose that
+defines or echoes its abbreviations, the gate raises answered accuracy above the frequency baseline
+and keeps most of its coverage; on prose that does not, it refuses nearly everything and is still
+worse than counting.
+
+**One more thing that is only true pooled.** "Answers get better as the gate rises" is a statement
+about the pooled column. Inside the four-candidate bucket answered accuracy turns down between gate
+`0.15` and gate `0.20`, and inside the gold-absent subset it peaks at gate `0.05` and falls away. A
+caller reading a single pooled curve would see neither.
+
+#### What this is measured on
+
+Every figure above is `disambiguation.sdu21.abstention_curve` in
+[bench/results.json](../bench/results.json), on the **dictionary path** — `diction.json` supplied, so
+there are competing candidates to have a margin between. The engine's no-dictionary default path is a
+different measurement, in the section above: on that path a margin is defined on
+1<!--claim:disambiguation.sdu21.abstention_curve.default_path_margin_defined:,--> of
+6,189<!--claim:disambiguation.sdu21.abstention_curve.default_path_instances:,--> instances, so none of
+this reaches a caller who does not pass a dictionary.
+
+The sweep reproduces the *shipped* gate, exemptions included (`harness_reproduces_shipped_gate`),
+which is why its rows differ slightly from the August 2026 audit's earlier
+`disambiguation.sdu21.diagnosis.abstention`. **Cite this run id, not that one.**
+
+**SDU@AAAI-21 AD dev is a tuning split, and `bench/splits.toml` declares it contaminated.** Its
+per-candidate-count breakdown has been read, an ablation and a ceiling study have been run against it,
+and the reference gate is read off the very split it is scored on. Nothing here is evidence of
+generalisation, and no threshold on this curve is a default this library adopts. The only
+corroboration offered is a split-half check at the reference gate:
+72.16<!--claim:disambiguation.sdu21.abstention_curve.split_half_a_gate_0.10_accuracy_when_answered:.2f--> %
+against
+67.85<!--claim:disambiguation.sdu21.abstention_curve.split_half_b_gate_0.10_accuracy_when_answered:.2f--> %
+answered accuracy — a four-point spread from resampling one frozen shuffle, which is the scale at
+which any cut-point here should be trusted. `test.json` is fetchable from the same pin and is
+deliberately unspent.
+
+The dataset is CC BY-NC-SA 4.0, read from the shared task's own README at the URL and date pinned in
+[`bench/splits.toml`](../bench/splits.toml); MIT covers only its scorer and baseline. The
+`most_frequent` control is derived from `train.json` as a measurement instrument, and is never
+shipped, vendored or committed.
+
 ## PLOD: a second corpus, and a premise of mine that was wrong
 
 PLOD was added to close the domain-generalisation gap. **It does not, because PLOD is not
@@ -410,8 +554,9 @@ support.
 
 ## The governed subsystem: its first accuracy figures
 
-The governed half of this package is 9,370 of 25,210 source lines and, until this table, carried no
-accuracy number at all. The justification on file was "exact by construction", which is a tautology
+The governed half of this package is 9,647 of 26,149 source lines — re-counted for this revision with
+`find src/acronymkit -name '*.py' | xargs wc -l`, because the previous figure here had gone stale —
+and, until this table, carried no accuracy number at all. The justification on file was "exact by construction", which is a tautology
 rather than a measurement: a lookup table is exact about whatever the caller put into it.
 
 There is exactly one thing in that subsystem which decides anything on its own, and
@@ -577,15 +722,22 @@ one member is downloaded rather than the whole quarterly archive. The Socrata ca
 moves under the runner, so a later run walks a slightly different population; the fetch date and the
 page count travel with every figure in `bench/results.json`.
 
-**Neither corpus is registered in [`bench/splits.toml`](../bench/splits.toml) yet, and every figure
-above carries that fact.** The runner asks `tools/splits.py` for each corpus's declared role, prints
-what it gets, and writes it into `bench/results.json` as `splits_declaration` — currently
-`UNDECLARED`. It refuses to run against a corpus declared `role = "tuning"`. Two things block
-registration and both are somebody else's file: the manifest's `task` vocabulary is closed and holds
-no value for identifier segmentation, and `headline_capable()` in `tools/splits.py` is task-blind, so
-registering a segmentation corpus as `held_out` would silence the advisory that says this project
-still has no held-out short-form/long-form pair corpus. That advisory is about extraction and is
-still true. Until both are settled, read these numbers as measured-but-undeclared.
+**These figures were measured before either corpus was declared, and each one says so.** The runner
+asks `tools/splits.py` for the corpus's declared role and writes the answer into
+`bench/results.json` as `splits_declaration`; on every governed run above that field reads
+`UNDECLARED (… is not in bench/splits.toml)`. It refuses to run against a corpus declared
+`role = "tuning"`. Whether the manifest has since been amended is a question for
+[`bench/splits.toml`](../bench/splits.toml) itself and not for this page — but a declaration written
+after the fact does not retroactively make a number blind, and **nothing above has been re-measured
+under one.** Read these as measured-before-declared, and re-run before treating any of them as
+held-out evidence.
+
+**And there is a specific reason not to read them as held-out even after a re-run.** The
+false-positive table two sections up decomposes this subsystem's misses by which signal produced
+them. Reading a corpus's miss taxonomy is exactly the act `bench/splits.toml` records as having
+contaminated MED1250 and both SDU@AAAI-22 dev splits. It happened here in the same round as the
+measurement, on this page, and it should be weighed against any `contaminated = false` entry for
+these two corpora rather than assumed away.
 
 ## What is deliberately not claimed
 
@@ -603,9 +755,13 @@ spaCy model in the hundreds of megabytes; the harness supports it
 text and says little about legal, financial or general-web text. PLOD has now been evaluated (below) — but it turned out **not** to be the
 non-biomedical counterweight it was assumed to be, so the domain gap is still open.
 
-**Extraction only.** Generation, backronym alignment and disambiguation have no external evaluation
-at all. The generation presets are pinned against a 16-phrase canonical corpus
-(`tools/tune_presets.py`), which is a regression guard, not an evaluation.
+**Backronym alignment has no external evaluation at all**, and the generation presets are pinned
+against a 16-phrase canonical corpus (`tools/tune_presets.py`), which is a regression guard rather
+than an evaluation. This bullet used to read "extraction only", and that stopped being true three
+rounds ago: generation is scored on the MED1250 pairs read backwards, disambiguation on SDU@AAAI-21
+AD, and the governed segmenter on publisher-authored captions. What none of those share is a blind
+split — every one of them is a tuning or undeclared corpus, which is the sentence this bullet should
+have been saying instead.
 
 ## Adding a corpus
 

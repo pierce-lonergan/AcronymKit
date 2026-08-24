@@ -548,6 +548,297 @@ jobs:
           print("cold import OK")
           PY
 
+  installed-suite:
+    name: The suite runs from the installed distribution
+    runs-on: ubuntu-latest
+    # THE FIFTH FIX FOR THIS CLASS, AND THE FIRST THAT IS NOT A LIST OF NAMES.
+    #
+    # This distribution has broken four times on one shape: the artifact ships
+    # an assertion without the thing that backs it. `bench/results.json`, then
+    # `data/LICENSES.md`, then `tests/fixtures/*.json`, then a test that
+    # executed `bench/run_governed_gold.py` while it was being imported. Every
+    # fix named the file that had just broken, which is exactly why there was a
+    # next one. `tests/test_packaging_manifest.py` now derives two of those
+    # shapes from the tree rather than from memory, which is the right
+    # direction; the hand-written `required = [...]` in `build` below is still
+    # the wrong one.
+    #
+    # `build`'s "Verify the sdist can run its own test suite" step LOOKS like it
+    # already covers the rest, and does not. It extracts the sdist, installs it,
+    # and runs `pytest` inside the extracted tree -- with `src/` sitting beside
+    # the tests. `tests/conftest.py` opens with
+    #
+    #     SRC = REPO_ROOT / "src"
+    #     if SRC.is_dir() and str(SRC) not in sys.path:
+    #         sys.path.insert(0, str(SRC))
+    #
+    # so `import acronymkit` resolves to the *source tree* and the install that
+    # step just performed is never consulted. Measured inside a built, extracted
+    # sdist by running that very conftest and asking where the import landed:
+    #
+    #   un-gated -- in <extracted-sdist>/tests, against a venv holding the
+    #   installed sdist:
+    #     python -c "import sys; sys.path.insert(0,'.');
+    #                import conftest, acronymkit; print(acronymkit.__file__)"
+    #     -> <extracted-sdist>/src/acronymkit/__init__.py
+    #
+    # That step proves the sdist SHIPS the files its own suite reads, which is
+    # worth proving and is why it stays. It proves nothing whatever about the
+    # distribution a user installs. This job is the missing half: the package
+    # comes out of site-packages, the tests come out of the artifact, and the
+    # run directory holds no source tree for either of them to fall back on.
+    #
+    # What that catches that nothing else here does. Delete
+    # `acronymkit/resources/pseudo_precision_en.json` from an installed
+    # distribution -- a resource the library reads at run time, and one the
+    # hand-written `required = [...]` in `build` happens not to name:
+    #
+    #   un-gated -- local reproduction, 2026-08-24, CPython 3.13
+    #     the `required = [...]` wheel-resource guard  no missing entries  PASSES
+    #     the extracted-tree sdist run     4,308 passed, 102 skipped       PASSES
+    #     this job                         15 failed (11 of them new)      FAILS
+    #
+    # Adding that one filename to `required` would have been the fifth symptom
+    # fix. Nobody has to add anything here for the sixth.
+    #
+    # D-018 closes with "a lookup with a fallback cannot be used to test the
+    # thing it falls back to". This is that rule one level up: a test suite
+    # with a `sys.path` fallback to `src/` cannot be used to test the thing it
+    # falls back to. Removing the fallback is what gives the run a second
+    # operand, exactly as removing `load_schema()`'s search did.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Build the sdist
+        # Built here rather than downloaded from `build`, so this job is
+        # independent of the release path and fails on its own name. It is the
+        # same tree, the same backend and the same pyproject.toml.
+        run: |
+          python -m pip install --quiet build
+          python -m build --sdist
+      - name: Install the sdist into a clean virtual environment
+        # The sdist, not the wheel: installing it exercises the build backend
+        # against the shipped source as well, so an sdist that cannot build is
+        # a failure here rather than a surprise at release time.
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet --upgrade pip
+          sdist="$(ls dist/*.tar.gz)"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet "${sdist}[dev]"
+          "$RUNNER_TEMP/venv/bin/python" -m pip show acronymkit
+      - name: Lay out a run directory that is not a checkout
+        run: |
+          mkdir -p "$RUNNER_TEMP/sdist" "$RUNNER_TEMP/run"
+          tar -xzf dist/*.tar.gz -C "$RUNNER_TEMP/sdist" --strip-components=1
+          # The tests come from the ARTIFACT, not from the checkout: whatever
+          # MANIFEST.in failed to ship is missing here for real.
+          cp -r "$RUNNER_TEMP/sdist/tests" "$RUNNER_TEMP/run/tests"
+          # pyproject.toml travels with them because it IS this suite's pytest
+          # configuration -- `addopts`, the marker list that `--strict-markers`
+          # is checked against, and `asyncio_mode = "auto"`. Running without it
+          # is not a purer test, it is a different suite:
+          #
+          #   un-gated -- same run directory, pyproject.toml withheld
+          #     32 failed, 4,192 passed  (against 4 failed, 4,220 passed)
+          #     26 of the 28 extra failures are "async def functions are not
+          #     natively supported" -- asyncio_mode was lost, not exercised
+          #
+          # It is one metadata file, it is not a source tree, and the assertion
+          # in the next step is what holds that line.
+          cp "$RUNNER_TEMP/sdist/pyproject.toml" "$RUNNER_TEMP/run/pyproject.toml"
+          # The whole point. With no `src/` beside the tests, conftest's
+          # `sys.path` insertion is a no-op and site-packages is the only
+          # acronymkit in the process.
+          test ! -e "$RUNNER_TEMP/run/src"
+          ls -A "$RUNNER_TEMP/run"
+      - name: The import must resolve to site-packages, not to a tree
+        # Asserted before the suite runs, because every claim this job makes
+        # rests on it. If `conftest.py` ever grows another way to put a source
+        # directory first -- or if the layout above stops being isolated -- this
+        # job would otherwise go on passing while testing a checkout, which is
+        # precisely the state `build`'s sdist step has been in all along.
+        working-directory: ${{ runner.temp }}/run
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
+          import pathlib
+          import sys
+          import sysconfig
+
+          sys.path.insert(0, str(pathlib.Path("tests").resolve()))
+          import conftest  # noqa: F401 -- runs the real sys.path manipulation
+
+          import acronymkit
+
+          where = pathlib.Path(acronymkit.__file__).resolve()
+          site = pathlib.Path(sysconfig.get_paths()["purelib"]).resolve()
+          print(f"acronymkit resolved to: {where}")
+          print(f"site-packages:          {site}")
+          if site not in where.parents:
+              sys.exit(
+                  f"the suite would import acronymkit from {where}, which is not under "
+                  f"{site}. This job only means anything when the installed distribution "
+                  "is the one under test; a source tree has got into the run directory, "
+                  "or tests/conftest.py has found a new way to put one on sys.path."
+              )
+          print("importing from the installed distribution")
+          PY
+      - name: Run the full suite against the installed package
+        # How much of the suite actually runs here -- because a job that skips
+        # most of what it collects is a green tick and nothing else.
+        #
+        # The COMPOSITION is structural and is what to read. Everything that
+        # does not run does so for one of five reasons, and each is a named
+        # file, not a mystery:
+        #
+        #   test_governed_gold.py       skips  -- `bench/` is deliberately not
+        #                                          shipped; guarded already
+        #   test_packaging_manifest.py  skips  -- needs MANIFEST.in
+        #   test_pseudo_precision.py    skips  -- says "not a checkout" itself
+        #   an optional NLP backend     skips  -- the same ones a checkout skips
+        #   test_check_claims.py,       never  -- execute a `tools/` script at
+        #   test_splits_manifest.py     collect    import; see the list below
+        #
+        # plus the six checkout-only tests enumerated in EXPECTED_NON_PASSING.
+        #
+        # The TOTALS move every time somebody adds a test, so they are stamped
+        # rather than maintained, and the gate prints the current ones on every
+        # run -- the same correction the wheel-size budget in `build` had to
+        # make after its comment went stale twice:
+        #
+        #   un-gated -- 2026-08-24, CPython 3.13, one tree, both runs
+        #     installed package: 4,218 passed  66 skipped  1 xfailed
+        #                        4 failed  4 errors  120 never collected
+        #     same tree, checkout: 4,402 passed  10 skipped  1 xfailed
+        #     4,218 + 66 + 1 + 4 + 4 + 120 = 4,413, which is the whole suite
+        #
+        # 4,218 of 4,413 is 95.6 %, and 56 of the 66 skips are the "not a source
+        # checkout" guards doing their job. This is not a job that proves
+        # little. For scale, the extracted-tree run in `build` skips 102.
+        working-directory: ${{ runner.temp }}/run
+        env:
+          # pytest truncates its short-summary lines to the terminal width, and
+          # those lines are what the gate below parses.
+          COLUMNS: "200"
+        run: |
+          set +e
+          "$RUNNER_TEMP/venv/bin/python" -m pytest \
+            --continue-on-collection-errors --tb=short -rfEs \
+            > "$RUNNER_TEMP/pytest.log" 2>&1
+          set -e
+          cat "$RUNNER_TEMP/pytest.log"
+          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+
+          # Tests that CANNOT run from an installed package, and why.
+          #
+          # This is not a list of things that broke. It is the complete set of
+          # places where this suite reaches for a source checkout, and the job
+          # asserts it EXACTLY: an entry that starts passing fails this job just
+          # as loudly as a test that starts failing. The list cannot rot into a
+          # blanket exemption, and it cannot be grown by accident.
+          #
+          # Every entry is a missing guard in the TEST, not a defect in the
+          # package. The fix for any of them is the `skipif` its neighbours
+          # already carry, and then deleting the line here. Nothing in this job
+          # is ever a reason to change src/.
+          EXPECTED_NON_PASSING = {
+              # Both execute a `tools/` script at module level, so the file
+              # fails to COLLECT rather than skipping -- `pytest.mark.skipif`
+              # runs at collection, the module body at import. `tools/` ships in
+              # the sdist but is no part of an installed distribution. 120 tests
+              # between them, exercised by the extracted-tree run in `build`.
+              # This is the same shape as the `bench/run_governed_gold.py`
+              # incident that `tests/test_packaging_manifest.py` now guards
+              # against -- its `_UNSHIPPED_ROOTS` knows about `bench` and not
+              # about "shipped in the sdist, absent once installed".
+              "tests/test_check_claims.py",
+              "tests/test_splits_manifest.py",
+              # These read the source text of `src/acronymkit/__init__.py` and
+              # parse it with `ast`, to check the lazy export table against the
+              # TYPE_CHECKING block. An installed package has no source tree to
+              # read, and the check is a static one that belongs to a checkout.
+              "tests/test_package.py::test_the_lazy_path_and_the_eager_path_expose_identical_names",
+              "tests/test_package.py::test_every_lazy_export_is_the_object_its_own_module_defines",
+              # `serialization.SCHEMA_PATH` is `<package>/../../schemas/...`,
+              # which names the checkout copy by construction. That module's own
+              # docstring says of it: "In an installed wheel this path does not
+              # exist, and that is now unremarkable". These four assert on it
+              # anyway, two of them through a fixture that rewrites the file.
+              "tests/test_serialization.py::test_schema_path_points_at_the_checkout_copy",
+              "tests/test_serialization.py::test_the_checkout_and_bundled_schema_copies_are_semantically_equal",
+              "tests/test_serialization.py::test_load_schema_ignores_a_decoy_planted_at_the_schema_directory",
+              "tests/test_serialization.py::test_validation_still_works_beside_a_hijacked_schema_directory",
+          }
+
+          # A floor, not a target. It exists so this job cannot go green after
+          # something quietly stops the suite from collecting -- a green job
+          # that runs eleven tests would satisfy every other assertion here.
+          # 4,218 passed locally. Never lower this to make a red run green.
+          PASS_FLOOR = 4_000
+
+          log = pathlib.Path(os.environ["RUNNER_TEMP"], "pytest.log").read_text(
+              encoding="utf-8", errors="replace"
+          )
+
+          observed = set()
+          for line in log.splitlines():
+              if not line.startswith(("FAILED ", "ERROR ")):
+                  continue
+              # `FAILED <nodeid> - <reason>` / `ERROR <nodeid>` / `ERROR <file> - <exc>`
+              nodeid = line.split(" ", 1)[1].split(" - ", 1)[0].strip()
+              observed.add(nodeid.replace("\\", "/"))
+
+          body = [line for line in log.splitlines() if line.strip()]
+          summary = body[-1].strip().strip("=").strip() if body else ""
+          counts = {word: int(n) for n, word in re.findall(r"(\d+) (\w+)", summary)}
+          passed = counts.get("passed", 0)
+          skipped = counts.get("skipped", 0)
+
+          print(f"summary: {summary}")
+          print(f"skipped {skipped}; skip reasons, as reported:")
+          for line in log.splitlines():
+              if line.startswith("SKIPPED "):
+                  print(f"  {line}")
+
+          problems = []
+          unexpected = sorted(observed - EXPECTED_NON_PASSING)
+          if unexpected:
+              problems.append(
+                  "these failed against the INSTALLED distribution and pass in a checkout:\n  "
+                  + "\n  ".join(unexpected)
+                  + "\n\nThat is the whole point of this job. Either the artifact does not ship "
+                  "what the package needs, or a test reaches outside it. Fix the artifact or "
+                  "guard the test -- adding a name to EXPECTED_NON_PASSING is only correct when "
+                  "the test structurally cannot run without a source checkout, and the comment "
+                  "beside it has to say which structure."
+              )
+          stale = sorted(EXPECTED_NON_PASSING - observed)
+          if stale:
+              problems.append(
+                  "these are listed as unable to run from an installed package, and just ran:\n  "
+                  + "\n  ".join(stale)
+                  + "\n\nGood news, and the list is now wrong. Delete those lines from "
+                  "EXPECTED_NON_PASSING in .github/workflows/ci.yml."
+              )
+          if passed < PASS_FLOOR:
+              problems.append(
+                  f"only {passed} tests passed, under the {PASS_FLOOR} floor. Something stopped "
+                  "the suite collecting; the exclusions above are not the explanation and the "
+                  "floor is not the thing to change."
+              )
+          if problems:
+              sys.exit("\n\n".join(problems))
+          print(
+              f"OK: {passed} tests passed from the installed distribution, {skipped} skipped, "
+              f"{len(EXPECTED_NON_PASSING)} checkout-only entries accounted for exactly."
+          )
+          PY
+
   build:
     name: Build distribution
     runs-on: ubuntu-latest
@@ -683,7 +974,20 @@ jobs:
           validate_result(result.to_dict())
           print("installed wheel OK:", result.primary_acronym)
           PY
-      - name: Verify the sdist can run its own test suite
+      - name: Verify the sdist ships the files its own test suite reads
+        # Renamed, because what it verifies is narrower than what it was called.
+        # This runs `pytest` inside the EXTRACTED TREE, where `src/` is sitting
+        # beside the tests -- and `tests/conftest.py` puts that `src/` on
+        # `sys.path` ahead of everything, so `import acronymkit` never reaches
+        # the install performed on the last line. Measured: the conftest-driven
+        # import inside a built, extracted sdist resolves to
+        # `<extracted-sdist>/src/acronymkit/__init__.py`.
+        #
+        # That still proves something real and worth keeping: every file this
+        # suite reads is present in the artifact, which is the failure that has
+        # bitten four times. It is not a check on the installed distribution.
+        # The `installed-suite` job above is that check, and the difference
+        # between the two is the reason both exist.
         run: |
           mkdir -p /tmp/sdist && tar -xzf dist/*.tar.gz -C /tmp/sdist --strip-components=1
           test -f /tmp/sdist/tests/conftest.py || { echo "conftest.py missing from sdist"; exit 1; }

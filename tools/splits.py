@@ -33,6 +33,29 @@ What the validator enforces, and why each rule is here
     for -- which has now happened three times in this repository (SDU-21 AD,
     SDU-21 AI, and GLADIS in the August 2026 audit).
 
+``task``, and why widening :data:`TASKS` is a decision
+    ``task`` is a closed vocabulary because ``bench/corpora.py`` returns a
+    **different type per task**, and a corpus filed under the wrong one is how a
+    pair scorer comes to be pointed at a span corpus. :data:`TASK_GOLD_UNIT`
+    records what one gold record *is* for each, so the contract is written down
+    where the vocabulary is, rather than inferred from whichever reader happened
+    to be registered.
+
+    ``identifier_segmentation`` was added for the SEC XBRL and Socrata
+    identifier/caption corpora. It is the first task in this file whose gold is
+    **not an annotation inside a passage**: there is no text, no span and no
+    annotator, only two surface strings made of the same characters and the set
+    of positions where one of them is cut.
+
+``headline_capable`` is asked per task, never in general
+    :meth:`Manifest.headline_capable` requires the task the headline is a claim
+    about. Task-blindness was harmless while every declared corpus was a pair or
+    a span corpus and stopped being harmless the moment a segmentation corpus
+    entered the ``held_out`` role: a corpus that scores where an identifier is
+    cut would have satisfied a headline requirement for extracting definitions
+    from prose. That failure is quieter than an undeclared corpus, because
+    nothing about it looks wrong.
+
 ``licence_url`` and ``licence_read_on``
     Operating rule 4: **licences come from terms, never from a badge.** A
     licence string on its own records a conclusion and destroys the evidence.
@@ -61,6 +84,12 @@ What the validator enforces, and why each rule is here
     past which recall is bought against the corpus's own annotation. The
     validator enforces the pairing; only a reader can enforce the honesty, and
     an empty basis denies them the chance.
+
+    The field is refused outright on a task whose gold holds no short forms
+    (:data:`SHORT_FORM_TASKS`). An identifier-segmentation corpus annotates no
+    abbreviation anywhere, so a "short-form recall ceiling" on one is not a
+    cautious extra: it is a number that would be printed beside a recall figure
+    measuring a different quantity.
 
 Usage::
 
@@ -93,7 +122,50 @@ ROLES = ("tuning", "held_out")
 #: more: ``bench/corpora.py`` returns a *different type* per task, and a corpus
 #: filed under the wrong one is how a pair scorer comes to be pointed at a span
 #: corpus and report a meaningless zero.
-TASKS = ("extraction", "span_detection", "disambiguation")
+#:
+#: Widening this tuple is a decision about that type contract and never a
+#: one-word edit. :data:`TASK_GOLD_UNIT` states, per task, what one gold record
+#: *is*; ``bench/corpora.py`` states which registry returns it. Adding a task
+#: without both is how the vocabulary stops protecting anything.
+TASKS = ("extraction", "span_detection", "disambiguation", "identifier_segmentation")
+
+#: What one gold record **is**, per task. This is the property the closed
+#: vocabulary exists to protect, written down rather than implied.
+#:
+#: The first three tasks all annotate *inside a passage*: each gold record
+#: carries text (or tokens) and points into it. ``identifier_segmentation`` does
+#: not. Its record is a pair of surface strings that are the *same characters* --
+#: a machine identifier and a human caption of it -- and its gold is a set of
+#: integer cut positions in the character stream they share. There is no
+#: passage, no offsets into prose, no annotator and no candidate set, which is
+#: why it cannot be read by a pair reader or a span reader even by accident.
+TASK_GOLD_UNIT = {
+    "extraction": (
+        "a passage, plus the short-form/long-form pairs a human annotated in it "
+        "(bench.corpora.GoldDocument)"
+    ),
+    "span_detection": (
+        "a passage, plus the index ranges tagged short form or long form; the "
+        "annotation never says which belongs to which "
+        "(bench.corpora.SpanDocument, bench.corpora.CharSpanDocument)"
+    ),
+    "disambiguation": (
+        "one acronym occurrence in a sentence, plus the fixed candidate set it "
+        "must resolve against (bench.corpora.DisambiguationInstance)"
+    ),
+    "identifier_segmentation": (
+        "a machine identifier and a human caption whose alphanumerics are the "
+        "same characters, so only cut placement can differ; the gold is the set "
+        "of cut positions and nothing else (bench.corpora.IdentifierCaptionPair)"
+    ),
+}
+
+#: Tasks whose gold contains short forms at all, and therefore the only tasks
+#: for which ``shortform_recall_ceiling_pct`` is a meaningful field. An
+#: identifier-segmentation corpus has no short forms in it -- no abbreviation is
+#: annotated anywhere -- so a recall ceiling declared on one is a category
+#: error, not a conservative extra.
+SHORT_FORM_TASKS = ("extraction", "span_detection")
 
 #: Every corpus must declare these.
 REQUIRED_FIELDS = ("role", "task", "licence", "licence_url", "licence_read_on")
@@ -155,7 +227,9 @@ class Corpus:
         name: The table key, e.g. ``"med1250"``.
         role: One of :data:`ROLES`. ``"tuning"`` means every figure measured on
             this corpus is a tuning figure and must be labelled one.
-        task: One of :data:`TASKS`.
+        task: One of :data:`TASKS`. It decides which *type* of gold record the
+            corpus holds -- see :data:`TASK_GOLD_UNIT` -- and therefore which
+            runners may read it and which headlines it can back.
         licence: The licence as read from its terms, not as inferred.
         licence_url: Where those terms were read.
         licence_read_on: When they were read.
@@ -223,6 +297,28 @@ class Corpus:
                 f"{self.name} is declared role={self.role!r} in bench/splits.toml, not {expected!r}"
             )
 
+    def require_task(self, expected: str) -> None:
+        """Assert the declared task, so a runner cannot score the wrong shape of gold.
+
+        The exact partner of :meth:`require_role`, and it guards the other half
+        of the manifest's contract. A runner that scores cut placement is making
+        a claim that its corpus is an ``identifier_segmentation`` corpus; a
+        runner that scores pairs is claiming ``extraction``. Both claims are
+        currently made in a docstring, where nothing can check them, and the
+        cost of getting one wrong is a number rather than an error --
+        ``bench/corpora.py``'s ``read_plod_cw_text`` documents that trap in
+        prose because there was no mechanism to state it in.
+
+        Raises:
+            SplitsError: If the declared task is not ``expected``.
+        """
+        if self.task != expected:
+            raise SplitsError(
+                f"{self.name} is declared task={self.task!r} in bench/splits.toml, "
+                f"not {expected!r}. A gold record for {expected!r} is "
+                f"{TASK_GOLD_UNIT.get(expected, 'a different shape entirely')}."
+            )
+
     def label(self) -> str:
         """The label any figure from this corpus must carry.
 
@@ -283,12 +379,60 @@ class Manifest:
         """Every corpus carrying ``role``, sorted by name."""
         return tuple(self.corpora[name] for name in self.names if self.corpora[name].role == role)
 
-    def headline_capable(self) -> Tuple[Corpus, ...]:
-        """Every corpus a headline number may legitimately come from."""
+    def with_task(self, task: str) -> Tuple[Corpus, ...]:
+        """Every corpus declared for ``task``, sorted by name.
+
+        Raises:
+            SplitsError: If ``task`` is not in :data:`TASKS`. A typo would
+                otherwise return an empty tuple, which reads as "no corpus
+                covers this" -- a true-looking answer to a question nobody
+                asked.
+        """
+        if task not in TASKS:
+            raise SplitsError(f"task={task!r} is not one of {list(TASKS)}")
+        return tuple(self.corpora[name] for name in self.names if self.corpora[name].task == task)
+
+    def headline_capable(self, task: str) -> Tuple[Corpus, ...]:
+        """Every corpus a headline number **about** ``task`` may legitimately come from.
+
+        ``task`` is required, and that is the whole point of the signature.
+        This function used to be task-blind: it returned every uncontaminated
+        corpus in the headline role whatever it was annotated for. That was
+        harmless only while every declared corpus happened to be a pair or a
+        span corpus, and it stopped being harmless the moment an
+        ``identifier_segmentation`` corpus was registered as ``held_out`` --
+        because a corpus that scores *where an identifier is cut* would have
+        become an eligible source for a headline about *extracting definitions
+        from prose*. Nothing would have failed; a table would simply have been
+        published against a corpus structurally incapable of showing the
+        phenomenon it claimed to measure.
+
+        Making the argument required rather than optional is deliberate. A
+        default of "any task" leaves the hole open under a shorter call, and the
+        caller who most needs to be asked what their headline is about is
+        exactly the caller who would have omitted the argument.
+
+        Args:
+            task: One of :data:`TASKS`. What the headline number is a claim
+                *about*.
+
+        Returns:
+            The uncontaminated corpora declared for ``task`` in the role
+            ``[policy] headline_requires`` names, sorted by name. Empty means
+            no number about ``task`` currently satisfies the headline rule --
+            which is a fact worth printing, not an error.
+
+        Raises:
+            SplitsError: If ``task`` is not in :data:`TASKS`.
+        """
+        # Compared by name, not by identity or value: ``Corpus`` is frozen but
+        # carries a ``dict`` in ``extra``, so it is not hashable and a set
+        # membership test would raise rather than filter.
+        wanted = {corpus.name for corpus in self.with_task(task)}
         return tuple(
             corpus
             for corpus in self.with_role(self.policy.headline_requires)
-            if not corpus.contaminated
+            if not corpus.contaminated and corpus.name in wanted
         )
 
 
@@ -506,6 +650,15 @@ def validate(manifest: Manifest, *, today: Optional[_datetime.date] = None) -> L
                     "shortform_recall_ceiling_basis. A ceiling whose derivation is "
                     "not written down cannot be checked, and it would be quoted."
                 )
+            if corpus.task and corpus.task not in SHORT_FORM_TASKS:
+                problems.append(
+                    f"{where} declares shortform_recall_ceiling_pct on task={corpus.task!r}, "
+                    f"whose gold contains no short forms: it is "
+                    f"{TASK_GOLD_UNIT.get(corpus.task, 'a different shape entirely')}. "
+                    "A ceiling on a quantity the corpus does not annotate is not a "
+                    "conservative extra; it is a number that would be quoted beside a "
+                    "recall figure measuring something else."
+                )
     return problems
 
 
@@ -516,6 +669,14 @@ def notes(manifest: Manifest, *, today: Optional[_datetime.date] = None) -> List
     uncontaminated held-out corpus should be reminded of it. Neither is a defect
     in the commit being tested, so neither reds the build -- the gate that fires
     on an unrelated commit is the gate people learn to ignore.
+
+    **The headline-gap advisory is reported per task, and that is a correction
+    rather than a refinement.** The single pooled line it replaced said nothing
+    once *any* corpus qualified: registering two held-out
+    ``identifier_segmentation`` corpora would have silenced it while the project
+    still had no uncontaminated held-out corpus for extraction and none for
+    disambiguation. A pooled advisory over a per-task rule reports the union and
+    hides every gap inside it.
     """
     now = today or _datetime.date.today()
     out: List[str] = []
@@ -529,11 +690,17 @@ def notes(manifest: Manifest, *, today: Optional[_datetime.date] = None) -> List
                 f"[corpora.{name}] licence last read {age} days ago "
                 f"({corpus.licence_read_on.isoformat()}); worth re-reading"
             )
-    if not manifest.headline_capable():
-        out.append(
-            f"no uncontaminated corpus carries role={manifest.policy.headline_requires!r}, "
-            "so no number in this project currently satisfies the headline rule"
-        )
+    for task in TASKS:
+        declared = [corpus for corpus in manifest.corpora.values() if corpus.task == task]
+        if not declared:
+            continue
+        if not manifest.headline_capable(task):
+            out.append(
+                f"no uncontaminated corpus carries role="
+                f"{manifest.policy.headline_requires!r} for task={task!r} "
+                f"({len(declared)} declared, none eligible), so no {task} number in this "
+                "project currently satisfies the headline rule"
+            )
     return out
 
 
@@ -544,6 +711,14 @@ def as_dict(manifest: Manifest) -> Dict[str, Any]:
             "headline_requires": manifest.policy.headline_requires,
             "label_tuning_numbers": manifest.policy.label_tuning_numbers,
         },
+        # Per task, never pooled. A single flat list of headline-capable
+        # corpora is the shape that let a segmentation corpus look like an
+        # eligible source for a pair headline, so the JSON view does not offer
+        # one.
+        "headline_capable": {
+            task: [corpus.name for corpus in manifest.headline_capable(task)] for task in TASKS
+        },
+        "gold_unit": dict(TASK_GOLD_UNIT),
         "corpora": {
             name: {
                 "role": corpus.role,
@@ -565,9 +740,12 @@ def as_dict(manifest: Manifest) -> Dict[str, Any]:
 
 def _render_table(manifest: Manifest) -> str:
     """The manifest as a table a person can read at a glance."""
+    # The TASK column is 24 wide, not 16, because "identifier_segmentation" is
+    # 23 characters: a format spec narrower than its widest value does not
+    # truncate, it overflows and shears every column to its right.
     lines = [
-        f"{'CORPUS':22} {'ROLE':9} {'TASK':16} {'READ':11} {'CEILING':>8}  LICENCE",
-        f"{'-' * 22} {'-' * 9} {'-' * 16} {'-' * 11} {'-' * 8}  {'-' * 40}",
+        f"{'CORPUS':22} {'ROLE':9} {'TASK':24} {'READ':11} {'CEILING':>8}  LICENCE",
+        f"{'-' * 22} {'-' * 9} {'-' * 24} {'-' * 11} {'-' * 8}  {'-' * 40}",
     ]
     for name in manifest.names:
         corpus = manifest.corpora[name]
@@ -583,7 +761,7 @@ def _render_table(manifest: Manifest) -> str:
         )
         role = corpus.role + ("*" if corpus.contaminated else "")
         lines.append(
-            f"{name:22} {role:9} {corpus.task:16} {read:11} {ceiling:>8}  {corpus.licence}"
+            f"{name:22} {role:9} {corpus.task:24} {read:11} {ceiling:>8}  {corpus.licence}"
         )
     lines.append("")
     lines.append(

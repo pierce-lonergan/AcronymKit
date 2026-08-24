@@ -26,6 +26,19 @@
 # Required of every corpus: `role`, `task`, `licence`, `licence_url`,
 # `licence_read_on`.
 #
+# `task` is a CLOSED vocabulary -- extraction, span_detection, disambiguation,
+# identifier_segmentation -- and it is closed because `bench/corpora.py` returns
+# a DIFFERENT TYPE per task. A corpus filed under the wrong task is how a pair
+# scorer comes to be pointed at a span corpus and report a meaningless zero.
+# Widening it is a decision about that contract, never a one-word edit: see the
+# identifier-segmentation block at the foot of this file.
+#
+# `task` is also what makes a headline claim answerable. `headline_capable()`
+# takes the task the headline is ABOUT, because "this corpus is held out" and
+# "this corpus can adjudicate the thing you are claiming" are different
+# questions, and conflating them lets a corpus that scores where an identifier
+# is cut back a claim about extracting definitions from prose.
+#
 # `licence_url` and `licence_read_on` are required because a bare `licence`
 # string records a conclusion and destroys the evidence for it. This project
 # has now recorded a corpus as more permissive than it is THREE times -- both
@@ -70,12 +83,24 @@ tools/fetch_data.py, asset key `med1250`.
 """
 
 # ---------------------------------------------------------------------------
-# Held out: currently EMPTY, and saying so is the point.
+# Held out for EXTRACTION: still empty, and saying so is the point.
 # ---------------------------------------------------------------------------
-# There is no held-out short-form/long-form pair corpus yet, so at the time of
-# writing NO number in this project satisfies `headline_requires`. That is a
-# stated gap, not an oversight, and the reason is worth recording because it is
-# not a matter of effort:
+# CORRECTION, 2026-08-24. This heading said "Held out: currently EMPTY" and the
+# sentence under it said "NO number in this project satisfies
+# `headline_requires`". Both were true when written and both had quietly gone
+# false: `plod` and `sdu21_ai` are held-out span-detection corpora, and the
+# identifier-segmentation entries at the foot of this file are held out too. The
+# gap is real and it is PER TASK -- there is no held-out pair corpus and no
+# held-out disambiguation corpus -- and a pooled statement of a per-task rule
+# reports the union and hides every gap inside it. That is the same defect
+# `headline_capable()` had in code until this round, where it was worse: a
+# segmentation corpus would have satisfied a pair headline. `notes()` now prints
+# the gap per task, so this comment can go stale without the check going quiet.
+#
+# There is no held-out short-form/long-form PAIR corpus yet, so no extraction
+# number in this project satisfies `headline_requires`. That is a stated gap,
+# not an oversight, and the reason is worth recording because it is not a matter
+# of effort:
 #
 #   * BIOADI, MEDSTRACT and the original Schwartz & Hearst corpus are cited
 #     everywhere but are not fetchable. The NCBI BioC conversion endpoint
@@ -406,107 +431,217 @@ with --save before publishing either.
 # `sdu22-ae-*`.
 
 # ===========================================================================
-# PENDING REGISTRATION: sec_xbrl AND socrata (identifier segmentation)
+# IDENTIFIER SEGMENTATION -- registered 2026-08-24, and it is a DIFFERENT TASK
 # ===========================================================================
-# Two corpora were measured this round by `bench/run_governed_gold.py` and are
-# gated in bench/results.json under `governed_gold.*`. They are NOT declared
-# below as live entries, and every figure they produced carries
-# `splits_declaration = "UNDECLARED"` because of it. That is a real hole -- a
-# corpus nobody declared is exempt from the tuning/held-out rule by omission,
-# which is the failure this file exists to prevent -- and it is recorded here
-# rather than closed, because closing it needs a change to `tools/splits.py`
-# that is a decision rather than a patch. See docs/DECISIONS.md D-031.
+# These two entries were parked as a comment block last round because `TASKS`
+# in tools/splits.py had no value for them, and pasting them in would have made
+# `python tools/splits.py --check` fail. Registering them therefore needed a
+# decision about the task vocabulary rather than a patch to this file. That
+# decision is recorded in docs/DECISIONS.md -- the record that widened `TASKS`
+# with `identifier_segmentation` -- and the two consequences worth repeating
+# here are:
 #
-# WHY THEY ARE COMMENTED OUT AND NOT LIVE
+#   1. `task` is a closed vocabulary BECAUSE bench/corpora.py returns a
+#      different TYPE per task. `identifier_segmentation` is the first task in
+#      this file whose gold is not an annotation inside a passage: a record is
+#      a machine identifier and a human caption made of the SAME alphanumeric
+#      characters, and the gold is the set of positions where one of them is
+#      cut. No text, no span, no candidate set, no annotator.
+#      bench/corpora.py returns `SegmentationCorpus` for it, which is not even
+#      a list, so nothing that iterates documents can consume one by accident.
 #
-#   1. `TASKS` in tools/splits.py is a closed vocabulary: "extraction",
-#      "span_detection", "disambiguation". Neither corpus is any of those --
-#      they score where an identifier is CUT, not what spans it contains.
-#      Adding "identifier_segmentation" is not a one-word edit: the vocabulary
-#      is closed precisely because `bench/corpora.py` returns a DIFFERENT TYPE
-#      per task, and a corpus filed under the wrong one is how a pair scorer
-#      comes to be pointed at a span corpus. Whoever widens it owns that
-#      contract. Pasting these entries in before then makes
-#      `python tools/splits.py --check` fail.
+#   2. `headline_capable()` is now asked PER TASK. It used to return every
+#      uncontaminated held-out corpus whatever it was annotated for, so
+#      registering a segmentation corpus as held_out would have made it an
+#      eligible source for a PAIR headline -- a quieter hole than the one this
+#      registration closes, because nothing about it looks wrong. The advisory
+#      in `notes()` is per task for the same reason, and registering these two
+#      does NOT silence it: it still reports that no uncontaminated held-out
+#      corpus exists for `extraction` or for `disambiguation`.
 #
-#   2. `headline_capable()` is task-blind: it returns any uncontaminated
-#      corpus whose role is `held_out`, whatever task it is for. Registering a
-#      SEGMENTATION corpus as held_out would therefore make it an eligible
-#      source for a PAIR headline. (The stronger claim reported alongside this
-#      one -- that registering here would silence the "no uncontaminated
-#      held-out corpus" advisory -- was checked and is false today: `plod` and
-#      `sdu21_ai` already satisfy it and the advisory is already silent.)
+# WHY BOTH ARE `contaminated = false`, AND WHAT WOULD FLIP THAT.
+# Every contamination_reason above records TWO things: the misses were read AND
+# the corpus was used to choose. MED1250 -- taxonomy read, a boundary
+# experiment run against it, knobs identified from it. sdu21_ad -- breakdown
+# read, plus an ablation, a ceiling study and an abstention sweep. sdu22_ae --
+# misses decomposed, and the result used to rank a recall proposal.
 #
-# LICENCES BELOW WERE READ FROM THE TERMS ON 2026-08-23, NOT FROM A BADGE (R4),
-# and the SEC reading is a CORRECTION to the August 2026 audit's licence table,
-# which recorded EDGAR as carrying no licence and no copyright statement.
+# Only the first holds here. The miss decomposition IS published
+# (`governed_gold.*.false_positives_by_signal`, and it is a standing field of
+# the runner rather than a private analysis pass), but nothing was selected on
+# it: the runner has no thresholds, no configuration and no arms to choose
+# between, and the largest error class was recorded rather than acted on.
 #
+# THE TRIP-WIRE, stated in advance so nobody has to argue it later: the first
+# time anyone changes `split_identifier` on the strength of
+# `false_positives_by_signal` -- the named candidate is "do not split between a
+# single letter and a digit run when the letter is the last of its token",
+# which would move the 1,818 socrata letter_digit disagreements gated at
+# governed_gold.socrata.columns.false_positives_by_signal -- these two
+# corpora become `contaminated = true`, and the validator will then force them
+# to `role = "tuning"`. Note the consequence, because it is load-bearing and
+# lives in a file nobody editing this one will have open:
+# bench/run_governed_gold.py hard-fails on `role = "tuning"` rather than
+# labelling its output, so that change makes the runner refuse to run until
+# somebody turns that refusal into a label.
+
+[corpora.sec_xbrl]
+role = "held_out"
+task = "identifier_segmentation"
+status = "evaluated; gated in bench/results.json under governed_gold.sec_xbrl.*"
+domain = "Financial reporting (XBRL element names and their taxonomy or filer labels)"
+licence = "sec.gov Website Dissemination (public information, redistributable); labels are third-party copyright and are NOT the SEC's to license"
+licence_url = "https://www.sec.gov/privacy"
+licence_read_on = 2026-08-24
+contaminated = false
+vendorable = false
+note = """
+LICENCE, read from the terms on 2026-08-24 by this workstream, and re-verified
+against the archive itself rather than transcribed from the parked draft.
+
+sec.gov/privacy, section "Website Dissemination", verbatim: "Information
+presented on sec.gov is considered public information and may be copied or
+further distributed by users of the web site without the SEC's permission.
+Please consider appropriate citation to the SEC as the source." The same
+paragraph withholds the SEC seal, logos and artwork, and reserves "SEC", the
+EDGAR logo and the EDGAR names as registered trademarks -- none of which reach
+tag/tlabel text, but the grant is not unconditional and reading only the first
+sentence would say it was.
+
+THE CAVEAT THAT STOPS THIS BEING A CLEAN GRANT, verified inside the archive.
+The 2025q1 member `readme.htm` was read directly out of the ZIP on 2026-08-24
+(the same range-request path bench/run_governed_gold.py uses). Section 5.2 TAG
+defines the field, verbatim: `tlabel` is "If a standard tag, then the label
+text provided by the taxonomy, otherwise the text provided by the filer." The
+same section sources the standard tags to the taxonomies at
+sec.gov/data-research/standard-taxonomies. So us-gaap labels are FASB's and
+IFRS labels are the IFRS Foundation's, and the SEC cannot license text it does
+not own. Benchmark use only. NOT vendorable.
+
+ALSO VERIFIED, and it is a CORRECTION to the August 2026 audit's licence table
+in the other direction from the one above: readme.htm contains ZERO
+occurrences of "copyright", "license" or "licence". The audit recorded EDGAR as
+carrying no licence and no copyright statement; that is true of the archive's
+own readme and false of sec.gov, which does publish a redistribution grant.
+
+GOLD. The tag/tlabel pair from the DERA Financial Statement Data Sets member
+tag.txt, quarter 2025q1. A caption is admitted only where its alphanumerics
+case-fold equal the tag's AND the caption contains whitespace, so only cut
+placement can differ. The admission rule and the cut metric live in
+bench/run_governed_gold.py and are deliberately not re-implemented in
+bench/corpora.py: two definitions of a gold standard drift silently.
+
+THREE ARMS, THREE AUTHORS, NEVER POOLED (R5). us_gaap, ifrs and
+filer_extension come out of one file, one fetch and one scorer, and us-gaap and
+IFRS are twelve points apart -- us-gaap capitalises after stripping a hyphen so
+`Paid-in` -> `PaidIn` and the cut survives; IFRS does not, so `paid-in` ->
+`Paidin` and the cut is destroyed by the naming convention before this package
+sees the string. Pooling them would hide that behind an average. The worst row
+is `filer_extension` unmarked, and it ships beside the headline.
+
+NOT A GENERAL IDENTIFIER CORPUS, and this is the caveat most likely to be
+dropped when the number is quoted. XBRL element names follow the LC3
+convention, under which the element name IS the label with spaces and
+punctuation removed, so these arms measure INVERTING A DOCUMENTED MECHANICAL
+NAMING RULE, not segmenting an identifier somebody typed.
+
+CORRECTION to the drafted version of this entry, caught by reading
+`governed_gold.*.identifier_shapes` rather than transcribing. The draft said
+"every admitted identifier is CamelCase". That is true of us_gaap (3,090 camel)
+and of ifrs (939 camel) and FALSE of filer_extension, which is
+{camel 57,453, snake_mixed 96, dotted 29, flat_upper 2}. The exact statement is
+the one worth keeping and it survives the correction: `snake_upper` is a bucket
+`shape_of` really emits and it is ZERO on every arm of both corpora, so there
+is no UPPER_SNAKE identifier anywhere in this gold -- which is the shape this
+package's own fixtures and REFERENCE_IDENTIFIER are written in. These figures
+say nothing about `TXN_APPLNT_DOB_DT`. A counted zero is a stronger caveat than
+a hedge in prose, and an over-stated "every" is weaker than both, because the
+first person to find the 96 has no reason to believe the rest.
+
+FROZEN, unlike socrata: the quarter is pinned, so a re-run reads the same
+population. Anyone who passes --quarter is choosing a different corpus and the
+`identifier_shapes.dotted` citation in particular may not survive it.
+"""
+
+[corpora.socrata]
+role = "held_out"
+task = "identifier_segmentation"
+status = "evaluated; gated in bench/results.json under governed_gold.socrata.*"
+domain = "Open-data portals (column field names and their publisher captions)"
+licence = "None. No licence covers the catalog metadata; the CC BY-NC-SA 3.0 on the developer site covers the DOCUMENTATION, not the API responses"
+licence_url = "https://dev.socrata.com/docs/other/discovery"
+licence_read_on = 2026-08-24
+contaminated = false
+vendorable = false
+note = """
+LICENCE, read from the terms on 2026-08-24 by this workstream, and the finding
+is an ABSENCE, which is why the URL and the date matter more here than
+anywhere else in this file: a recorded absence is only checkable if somebody
+can go and fail to find it too.
+
+Fetched and searched on 2026-08-24: the Discovery API documentation page
+contains ZERO occurrences of "copyright" and exactly ONE licence string
+anywhere on it -- "Licensed by Tyler Technologies under CC BY-NC-SA 3.0", in
+the site footer, sitting beside "Learn how you can contribute!", which is a
+documentation-contribution link. It covers the DOCUMENTATION SITE. It does not
+cover the API responses.
+
+AND THE TRAP IS SHARPER THAN THE PARKED DRAFT SAID. The page's substance is
+rendered client-side by an openapi-explorer element, so the static HTML a
+fetcher receives is navigation and footer and almost nothing else: THE ONLY
+LICENCE-SHAPED STRING A MACHINE SEES ON THIS PAGE IS THE ONE THAT IS WRONG
+ABOUT THE DATA. Recording CC BY-NC-SA 3.0 here would be GLADIS again with a
+different badge, and it is the fourth time in this file's history that the
+machine-readable answer contradicts the data's actual terms -- after both
+SDU-21 repositories and SDU-22 AE. R4 is not a formality.
+
+WHAT THE ABSENCE MEANS. The Discovery API indexes third-party portals whose
+datasets carry per-publisher terms; the catalog is an index over those, not a
+work with a licence of its own. Only column metadata (field name and caption)
+is read, never dataset rows. Benchmark use only. NOT vendorable, and "no
+licence found" is a reason to be more careful than a permissive one, not less.
+
+GOLD. columns_field_name / columns_name from the Discovery API catalog, same
+admission rule as sec_xbrl, same division of labour: the rule lives in
+bench/run_governed_gold.py.
+
+NOT A FROZEN CORPUS, and this is the reason `SegmentationCorpus` in
+bench/corpora.py carries `fetched_on` and `source` rather than returning bare
+rows. The catalog is LIVE and re-orders under the scroll, so the population is
+defined by WHEN it was fetched: the runner records fetched_on and the page
+count with every figure, and a re-run months from now reports a different
+population with the same run id. A held-out role does NOT mean a frozen split
+here; it means nothing was fitted to it.
+
+THE GOLD HAS A MEASURED NOISE FLOOR, which is better than a caveat.
+0.27% of identifiers carry two different cut placements across portals,
+covering 2.62% of admitted occurrences (governed_gold.socrata.gold_conflict).
+That is a floor under the disagreement any system can record against this gold.
+
+THE ADMISSION RULE KEEPS A BIASED THIRD OF COLUMNS -- only pairs whose caption
+is a re-spacing of the identifier. That is the single-variable experiment by
+design, and it means the population is unabbreviated columns whose publisher
+bothered to caption them, not a sample of schema columns. The worst row is the
+`unmarked` subset and it ships beside the headline (R5).
+
+AND THE GOLD IS A PUBLISHER'S CAPTION, NOT A GOVERNANCE RULING. A data
+governance function ruling on `_2013_q1_actual` might side with the splitter
+against the publisher on all 1,818 rule-5 disagreements
+(governed_gold.socrata.columns.false_positives_by_signal.letter_digit), which
+would move this corpus several points in the direction the table does not
+report.
+
+NOTE ON THE FIGURES IN THIS ENTRY. tools/check_claims.py does NOT scan
+bench/splits.toml -- its SCAN_GLOBS are README.md, docs/*.md, docs/notes/*.md
+and src/acronymkit/**/*.py -- so every number in this file, including the two
+`shortform_recall_ceiling_pct` values above, sits outside the R1 gate. They are
+named by run id here anyway, because the alternative is a governance file whose
+own figures are the only unchecked ones in the repository.
+"""
+
 # ---------------------------------------------------------------------------
-# [corpora.sec_xbrl]
-# role = "held_out"
-# task = "identifier_segmentation"   # BLOCKED: not in tools/splits.py TASKS
-# domain = "Financial reporting (XBRL element names and their taxonomy or filer labels)"
-# licence = """
-# sec.gov "Website Dissemination" grants copying and further distribution of
-# information presented on sec.gov without permission. The SEC does NOT own the
-# labels: the archive's own readme.htm 5.2 makes `tlabel` taxonomy-authored
-# (FASB for us-gaap, the IFRS Foundation for IFRS) or filer-authored, and the
-# SEC cannot license text it does not own.
-# """
-# licence_url = "https://www.sec.gov/privacy"
-# licence_read_on = 2026-08-23
-# contaminated = false
-# vendorable = false
-# note = """
-# Gold is the tag/label pair from the DERA Financial Statement Data Sets member
-# tag.txt, quarter 2025q1. A caption is admitted only where its alphanumerics
-# case-fold equal the tag's AND the label contains whitespace, so only cut
-# placement can differ. Three arms with three different authors: us_gaap, ifrs,
-# filer_extension -- and they must never be pooled, because us_gaap and ifrs are
-# twelve points apart out of the same file.
-#
-# NOT a general identifier corpus. XBRL element names follow the LC3 convention,
-# under which the element name IS the label with spaces and punctuation removed,
-# so this measures inverting a documented mechanical naming rule rather than
-# segmenting an identifier somebody typed. Every admitted identifier is
-# CamelCase; there is no UPPER_SNAKE tag in it at all.
-#
-# Fetched, never vendored: benchmark use only, and the labels are third-party
-# copyright. See bench/run_governed_gold.py.
-# """
-#
-# [corpora.socrata]
-# role = "held_out"
-# task = "identifier_segmentation"   # BLOCKED: not in tools/splits.py TASKS
-# domain = "Open-data portals (column field names and their publisher captions)"
-# licence = """
-# No licence covers the catalog metadata. The Discovery API indexes third-party
-# portals whose datasets carry per-publisher terms; the catalog is an index over
-# those, not a work with a licence of its own. dev.socrata.com's
-# CC BY-NC-SA 3.0 footer covers the DOCUMENTATION, not the API responses -- do
-# not record it as the data's licence. That would be the GLADIS mistake with a
-# different badge.
-# """
-# licence_url = "https://dev.socrata.com/docs/other/discovery"
-# licence_read_on = 2026-08-23
-# contaminated = false
-# vendorable = false
-# note = """
-# Gold is columns_field_name / columns_name from the Discovery API catalog, same
-# admission rule as sec_xbrl. Column metadata only; no dataset rows are read.
-#
-# The catalog is LIVE and moves under the scroll, so this is NOT a frozen
-# corpus: the runner records fetched_on and the page count with every figure,
-# and a re-run months from now reports a different population.
-#
-# Publishers disagree with each other. 0.27% of identifiers carry two different
-# cut placements across portals, covering 2.62% of admitted occurrences
-# (governed_gold.socrata.gold_conflict). That is a floor under the disagreement
-# any system can record against this gold.
-#
-# Fetched, never vendored.
-# """
-# ---------------------------------------------------------------------------
-#
-# `bench/corpora.py` `DECLARED_AS` needs no entry either way: the runner fetches
-# its own corpora and never goes through the `GoldDocument` readers.
+# `bench/corpora.py` has DECLARED_AS entries for both, and a
+# SEGMENTATION_READERS registry that reads run_governed_gold's cache. The
+# reader returns raw rows and does NOT re-apply the admission rule: the gold is
+# defined in one place, and a second definition of a gold standard is how two
+# numbers for the same corpus come to exist.

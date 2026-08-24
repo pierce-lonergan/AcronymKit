@@ -1,12 +1,42 @@
-"""Readers that normalise gold-standard abbreviation corpora to one type.
+"""Readers that normalise gold-standard abbreviation corpora — one type per task.
 
 Every corpus in this space uses its own format and its own conventions about
-what counts as an annotation. The job here is to turn each into a
-:class:`GoldDocument` so the scorer never has to know which corpus it is
-looking at — and so adding a corpus is a reader, not a new evaluation.
+what counts as an annotation. The job here is to turn each into the type its
+*task* is defined over, so a scorer never has to know which corpus it is looking
+at — and so adding a corpus is a reader, not a new evaluation.
+
+**One type per task, not one type overall**, and the distinction is the whole
+safety property of this module. The opening sentence used to say "to one type",
+which stopped being true the moment the second task arrived and was quietly
+false for three of them:
+
+===========================  ================================================
+task (``tools/splits.py``)   what a record is here
+===========================  ================================================
+``extraction``               :class:`GoldDocument` — a passage plus the
+                             short-form/long-form pairs annotated in it
+``span_detection``           :class:`SpanDocument` (token indices) or
+                             :class:`CharSpanDocument` (character offsets) —
+                             regions, never paired with each other
+``disambiguation``           :class:`DisambiguationInstance` — one occurrence
+                             and the fixed candidate set it resolves against
+``identifier_segmentation``  :class:`SegmentationCorpus` of
+                             :class:`IdentifierCaptionPair` — two surface
+                             strings made of the same characters, whose gold is
+                             where one of them is cut
+===========================  ================================================
+
+``TASKS`` in ``tools/splits.py`` is a closed vocabulary *because* of that table:
+a corpus filed under the wrong task is how a pair scorer comes to be pointed at
+a span corpus and report a meaningless zero. :data:`TASK_REGISTRIES` states
+which registry may hold each task, and ``tests/test_splits_manifest.py`` checks
+that every registered reader's declared task matches the registry it is in —
+which nothing did while the rule was only prose in two docstrings.
 
 Corpora are fetched by ``tools/fetch_data.py`` into the git-ignored ``data/``
-directory. Nothing here is imported by the library.
+directory, except the two identifier-segmentation corpora, which
+``bench/run_governed_gold.py`` fetches itself and caches under
+``data/governed_gold/``. Nothing here is imported by the library.
 
 Every reader is bound to a declaration
 --------------------------------------
@@ -56,6 +86,8 @@ DECLARED_AS = {
     "sdu21_ad": "sdu21_ad",
     "sdu22_ae_legal": "sdu22_ae_legal",
     "sdu22_ae_scientific": "sdu22_ae_scientific",
+    "sec_xbrl": "sec_xbrl",
+    "socrata": "socrata",
 }
 
 _SPLITS_TOOL = REPO_ROOT / "tools" / "splits.py"
@@ -979,9 +1011,201 @@ def sdu22_ae_recall_ceiling(documents: Sequence[CharSpanDocument]) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# SEC XBRL and Socrata — identifier segmentation, and the first task here whose
+# gold is not an annotation inside a passage
+# ---------------------------------------------------------------------------
+#
+# Every other corpus in this module annotates something *in a text*. MED1250
+# pairs definitions found in an abstract; PLOD and SDU-22 AE label regions of a
+# sentence; SDU-21 AD picks a sense for a token in a sentence. All four carry a
+# passage and point into it.
+#
+# This one has no passage. A record is two surface strings — a machine
+# identifier and a human caption of the same column — that the admission rule
+# guarantees are made of the *same alphanumeric characters*, case-folded. So
+# nothing about them can differ except where the words were cut, and the gold is
+# a set of integer cut positions in the character stream they share. There is no
+# text, no span, no candidate set, and no annotator.
+#
+# THE GOLD HAS NO ANNOTATOR, AND THAT IS THE POINT. The August 2026 audit's
+# first killed finding is a corpus of column names whose annotators were
+# *instructed to invent abbreviations*, scored as if it were real schema text
+# (docs/AUDIT-2026-08.md section 0). Here nobody was commissioned: the caption is
+# production metadata written by the same organisation that wrote the
+# identifier — the taxonomy editor or the filing registrant for SEC, the
+# publishing agency for Socrata. R9's first question ("what was the annotator
+# instructed to produce?") has no annotator to ask.
+#
+# WHAT THIS MODULE OWNS AND WHAT IT DOES NOT. The admission rule and the cut
+# metric live in ``bench/run_governed_gold.py`` and stay there. This reader
+# returns the *raw catalog rows*, unfiltered and unscored, because a second
+# implementation of the admission rule is a second definition of the gold, and
+# two definitions of a gold standard drift silently. What this module owns is
+# the **type**: the thing a segmentation corpus is, in a shape no pair reader
+# and no span reader can consume.
+
+#: Where ``bench/run_governed_gold.py`` caches what it fetched. Inside the
+#: git-ignored ``data/``, like every other fetched evaluation asset.
+GOVERNED_GOLD_CACHE = DATA_DIR / "governed_gold"
+
+#: Manifest corpus name -> the cache-file prefix the runner writes it under.
+#: A prefix rather than a filename because the runner embeds its pins in the
+#: name (``sec_xbrl_2025q1.json``, ``socrata_80pages_v2.json``), and hard-coding
+#: those here would make this module quietly disagree with the runner the first
+#: time somebody passes ``--quarter``.
+GOVERNED_GOLD_PREFIXES = {"sec_xbrl": "sec_xbrl_", "socrata": "socrata_"}
+
+
+@dataclass(frozen=True)
+class IdentifierCaptionPair:
+    """One machine identifier beside a human caption of the same characters.
+
+    Deliberately none of the other four types in this module, and the separation
+    is stronger than the ones already here. :func:`read_plod_cw_text` documents
+    a *soft* trap: it hands back a real :class:`GoldDocument` with ``pairs=()``,
+    so a pair runner pointed at it reports a meaningless zero and only the
+    gold-pair count gives it away. This type cannot do even that. It has no
+    ``text`` and no ``tokens``, so a pair or span consumer pointed at it dies on
+    an :class:`AttributeError` rather than producing a number — and a crash is a
+    better failure than a plausible figure.
+
+    Attributes:
+        identifier: The machine name as published, e.g. ``"_2013_q1_actual"``.
+        caption: The human caption as published, e.g. ``"2013 Q1 Actual"``.
+            Where the pair is admitted as gold, its alphanumerics case-fold
+            equal to the identifier's.
+        author: Who wrote the caption. This is an *arm*, never a split, and it
+            must not be pooled: ``us_gaap``, ``ifrs`` and ``filer_extension``
+            come out of one SEC file and one scorer, and us-gaap and IFRS are
+            twelve points apart because the two taxonomies apply the LC3 naming
+            convention differently. For Socrata it is the publishing portal.
+    """
+
+    identifier: str
+    caption: str
+    author: str
+
+
+@dataclass(frozen=True)
+class SegmentationCorpus:
+    """A fetched identifier/caption population, with the provenance that names it.
+
+    A container rather than a bare list, which is a deliberate asymmetry with
+    every other reader here, and the reason is Socrata: **the catalog is live
+    and re-orders under the scroll**, so the population is defined by *when* it
+    was fetched. A reader that returned rows alone would hand back a corpus
+    nobody could identify, and "91.37 % on Socrata" would name a different
+    population every quarter with nothing visible to say so.
+
+    It also means the return value is not iterable as documents, so
+    ``for document in ...`` — the idiom every other corpus in this module is
+    consumed by — fails immediately rather than half-working.
+
+    Attributes:
+        name: The manifest corpus name, ``"sec_xbrl"`` or ``"socrata"``.
+        source: The cache file actually read, by name, so a report can say which
+            snapshot produced it.
+        fetched_on: The ISO date the runner fetched it, carried through from the
+            cache envelope.
+        pairs: Every row in the cache, raw. **Not** the scored population: the
+            admission rule that turns these into gold lives in
+            ``bench/run_governed_gold.py`` and is not re-implemented here.
+    """
+
+    name: str
+    source: str
+    fetched_on: str
+    pairs: tuple[IdentifierCaptionPair, ...] = field(default_factory=tuple)
+
+
+def _governed_gold_source(name: str, path: Optional[Path]) -> Path:
+    """Resolve the cache file backing one segmentation corpus.
+
+    Raises:
+        SystemExit: If nothing is cached, or if *several* snapshots are — the
+            second case on purpose. Two Socrata caches on one disk are two
+            different populations of a live catalog, and choosing between them
+            silently would put the choice of which corpus was measured inside a
+            number. The caller is told to name one.
+    """
+    if path is not None:
+        source = Path(path)
+        if not source.is_file():
+            raise SystemExit(f"missing {source}")
+        return source
+    if name not in GOVERNED_GOLD_PREFIXES:
+        raise SystemExit(
+            f"unknown segmentation corpus {name!r}; known: {sorted(GOVERNED_GOLD_PREFIXES)}"
+        )
+    candidates = sorted(GOVERNED_GOLD_CACHE.glob(f"{GOVERNED_GOLD_PREFIXES[name]}*.json"))
+    if not candidates:
+        raise SystemExit(
+            f"no cached {name} snapshot under {GOVERNED_GOLD_CACHE}\n"
+            "Run: python bench/run_governed_gold.py --only " + name
+        )
+    if len(candidates) > 1:
+        listed = ", ".join(candidate.name for candidate in candidates)
+        raise SystemExit(
+            f"{len(candidates)} cached {name} snapshots: {listed}\n"
+            "These are different populations, not different files -- the SEC quarter and the "
+            "live Socrata catalog both move. Pass path= to say which one is being read; "
+            "picking the newest would put that choice inside the number."
+        )
+    return candidates[0]
+
+
+def read_governed_gold(name: str, path: Optional[Path] = None) -> SegmentationCorpus:
+    """Load one identifier/caption population from the runner's cache.
+
+    Args:
+        name: ``"sec_xbrl"`` or ``"socrata"`` — a manifest corpus name.
+        path: An explicit cache file, required when more than one snapshot of
+            the same corpus is on disk.
+
+    Returns:
+        The population, raw and unscored. Filtering it to gold is the runner's
+        job and is not duplicated here; see the section comment above.
+
+    Raises:
+        SystemExit: If the corpus is undeclared, if the manifest declares it
+            under a different task, or if the cache is missing or ambiguous.
+    """
+    corpus = declaration(name)
+    if corpus is not None:
+        # The claim "this is a segmentation corpus" is made by every caller of
+        # this function. ``require_task`` turns it into a lookup, which is what
+        # ``require_role`` already does for the tuning/held-out claim.
+        corpus.require_task("identifier_segmentation")  # type: ignore[attr-defined]
+    source = _governed_gold_source(name, path)
+    envelope = json.loads(source.read_text(encoding="utf-8"))
+    if not isinstance(envelope, dict) or not isinstance(envelope.get("payload"), list):
+        raise SystemExit(
+            f"{source} is not a run_governed_gold cache envelope "
+            '({"fetched_on": ..., "payload": [[identifier, caption, author], ...]})'
+        )
+    pairs = tuple(
+        IdentifierCaptionPair(
+            identifier=str(row[0]),
+            caption=str(row[1]),
+            author=str(row[2]) if len(row) > 2 else "",
+        )
+        for row in envelope["payload"]
+        if isinstance(row, list) and len(row) >= 2
+    )
+    return SegmentationCorpus(
+        name=name,
+        source=source.name,
+        fetched_on=str(envelope.get("fetched_on") or "unknown"),
+        pairs=pairs,
+    )
+
+
+# ---------------------------------------------------------------------------
 # registry
 # ---------------------------------------------------------------------------
 READERS: dict[str, Callable[[], list[GoldDocument]]] = {"med1250": read_med1250}
+
+_TEXT_ONLY: set[str] = set()
 
 #: Text-only views of PLOD-CW, registered so ``bench/external.py`` can load the
 #: same reconstructed strings under a foreign interpreter. They hold no pairs;
@@ -989,9 +1213,26 @@ READERS: dict[str, Callable[[], list[GoldDocument]]] = {"med1250": read_med1250}
 for _split in ("test", "all"):
     for _style in DETOKENISE_STYLES:
         _suffix = "" if _style == "tight" else f"_{_style}"
-        READERS[f"plod_cw_{_split}{_suffix}"] = functools.partial(
-            read_plod_cw_text, split=_split, style=_style
-        )
+        _key = f"plod_cw_{_split}{_suffix}"
+        READERS[_key] = functools.partial(read_plod_cw_text, split=_split, style=_style)
+        _TEXT_ONLY.add(_key)
+
+#: The keys in :data:`READERS` that are **not** pair corpora, enumerated.
+#:
+#: This is the one place in this module where the registry's *type* and the
+#: manifest's *task* legitimately disagree: ``plod`` is declared
+#: ``span_detection``, and these four keys return :class:`GoldDocument` anyway
+#: because ``bench/external.py`` needs text-bearing documents to hand a foreign
+#: interpreter. Every one carries ``pairs=()`` by construction.
+#:
+#: It is a set rather than a paragraph because it was a paragraph.
+#: :func:`read_plod_cw_text` has warned since it was written that scoring a pair
+#: extractor against these is meaningless by construction -- and a warning in
+#: prose is not something a check can consult, so nothing distinguished this
+#: deliberate exception from an accidental mis-filing. Adding a fifth entry to
+#: ``READERS`` for a corpus declared under another task now fails
+#: ``tests/test_splits_manifest.py`` unless it is named here on purpose.
+TEXT_ONLY_VIEWS = frozenset(_TEXT_ONLY)
 
 #: Disambiguation corpora are kept in their own registry because they return a
 #: different type. ``load()`` promises GoldDocument objects and must keep doing
@@ -1017,6 +1258,42 @@ CHAR_SPAN_READERS = {
     "sdu22_ae_scientific": functools.partial(read_sdu22_ae, domain="scientific"),
 }
 
+#: Identifier-segmentation corpora. A fifth registry, and the strongest
+#: separation of the five: these do not return a list at all, they return a
+#: :class:`SegmentationCorpus`, because for a live catalog the fetch date is
+#: part of the corpus's identity. Nothing that iterates documents can consume
+#: one by accident.
+SEGMENTATION_READERS = {
+    "sec_xbrl": functools.partial(read_governed_gold, "sec_xbrl"),
+    "socrata": functools.partial(read_governed_gold, "socrata"),
+}
+
+#: The type contract, written down: which registries may hold a corpus declared
+#: for each ``tools/splits.py`` task.
+#:
+#: ``TASKS`` in ``tools/splits.py`` is a closed vocabulary *because this module
+#: returns a different type per task* — that sentence has been in both files for
+#: months as prose, and nothing checked it. Nothing stopped a corpus declared
+#: ``task = "disambiguation"`` from being registered in ``SPAN_READERS``, which
+#: is precisely the mis-filing the closed vocabulary is supposed to prevent.
+#: ``tests/test_splits_manifest.py`` walks every registry key through
+#: :data:`DECLARED_AS` into the manifest and asserts the declared task matches
+#: the registry it is registered in.
+#:
+#: ``span_detection`` maps to two registries and that is not a wrinkle to
+#: tidy away: ``SpanDocument`` carries *token indices* into a token list and
+#: ``CharSpanDocument`` carries *character offsets* into running text. They are
+#: the same task over two annotation units, and indexing one with the other's
+#: numbers is the reason they are separate types in the first place. So the
+#: mapping is task -> registries, plural, rather than a bijection nobody could
+#: honestly claim.
+TASK_REGISTRIES = {
+    "extraction": ("READERS",),
+    "span_detection": ("SPAN_READERS", "CHAR_SPAN_READERS"),
+    "disambiguation": ("DISAMBIGUATION_READERS",),
+    "identifier_segmentation": ("SEGMENTATION_READERS",),
+}
+
 
 def load(name: str) -> list[GoldDocument]:
     """Load a corpus by registry name, after checking it is declared.
@@ -1034,10 +1311,30 @@ def load(name: str) -> list[GoldDocument]:
         The normalised documents.
 
     Raises:
-        SystemExit: For an unknown corpus name, or for a corpus that
-            ``bench/splits.toml`` does not declare.
+        SystemExit: For an unknown corpus name, for a corpus registered under a
+            different task, or for a corpus that ``bench/splits.toml`` does not
+            declare.
     """
     if name not in READERS:
+        # "unknown corpus" reads like a typo, and for a corpus that exists but
+        # holds a different *shape* of gold that message sends the caller
+        # looking for a spelling mistake. Say which registry has it, and what
+        # its records are, so the answer is "wrong runner" rather than "wrong
+        # word".
+        for registry_name, registry in (
+            ("DISAMBIGUATION_READERS", DISAMBIGUATION_READERS),
+            ("SPAN_READERS", SPAN_READERS),
+            ("CHAR_SPAN_READERS", CHAR_SPAN_READERS),
+            ("SEGMENTATION_READERS", SEGMENTATION_READERS),
+        ):
+            if name in registry:
+                raise SystemExit(
+                    f"{name!r} is registered in {registry_name}, not in READERS. "
+                    f"load() promises GoldDocument objects -- a passage plus the pairs a "
+                    f"human annotated in it -- and {name!r} holds a different type of gold. "
+                    "Call its reader directly; widening load() would let a pair scorer "
+                    "consume it and report a number that means nothing."
+                )
         raise SystemExit(f"unknown corpus {name!r}; known: {sorted(READERS)}")
     declaration(name)
     return READERS[name]()

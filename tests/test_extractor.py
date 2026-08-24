@@ -1117,6 +1117,240 @@ def test_the_same_shape_without_a_leading_preposition_is_correct(
 
 
 # ---------------------------------------------------------------------------
+# The SF = LF legend arrangement, behind a default-off flag
+# ---------------------------------------------------------------------------
+# An abbreviation legend -- "GEF = Global Environment Facility" -- is a
+# definition that no bracket introduces, so the whole S&H machinery walks past
+# it. It is the largest single miss class on the newest corpus this repository
+# reads, and it is also the surface of every equation and assignment, which is
+# why it ships off.
+#
+#   bench/results.json:
+#     shortform.med1250_{dev,test,all}.{high_precision,general,biomedical}.legend
+#       -- bit-identical to .balanced_trim on every field, which is what shipped
+#     shortform.med1250_all.legend_exposure{,_biomedical}
+#       -- every separator in the corpus, gate by gate, and none survives
+#     shortform.plod_{dev,test,all}.{tight,spaced}.high_precision.legend
+#     shortform.sdu22_ae_{legal,scientific}_dev.high_precision.legend
+#     shortform.{plod_*,sdu22_ae_*}.legend_exposure
+#   Reproduce with: python bench/run_shortform.py --variants --spans --legend
+#
+# What the tests below pin is the *refusals*, in the same proportion the corpus
+# does: three legends that must be read, and eleven surfaces that must not be.
+
+#: ``(text, [(short, long), ...])`` -- legends that must be read.
+_LEGEND_CASES = [
+    (
+        "Abbreviations: GEF = Global Environment Facility",
+        [("GEF", "Global Environment Facility")],
+    ),
+    (
+        "AOS = administrative and operational services; STS = support for technical services",
+        [
+            ("AOS", "administrative and operational services"),
+            ("STS", "support for technical services"),
+        ],
+    ),
+    (
+        "TRAC = target for resource assignment from the core.",
+        [("TRAC", "target for resource assignment from the core")],
+    ),
+    (
+        "Here EPI = Echo planar imaging and NAA = N-acetyl-aspartate.",
+        [("EPI", "Echo planar imaging"), ("NAA", "N-acetyl-aspartate")],
+    ),
+]
+
+#: Surfaces that share the ``X = Y`` shape and are not definitions. Every one is
+#: taken from a real corpus: the first eight from MED1250 abstracts, which carry
+#: 401 separators and no legend at all, the last three from the SDU-22 miss dump
+#: the audit published. A legend rule that fires on any of these is the
+#: precision regression the whole arrangement is gated against.
+_NOT_A_LEGEND = [
+    "Cows (n = 523) assigned to treatment 1 were inseminated at 72 h.",
+    "A P value of < or = 0.05 was considered significant.",
+    "The timing was well correlated (r = 0.78) with peak ejection velocity.",
+    "Two estrogen binding proteins (Mr = 50,000 and 65,000) were purified.",
+    "The enzyme has a high affinity (Km Ca2+ = 0.5 microM) and is dependent.",
+    "A risk factor for stroke in our cohort was reported, OR = 6.9, in men.",
+    "Response rate = 90% among 710 worksites in the same communities.",
+    "They are related by the equations Y1 = 1.074 X1 - 9.828 and Y2 = 1.22 X2.",
+    "Tsat=Tamb [kPa] at the inlet of the compressor.",
+    "where wC = carbon mass fraction of the fuel",
+    "with xH2Oexhdry the water content of the exhaust",
+]
+
+#: Operator spellings that merely contain an ``=``.
+_OPERATOR_SURFACES = [
+    "The guard holds while ABC == DEF holds for the whole run.",
+    "The bound is ABC <= DEF for every admissible input.",
+    "It holds when ABC >= DEF over the sampled interval.",
+    "The check fails if ABC != DEF at any point.",
+    "Then ABC += DEF accumulates over the loop.",
+    "In that dialect ABC := DEF binds the name.",
+]
+
+
+@pytest.fixture(scope="module")
+def legend_extractor() -> AbbreviationExtractor:
+    """An extractor with the legend arrangement asked for explicitly."""
+    return AbbreviationExtractor(Config(), legend_syntax=True)
+
+
+def legend_pairs(pairs: list[AcronymPair]) -> list[AcronymPair]:
+    """Only the pairs the legend arrangement produced."""
+    return [pair for pair in pairs if pair.pattern == "short=long"]
+
+
+def bracketed_pairs(pairs: list[AcronymPair]) -> list[AcronymPair]:
+    """Everything except what the legend arrangement produced."""
+    return [pair for pair in pairs if pair.pattern != "short=long"]
+
+
+@pytest.mark.parametrize(("text", "expected"), _LEGEND_CASES)
+def test_a_legend_is_invisible_by_default(
+    extractor: AbbreviationExtractor, text: str, expected: list[tuple[str, str]]
+) -> None:
+    """The shipped default reads brackets and nothing else.
+
+    ``expected`` is unused on purpose: the point is that a document which the
+    flagged extractor reads as a legend yields nothing at all without the flag.
+    """
+    assert extractor.extract(text) == []
+    assert expected  # the same document is non-empty under the flag, below
+
+
+@pytest.mark.parametrize(("text", "expected"), _LEGEND_CASES)
+def test_a_legend_is_read_when_the_flag_is_set(
+    legend_extractor: AbbreviationExtractor, text: str, expected: list[tuple[str, str]]
+) -> None:
+    """``SF = LF`` yields the pair, with exact spans and its own pattern."""
+    pairs = legend_extractor.extract(text)
+    assert pair_tuples(pairs) == expected
+    assert [pair.pattern for pair in pairs] == ["short=long"] * len(expected)
+    assert_spans_exact(text, pairs)
+
+
+@pytest.mark.parametrize("text", _NOT_A_LEGEND + _OPERATOR_SURFACES)
+def test_an_equation_is_not_a_legend(legend_extractor: AbbreviationExtractor, text: str) -> None:
+    """The gate holds on the surfaces that share the shape.
+
+    These are the reason the arrangement is flagged rather than shipped on, and
+    they are asserted with the flag *on*: a rule that only holds while it is
+    switched off is not a rule.
+    """
+    assert legend_pairs(legend_extractor.extract(text)) == []
+
+
+def test_a_legend_entry_stops_before_the_next_one(
+    legend_extractor: AbbreviationExtractor,
+) -> None:
+    """A second separator bounds the first entry's expansion.
+
+    Without that stop, ``AOS`` reaches across the ``;`` and swallows ``STS``'s
+    short form into its own long form -- and the alignment would accept it,
+    because ``S`` matches ``STS``.
+    """
+    text = "AOS = administrative and operational services; STS = support for technical services"
+    pairs = legend_extractor.extract(text)
+    assert pair_tuples(pairs) == [
+        ("AOS", "administrative and operational services"),
+        ("STS", "support for technical services"),
+    ]
+    assert_spans_exact(text, pairs)
+
+
+@pytest.mark.parametrize("separator", ["\n", "\r\n", "\r"])
+def test_a_legend_does_not_cross_a_line_break(
+    legend_extractor: AbbreviationExtractor, separator: str
+) -> None:
+    """A legend entry is a line; the expansion may not come from the next one."""
+    text = f"GEF ={separator}Global Environment Facility"
+    assert legend_pairs(legend_extractor.extract(text)) == []
+
+
+def test_a_single_word_truncation_is_not_admitted(
+    legend_extractor: AbbreviationExtractor,
+) -> None:
+    """``INT = interrupted`` is a real gold legend and is deliberately missed.
+
+    The gate demands that every short-form character start a word, and a
+    truncation of one word starts one word. Loosening it to the inside-a-word
+    alignment ``find_best_long_form`` performs is exactly the reading under
+    which ``Tsat=Tamb`` becomes a definition, so the miss is the price of the
+    refusals above and is pinned here so that it is a decision rather than a
+    surprise.
+    """
+    assert legend_pairs(legend_extractor.extract("INT = interrupted")) == []
+
+
+def test_a_legend_whose_expansion_is_no_longer_than_the_short_form_is_refused(
+    legend_extractor: AbbreviationExtractor,
+) -> None:
+    """``is_valid_long_form`` still applies, unchanged, to this arrangement."""
+    assert legend_pairs(legend_extractor.extract("IS = is")) == []
+
+
+def test_legend_pairs_are_interleaved_in_document_order(
+    legend_extractor: AbbreviationExtractor,
+) -> None:
+    """A legend after a bracketed definition comes second, and vice versa."""
+    text = (
+        "The World Health Organization (WHO) reported. Also EPI = Echo planar imaging. "
+        "The central nervous system (CNS) was imaged."
+    )
+    pairs = legend_extractor.extract(text)
+    assert pair_tuples(pairs) == [
+        ("WHO", "World Health Organization"),
+        ("EPI", "Echo planar imaging"),
+        ("CNS", "central nervous system"),
+    ]
+    anchors = [min(pair.short_form_span[0], pair.long_form_span[0]) for pair in pairs]
+    assert anchors == sorted(anchors)
+    assert_spans_exact(text, pairs)
+
+
+@pytest.mark.parametrize("text", ALL_DOCUMENTS + [text for text, _ in _LEGEND_CASES])
+def test_the_flag_only_ever_adds_pairs(
+    extractor: AbbreviationExtractor, legend_extractor: AbbreviationExtractor, text: str
+) -> None:
+    """Turning the flag on adds candidates and re-ranks none.
+
+    This is the load-bearing claim of the whole arrangement: it operates where
+    D-012's pseudo-precision diagnosis does not bite, because it never competes
+    with a bracketed reading. Strip the legend pairs back out and what is left
+    must be, pair for pair and span for span, what the shipped default returns.
+    """
+    without = [pair.model_dump() for pair in extractor.extract(text)]
+    with_flag = [pair.model_dump() for pair in bracketed_pairs(legend_extractor.extract(text))]
+    assert with_flag == without
+
+
+def test_the_flag_is_reported() -> None:
+    """A caller can ask an extractor which arrangements it reads."""
+    assert AbbreviationExtractor(Config()).legend_syntax is False
+    assert AbbreviationExtractor(Config(), legend_syntax=True).legend_syntax is True
+
+
+def test_the_engine_reaches_the_flag_by_injecting_an_extractor() -> None:
+    """The documented opt-in route, end to end.
+
+    The flag is a constructor argument rather than a ``Config`` field because it
+    changes *which surfaces are scanned* rather than tuning the existing scan;
+    the engine already accepts a collaborator, so that is the seam it uses.
+    """
+    from acronymkit import AcronymEngine
+
+    config = Config()
+    text = "Abbreviations: GEF = Global Environment Facility"
+    assert AcronymEngine(config).extract_definitions(text) == []
+    engine = AcronymEngine(config, extractor=AbbreviationExtractor(config, legend_syntax=True))
+    assert [(pair.short_form, pair.long_form) for pair in engine.extract_definitions(text)] == [
+        ("GEF", "Global Environment Facility")
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Property-based tests
 # ---------------------------------------------------------------------------
 
@@ -1232,6 +1466,31 @@ def test_extraction_of_arbitrary_input_is_deterministic(document: str) -> None:
     assert first == second
 
 
+@given(st.text(alphabet=_FUZZ_ALPHABET, max_size=140))
+@settings(max_examples=400, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+def test_span_invariant_survives_bracket_soup_with_the_legend_flag(document: str) -> None:
+    """The span invariant is unconditional under the flag too.
+
+    ``_FUZZ_ALPHABET`` already carries ``=`` alongside the brackets, so this
+    exercises separators nested inside, adjacent to and straddling bracket
+    regions -- which is where a second scanner over the same text can most
+    easily report an offset that does not slice back.
+    """
+    pairs = AbbreviationExtractor(Config(), legend_syntax=True).extract(document)
+    assert_spans_exact(document, pairs)
+    anchors = [min(pair.short_form_span[0], pair.long_form_span[0]) for pair in pairs]
+    assert anchors == sorted(anchors)
+
+
+@given(st.text(alphabet=_FUZZ_ALPHABET, max_size=140))
+@settings(max_examples=300, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+def test_the_flag_adds_pairs_to_arbitrary_input_and_removes_none(document: str) -> None:
+    """The additive property, asserted against generated input rather than a list."""
+    without = [pair.model_dump() for pair in AbbreviationExtractor(Config()).extract(document)]
+    flagged = AbbreviationExtractor(Config(), legend_syntax=True).extract(document)
+    assert [pair.model_dump() for pair in bracketed_pairs(flagged)] == without
+
+
 @given(
     st.text(alphabet="ABC", min_size=1, max_size=5),
     st.text(alphabet=_LOWER + " ", max_size=40),
@@ -1304,15 +1563,25 @@ def _nested_region_document(regions: int) -> str:
     return "XY (foo " * regions + ")" * regions
 
 
-def _extraction_seconds(document: str, repeats: int = 3) -> float:
+def _extraction_seconds(document: str, repeats: int = 3, *, legend_syntax: bool = False) -> float:
     """Fastest of ``repeats`` extractions, to damp scheduler noise."""
-    extractor = AbbreviationExtractor(Config())
+    extractor = AbbreviationExtractor(Config(), legend_syntax=legend_syntax)
     best = float("inf")
     for _ in range(repeats):
         started = time.perf_counter()
         extractor.extract(document)
         best = min(best, time.perf_counter() - started)
     return best
+
+
+def _separator_document(entries: int) -> str:
+    """A document that is nothing but ``=`` in the shapes that must be refused.
+
+    Each entry reaches the last gate before failing it, which is the expensive
+    path: the left token is an admissible short form, a window follows, and
+    every candidate prefix in that window is built and rejected.
+    """
+    return "Xy = 0.05 and Ab = 12,000 or Cd = -3 " * entries
 
 
 @pytest.mark.slow
@@ -1325,6 +1594,24 @@ def test_nested_regions_stay_sub_quadratic_across_a_doubling() -> None:
     small = _extraction_seconds(_nested_region_document(4_000))
     large = _extraction_seconds(_nested_region_document(8_000))
     assert large < 3.0 * max(small, 0.01)
+
+
+@pytest.mark.slow
+def test_the_legend_scan_stays_sub_quadratic_across_a_doubling() -> None:
+    """The same shape assertion for the separator scan, which is a second pass.
+
+    A document dense in ``=`` is the pathological input for this arrangement:
+    every separator builds a window and a run of candidate prefixes. Both are
+    bounded by the same word and character budgets the backwards scan uses, so
+    the cost is linear in the number of separators -- and the doubling is what
+    says so rather than the docstring.
+    """
+    small = _extraction_seconds(_separator_document(4_000), legend_syntax=True)
+    large = _extraction_seconds(_separator_document(8_000), legend_syntax=True)
+    assert large < 3.0 * max(small, 0.01)
+    assert (
+        AbbreviationExtractor(Config(), legend_syntax=True).extract(_separator_document(50)) == []
+    )
 
 
 @pytest.mark.slow

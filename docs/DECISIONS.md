@@ -9,6 +9,1064 @@ Newest first.
 
 ---
 
+## D-044 — Definition of Done 1: abstention exists, defaults off, and loses to a word-count baseline across most of its range
+
+**Status:** met in mechanism, not met in value · **Amends:** D-030 ·
+**Evidence:** `disambiguation.sdu21.abstention_curve` in `bench/results.json`,
+`src/acronymkit/disambiguation.py`, `docs/EVALUATION.md`, CHANGELOG `[Unreleased]`
+
+The first item on the definition of done was "the disambiguator can decline to answer". It can. The
+field ships, the threshold ships, the curve is published with its losing comparison in the same
+table, and the CHANGELOG says in user terms what the trade is. **Recording that as "done" without the
+second half would be the exact move this file exists to make expensive**, so here is the second half.
+
+### What was actually delivered
+
+`DisambiguationResult` carries a read-only `margin` and a derived `abstained`;
+`LexicalDisambiguator(config, dictionary, tokenizer, min_margin=...)` refuses below the threshold;
+the default is off and D-030 argues it stays off. That is a mechanism, and it is complete.
+
+### And here is the curve it produces
+
+```
+bench/results.json, disambiguation.sdu21.abstention_curve
+SDU@AAAI-21 AD dev -- TUNING, CONTAMINATED. Every threshold below is read off
+the split it is scored on. `most_frequent` is scored on the IDENTICAL answered
+subset at each gate, so the last column is not a different question.
+
+  gate   coverage %   accuracy answered   F1      most_frequent, same subset
+  0.00     100.00          41.65        41.65           72.84   <- baseline wins
+  0.01      70.53          46.32        38.32           72.78   <- baseline wins
+  0.02      50.91          52.27        35.27           72.14   <- baseline wins
+  0.05      29.52          64.81        29.54           69.40   <- baseline wins
+  0.10      22.78          70.00        25.98           68.30
+  0.15      16.77          72.93        20.95           66.09
+  0.20      11.33          74.04        15.07           64.05
+
+  at the reference gate, most_frequent STILL wins on candidate-set sizes ['3','4']
+    -- 2,004 instances, 32.38 % of the split
+```
+
+Two readings, both true, and the second decides the status.
+
+**The gate does what it says.** Answered accuracy rises monotonically with the threshold and gains
+more than thirty points end to end. As a precision instrument it works.
+
+**It does not beat counting words.** `most_frequent` at full coverage scores 72.84. The gated system
+does not reach that answering *any* fraction of the split until gate 0.15, where it answers under a
+sixth of the questions, and its F1 falls monotonically the entire way. Below the crossover the
+trivial baseline is ahead on the very same answered questions. There is no threshold on this curve at
+which turning abstention on makes the library better at the shared task than a frequency table would
+be.
+
+### Why that is not simply "the feature failed"
+
+`most_frequent` is not free and this record will not pretend it is. It needs the shared task's
+counted training instances — precisely the data D-020 established this project cannot obtain under a
+licence it can ship. **A caller with no counts cannot run the control that beats the gate**, which is
+what makes abstention a real option for a real caller and simultaneously means the comparison is not
+a like-for-like defeat. D-029 sharpens it from the other side: on the default no-dictionary path a
+margin is defined on one instance in 6,189, so the feature is inert for anybody who has not already
+brought a dictionary.
+
+### The status this earns
+
+```
+Definition of Done 1 -- "the disambiguator can decline to answer"
+  mechanism      SHIPPED   margin field, abstained flag, min_margin, default off
+  documentation  SHIPPED   docs/EVALUATION.md carries the curve WITH the losing column
+  value          NOT MET   no gate on the measured curve beats a frequency table,
+                           and the measurement is a tuning split
+```
+
+**Met in mechanism, not yet in value.** Closing it in value needs one of: a frequency prior this
+project can legally ship (D-020, still open across ten checked sources); a cost model from the caller
+that makes precision-at-low-coverage the right objective, which the library cannot see; or a
+confirmation on a blind split, which is D-043's reserved resource and its stated trigger.
+
+### How it fails
+
+Reading the mechanism half as the whole item is the failure, and only prose stops it. The curve is
+one corpus, one domain, one contaminated tuning split with a four-point split-half spread — wider
+than several differences the tables invite a reader to weigh. And "loses to a trivial baseline" is a
+deliberately unfair headline for a control that needs data D-020 says is unavailable; the fair
+version is in the paragraph above, and a reader who quotes the heading alone has been misled by this
+record rather than by the numbers.
+
+---
+
+## D-043 — SDU-21 AD `test.json` gets a named use and a trigger, and the corpus that would confirm D-039 is a different one
+
+**Status:** reservation restated with a trigger; one proposed re-designation refused as a category
+error · **Amends:** D-029 · **Evidence:** `bench/splits.toml` `[corpora.sdu21_ad]`,
+`[corpora.sdu21_ai]`, `[corpora.plod]`; `tools/splits.py`
+
+SDU@AAAI-21 AD `test.json` has been reserved and unspent since D-017, and R3 has protected it every
+round since. A reserved resource with no assigned use is how a budget drifts: each round it survives
+because nobody had a reason to spend it, which is not the same as it being reserved *for* something.
+This record gives it one, with the condition that fires it.
+
+### The re-designation that was proposed, and why it does not fit
+
+The proposal reaching this round was to spend AD `test.json` confirming D-039's legend-syntax
+precision claim out of sample. **That is a category error and it is recorded as a correction rather
+than transcribed as a plan.**
+
+```
+tools/splits.py, the manifest as it stands
+  sdu21_ad             task = disambiguation           role = tuning     contaminated = true
+  sdu21_ai             task = span_detection           role = held_out   contaminated = false
+  plod                 task = span_detection           role = held_out   contaminated = false
+  med1250              task = extraction               role = tuning     contaminated = true
+  sdu22_ae_legal       task = span_detection           role = tuning     contaminated = true
+  sdu22_ae_scientific  task = span_detection           role = tuning     contaminated = true
+  sec_xbrl             task = identifier_segmentation  role = held_out   contaminated = false
+  socrata              task = identifier_segmentation  role = held_out   contaminated = false
+```
+
+D-039 changes which *surfaces the extractor scans* and is scored as span detection. `sdu21_ad`
+annotates one occurrence plus a fixed candidate set — it holds no spans to score and no short forms
+to extract. Its `test.json` could not confirm a precision claim about a span rule if it were spent
+tomorrow. This is the hole D-036 closed one call earlier in the pipeline: a corpus being `held_out`
+and unspent says nothing about whether it can adjudicate *this* claim, and the task is the missing
+half of the question. The proposal reached this file because the reservation had a role and no
+purpose attached to it, so any unspent thing looked like the right instrument.
+
+### The named use, and the trigger that spends it
+
+```
+[corpora.sdu21_ad] test.json -- reserved, unspent, ONE spend
+  named use      confirm the cut-point of an abstention policy proposed for
+                 ON-BY-DEFAULT shipping
+  trigger        a `min_margin` default other than "off" is proposed, with a
+                 specific threshold and a stated cost model behind it
+  NOT a trigger  a sanity check; a second look at the curve; a re-run after a
+                 tokenizer change; confirming that abstention "still works";
+                 any figure whose absence would not block a decision
+  on spend       the corpus becomes contaminated for disambiguation permanently,
+                 and this project has NO remaining blind arm for that task
+```
+
+The manifest already carried the first line of this in prose — reserved for confirming a shipped
+abstention policy, and not available for a sanity check, a curiosity or a second look. What it lacked
+was the trigger, which is the part that makes a reservation checkable: **until somebody proposes
+turning abstention on by default with a number attached, there is nothing to confirm and the split
+stays shut.** D-044 records that no such proposal is currently defensible, so the trigger is not
+close to firing.
+
+The cost of spending it is not abstract. `tools/splits.py --check` already prints that no
+uncontaminated corpus carries `role = "held_out"` for `task = "disambiguation"`. AD `test.json` is
+the only thing that could ever change that line, and spending it removes the possibility rather than
+using it.
+
+### What D-039's confirmation would actually cost, recorded separately
+
+The right instruments for an out-of-sample span claim are `sdu21_ai` and `plod` — both
+`task = "span_detection"`, both `role = "held_out"`, both `contaminated = false`.
+
+```
+plod        already scored for D-039. Held out, honest, and nearly blind:
+              16 of 1,804 gold long forms begin after a separator   (0.89 %)
+              -- bench/results.json, shortform.plod_all.legend_exposure
+            It agrees on every field and the agreement is worth little.
+sdu21_ai    role = held_out, contaminated = false, status = "reader_not_written".
+            The only unspent capable instrument this project has for a span
+            claim. Spending it on a default-off flag burns the arm that a
+            DEFAULT change would need.
+```
+
+So D-039's confirmation is available, it is not free, and it should not be taken now: the flag is off
+by default, so nothing downstream depends on the answer. **The precondition D-039 itself names —
+SDU-22 `train.json`, unread, but `role = "tuning"` for the whole corpus — buys within-corpus
+corroboration and not generalisation**, and it is also the arm D-032 reserved for reopening
+experiment nine. One unread split cannot settle two questions; whichever is asked first spends it.
+
+### How it fails
+
+A trigger written into a D-record is not a mechanism. Nothing in `tools/splits.py` refuses a run
+against AD `test.json`, and the file is fetchable from the same pin as the dev split — the guard is
+that somebody has to read this entry, which is the same guard that has held for six rounds and is
+still only a convention. The named use also assumes the next question worth a blind split is an
+abstention default; if the disambiguator changes shape entirely, this reservation will look like it
+was held for a question nobody ended up asking, and re-designating it needs its own record rather
+than a quiet edit to the manifest note.
+
+---
+
+## D-042 — Zero external users is a strategy question, not a descope, and this record does not answer it
+
+**Status:** open fork, recorded rather than decided · **Amends:** D-029 ·
+**Evidence:** `docs/DECISIONS.md` D-029, `tools/splits.py --check`, `bench/splits.toml`
+
+D-029 found that this project has no external users and used the finding to descope one workstream.
+Then the finding was absorbed. Over the following rounds it has been cited as a reason not to worry
+about compatibility and as a reason not to build a default blend, and in both cases it did useful
+local work — but its largest consequence is not local, and leaving it unstated is how it disappears.
+
+### The fork
+
+**Is "world class" a technical target or an adopted-library target?** The two answers do not share a
+queue.
+
+```
+If the target is TECHNICAL -- "the extractor and the governed subsystem are as
+good as the state of the art, and the evidence for that is public"
+  the queue is roughly the one being executed: extraction quality, span rules,
+  the governed segmentation figures, offline guarantees, wire contracts.
+  D-029 is then a fact about the calendar and nothing more.
+
+If the target is ADOPTED-LIBRARY -- "people who have this problem use this"
+  the queue is wrong at the top. The blocking item is not a rule or a flag; it
+  is that a prospective adopter cannot check the central claim. Per
+  `python tools/splits.py --check`, run for this record:
+      extraction               no uncontaminated held-out corpus
+      disambiguation           no uncontaminated held-out corpus
+      span_detection           plod, sdu21_ai              held out
+      identifier_segmentation  sec_xbrl, socrata           held out, D-036
+  A citable, uncontaminated, held-out gold standard for the tasks the README
+  leads with is then the LEAD ITEM, not the long pole.
+```
+
+### Two consequences that already landed, named so they are not re-derived
+
+**The kill fired on the weighted-dictionary default blend.** D-029 descoped it on the strength of
+zero external users and it is on the prohibited list. That is the *correct* action under either arm
+of the fork, and it is the cheap case: the work served callers who do not exist and it had no
+independent technical argument either.
+
+**A resolver hook drops below a span rule, and the reason differs by arm.** Work whose value is "an
+existing integrator can now do X" is worth less than work whose value is "the library is more
+accurate" when the integrator count is zero, so on the adopted-library arm a resolver hook sits below
+D-039's legend work. **What the fork actually changes is neither of those two items.** It changes
+whether the next several rounds go into rules and flags at all, or into a corpus somebody outside
+this repository would accept.
+
+### What would settle it, stated so it can be checked rather than argued
+
+```
+Evidence that the target is ADOPTED-LIBRARY
+  a named prospective adopter, or one human-filed issue, or one downstream
+  dependent -- D-029's re-runnable block is the instrument, and it MUST be
+  re-run, because D-029 says of itself that its numbers decay fast
+  any request for a number this project cannot currently produce blind
+
+Evidence that the target is TECHNICAL
+  the author states it. That is not a cop-out: on this arm the audience is the
+  author and the artefact, and no external instrument can distinguish "nobody
+  wants this" from "nobody has been told about it" -- D-029's own words about
+  absence of evidence apply here in full.
+```
+
+**This record does not decide the fork and will not pretend to.** The evidence available cannot: the
+whole content of D-029 is that public instruments cannot see private use, so "no adopters" is not
+observable, only "no observable adopters". What is decidable is that the question should be asked
+before the next round's queue is set, and that it has been answered implicitly — by continuing to
+execute the technical queue — for four rounds without anyone writing down that a choice was made.
+
+### How it fails
+
+Framing this as a binary is the first thing wrong with it: a project can pursue a held-out gold
+standard *and* ship rules, and the real question is ordering under a fixed budget rather than
+exclusion. The fork inherits every weakness of D-029 — a two-week-old repository, live counters, one
+reading, and a design that explicitly targets air-gapped deployments leaving no trace by
+construction. And the second consequence above is the softest: "a resolver hook serves callers who do
+not exist" is an argument about priority that would survive being wrong about the user count, because
+the hook has no technical argument either way. If this record is used to kill a resolver hook
+outright rather than to rank it, it has been over-read.
+
+---
+
+## D-041 — This library emits pairs, so deleting a bad long form deletes a good short form. That closes long-form-only precision filtering, not one rule.
+
+**Status:** structural constraint, derived from experiment ten's evidence ·
+**Supersedes the log-entry reading of:** D-032 experiment ten ·
+**Evidence:** `shortform.sdu22_ae_legal_dev.function_word_exposure`,
+`shortform.sdu22_ae_scientific_dev.function_word_exposure`,
+`shortform.med1250_all.function_word_exposure`, `shortform.plod_all.corpus` in `bench/results.json`
+
+D-032 recorded experiment ten as a rule that was measured and reverted. That is true and it
+under-sells the evidence by a wide margin. **The mechanism that refused the rule is not a property of
+the rule.** It is a property of what `extract()` returns, and it refuses in advance every rule of the
+same shape — which is why it needs a number of its own that a future round will hit when it greps for
+the mechanism instead of for "function word".
+
+### The constraint
+
+**`AbbreviationExtractor` emits a pair. The pair is atomic. So any filter that rejects a candidate
+because of its LONG form also deletes the SHORT form standing beside it — and on every corpus that
+scores the two labels separately, a long-form false positive removed is a short-form true positive
+destroyed at the same instant.**
+
+Experiment ten measured that at full strength, and it is not a near-miss. Re-derived from the gated
+`cases` arrays for this record rather than transcribed:
+
+```
+bench/results.json, shortform.*.function_word_exposure
+  the rule: reject a long form whose first word is in _strategies.SKIPPABLE
+
+  corpus                          deletes   short form correct   long form correct
+  SDU-22 legal dev (tuning)        6 of 489          6                   1
+  SDU-22 scientific dev (tuning)   5 of 585          5                   2
+                                  -----            ---
+                                  11 of 11 deletions carried a correct short-form span
+  MED1250 (tuning)                 3 of 1,021        0                   0
+```
+
+Eleven of eleven. Not most, not a majority — every single deletion on both corpora that can see the
+class removed an acronym token the annotators had marked. MED1250 shows zero collateral because it
+scores pairs, not labels: the collateral is invisible there by construction, which is precisely why
+the rule looked free on the one corpus that was asked first.
+
+### Why the ratio is structural rather than a bad draw
+
+An acronym token is the least ambiguous annotation these corpora carry; a long-form boundary is the
+most contested. So a filter keyed on the long form is keyed on the noisy half of the pair and pays in
+the clean half. The arithmetic does not depend on which words are in the rejection set, on how the
+set was chosen, or on whether the underlying long form was genuinely wrong. It depends only on the
+fact that one prediction carries both labels.
+
+```
+Rules this closes in advance -- all long-form-keyed, all pair-atomic:
+  reject a long form beginning with a function word     -- experiment ten, reverted
+  reject a long form over or under a length threshold
+  reject a long form whose head word is not a noun
+  reject a long form failing a stopword-density or readability filter
+  reject a long form the pseudo-precision estimator rates poorly
+    -- and D-012 separately establishes that estimator rates rules, not spans
+  any confidence threshold applied to the long form alone
+```
+
+Each will look free on a pair-scored corpus and cost short-form recall on a label-scored one. **The
+D-032 result is the general case already measured: a variant does not need re-measuring to be
+refused, it needs a different shape.**
+
+The escape D-008 already closed is worth restating so it is not re-attempted as a fix. The correct
+span for `OHCHR` starts to the *left* of `of`, so recovering the deleted pairs means moving the
+long-form starting boundary — which is boundary-maximising selection, built, measured and reverted in
+D-008.
+
+### The design question this surfaces, posed and deliberately not answered
+
+The constraint only binds because the pair is atomic. So:
+
+**Should `extract()` be able to emit a short form with an absent, or low-confidence, long form?**
+
+That is a public API question and it is bigger than any of the rules above. The evidence that it is
+worth asking is that the corpora this project scores against already disagree with the library's
+output shape:
+
+```
+bench/results.json -- gold spans per label, three corpora, re-derived for this record
+  PLOD-CW all             short forms 2,869      long forms 1,804
+                          and only 46.11 % of gold short forms stand in a
+                          parenthetical arrangement at all
+                          -- shortform.plod_all.corpus
+  SDU-22 legal dev        short forms 1,213      long forms   669
+  SDU-22 scientific dev   short forms   970      long forms   720
+                          -- tp + fn per label, shortform.sdu22_ae_*.high_precision.legend
+```
+
+In every case the annotators marked more abbreviations than definitions, because most abbreviations
+in running text are never defined there. A library that can only report a *pair* cannot report those
+at all: the shipped extractor is architecturally unable to say "this is an acronym and I do not know
+what it stands for", which on the evidence above is the majority case in at least one held-out
+corpus.
+
+**What answering it would cost, so the question is honest rather than rhetorical.** `AcronymPair`
+would need a long form that can be absent or low-confidence, which is a wire-contract change and
+therefore R8 territory — a design, not a patch. Every consumer of `extract()` would see candidates it
+has never seen. Precision on the short-form label would become the dominant risk, and this project
+has one uncontaminated span corpus and no uncontaminated extraction corpus with which to measure it.
+And D-042's fork bears on whether it is worth doing at all, since the caller who benefits is the one
+scoring against a span corpus.
+
+Not answered here. Recorded so the next person who proposes a long-form precision filter finds both
+the refusal and the question that is actually underneath it.
+
+### How it fails
+
+**The eleven deletions are on two contaminated tuning splits.** Both SDU-22 dev splits had their miss
+taxonomy read by the August 2026 audit, which is what `bench/splits.toml` records as having
+contaminated them. The ratio is arithmetic rather than fitted — a deletion either carried a correct
+short form or it did not — but it is eleven events, and eleven events on contaminated splits is a
+thin base for a constraint stated this broadly.
+
+**Three of the eleven long forms were themselves scored correct**, and D-032 records that three more
+look like annotation artefacts. The revert survives discounting the artefacts entirely, and so does
+this constraint, because the short-form spans are what the constraint is about. Somebody arguing the
+other way would need the *short* forms to be artefacts, and `and Pacific -> APC` and
+`an adverb -> AA` are the two cases where the long form was scored correct and the deletion was pure
+loss on both labels.
+
+**"Closed in advance" is a claim about rules nobody has written.** A long-form filter that also
+re-emitted the short form unpaired would sit outside this constraint entirely — which is the design
+question above, and is why it is posed rather than dismissed.
+
+**The corpus asymmetry argues for the question, not for an answer.** More gold short forms than long
+forms is partly an annotation convention: PLOD tags abbreviation tokens wherever they occur, not only
+where they are defined. That is a real difference in what the corpus is for, and reading it directly
+as "the library is missing two thirds of the work" would be the same error as reading MED1250's zero
+collateral as "the rule is free".
+
+---
+
+## D-040 — Four sdist fixes, and the job that was meant to catch them was importing `src/`
+
+**Status:** shipped (CI only) · **Evidence:** `.github/workflows/ci.yml` job `installed-suite`,
+`tests/conftest.py`, the renamed sdist step in `build`
+
+The distribution has broken four times on one shape: it shipped an assertion without the file that
+backs it — `bench/results.json`, then `data/LICENSES.md`, then `tests/fixtures/*.json`, then a test
+that executed a `bench/` script while being imported. Each fix named the file that had just broken. A
+fifth guard of the same kind was proposed. What was found instead is that the check those guards were
+meant to complement has never run against a distribution.
+
+### The finding
+
+`build`'s "Verify the sdist can run its own test suite" step extracts the sdist, installs it, and
+runs pytest **inside the extracted tree**. `tests/conftest.py` opens with `SRC = REPO_ROOT / "src"`
+and inserts it at the front of `sys.path`. The extracted tree has a `src/`. So the install on the
+previous line is never imported.
+
+```
+un-gated, workstream measurement -- the real conftest, run inside a built and
+extracted sdist, against a venv holding that sdist installed
+  python -c "import sys; sys.path.insert(0,'.'); import conftest, acronymkit; print(acronymkit.__file__)"
+  ->  <extracted-sdist>/src/acronymkit/__init__.py
+```
+
+D-018's closing rule is this one level up: a lookup with a fallback cannot be used to test the thing
+it falls back to. Here the fallback is `sys.path` and the thing it falls back to is the installed
+package.
+
+### The job
+
+`installed-suite` builds an sdist, installs it into a clean venv, and runs the artefact's own
+`tests/` from a directory holding no `src/`, no `bench/` and no `tools/` — after **asserting
+`acronymkit.__file__` resolves under `sysconfig.get_paths()["purelib"]`**. That assertion is the
+load-bearing step: without it the job degrades silently into the state the old one has been in all
+along.
+
+Eight test ids cannot run from an installed package and are pinned **as an exact set, compared in
+both directions** — a listed test that starts passing reds the build and must be deleted from the
+list, so the list cannot rot into a blanket exemption. Two files execute a `tools/` script at import
+and therefore fail to *collect* rather than skipping, taking 120 tests with them, because `skipif` is
+consulted at collection and the module body at import; two `test_package.py` tests parse the source
+of `__init__.py`; four `test_serialization.py` tests assert on `SCHEMA_PATH`, which D-018 established
+names the checkout copy by construction.
+
+### What it proves that nothing else did
+
+```
+un-gated, workstream measurement, 2026-08-24 -- delete
+acronymkit/resources/pseudo_precision_en.json from an installed distribution.
+It is read at run time and it is NOT in build's hand-written `required = [...]`:
+  the `required = [...]` wheel-resource guard   no missing entries       PASSES
+  the extracted-tree sdist run                  no new failures          PASSES
+  installed-suite                               11 unexpected failures   FAILS
+```
+
+The hand-written list is therefore already incomplete and already passes on a distribution that is
+already broken. Appending that filename would have been the fifth symptom fix.
+
+**Both jobs stay, and the old one was renamed to what it verifies** — "Verify the sdist ships the
+files its own test suite reads". That is real, and it is the only place `bench/results.json`,
+`data/LICENSES.md` and `tools/` reachability are exercised, which is two of the four historical
+incidents.
+
+### How it fails
+
+The green tick does not mean "the suite passes from an installed package"; it means "the non-passing
+set is exactly these eight", and only a comment says so. `EXPECTED_NON_PASSING` is still a list of
+names, defended by being exact and self-cleaning rather than by not being a list — a reviewer under
+time pressure can turn a red run green by adding one line. `PASS_FLOOR` is a hard-coded number in the
+file whose wheel-budget comment is a monument to hard-coded numbers going stale. The gate parses
+pytest's width-truncated short-summary lines and is pinned to a fixed `COLUMNS`. `pyproject.toml`
+travels with the tests — withholding it costs 28 failures, 26 of them lost `asyncio_mode` — which
+lets one test read a file an installed user does not have. The job rebuilds its own sdist rather than
+downloading `build`'s artefact, so it tests the same commit and not the same bytes. And the whole
+thing was verified on Windows with `Scripts/python.exe` substituted for `bin/python`; the POSIX venv
+layout, `$RUNNER_TEMP` and GitHub's `bash -e` wrapper are unexecuted.
+
+**It is coupled to whatever else is in flight.** `tests/test_splits_manifest.py` is one of the two
+files pinned as a collection failure. If a future workstream guards its module-level load, the
+stale-entry branch fires and their commit goes red on this job with a message about a file they did
+not think they had touched. That is the ratchet working, and it will not look like it.
+
+**Eight tests should stop being exceptions.** The right fix for all of them is the `skipif` their
+neighbours already carry, after which the matching lines must be deleted from
+`EXPECTED_NON_PASSING`. That is a `tests/` change and it was out of scope for the workstream that
+found this. The hand-written `required = [...]` list should then be *deleted* rather than extended,
+in its own commit, since this job subsumes it.
+
+---
+
+## D-039 — A definition no bracket introduces. Shipped, and shipped switched off.
+
+**Status:** shipped, default off · **no experiment number spent — experiment eleven is still free** ·
+**Evidence:** `bench/run_shortform.py --variants --spans --legend`, `shortform.*.legend` and
+`shortform.*.legend_exposure` in `bench/results.json`, `src/acronymkit/extractor.py`,
+`tests/test_extractor.py`
+
+`GEF = Global Environment Facility` is a definition, and every version of this library has walked
+past it, because the whole extractor is a scan over balanced bracket regions. On the newest corpus
+this project reads it is the largest single miss class, near-equal across both splits — a
+corpus-convention gap rather than evidence about a domain. `AbbreviationExtractor(config,
+legend_syntax=True)` now reads it. The default is `False`.
+
+### The revert criterion was absolute, and it was not triggered
+
+`X = Y` is also the surface of every equation and assignment. The criterion was: if MED1250 precision
+moves at all, revert and log it as experiment eleven. It does not move by any amount, on any split,
+under any profile.
+
+```
+bench/results.json, shortform.med1250_all.*.{balanced_trim,legend}
+MED1250 exact, `all` -- TUNING SPLIT
+  profile          balanced_trim (ships)      legend
+  high_precision   P 92.46   F1 84.21         P 92.46   F1 84.21
+  general          P 92.39   F1 84.33         P 92.39   F1 84.33
+  biomedical       P 86.43   F1 83.28         P 86.43   F1 83.28
+  Identical on dev and test, and on every recorded field including tp/fp/fn.
+  Verified for this record: the ONLY fields that differ between the two saved
+  entries are `variant`, `comparator` and `legend_syntax`.
+```
+
+The comparator on the legend row is **`balanced_trim`, not `baseline`** — `balanced_trim` is what
+ships, and a shipping decision has to be one change away from what ships. Reading it against
+`baseline` would bundle it with a fix that landed a session ago, which is the error R6 exists to
+prevent.
+
+**That table alone says almost nothing, and the more useful half of this entry is why.** R9's fifth
+question again:
+
+```
+bench/results.json, shortform.med1250_all.legend_exposure
+  separators in the corpus                                     401
+  gold long forms beginning after a separator              0 of 1,221
+  reaching a window under high_precision                        48
+```
+
+The corpus cannot show the upside even in principle; it can only show harm, and under the shipped
+profile most separators are never approached, so "no change" is mostly "nothing happened". The
+load-bearing row is `legend_exposure_biomedical`, where the loosest admission gate the library ships
+— one character, no uppercase required — lets **396 of 401** separators through to a window and the
+alignment refuses **every one**, emitting zero pairs. `n = 523`, `P = 0.05`, `r = 0.78`,
+`Ki = 1 microM`. A `=` in an abstract introduces a number, and a number does not align with the
+letters of an abbreviation. That is a gate tested under load rather than a gate never approached.
+
+### The gate is not the matcher the audit named, and the reason matters
+
+The audit said to gate the long form on "the existing character-alignment test". Read as
+`find_best_long_form`, that loses the dominant class: it scans right-to-left from the end of its
+window and returns a *suffix*, so on `AOS` over `administrative and operational services` it takes
+the `A` from `and` and answers `and operational services`. That is correct for a bracketed
+arrangement, where the long form ends at the bracket and only its left edge is in dispute. A legend
+is the mirror image — the expansion begins at the separator and only its right edge is in dispute —
+so the alignment must be anchored at the first word. The shipped gate is `_initial_match_fraction`
+plus a check that the first character landed on word zero: an existing function, no new alignment
+logic in the module, and a different function from the one the sentence named.
+
+The cost is a deliberate miss class. `INT -> interrupted`, `TRUN -> truncated` and
+`TRANS -> transposed` are gold legends in the scientific split and are refused, because a truncation
+of one word starts one word. Loosening to the inside-a-word alignment is exactly the reading under
+which `Tsat=Tamb` and `wC = carbon mass fraction` become definitions. A test pins the miss so it
+stays a decision rather than a surprise.
+
+### What it buys, decomposed, never pooled
+
+**Read the provenance before the numbers.** `bench/splits.toml` records that the August 2026 audit
+decomposed *these two dev splits' misses by legend separator* and used the result to rank *this*
+proposal. They are the two corpora whose miss taxonomy selected the idea, and both are declared
+tuning and contaminated.
+
+| SDU-22 dev (**tuning, contaminated**) | label | balanced_trim | legend | SF recall ceiling |
+|---|---|---:|---:|---:|
+| legal | SF exact F1 | 53.82<!--claim:shortform.sdu22_ae_legal_dev.high_precision.balanced_trim.short_form.exact_f1:.2f--> | **60.50<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend.short_form.exact_f1:.2f-->** | 55.15<!--claim:shortform.sdu22_ae_legal_dev.corpus.ceiling_pct:.2f--> %, recall 37.76<!--claim:shortform.sdu22_ae_legal_dev.high_precision.balanced_trim.short_form.exact_recall:.2f--> -> 44.52<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend.short_form.exact_recall:.2f--> |
+| legal | LF exact F1 | 70.00<!--claim:shortform.sdu22_ae_legal_dev.high_precision.balanced_trim.long_form.exact_f1:.2f--> | **78.20<!--claim:shortform.sdu22_ae_legal_dev.high_precision.legend.long_form.exact_f1:.2f-->** | |
+| scientific | SF exact F1 | 72.15<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.balanced_trim.short_form.exact_f1:.2f--> | **74.91<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend.short_form.exact_f1:.2f-->** | 74.23<!--claim:shortform.sdu22_ae_scientific_dev.corpus.ceiling_pct:.2f--> %, recall 57.84<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.balanced_trim.short_form.exact_recall:.2f--> -> 61.55<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend.short_form.exact_recall:.2f--> |
+| scientific | LF exact F1 | 75.10<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.balanced_trim.long_form.exact_f1:.2f--> | **77.83<!--claim:shortform.sdu22_ae_scientific_dev.high_precision.legend.long_form.exact_f1:.2f-->** | |
+
+Both recalls stay under their ceilings, which `bench/corpora.py` re-derives live and the runner
+prints in the same table. Neither ceiling is a bound: every point above it is bought by emitting a
+definition the corpus does not annotate, paid for in long-form precision.
+
+**The losing rows, beside the headline as R5 requires.**
+
+```
+bench/results.json, .balanced_trim -> .legend, high_precision
+  SDU-22 scientific dev   SF exact precision      95.90 -> 95.67
+                          SF overlap precision    97.78 -> 97.44
+                          LF overlap precision    97.26 -> 96.96
+  PLOD all / tight        SF exact precision      93.66 -> 93.63
+                          LF overlap precision    90.17 -> 90.10
+  worst move anywhere     0.34 points.   No F1 falls anywhere.
+
+  Note the shape: PLOD POOLED precision falls while PLOD dev and test precision
+  RISE. The pooled split includes `train`, which contributes the only new false
+  positives. On the two frozen halves the rule adds true positives on both
+  labels and no false positive at all.
+```
+
+**PLOD-CW — the one held-out corpus, improves everywhere, and is nearly blind.**
+
+```
+bench/results.json, shortform.plod_all.legend_exposure
+  gold long forms beginning after a separator      16 of 1,804    0.89 %
+  predictions emitted across the whole corpus      12, in 8 of 1,351 documents
+```
+
+Every F1 rises on both labels, both detokenisations, all three splits. And it is twelve predictions.
+This is D-032's PLOD problem arriving through the other door: the corpus is structurally almost
+incapable of scoring the class, so its agreement on every field is worth much less than the fact that
+it agrees.
+
+### Why the default is off, given all of that
+
+The first reason decides it. **There is no uncontaminated, structurally capable corpus in this
+repository.** The two that show the gain are contaminated for precisely this change; the independent
+arms have 0.00 % and 0.89 % capability. Shipping on by default would set a default on the split that
+selected the idea. Beyond that: it widens what `extract()` means for every existing caller and emits
+a third `pattern` value no consumer has seen; `X = Y` is also the surface of source code,
+configuration, spreadsheet formulae and query strings, none of which were measured; the gain is 83,
+39 and 12 predictions on three corpora; off keeps every downstream run valid, where flipping the
+default would stale `admission.*`, `analysis.*`, `oracle.*`, `cascade.*`, `rerank.*`, `termfreq.*`,
+`spans.*` and `extraction.*` at once; and off is cheap to reverse while on is not.
+
+`tests/test_extractor.py::test_the_flag_only_ever_adds_pairs` is what makes the flag safe to reason
+about: over every corpus document, strip the legend pairs out and what remains equals the shipped
+default's output pair for pair and span for span. **The flag adds candidates and re-ranks none**,
+which is the region where D-012's pseudo-precision diagnosis does not bite.
+
+### One correction made during review, recorded because the class recurs
+
+A comment claimed the operator guard removes `= -0.62`. It does not — the guard tests only the two
+*immediately* adjacent characters, and there the minus is one space away. The surface is refused, by
+the alignment two steps later. The comment was fixed rather than the guard widened: widening it to
+"an operator appears somewhere nearby" would have been changing code to protect a sentence. A comment
+describing a gate it does not implement is the same failure as a headline describing a corpus it was
+not measured on, at a smaller scale.
+
+### Precondition for flipping the default, and the collision it runs into
+
+A corpus that annotates legend definitions, has not been mined, and can be declared uncontaminated.
+SDU-22 `train.json` — 3,564 unread legal samples — is the obvious candidate, is declared
+`role = "tuning"` for the whole corpus so it buys within-corpus corroboration rather than
+generalisation, **and is the same split D-032 reserved as the precondition for reopening experiment
+nine.** One unread split, two questions. D-043 records what the alternative instruments would cost
+and why AD `test.json` is not one of them.
+
+### How it fails, beyond the above
+
+`AcronymPair.pattern`'s field description in `src/acronymkit/models.py` still names only the two
+bracketed arrangements, and an opted-in caller now sees a third value; no enum exists in
+`schemas/acronym-engine-result.schema.json`, so nothing validates against it and the default output
+never carries it, but the description is incomplete. `bench/splits.toml` defines PLOD's short-form
+recall ceiling as the share of gold short forms in one of the **two parenthetical arrangements**, and
+this variant emits from a third — nothing is currently mis-stated, and the basis text should be
+widened before anyone quotes it beside a legend figure. `_legend_long_form` takes the shortest prefix
+that spends every short-form character, so a longer expansion whose trailing words carry no
+short-form letter is truncated; `SD -> Stanford De` in the scientific dump is that failure visible.
+Fullwidth `＝` is not read at all. There is no `Config` field: the flag is reachable only by injecting
+an extractor, which is a deliberate scope boundary rather than a design. And every corpus measured is
+academic or institutional prose, so the statistical-prose load test is one genre, not "arbitrary
+text".
+
+---
+
+## D-038 — The data pack group was a public name with no referent, and the honest fix was the cheap one
+
+**Status:** shipped; closes audit recommendation 7C · **Evidence:** `src/acronymkit/diagnostics.py`,
+`tests/test_diagnostics.py`, `docs/AUDIT-2026-08.md` section 7C
+
+`acronymkit.data` was declared as an entry-point group, exported as `DATA_PACK_GROUP`, discovered by
+`capabilities()` under a `data_packs` key, printed by `doctor` as `data packs : none` — and consumed
+by nothing. The audit proposed finishing it and, to its credit, wrote its own kill criterion: the
+load-bearing assumption is that somebody would publish a pack, and the honest test is whether this
+project would ship one within a release or two. It would not. The declaration is deleted.
+
+### The argument it rests on, and the one it does not
+
+D-029 measured the population that might publish a pack and found it empty. That is the reason not to
+*build* the loader. It is deliberately **not** the reason the declaration goes: D-029 says of itself
+that its numbers decay fast and that anything citing it against compatibility must re-run the checks
+first, and those checks were not re-run for this record.
+
+The argument that needs no census: **with no loader anywhere in the library, `data_packs` could only
+ever be `[]` — for a user who exists exactly as much as for one who does not.** It was a report field
+that never varied, a `doctor` line describing a mechanism no code could act on, and a public name
+with no referent. A single downstream adopter inverts D-029; none of them makes the key non-empty.
+
+### The same shape D-035 reverted, one commit earlier, in the same package
+
+D-035 shipped injectable collaborators because the documentation described a plug-in rule the code
+did not implement, and specified the new seam as "no registry, no entry-point group, no discovery,
+nothing reachable at import time". The one entry-point group that already existed was left standing.
+This closes it.
+
+### What was checked before deleting, because "no consumer" is a claim
+
+```
+un-gated -- grep over src/ tests/ tools/ bench/ docs/ and every .md/.toml/.json/.jsonl/.yml
+  DATA_PACK_GROUP | data_packs | acronymkit\.data
+    src/acronymkit/diagnostics.py   3 lines    tests/test_diagnostics.py   4 lines
+    docs/AUDIT-2026-08.md           the proposal itself
+  loader, golden fixture, schema, pyproject entry-point table          none
+  top-level re-export in __init__.py's _EXPORT_SOURCES                 not present
+  docs/GOVERNED_NAMING.md, docs/ENTERPRISE.md, docs/OFFLINE.md         advertise
+    no pack in any wording; their `jq` examples select .network, .tiers
+    and .resources.digests, never .data_packs
+```
+
+Verified for this record: `capabilities()` no longer reports `data_packs`, and
+`acronymkit.diagnostics` exposes no `DATA_PACK_GROUP`.
+
+### R10: the scan was never on the import path, and the deletion did not make it faster
+
+Reported as a non-result on purpose. The scan was already lazy, so removing it could not move import
+cost, and saying otherwise would sell a deletion as a speedup.
+
+```
+un-gated, workstream measurement -- 11 subprocess runs each, PYTHONPATH=src
+  import acronymkit    before min 1.998 ms    after min 1.927 ms    gate 30 ms
+un-gated -- spy on importlib.metadata.entry_points installed before any acronymkit import
+  import acronymkit / .cli / .governed, Config(), AcronymEngine(), GovernedNamer()
+                       before  []               after  []
+  capabilities()       before  ['pydantic','acronymkit.data']   after  ['pydantic']
+```
+
+Two call sites remain for the surviving `pydantic` scan — `capabilities()` and
+`config._enforce_offline`, the latter only when a caller asks for strict offline mode. Neither is on
+an import path. A first draft of the source comment said "capabilities and nowhere else"; a grep
+found the second caller and the sentence was corrected rather than kept.
+
+### The wire consequence, stated rather than absorbed
+
+`capabilities()` loses the top-level key `data_packs`; `acronymkit doctor --format json` loses
+`.data_packs`; the text report loses one line; `acronymkit.diagnostics.DATA_PACK_GROUP` no longer
+exists and is out of `__all__`. `acronymkit.__all__` is unchanged — the constant was never a
+top-level export. The function's `Returns:` promised only that an existing key would not *change
+meaning* under a patch release; it now also says a key may be removed, that removal is a
+minor-release event, and names this one, so a CI asserting on it finds the reason beside the report.
+**The CHANGELOG flags it as breaking for anyone who asserts on the report's key set**, because "the
+value was always `[]`" is a reason the break is cheap, not a reason it is not a break.
+
+### Why a deletion needed three tests
+
+The file's shape assertions are supersets by design, because the documented contract permits
+additions — so re-adding `data_packs` would have passed every existing check.
+`test_capabilities_does_not_report_a_withdrawn_key` makes revival a failure;
+`test_capabilities_scans_exactly_one_entry_point_group` asserts the enumerated groups are exactly
+`["pydantic"]`, which also catches scanning it twice; `test_format_report_has_no_data_pack_line`
+keeps the rendered report free of the advertisement.
+
+### How it fails
+
+**The capability is genuinely gone.** A pack published tomorrow is invisible to `capabilities()`. The
+discovery half survives as `_entry_point_names(group)` and re-declaring is three lines; the comment
+beside `_PYDANTIC_PLUGIN_GROUP` argues against writing them before a pack exists to load, and is
+written to be found by someone reading the audit's recommendation without its kill criterion.
+
+**Absence of evidence, again.** A vendored or air-gapped deployment asserting on the report leaves no
+public trace and would break. The defence is that the key is `[]` there too, not that no such
+deployment exists.
+
+**`WITHDRAWN_TOP_LEVEL_KEYS` is a convention, not a mechanism** — nothing forces the next removal into
+it. **`test_format_report_has_no_data_pack_line` asserts on the substring "pack"** across the whole
+report and would fire on an unrelated future resource whose name contains it; that false-positive
+shape was taken deliberately, because the true positive it guards is a re-added line. And **the
+docstring calls this a minor-release event without naming a version**: if it ships in a 0.3.x patch,
+the change violates the rule it wrote.
+
+**An adjacent finding, reported and not fixed.** The bundled-resource tables in `docs/OFFLINE.md` §7
+and `docs/SUPPORT_MATRIX.md` list seven files; `bundled_resources()` and `doctor` both report eight.
+`pseudo_precision_en.json` is missing from both, and `OFFLINE.md` invites an enterprise reviewer to
+compare their installation against its table directly. `tools/check_claims.py` cannot catch it
+because "seven" is a word, not a claim-shaped number. The missing row is the fitted, shipped
+precision table, so it owes a licence and provenance column — which is exactly what that table
+carries.
+
+---
+
+## D-037 — The abstention curve now ships with the column that reverses its meaning, and the README leads with the half that has an integration story
+
+**Status:** accepted; documentation only, no behaviour changed · **Amends:** D-030 ·
+**Evidence:** `disambiguation.sdu21.abstention_curve`, `disambiguation.sdu21.diagnosis.default_path`,
+`disambiguation.sdu21.ceiling` in `bench/results.json`; `docs/EVALUATION.md`, `README.md`,
+`src/acronymkit/disambiguation.py`, `src/acronymkit/engine.py`
+
+D-030 measured the abstention finding and recorded it. It reached no document a user reads.
+`docs/EVALUATION.md` now carries it as three decomposed tables, each with the shared task's own
+most-frequent-expansion baseline scored **on the same answered subset**, in a column of the same
+table rather than a paragraph underneath it. That is R5 in the strict sense. D-044 states what the
+curve means for the definition of done; this record is about the publication.
+
+The three tables are the pooled coverage/accuracy/recall/F1 curve with the baseline column and every
+losing row marked; a per-candidate-set-size table at the reference gate, with the worst answered
+accuracy printed rather than left derivable; and a gold-evidence table showing the gate is
+substantially a verbatim-evidence detector — the gold-verbatim share of answered instances rises from
+roughly a sixth to nearly nine tenths across the range, while in the gold-absent subset the baseline
+is thirty to forty points ahead both before and after gating and coverage collapses. The recall
+ceiling is printed in the same section per R9.6: gold is among the candidates on 6,189 of 6,189, so
+nothing in these tables is capped by retrieval. A provenance block states that the split is tuning
+and contaminated, that the reference gate is read off the split it is scored on, and — closing
+D-030's re-quote hazard — which run id to cite and which not to.
+
+`disambiguate` is now labelled in all four places a reader can land: the README section, a README
+honest-scope bullet, `docs/EVALUATION.md`, and the module and method docstrings. The documented
+default path returns no candidate on the overwhelming majority of the measured split and has two
+candidates to choose between on one instance in 6,189 — it performs no selection at all. D-029
+established there are no external users, so the first reader who ever arrives hits exactly that path.
+
+### The framing change nobody had made
+
+The README led with generation. The governed subsystem is a little over a third of the source, close
+to half the public symbols, seven of the sixteen CLI commands, and the only half with a streaming
+batch mode another runtime can drive. It now leads — lede, hero example, first `###` under "What it
+does", first subsection of "Command line". D-028 argued against *splitting* the package; it says
+nothing against ordering it, and the August 2026 audit recommended the inversion explicitly as free
+and reversible.
+
+### Three published sentences this record retires
+
+* README: "no accuracy figure is attached to it anywhere in this project" — D-031 attached one.
+* EVALUATION: "Extraction only. Generation, backronym alignment and disambiguation have no external
+  evaluation at all" — contradicted three sections above it in the same file.
+* EVALUATION: "Neither corpus is registered in `bench/splits.toml` yet", plus its two named blockers —
+  both blockers were removed and both corpora registered during the same session, by D-036.
+
+All three were value-preserving statements that had quietly become false. **The mechanism is the one
+that produced the stale headroom figure the ratchet exists to prevent: a true sentence, published,
+and never re-read against a repository that had moved underneath it.** `tools/check_claims.py`
+catches a stale *number*. Nothing catches a stale *sentence*, and these three were caught by hand.
+
+One stale figure went with them: the governed half was published as 9,370 of 25,210 source lines and
+re-derives to 9,647 of 26,149. The re-derived counts ship with the command that produces them, and
+the README carries word-form fractions instead of digits.
+
+Rather than assert the newly-registered state, which was uncommitted and could still move, the
+EVALUATION paragraph was rewritten around the immutable fact: every governed run in
+`bench/results.json` records `splits_declaration = UNDECLARED` and none has been re-measured.
+**Measured-before-declared, not held-out** — and a declaration written after the fact does not make a
+number blind. That objection is written into the doc; D-036 is where it is adjudicated.
+
+### How it fails
+
+Docstring citations name run ids and fields but quote no values, because `check_claims` renders a
+`.py` citation as a literal a caller would see in `help()`. That keeps the digits in the Markdown
+where they are checked and leaves the pointers in `src/` unchecked: rename a field and nothing fails.
+The README's structural counts have the same property in the other direction — word-form fractions
+stay out of the ratchet's reach and out of its protection, and nothing will ever say they went stale.
+The bolding convention in the tables is a sentence about the author's own formatting that no tool
+checks; edit a cell and it silently goes wrong. The anchor from README into the new EVALUATION
+heading is a hand-built GitHub slug that dies silently if the heading is renamed. And the prose
+asserts a monotonicity that holds pooled and not inside every bucket: answered accuracy turns down
+between two gates inside the 4-way bucket and peaks early inside the gold-absent subset. That
+qualification is published; a reader skimming the headline paragraph will still take away a monotone
+story.
+
+### Not closed by this record
+
+No claim was migrated off the value-matched path, so no baseline was lowered: `README.md` carries 5
+and `docs/EVALUATION.md` 24, unchanged, and both are trivially migratable. R1 forbids freeing a slot
+without closing it in the same commit, and `tools/check_claims.py` belonged to no workstream this
+round. `disambiguation.sdu21.diagnosis.abstention` is still live and is a re-quote hazard — it gates
+on the raw margin where the shipped gate exempts different-source pairs, so its rows differ from the
+shipped curve; retiring it is a `bench/results.json` change. `AcronymEngine.disambiguate` still has
+no gate at all, and D-030 names the clean fix. And `ExpansionDictionary`'s class docstring still
+calls insertion order "weak evidence" while the scorer ignores it entirely — either implement it or
+delete the sentence.
+
+---
+
+## D-036 — `identifier_segmentation` is a task, and `headline_capable` now has to be told what the headline is about
+
+**Status:** shipped · **Amends:** D-031 · **Evidence:** `tools/splits.py`, `bench/corpora.py`,
+`bench/splits.toml`, `tests/test_splits_manifest.py`
+
+D-031 published the governed subsystem's first accuracy figures behind run-id citations throughout,
+off two corpora that were not in `bench/splits.toml`. Every saved figure carried
+`splits_declaration: "UNDECLARED"`, which is exemption from R2 *by omission* — the failure the
+manifest exists to prevent, produced by the workstream that satisfied the goal. Registration was
+blocked on `TASKS`, and `TASKS` is a closed vocabulary for a reason that makes widening it a
+decision.
+
+### What the closed vocabulary was protecting, and why a fourth string is not the change
+
+`bench/corpora.py` returns a **different type per task**. That sentence had been in two docstrings
+for months and was checked by nothing: a corpus declared `disambiguation` could have been registered
+in the span readers with no complaint from anywhere. The vocabulary was closed against a hazard it
+could not detect.
+
+`TASK_GOLD_UNIT` now states, beside the tuple, what one gold record IS per task. The first three all
+annotate *inside a passage*. The fourth does not:
+
+| task | one record is |
+|---|---|
+| `extraction` | a passage plus the pairs a human annotated in it |
+| `span_detection` | a passage plus index ranges, never paired |
+| `disambiguation` | one occurrence plus its fixed candidate set |
+| `identifier_segmentation` | two surface strings of the *same characters*, gold = cut positions |
+
+An identifier/caption record has no text, no span, no candidate set and **no annotator**: the caption
+is production metadata written by whoever wrote the identifier. That is why this gold survives the
+question that killed NameGuess in the audit's section 0 — there is nobody to have instructed.
+
+The type separation is stronger than the ones already here. `read_plod_cw_text` documents a *soft*
+trap: it returns a real document with no pairs, so a pair runner reports a meaningless zero and only
+the gold-pair count gives it away. `SegmentationCorpus` is not a list and its records have no text
+and no tokens, so a pair or span consumer dies rather than producing a number. A crash is a better
+failure than a plausible figure.
+
+**The gold construction is not duplicated.** The admission rule and the cut metric stay in the
+runner; the reader returns raw rows and says so in its docstring. Two implementations of an admission
+rule are two definitions of a gold standard. A reader that re-applied the rule so it could return the
+*scored* population was designed and then not built, for exactly that reason.
+
+`read_governed_gold` also **refuses to choose between two cached snapshots**. Two Socrata caches are
+two populations of a live catalog, not two files; picking the newest would put the choice of which
+corpus was measured inside a number. Both are on this disk, so it is a designed failure rather than a
+hypothetical, and it is tested.
+
+### The quieter hole, which was already costing something
+
+`headline_capable()` was task-blind. It now takes the task the headline is a claim about,
+**required** — a permissive default leaves the hole open under a shorter call, and the caller who
+most needs the question asked is the one who would omit the argument.
+
+```
+un-gated mechanism probe, real manifest, after registration -- re-run for this record
+  task-blind (the old function)               ['plod','sdu21_ai','sec_xbrl','socrata']
+  headline_capable('extraction')              []
+  headline_capable('span_detection')          ['plod','sdu21_ai']
+  headline_capable('disambiguation')          []
+  headline_capable('identifier_segmentation') ['sec_xbrl','socrata']
+  headline_capable()  ->  TypeError, missing 1 required positional argument: 'task'
+```
+
+With the corpora registered, the old function would have handed `sec_xbrl` and `socrata` to a caller
+asking whether it may publish an *extraction* headline, and nothing would have failed.
+
+**The pooled advisory was not a future risk; it was suppressing two true statements today.** The
+single "no uncontaminated held-out corpus" note went quiet as soon as `plod` and `sdu21_ai` qualified
+for span detection, and this project still has no held-out corpus for extraction and none for
+disambiguation. `python tools/splits.py --check` now prints both gaps — confirmed for this record —
+and the registration provably does not silence them. The comment block at the head of
+`bench/splits.toml` claiming no number in this project satisfies the headline rule had gone false the
+same way and is corrected.
+
+`validate()` also refuses a short-form recall ceiling on a task whose gold holds no short forms. A
+segmentation corpus annotates no abbreviation anywhere; a ceiling there is not a cautious extra, it
+is a number that would be printed beside a recall figure measuring something else. `as_dict()`
+reports `headline_capable` per task and offers no pooled list, because the pooled list was the hole.
+
+### The binding check found something on its first run
+
+`TASK_REGISTRIES` maps each task to the registries that may hold it, and a test walks every registry
+key through the manifest. It failed immediately: `plod_cw_test` is in the pair-document registry
+while `plod` is declared `span_detection`. That is deliberate — `bench/external.py` needs
+text-bearing documents for an out-of-process baseline — and it had been warned about in prose since
+it was written. Prose is not consultable. The exception is now `TEXT_ONLY_VIEWS`, built in the same
+loop that registers the keys, with its own test asserting the exemption still describes something
+true. `span_detection` maps to two registries and that is modelled as a set rather than tidied into a
+bijection nobody could honestly claim: one carries token indices, the other character offsets, and
+indexing one with the other's numbers is why they are separate types.
+
+### Licences, re-read from the terms rather than transcribed, 2026-08-24
+
+**SEC.** `sec.gov/privacy`, "Website Dissemination": information on sec.gov is public and may be
+copied or further distributed without permission. The same paragraph withholds the seal, the logos
+and the EDGAR trademarks, so the grant is not unconditional and reading only the first sentence would
+say it was. The label caveat was read out of the 2025q1 archive itself, through the range-request
+path the runner uses: `tlabel` is the label text provided by the taxonomy, or the text provided by
+the filer, and §5.2 sources standard tags to FASB and the IFRS Foundation. The SEC cannot license
+text it does not own. `readme.htm` contains **zero** occurrences of "copyright", "license" or
+"licence" — the audit's EDGAR row is right about the archive and wrong about sec.gov.
+
+**Socrata.** `dev.socrata.com/docs/other/discovery`: zero occurrences of "copyright", and exactly one
+licence string on the page, in the footer, covering the documentation. **The trap is sharper than the
+parked draft said:** the page's substance is rendered client-side, so the static HTML a fetcher
+receives is navigation and footer and almost nothing else. The only licence-shaped string a machine
+sees on that page is the one that is wrong about the data. That is the fourth entry in this manifest
+with that property, after both SDU-21 repositories and SDU-22 AE. R4 is not a formality.
+
+### `contaminated = false`, and the trip-wire that flips it
+
+D-031 published a full miss decomposition, four worked failures and a named candidate fix, and the
+manifest's own words are that reading a miss taxonomy is exactly what made MED1250 a tuning split.
+The declaration nearly went the other way. What decided it was reading all three existing
+contamination reasons literally: each records the misses being read **and** the corpus being used to
+choose — MED1250 had a boundary-selection experiment run and reverted against it, `sdu21_ad` an
+ablation, a ceiling study and an abstention sweep, `sdu22_ae` a recall proposal ranked on its result.
+Only the first conjunct holds here: the runner has no thresholds, no configuration and no arms, and
+no D-record selected a tokenizer change on this evidence.
+
+The trip-wire is written into the manifest in advance. The first time anyone changes the identifier
+splitter on the strength of the published false-positive taxonomy, both corpora become contaminated,
+the validator forces `role = "tuning"`, and **`bench/run_governed_gold.py` hard-fails on that role
+rather than labelling its output** — so the runner stops working until that refusal becomes a label.
+That consequence lives in a file nobody editing the manifest will have open, which is why it is
+written where the declaration is.
+
+**This is the load-bearing judgement of the record and it is the one to attack.** Someone applying
+the file's stated definition — looked at closely enough that it can no longer adjudicate anything
+blind — reaches `contaminated = true`, and they have a case, because the false-positive taxonomy is a
+standing gated field, so the failure modes are not merely known but published. If that view wins, the
+validator forces `tuning` and the runner refuses to run.
+
+### One correction to D-031's own entry text
+
+The drafted entry said "every admitted identifier is CamelCase". Checked against the gated shape
+counts rather than transcribed: true of us_gaap and ifrs, false of `filer_extension`, which carries
+snake, dotted and flat-upper shapes alongside tens of thousands of camel ones. The claim worth
+keeping survives — `snake_upper` is a bucket the shape function really emits and it is **zero on
+every arm of both corpora**, so there is no UPPER_SNAKE identifier in this gold at all, which is the
+shape this package's own fixtures are written in. A counted zero is a stronger caveat than a hedge;
+an over-stated "every" is weaker than both, because the first person to find the counterexamples
+stops believing the rest.
+
+### How it fails
+
+`held_out` here does not mean frozen, and the word invites the wrong reading: nothing was withheld,
+the whole admitted population was scored in one pass and its anatomy published, and Socrata's catalog
+re-orders under the scroll, so a re-run months from now reports a different population under the same
+run id. `SegmentationCorpus` carries `fetched_on` and `source` for exactly that reason, and the
+manifest field is still a word that reads as "frozen split" to anyone who does not open the note.
+`TEXT_ONLY_VIEWS` is a hole by construction — anything added to it is exempt, and adding to it is one
+line; the guard is that it is built in the registration loop and has its own test, but "deliberately"
+is not "correctly". Nothing checks that a cache is the snapshot a gated figure was measured on; the
+two-snapshot refusal narrows that and does not close it. `headline_capable(task)` is a per-task
+filter and not a per-claim one: it stops a segmentation corpus backing a pair claim and does nothing
+about a segmentation corpus backing a segmentation claim about a shape it holds zero of.
+`tests/test_splits_manifest.py` now imports `bench/corpora.py` rather than regex-parsing it, which is
+more robust than a second weaker parser and means an import error there kills collection of the whole
+manifest test file. Both entries carry a great deal of prose and prose goes stale. And
+`bench/splits.toml` sits outside `check_claims`'s scan globs, so every figure in the governance file
+— including the two recall ceilings that predate this record — is named by run id but not gated.
+
+### Not closed
+
+**The saved runs still read `splits_declaration: "UNDECLARED"`.** The mechanism is fixed — the
+runner's `declared_role()` returns `held_out` for both corpora — but the string in
+`bench/results.json` is a literal written at `--save` time and nothing rewrites a saved entry. It was
+not re-saved for three independent reasons, any one of them sufficient: `bench/results.json` was
+being written by another workstream during the same session, so a concurrent `--save` would have
+clobbered one of them; `--save` re-fetches, and the Socrata catalog is live, so a re-save measures a
+different population from the one the 67 published citations were taken on, and every cited figure
+would move with nothing visible to say why; and D-031 already requires that re-run to happen *after*
+the tokenizer work lands, so baking a half-finished tokenizer into the gated table would be worse
+than an UNDECLARED string. The handoff is unchanged and the manifest no longer blocks it: whoever
+finalises the tokenizer work runs the governed-gold runner with `--save` and then
+`tools/check_claims.py --render`, and the entries will carry `held_out`.
+
+`bench/run_governed_gold.py` does not yet call the new `require_task()` accessor, which is shipped
+and tested and should be adopted. Its hard-fail on `role = "tuning"` was left alone: the right
+behaviour is to *label* a tuning figure rather than refuse to produce one, and that is a change to
+that file with its own record owed. **R3 was honoured throughout** — SDU-21 AD `test.json` was not
+fetched, not spent, and its designation was not touched; D-043 assigns it one.
+
+---
+
 ## D-035 — Collaborators are injected, not discovered; and a custom `Scorer` re-ranks without re-searching
 
 **Status:** shipped · **Evidence:** `src/acronymkit/engine.py`, `src/acronymkit/scoring.py`,

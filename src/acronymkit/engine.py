@@ -769,10 +769,18 @@ class AcronymEngine:
         with ``source == "inline"``. The one exception is an ``extractor``
         injected into this engine's constructor, which the disambiguator does
         not receive and therefore does not reproduce. The default path is
-        otherwise an inline-definition lookup that performs no selection;
-        ``disambiguation.sdu21.diagnosis.default_path`` and
-        ``disambiguation.sdu21.abstention_curve`` in ``bench/results.json``
-        measure both halves of that sentence on the SDU@AAAI-21 dev split.
+        otherwise an inline-definition lookup that performs no selection.
+
+        **How little it does is measured, not estimated.** On the SDU@AAAI-21 AD
+        dev split the default path returns *no candidate at all* on the large
+        majority of instances, and has two candidates to choose between on one
+        instance in the whole split -- so there is nothing to rank, nothing to
+        score against the context, and no margin to gate on. The exact figures
+        are ``disambiguation.sdu21.diagnosis.default_path.no_candidate_pct``,
+        ``.two_or_more_candidates`` and
+        ``disambiguation.sdu21.abstention_curve.default_path_margin_defined`` in
+        ``bench/results.json``; ``docs/EVALUATION.md`` prints them. **If you
+        came here for disambiguation, pass a ``dictionary``.**
 
         *Dictionary path.* Passing ``dictionary`` is what turns this into a
         choice: the blend documented on

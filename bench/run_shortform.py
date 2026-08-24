@@ -40,6 +40,12 @@ Six measurements, each independently selectable:
     measured together, they look like one change, and R6 exists because they are
     not: one is free everywhere and one is a trade.
 
+    A fifth row, ``legend``, is the library's own default-off
+    ``legend_syntax`` flag: the ``SF = LF`` abbreviation legend, which no
+    bracket introduces. Its comparator is ``balanced_trim`` rather than
+    ``baseline``, because ``balanced_trim`` is what ships; every row records
+    the comparator it must be read against.
+
 ``--spans``
     The same variants on the two corpora that annotate spans without pairing
     them -- PLOD-CW (dev and test) and SDU@AAAI-22 AE (legal and scientific
@@ -53,6 +59,14 @@ Six measurements, each independently selectable:
     phenomenon (R9.5) and a recall figure only means something beside its
     ceiling (R9.6). SDU-22 AE dev is registered ``tuning`` and contaminated --
     see ``bench/splits.toml`` -- so its rows are tuning rows.
+
+``--legend``
+    How far every ``=`` in a corpus gets through the legend gates, gate by
+    gate, on MED1250 and on both SDU@AAAI-22 AE dev splits -- plus how many of
+    each corpus's gold long forms begin immediately after a separator, which is
+    whether the corpus can show the class at all. Read this before the
+    ``legend`` row of ``--variants``: a null result on a corpus where the rule
+    never fires is a fact about the corpus.
 
 ``--relaxations``
     A rejected relaxation, recorded because it loses: treating a digit in the
@@ -167,6 +181,24 @@ _CLOSERS = {closer: opener for opener, closer in _OPENERS.items()}
 _ORIGINAL_TRIM = extractor_module._trim_span
 _ORIGINAL_PAIR_FOR_REGION = AbbreviationExtractor._pair_for_region
 _ORIGINAL_IS_VALID_LONG_FORM = extractor_module.is_valid_long_form
+
+# ``legend`` is the one switch whose two sides are NOT transcribed here, and the
+# exception is principled rather than convenient. The three fixes above were
+# candidate edits: each had an "off" side that existed only until it shipped,
+# which is why freezing it in this file is what keeps the delta reproducible.
+# ``legend_syntax`` is a permanent, public, default-off constructor argument --
+# both sides of the switch are shipped code and stay shipped, so driving the
+# real flag is what makes this row describe the library rather than a sketch of
+# it. What is patched is only the *default*, so that the engines built deep
+# inside ``predict_acronymkit`` and ``_engine_pairs`` pick it up.
+_ORIGINAL_EXTRACTOR_INIT = AbbreviationExtractor.__init__
+
+
+def _extractor_init_legend_on(
+    self: AbbreviationExtractor, config, tokenizer=None, *, legend_syntax: bool = False
+) -> None:
+    """``AbbreviationExtractor.__init__`` with ``legend_syntax`` defaulted on."""
+    _ORIGINAL_EXTRACTOR_INIT(self, config, tokenizer, legend_syntax=True)
 
 
 def trim_span_unbalanced(
@@ -329,11 +361,19 @@ def long_form_valid_strict(short_form: str, long_form: str) -> bool:
     return not leads_with_function_word(long_form)
 
 
-def _install(*, balanced_trim: bool, two_word: bool, function_word: bool = False) -> None:
+def _install(
+    *,
+    balanced_trim: bool,
+    two_word: bool,
+    function_word: bool = False,
+    legend: bool = False,
+) -> None:
     """Patch the candidate fixes in or out, in place.
 
-    Both sides of every switch are this module's own functions, so a cell of the
-    variant table means the same thing before and after any of them ships.
+    Both sides of the first three switches are this module's own functions, so a
+    cell of the variant table means the same thing before and after any of them
+    ships. ``legend`` drives the library's own flag; see the note above
+    :func:`_extractor_init_legend_on` for why that one is different.
     """
     extractor_module._trim_span = trim_span_balanced if balanced_trim else trim_span_unbalanced
     AbbreviationExtractor._pair_for_region = (
@@ -342,6 +382,9 @@ def _install(*, balanced_trim: bool, two_word: bool, function_word: bool = False
     extractor_module.is_valid_long_form = (
         long_form_valid_strict if function_word else long_form_valid_permissive
     )
+    AbbreviationExtractor.__init__ = (  # type: ignore[method-assign]
+        _extractor_init_legend_on if legend else _ORIGINAL_EXTRACTOR_INIT
+    )
 
 
 def _restore() -> None:
@@ -349,6 +392,7 @@ def _restore() -> None:
     extractor_module._trim_span = _ORIGINAL_TRIM
     AbbreviationExtractor._pair_for_region = _ORIGINAL_PAIR_FOR_REGION
     extractor_module.is_valid_long_form = _ORIGINAL_IS_VALID_LONG_FORM
+    AbbreviationExtractor.__init__ = _ORIGINAL_EXTRACTOR_INIT  # type: ignore[method-assign]
 
 
 # ---------------------------------------------------------------------------
@@ -651,17 +695,36 @@ def ceiling(documents: Sequence, table) -> dict:
 # ---------------------------------------------------------------------------
 # 3. variants
 # ---------------------------------------------------------------------------
-#: ``(name, balanced_trim, two_word, function_word)``. ``both`` is kept because
-#: it is the R6 counterexample this table exists to make visible: the two
-#: short-form-span fixes were first measured together, they look like one
+#: ``(name, balanced_trim, two_word, function_word, legend)``. ``both`` is kept
+#: because it is the R6 counterexample this table exists to make visible: the
+#: two short-form-span fixes were first measured together, they look like one
 #: change, and they are not -- one is free everywhere and one is a trade.
+#:
+#: **READ EACH ROW AGAINST ITS OWN COMPARATOR, WHICH IS RECORDED IN THE ENTRY.**
+#: The first four rows are deltas against ``baseline``, which is the extractor
+#: as it stood before D-032. ``legend`` is a delta against ``balanced_trim``,
+#: because ``balanced_trim`` is what ships today and a shipping decision has to
+#: be one change away from what ships -- reading it against ``baseline`` would
+#: bundle it with a fix that landed a session ago, which is the exact error R6
+#: exists to prevent and which this table was built to make visible.
 _VARIANTS = (
-    ("baseline", False, False, False),
-    ("balanced_trim", True, False, False),
-    ("two_word", False, True, False),
-    ("both", True, True, False),
-    ("function_word", False, False, True),
+    ("baseline", False, False, False, False),
+    ("balanced_trim", True, False, False, False),
+    ("two_word", False, True, False, False),
+    ("both", True, True, False, False),
+    ("function_word", False, False, True, False),
+    ("legend", True, False, False, True),
 )
+
+#: Which row each variant must be read against.
+_COMPARATOR = {
+    "baseline": None,
+    "balanced_trim": "baseline",
+    "two_word": "baseline",
+    "both": "baseline",
+    "function_word": "baseline",
+    "legend": "balanced_trim",
+}
 
 
 def variants(documents: Sequence) -> dict:
@@ -672,8 +735,13 @@ def variants(documents: Sequence) -> dict:
     print(f"\n{'profile':<16} {'variant':<14} {'split':<5} {'P %':>7} {'R %':>7} {'F1 %':>7}")
     print("-" * 62)
     for profile, settings in _PROFILES.items():
-        for name, balanced, two_word, function_word in _VARIANTS:
-            _install(balanced_trim=balanced, two_word=two_word, function_word=function_word)
+        for name, balanced, two_word, function_word, legend in _VARIANTS:
+            _install(
+                balanced_trim=balanced,
+                two_word=two_word,
+                function_word=function_word,
+                legend=legend,
+            )
             for split_name, subset in splits:
                 evaluation = scoring.evaluate(
                     subset,
@@ -692,9 +760,11 @@ def variants(documents: Sequence) -> dict:
                     "split_seed": 20260809,
                     "profile": profile,
                     "variant": name,
+                    "comparator": _COMPARATOR[name],
                     "balanced_trim": balanced,
                     "two_word_short_form": two_word,
                     "reject_leading_function_word": function_word,
+                    "legend_syntax": legend,
                     "exact_precision": round(score.precision * 100, 2),
                     "exact_recall": round(score.recall * 100, 2),
                     "exact_f1": round(score.f1 * 100, 2),
@@ -761,6 +831,153 @@ def function_word_exposure(documents: Sequence) -> dict:
         "predicted_leading_function_word_correct": predicted_leading_correct,
         "gold_pairs": gold_pairs,
         "gold_leading_function_word": gold_leading,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 3a. is the corpus even capable of showing the legend class?
+# ---------------------------------------------------------------------------
+#: The gates ``AbbreviationExtractor._legend_pair_at`` applies, in order.
+_LEGEND_GATES = (
+    "separators",
+    "not an operator",
+    "left token is a short form",
+    "a window follows",
+    "a prefix aligns",
+)
+
+
+def _text_and_gold_starts(document, style: str) -> tuple[str, list[int], int]:
+    """``(text, gold long-form start offsets, gold long-form count)``.
+
+    Three corpus shapes reach this runner and none of them agree on how a long
+    form is located. A char-span corpus gives offsets into real text; PLOD gives
+    token indices into a sentence that has to be detokenised first; a pair
+    corpus gives no offsets at all, so the gold string is searched for. The
+    third is weaker evidence than the first two and is labelled as such wherever
+    the number is printed.
+    """
+    text = getattr(document, "text", None)
+    if text is None:  # PLOD: token indices into a detokenised sentence
+        text, offsets = document.render(style)
+        starts = [
+            offsets[start][0] for start, _ in document.long_form_spans if start < len(offsets)
+        ]
+        return text, starts, len(document.long_form_spans)
+    spans = getattr(document, "long_form_spans", None)
+    if spans is not None:
+        return text, [start for start, _ in spans], len(spans)
+    starts = []
+    for pair in document.pairs:
+        index = text.find(pair.long_form) if pair.long_form else -1
+        if index >= 0:
+            starts.append(index)
+    return text, starts, len(document.pairs)
+
+
+def legend_exposure(
+    documents: Sequence, *, corpus: str, split: str, settings: dict, style: str = "tight"
+) -> dict:
+    """Count how far each ``=`` gets through the legend gates, corpus by corpus.
+
+    R9.5, and it is the whole reason a MED1250 null result can be read at all.
+    "Precision did not move on MED1250" is two very different statements
+    depending on whether the rule fired there and was right, or never fired.
+    This funnel says which, and it says it with the extractor's own private
+    gates rather than a regex approximation of them, so it cannot drift from
+    what the code does.
+
+    The last column of the gold side is the corpus-capability figure: how many
+    gold long forms begin immediately after a separator. A corpus with none of
+    those cannot show the phenomenon in either direction, which is exactly the
+    trap PLOD set for ``two_word`` in D-032.
+
+    Args:
+        documents: Any corpus whose documents carry ``.text``. Gold long-form
+            spans are used when the documents have them; ``.pairs`` are used
+            when they do not.
+        corpus: Corpus name for the record.
+        split: Split label, including its role.
+        settings: Extraction profile overrides.
+
+    Returns:
+        One ``results.json`` record.
+    """
+    _restore()
+    extractor = AbbreviationExtractor(Config(**settings), legend_syntax=True)  # type: ignore[arg-type]
+    counts: Counter = Counter()
+    emitted: list[tuple[str, str, str]] = []
+    gold_after_separator = 0
+    gold_spans = 0
+    for document in documents:
+        text, gold_starts, gold_here = _text_and_gold_starts(document, style)
+        cursor = 0
+        while True:
+            index = text.find("=", cursor)
+            if index < 0:
+                break
+            cursor = index + 1
+            counts["separators"] += 1
+            if index == 0 or index + 1 >= len(text):
+                continue
+            if (
+                text[index - 1] in extractor_module._LEGEND_OPERATOR_CHARS
+                or text[index + 1] in extractor_module._LEGEND_OPERATOR_CHARS
+            ):
+                continue
+            counts["not an operator"] += 1
+            preceding = extractor._preceding_token(text, index)
+            if preceding is None:
+                continue
+            counts["left token is a short form"] += 1
+            window = extractor._legend_window(text, index, len(preceding[0]))
+            if window is None:
+                continue
+            counts["a window follows"] += 1
+            pair = extractor._legend_long_form(
+                text, preceding[0], (preceding[1], preceding[2]), window
+            )
+            if pair is None:
+                continue
+            counts["a prefix aligns"] += 1
+            emitted.append((document.uid, pair.short_form, pair.long_form))
+        gold_spans += gold_here
+        for start in gold_starts:
+            probe = start - 1
+            while probe >= 0 and text[probe].isspace():
+                probe -= 1
+            gold_after_separator += probe >= 0 and text[probe] == "="
+
+    print(f"\nlegend gates on {corpus} [{split}], profile settings {sorted(settings.items())}")
+    print(f"{'gate':<30} {'n':>7} {'share of separators':>21}")
+    print("-" * 60)
+    total = counts["separators"]
+    for gate in _LEGEND_GATES:
+        share = f"{counts[gate] / total * 100:19.2f}%" if total else f"{'--':>20}"
+        print(f"{gate:<30} {counts[gate]:>7} {share:>21}")
+    if gold_spans:
+        print(
+            f"gold long forms starting immediately after a separator: "
+            f"{gold_after_separator} of {gold_spans} "
+            f"({gold_after_separator / gold_spans * 100:.2f}% -- the corpus capability)"
+        )
+    for uid, short_form, long_form in emitted[:20]:
+        print(f"    [{uid}] {short_form!r} -> {long_form!r}")
+    return {
+        "corpus": corpus,
+        "split": split,
+        "profile_settings": {key: settings[key] for key in sorted(settings)},
+        "detokenisation": style,
+        **{"gate_" + _slug(gate): counts[gate] for gate in _LEGEND_GATES},
+        "gold_long_form_spans": gold_spans,
+        "gold_long_form_spans_after_a_separator": gold_after_separator,
+        "gold_long_form_spans_after_a_separator_pct": (
+            round(gold_after_separator / gold_spans * 100, 2) if gold_spans else 0.0
+        ),
+        "pairs_emitted": [
+            {"sample": uid, "short_form": short_form, "long_form": long_form}
+            for uid, short_form, long_form in emitted
+        ],
     }
 
 
@@ -1053,8 +1270,13 @@ def span_variants(profile: str = "high_precision") -> dict:
     )
     print(header)
     print("-" * (len(header) - 1))
-    for name, balanced, two_word, function_word in _VARIANTS:
-        _install(balanced_trim=balanced, two_word=two_word, function_word=function_word)
+    for name, balanced, two_word, function_word, legend in _VARIANTS:
+        _install(
+            balanced_trim=balanced,
+            two_word=two_word,
+            function_word=function_word,
+            legend=legend,
+        )
         rows: list[tuple[str, str, dict, int, dict]] = []
         for split, documents in plod.items():
             for style in styles:
@@ -1091,9 +1313,11 @@ def span_variants(profile: str = "high_precision") -> dict:
                 system="acronymkit",
                 profile=profile,
                 variant=name,
+                comparator=_COMPARATOR[name],
                 balanced_trim=balanced,
                 two_word_short_form=two_word,
                 reject_leading_function_word=function_word,
+                legend_syntax=legend,
                 span_source="native offsets",
                 documents=count,
                 **extra,
@@ -1404,6 +1628,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="score every variant on PLOD and SDU@AAAI-22 AE, decomposed by corpus",
     )
+    parser.add_argument(
+        "--legend",
+        action="store_true",
+        help="count how far every '=' gets through the legend gates, per corpus",
+    )
     parser.add_argument("--relaxations", action="store_true")
     parser.add_argument("--gates", type=Path, help="directory holding Lf1chSf and SingTermFreq.dat")
     parser.add_argument(
@@ -1415,12 +1644,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     med1250_wanted = (
-        args.attribute or args.ceiling or args.variants or args.relaxations or bool(args.gates)
+        args.attribute
+        or args.ceiling
+        or args.variants
+        or args.relaxations
+        or args.legend
+        or bool(args.gates)
     )
     if not (med1250_wanted or args.spans):
         parser.error(
             "choose at least one of --attribute, --ceiling, --variants, --spans, "
-            "--relaxations, --gates"
+            "--legend, --relaxations, --gates"
         )
 
     recorded: dict = {}
@@ -1444,6 +1678,33 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         recorded["analysis.med1250.selection_ceiling"] = ceiling(documents, table)
     if args.variants:
         recorded.update(variants(documents))
+    if args.legend:
+        recorded["shortform.med1250_all.legend_exposure"] = legend_exposure(
+            documents,
+            corpus="med1250",
+            split="all (tuning)",
+            settings=_PROFILES["high_precision"],
+        )
+        recorded["shortform.med1250_all.legend_exposure_biomedical"] = legend_exposure(
+            documents,
+            corpus="med1250",
+            split="all (tuning)",
+            settings=_PROFILES["biomedical"],
+        )
+        for domain in ("legal", "scientific"):
+            recorded[f"shortform.sdu22_ae_{domain}_dev.legend_exposure"] = legend_exposure(
+                corpora.read_sdu22_ae(domain=domain, split="dev"),
+                corpus=f"sdu22_ae_{domain}",
+                split="dev (tuning, contaminated)",
+                settings=_PROFILES["high_precision"],
+            )
+        for split in ("dev", "test", "all"):
+            recorded[f"shortform.plod_{split}.legend_exposure"] = legend_exposure(
+                corpora.read_plod_cw(split=split),
+                corpus=f"plod_cw_{split}",
+                split=f"{split} (held_out, span detection)",
+                settings=_PROFILES["high_precision"],
+            )
     if args.relaxations:
         recorded.update(relaxations(documents))
     if args.gates:

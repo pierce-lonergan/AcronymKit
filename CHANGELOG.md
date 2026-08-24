@@ -7,11 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing here changes what the library does by default. Two behaviour changes are called out under
-**Changed** — both of them make an existing report *stricter* rather than different, and one of them
-will newly flag identifiers a pipeline previously waved through.
+Nothing here changes what the library *computes* by default. Read two sections before upgrading.
+**Removed** takes a key out of the capability report, which is a breaking change if your CI asserts
+on that report's key set. **Changed** carries two behaviour changes, both of which make an existing
+report *stricter* rather than different, and one of which will newly flag identifiers a pipeline
+previously waved through.
+
+### Removed
+
+- **BREAKING for anyone who asserts on the capability report's key set: `data_packs` is gone.**
+  `capabilities()` no longer returns a `data_packs` key, `acronymkit doctor --format json` no longer
+  emits `.data_packs`, the text `doctor` report loses its `data packs : none` line, and
+  `acronymkit.diagnostics.DATA_PACK_GROUP` no longer exists. `acronymkit.__all__` is unchanged — the
+  constant was never a top-level export.
+  - **What you lose:** nothing that ever worked. `acronymkit.data` was declared as an entry-point
+    group and no code in this library has ever loaded anything through it, so the key could only ever
+    report an empty list. If you published a distribution declaring that group, it was never
+    discovered and is not discovered now.
+  - **Why it is still called breaking:** "the value was always `[]`" is a reason the break is cheap,
+    not a reason it is not a break. A pipeline doing an exact key-set comparison against the report
+    will fail on upgrade. `capabilities()` previously promised only that an existing key would not
+    *change meaning* under a patch release; that docstring now also says a key may be **removed**, and
+    that removal is a minor-release event. `docs/DECISIONS.md` D-038.
 
 ### Added
+
+- **The extractor can read `SF = Long Form` legend definitions, and it is off by default.**
+  `AbbreviationExtractor(config, legend_syntax=True)` also scans for definitions introduced by an
+  equals sign rather than by a bracket — `GEF = Global Environment Facility` — which no previous
+  version has ever read. Pairs from that arrangement carry `pattern="short=long"`, a third value your
+  consumer has not seen before. Reach it with
+  `AcronymEngine(config, extractor=AbbreviationExtractor(config, legend_syntax=True))`; there is no
+  `Config` field for it.
+  - **The default output is byte-identical to the previous release.** A test asserts that the flag
+    only ever *adds* pairs: strip the legend pairs back out and what remains matches the default path
+    pair for pair and span for span.
+  - **Why it is off.** On the two corpora where it helps, it is worth several F1 points on both
+    labels — and those are the two corpora whose miss taxonomy is what suggested the rule in the first
+    place. The independent corpora either cannot show the effect at all or contain twelve instances of
+    it. `X = Y` is also the surface of every equation, assignment and config line, and no source-code
+    or configuration corpus was measured. Turn it on for institutional or academic prose where you
+    know legends are used; do not turn it on for arbitrary text. `docs/DECISIONS.md` D-039 has the
+    decomposed tables including every row where precision falls.
 
 - **The disambiguator can now refuse to answer.** Every `DisambiguationResult` carries a read-only
   `margin` (the gap between the best and second-best candidate's scores, `None` when there are fewer
@@ -118,29 +155,74 @@ will newly flag identifiers a pipeline previously waved through.
   it should answer survived being written.
 - `docs/EVALUATION.md` gains a decomposed section for the governed accuracy figures, behind run-id
   citations.
+- **The abstention curve is now published, with the comparison that reverses its meaning in the same
+  table.** `docs/EVALUATION.md` carries the coverage/accuracy/recall/F1 curve, a breakdown by
+  candidate-set size, and a breakdown by whether the gold expansion appears verbatim in the sentence —
+  each with the shared task's own most-frequent-expansion baseline scored on the *identical answered
+  subset*, in a column beside our own. Below the crossover point that baseline wins outright, and at
+  the reference gate it still wins on three-way and four-way candidate sets. Read it before choosing a
+  threshold.
+- **The README now leads with governed naming.** It is a little over a third of the source, close to
+  half the public symbols, seven of the sixteen CLI commands, and the only half with a streaming batch
+  mode another runtime can drive. Ordering and framing only — no API changed. Three sentences that had
+  quietly become false were retired in the process, and `docs/DECISIONS.md` D-037 names them.
+- **`disambiguate` is labelled honestly in every place a reader lands.** The `dictionary=` argument is
+  not optional decoration; it is the whole feature. On the documented default path the engine has two
+  candidates to choose between on one instance in 6,189 of the measured split, so it performs no
+  selection at all, and the facade has no abstention gate.
 
 ### Notes
 
-- **New claims must now cite a run id.** `tools/check_claims.py` still accepts the 87 existing
-  figures that are backed only by matching a value somewhere in `bench/results.json`, but that path is
-  a ratchet and admits nothing new: every number added to the docs from here names the measurement it
-  came from, so that a wrong citation can fail the build. Value matching cannot tell a correct claim
-  from a coincidence, and a stale figure survived two audits on exactly that gap.
-- **`bench/splits.toml` is now executable.** `tools/splits.py` loads and validates it, CI runs
-  `python tools/splits.py --check`, and `bench/corpora.py` consults it before a reader is registered.
-  Both SDU@AAAI-22 AE dev splits are declared tuning and contaminated.
+- **New claims must now cite a run id.** `tools/check_claims.py` still accepts the existing figures
+  that are backed only by matching a value somewhere in `bench/results.json` — 76 of them at the time
+  of writing — but that path is a ratchet and admits nothing new: every number added to the docs from
+  here names the measurement it came from, so that a wrong citation can fail the build. Value matching
+  cannot tell a correct claim from a coincidence, and a stale figure survived two audits on exactly
+  that gap.
+- **`bench/splits.toml` is now executable, and it knows about tasks.** `tools/splits.py` loads and
+  validates it, CI runs `python tools/splits.py --check`, and `bench/corpora.py` consults it before a
+  reader is registered. `identifier_segmentation` is now a declared task, the two corpora behind the
+  governed accuracy figures are registered against it, and the question "may this corpus back a
+  headline?" now requires the task the headline is a claim about — a corpus can be held out and still
+  be the wrong instrument. `--check` now also reports, per task, that this project has **no**
+  uncontaminated held-out corpus for extraction and none for disambiguation. Both SDU@AAAI-22 AE dev
+  splits remain tuning and contaminated. `docs/DECISIONS.md` D-036.
+- **CI now runs the test suite against the installed distribution.** The job that was meant to do this
+  never did: it ran pytest inside the extracted sdist, where `conftest.py` puts `src/` at the front of
+  `sys.path`, so every sdist check this project has run was a check on the source tree. A new
+  `installed-suite` job installs the sdist into a clean venv, asserts the import resolves inside
+  site-packages, and runs the suite from a directory containing no `src/`. It catches a missing
+  bundled resource that the previous hand-written file list does not. `docs/DECISIONS.md` D-040.
 - **Three changes were measured and not shipped**, which is the point of recording them: per-arity
   abstention thresholds (experiment eight), preferring the whole two-word bracketed text as a short
   form (experiment nine), and rejecting a long form that begins with a function word (experiment ten).
   Each is in `docs/DECISIONS.md` D-030 and D-032 with the numbers that refused it and the conditions
-  under which it should be reopened. The last of the three is free on one corpus and a recall
-  regression on every other one it was asked about, because this library emits *pairs* — a rule that
-  rejects a long form deletes the short form standing beside it.
+  under which it should be reopened.
+- **Experiment ten turned out to be a constraint rather than a result, and it is worth knowing about
+  if you are thinking of filtering the extractor's output.** This library emits *pairs*, and the pair
+  is atomic — so any filter that rejects a candidate because of its long form also deletes the short
+  form standing beside it. Every one of the eleven deletions the rule made on the two corpora that
+  score the two labels separately removed a correct acronym span. That refuses a whole family of
+  long-form-only precision filters in advance, not just the one that was tried.
+  `docs/DECISIONS.md` D-041, which also poses the API question underneath it: should `extract()` be
+  able to report an abbreviation whose expansion it does not know? Today it cannot, and in at least
+  one corpus that is the majority case.
+- **Abstention, honestly: the mechanism is done and the value is not.** The margin, the flag and the
+  threshold all ship and are documented. No gate on the measured curve makes the library better at the
+  shared task than a frequency table would be, and the measurement is a contaminated tuning split. It
+  is a precision instrument for a caller who knows what a wrong answer costs them, not an accuracy
+  fix, and it stays off by default. `docs/DECISIONS.md` D-044.
 - **The published MED1250 extraction headline is stale in this working tree.** The trim fix above
   moved it, and the results file and the eleven prose sites that quote it have to move in one change.
   Do not cut a release until that has happened.
-- Two corpora used for the governed accuracy work are measured but not yet declared in
-  `bench/splits.toml`; the drafted entries and the two blockers are parked in that file as comments.
+- **The governed accuracy runs still record `splits_declaration = UNDECLARED`.** The corpora are now
+  declared, but that string is written when a run is saved and nothing rewrites a saved entry. The
+  re-save is deliberately queued behind the tokenizer work, because one of the two corpora is a live
+  catalog and re-fetching it would move every published figure with nothing visible to say why.
+- **Two documentation tables are wrong about the bundled resources**, and one of them invites a
+  reviewer to compare their installation against it. `docs/OFFLINE.md` §7 and `docs/SUPPORT_MATRIX.md`
+  each list seven files; the library ships and reports eight. Trust `acronymkit doctor` over the
+  tables until they are fixed.
 
 ## [0.3.0] — 2026-08-11
 

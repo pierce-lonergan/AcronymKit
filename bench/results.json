@@ -1988,6 +1988,7 @@
     },
     "shortform.med1250_all.biomedical.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 83.28,
       "exact_false_negatives": 240,
@@ -1995,6 +1996,7 @@
       "exact_precision": 86.43,
       "exact_recall": 80.34,
       "exact_true_positives": 981,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2004,6 +2006,7 @@
     },
     "shortform.med1250_all.biomedical.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "med1250",
       "exact_f1": 82.94,
       "exact_false_negatives": 244,
@@ -2011,6 +2014,7 @@
       "exact_precision": 86.08,
       "exact_recall": 80.02,
       "exact_true_positives": 977,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2020,6 +2024,7 @@
     },
     "shortform.med1250_all.biomedical.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.5,
       "exact_false_negatives": 223,
@@ -2027,6 +2032,7 @@
       "exact_precision": 87.47,
       "exact_recall": 81.74,
       "exact_true_positives": 998,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2036,6 +2042,7 @@
     },
     "shortform.med1250_all.biomedical.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 83.26,
       "exact_false_negatives": 244,
@@ -2043,6 +2050,7 @@
       "exact_precision": 86.77,
       "exact_recall": 80.02,
       "exact_true_positives": 977,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": true,
       "split": "all (tuning)",
@@ -2050,8 +2058,27 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
+    "shortform.med1250_all.biomedical.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
+      "corpus": "med1250",
+      "exact_f1": 83.28,
+      "exact_false_negatives": 240,
+      "exact_false_positives": 154,
+      "exact_precision": 86.43,
+      "exact_recall": 80.34,
+      "exact_true_positives": 981,
+      "legend_syntax": true,
+      "profile": "biomedical",
+      "reject_leading_function_word": false,
+      "split": "all (tuning)",
+      "split_seed": 20260809,
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
     "shortform.med1250_all.biomedical.two_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.08,
       "exact_false_negatives": 228,
@@ -2059,6 +2086,7 @@
       "exact_precision": 87.03,
       "exact_recall": 81.33,
       "exact_true_positives": 993,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2096,6 +2124,7 @@
     },
     "shortform.med1250_all.general.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.33,
       "exact_false_negatives": 274,
@@ -2103,6 +2132,7 @@
       "exact_precision": 92.39,
       "exact_recall": 77.56,
       "exact_true_positives": 947,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2112,6 +2142,7 @@
     },
     "shortform.med1250_all.general.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "med1250",
       "exact_f1": 83.97,
       "exact_false_negatives": 278,
@@ -2119,6 +2150,7 @@
       "exact_precision": 92.0,
       "exact_recall": 77.23,
       "exact_true_positives": 943,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2128,6 +2160,7 @@
     },
     "shortform.med1250_all.general.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 85.38,
       "exact_false_negatives": 260,
@@ -2135,6 +2168,7 @@
       "exact_precision": 93.3,
       "exact_recall": 78.71,
       "exact_true_positives": 961,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2144,6 +2178,7 @@
     },
     "shortform.med1250_all.general.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.08,
       "exact_false_negatives": 278,
@@ -2151,6 +2186,7 @@
       "exact_precision": 92.27,
       "exact_recall": 77.23,
       "exact_true_positives": 943,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": true,
       "split": "all (tuning)",
@@ -2158,8 +2194,27 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
+    "shortform.med1250_all.general.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
+      "corpus": "med1250",
+      "exact_f1": 84.33,
+      "exact_false_negatives": 274,
+      "exact_false_positives": 78,
+      "exact_precision": 92.39,
+      "exact_recall": 77.56,
+      "exact_true_positives": 947,
+      "legend_syntax": true,
+      "profile": "general",
+      "reject_leading_function_word": false,
+      "split": "all (tuning)",
+      "split_seed": 20260809,
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
     "shortform.med1250_all.general.two_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.94,
       "exact_false_negatives": 265,
@@ -2167,6 +2222,7 @@
       "exact_precision": 92.82,
       "exact_recall": 78.3,
       "exact_true_positives": 956,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2176,6 +2232,7 @@
     },
     "shortform.med1250_all.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.21,
       "exact_false_negatives": 277,
@@ -2183,6 +2240,7 @@
       "exact_precision": 92.46,
       "exact_recall": 77.31,
       "exact_true_positives": 944,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2192,6 +2250,7 @@
     },
     "shortform.med1250_all.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "med1250",
       "exact_f1": 83.85,
       "exact_false_negatives": 281,
@@ -2199,6 +2258,7 @@
       "exact_precision": 92.07,
       "exact_recall": 76.99,
       "exact_true_positives": 940,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2208,6 +2268,7 @@
     },
     "shortform.med1250_all.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 85.18,
       "exact_false_negatives": 264,
@@ -2215,6 +2276,7 @@
       "exact_precision": 93.27,
       "exact_recall": 78.38,
       "exact_true_positives": 957,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2224,6 +2286,7 @@
     },
     "shortform.med1250_all.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 83.97,
       "exact_false_negatives": 281,
@@ -2231,6 +2294,7 @@
       "exact_precision": 92.34,
       "exact_recall": 76.99,
       "exact_true_positives": 940,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": true,
       "split": "all (tuning)",
@@ -2238,8 +2302,27 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
+    "shortform.med1250_all.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
+      "corpus": "med1250",
+      "exact_f1": 84.21,
+      "exact_false_negatives": 277,
+      "exact_false_positives": 77,
+      "exact_precision": 92.46,
+      "exact_recall": 77.31,
+      "exact_true_positives": 944,
+      "legend_syntax": true,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "split": "all (tuning)",
+      "split_seed": 20260809,
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
     "shortform.med1250_all.high_precision.two_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.74,
       "exact_false_negatives": 269,
@@ -2247,6 +2330,7 @@
       "exact_precision": 92.79,
       "exact_recall": 77.97,
       "exact_true_positives": 952,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "all (tuning)",
@@ -2254,8 +2338,47 @@
       "two_word_short_form": true,
       "variant": "two_word"
     },
+    "shortform.med1250_all.legend_exposure": {
+      "corpus": "med1250",
+      "detokenisation": "tight",
+      "gate_a_prefix_aligns": 0,
+      "gate_a_window_follows": 48,
+      "gate_left_token_is_a_short_form": 48,
+      "gate_not_an_operator": 399,
+      "gate_separators": 401,
+      "gold_long_form_spans": 1221,
+      "gold_long_form_spans_after_a_separator": 0,
+      "gold_long_form_spans_after_a_separator_pct": 0.0,
+      "pairs_emitted": [],
+      "profile_settings": {
+        "extraction_max_short_form_length": 10,
+        "extraction_min_short_form_length": 2,
+        "extraction_require_uppercase": true
+      },
+      "split": "all (tuning)"
+    },
+    "shortform.med1250_all.legend_exposure_biomedical": {
+      "corpus": "med1250",
+      "detokenisation": "tight",
+      "gate_a_prefix_aligns": 0,
+      "gate_a_window_follows": 396,
+      "gate_left_token_is_a_short_form": 396,
+      "gate_not_an_operator": 399,
+      "gate_separators": 401,
+      "gold_long_form_spans": 1221,
+      "gold_long_form_spans_after_a_separator": 0,
+      "gold_long_form_spans_after_a_separator_pct": 0.0,
+      "pairs_emitted": [],
+      "profile_settings": {
+        "extraction_max_short_form_length": 14,
+        "extraction_min_short_form_length": 1,
+        "extraction_require_uppercase": false
+      },
+      "split": "all (tuning)"
+    },
     "shortform.med1250_dev.biomedical.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 83.25,
       "exact_false_negatives": 115,
@@ -2263,6 +2386,7 @@
       "exact_precision": 86.1,
       "exact_recall": 80.57,
       "exact_true_positives": 477,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2272,6 +2396,7 @@
     },
     "shortform.med1250_dev.biomedical.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "med1250",
       "exact_f1": 83.07,
       "exact_false_negatives": 116,
@@ -2279,6 +2404,7 @@
       "exact_precision": 85.92,
       "exact_recall": 80.41,
       "exact_true_positives": 476,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2288,6 +2414,7 @@
     },
     "shortform.med1250_dev.biomedical.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.45,
       "exact_false_negatives": 106,
@@ -2295,6 +2422,7 @@
       "exact_precision": 86.94,
       "exact_recall": 82.09,
       "exact_true_positives": 486,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2304,6 +2432,7 @@
     },
     "shortform.med1250_dev.biomedical.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 83.29,
       "exact_false_negatives": 116,
@@ -2311,6 +2440,7 @@
       "exact_precision": 86.39,
       "exact_recall": 80.41,
       "exact_true_positives": 476,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": true,
       "split": "dev (tuning)",
@@ -2318,8 +2448,27 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
+    "shortform.med1250_dev.biomedical.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
+      "corpus": "med1250",
+      "exact_f1": 83.25,
+      "exact_false_negatives": 115,
+      "exact_false_positives": 77,
+      "exact_precision": 86.1,
+      "exact_recall": 80.57,
+      "exact_true_positives": 477,
+      "legend_syntax": true,
+      "profile": "biomedical",
+      "reject_leading_function_word": false,
+      "split": "dev (tuning)",
+      "split_seed": 20260809,
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
     "shortform.med1250_dev.biomedical.two_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.1,
       "exact_false_negatives": 108,
@@ -2327,6 +2476,7 @@
       "exact_precision": 86.58,
       "exact_recall": 81.76,
       "exact_true_positives": 484,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2336,6 +2486,7 @@
     },
     "shortform.med1250_dev.general.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.35,
       "exact_false_negatives": 131,
@@ -2343,6 +2494,7 @@
       "exact_precision": 92.02,
       "exact_recall": 77.87,
       "exact_true_positives": 461,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2352,6 +2504,7 @@
     },
     "shortform.med1250_dev.general.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "med1250",
       "exact_f1": 84.17,
       "exact_false_negatives": 132,
@@ -2359,6 +2512,7 @@
       "exact_precision": 91.82,
       "exact_recall": 77.7,
       "exact_true_positives": 460,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2368,6 +2522,7 @@
     },
     "shortform.med1250_dev.general.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 85.32,
       "exact_false_negatives": 124,
@@ -2375,6 +2530,7 @@
       "exact_precision": 92.67,
       "exact_recall": 79.05,
       "exact_true_positives": 468,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2384,6 +2540,7 @@
     },
     "shortform.med1250_dev.general.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.25,
       "exact_false_negatives": 132,
@@ -2391,6 +2548,7 @@
       "exact_precision": 92.0,
       "exact_recall": 77.7,
       "exact_true_positives": 460,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": true,
       "split": "dev (tuning)",
@@ -2398,8 +2556,27 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
+    "shortform.med1250_dev.general.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
+      "corpus": "med1250",
+      "exact_f1": 84.35,
+      "exact_false_negatives": 131,
+      "exact_false_positives": 40,
+      "exact_precision": 92.02,
+      "exact_recall": 77.87,
+      "exact_true_positives": 461,
+      "legend_syntax": true,
+      "profile": "general",
+      "reject_leading_function_word": false,
+      "split": "dev (tuning)",
+      "split_seed": 20260809,
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
     "shortform.med1250_dev.general.two_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.96,
       "exact_false_negatives": 126,
@@ -2407,6 +2584,7 @@
       "exact_precision": 92.28,
       "exact_recall": 78.72,
       "exact_true_positives": 466,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2416,6 +2594,7 @@
     },
     "shortform.med1250_dev.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.25,
       "exact_false_negatives": 132,
@@ -2423,6 +2602,7 @@
       "exact_precision": 92.0,
       "exact_recall": 77.7,
       "exact_true_positives": 460,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2432,6 +2612,7 @@
     },
     "shortform.med1250_dev.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "med1250",
       "exact_f1": 84.07,
       "exact_false_negatives": 133,
@@ -2439,6 +2620,7 @@
       "exact_precision": 91.8,
       "exact_recall": 77.53,
       "exact_true_positives": 459,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2448,6 +2630,7 @@
     },
     "shortform.med1250_dev.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 85.04,
       "exact_false_negatives": 126,
@@ -2455,6 +2638,7 @@
       "exact_precision": 92.46,
       "exact_recall": 78.72,
       "exact_true_positives": 466,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2464,6 +2648,7 @@
     },
     "shortform.med1250_dev.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.14,
       "exact_false_negatives": 133,
@@ -2471,6 +2656,7 @@
       "exact_precision": 91.98,
       "exact_recall": 77.53,
       "exact_true_positives": 459,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": true,
       "split": "dev (tuning)",
@@ -2478,8 +2664,27 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
+    "shortform.med1250_dev.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
+      "corpus": "med1250",
+      "exact_f1": 84.25,
+      "exact_false_negatives": 132,
+      "exact_false_positives": 40,
+      "exact_precision": 92.0,
+      "exact_recall": 77.7,
+      "exact_true_positives": 460,
+      "legend_syntax": true,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "split": "dev (tuning)",
+      "split_seed": 20260809,
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
     "shortform.med1250_dev.high_precision.two_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.67,
       "exact_false_negatives": 128,
@@ -2487,6 +2692,7 @@
       "exact_precision": 92.06,
       "exact_recall": 78.38,
       "exact_true_positives": 464,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "dev (tuning)",
@@ -2496,6 +2702,7 @@
     },
     "shortform.med1250_test.biomedical.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 83.31,
       "exact_false_negatives": 125,
@@ -2503,6 +2710,7 @@
       "exact_precision": 86.75,
       "exact_recall": 80.13,
       "exact_true_positives": 504,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2512,6 +2720,7 @@
     },
     "shortform.med1250_test.biomedical.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "med1250",
       "exact_f1": 82.81,
       "exact_false_negatives": 128,
@@ -2519,6 +2728,7 @@
       "exact_precision": 86.23,
       "exact_recall": 79.65,
       "exact_true_positives": 501,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2528,6 +2738,7 @@
     },
     "shortform.med1250_test.biomedical.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.56,
       "exact_false_negatives": 117,
@@ -2535,6 +2746,7 @@
       "exact_precision": 87.97,
       "exact_recall": 81.4,
       "exact_true_positives": 512,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2544,6 +2756,7 @@
     },
     "shortform.med1250_test.biomedical.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 83.22,
       "exact_false_negatives": 128,
@@ -2551,6 +2764,7 @@
       "exact_precision": 87.13,
       "exact_recall": 79.65,
       "exact_true_positives": 501,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": true,
       "split": "test (tuning)",
@@ -2558,8 +2772,27 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
+    "shortform.med1250_test.biomedical.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
+      "corpus": "med1250",
+      "exact_f1": 83.31,
+      "exact_false_negatives": 125,
+      "exact_false_positives": 77,
+      "exact_precision": 86.75,
+      "exact_recall": 80.13,
+      "exact_true_positives": 504,
+      "legend_syntax": true,
+      "profile": "biomedical",
+      "reject_leading_function_word": false,
+      "split": "test (tuning)",
+      "split_seed": 20260809,
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
     "shortform.med1250_test.biomedical.two_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.06,
       "exact_false_negatives": 120,
@@ -2567,6 +2800,7 @@
       "exact_precision": 87.46,
       "exact_recall": 80.92,
       "exact_true_positives": 509,
+      "legend_syntax": false,
       "profile": "biomedical",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2576,6 +2810,7 @@
     },
     "shortform.med1250_test.general.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.3,
       "exact_false_negatives": 143,
@@ -2583,6 +2818,7 @@
       "exact_precision": 92.75,
       "exact_recall": 77.27,
       "exact_true_positives": 486,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2592,6 +2828,7 @@
     },
     "shortform.med1250_test.general.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "med1250",
       "exact_f1": 83.78,
       "exact_false_negatives": 146,
@@ -2599,6 +2836,7 @@
       "exact_precision": 92.18,
       "exact_recall": 76.79,
       "exact_true_positives": 483,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2608,6 +2846,7 @@
     },
     "shortform.med1250_test.general.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 85.44,
       "exact_false_negatives": 136,
@@ -2615,6 +2854,7 @@
       "exact_precision": 93.9,
       "exact_recall": 78.38,
       "exact_true_positives": 493,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2624,6 +2864,7 @@
     },
     "shortform.med1250_test.general.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 83.93,
       "exact_false_negatives": 146,
@@ -2631,6 +2872,7 @@
       "exact_precision": 92.53,
       "exact_recall": 76.79,
       "exact_true_positives": 483,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": true,
       "split": "test (tuning)",
@@ -2638,8 +2880,27 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
+    "shortform.med1250_test.general.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
+      "corpus": "med1250",
+      "exact_f1": 84.3,
+      "exact_false_negatives": 143,
+      "exact_false_positives": 38,
+      "exact_precision": 92.75,
+      "exact_recall": 77.27,
+      "exact_true_positives": 486,
+      "legend_syntax": true,
+      "profile": "general",
+      "reject_leading_function_word": false,
+      "split": "test (tuning)",
+      "split_seed": 20260809,
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
     "shortform.med1250_test.general.two_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.92,
       "exact_false_negatives": 139,
@@ -2647,6 +2908,7 @@
       "exact_precision": 93.33,
       "exact_recall": 77.9,
       "exact_true_positives": 490,
+      "legend_syntax": false,
       "profile": "general",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2656,6 +2918,7 @@
     },
     "shortform.med1250_test.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.17,
       "exact_false_negatives": 145,
@@ -2663,6 +2926,7 @@
       "exact_precision": 92.9,
       "exact_recall": 76.95,
       "exact_true_positives": 484,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2672,6 +2936,7 @@
     },
     "shortform.med1250_test.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "med1250",
       "exact_f1": 83.65,
       "exact_false_negatives": 148,
@@ -2679,6 +2944,7 @@
       "exact_precision": 92.32,
       "exact_recall": 76.47,
       "exact_true_positives": 481,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2688,6 +2954,7 @@
     },
     "shortform.med1250_test.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 85.32,
       "exact_false_negatives": 138,
@@ -2695,6 +2962,7 @@
       "exact_precision": 94.06,
       "exact_recall": 78.06,
       "exact_true_positives": 491,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2704,6 +2972,7 @@
     },
     "shortform.med1250_test.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 83.8,
       "exact_false_negatives": 148,
@@ -2711,6 +2980,7 @@
       "exact_precision": 92.68,
       "exact_recall": 76.47,
       "exact_true_positives": 481,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": true,
       "split": "test (tuning)",
@@ -2718,8 +2988,27 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
+    "shortform.med1250_test.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
+      "corpus": "med1250",
+      "exact_f1": 84.17,
+      "exact_false_negatives": 145,
+      "exact_false_positives": 37,
+      "exact_precision": 92.9,
+      "exact_recall": 76.95,
+      "exact_true_positives": 484,
+      "legend_syntax": true,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "split": "test (tuning)",
+      "split_seed": 20260809,
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
     "shortform.med1250_test.high_precision.two_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "med1250",
       "exact_f1": 84.8,
       "exact_false_negatives": 141,
@@ -2727,6 +3016,7 @@
       "exact_precision": 93.49,
       "exact_recall": 77.58,
       "exact_true_positives": 488,
+      "legend_syntax": false,
       "profile": "high_precision",
       "reject_leading_function_word": false,
       "split": "test (tuning)",
@@ -2750,11 +3040,93 @@
       "split": "all (held_out, span detection)",
       "tokens": 50000
     },
+    "shortform.plod_all.legend_exposure": {
+      "corpus": "plod_cw_all",
+      "detokenisation": "tight",
+      "gate_a_prefix_aligns": 12,
+      "gate_a_window_follows": 48,
+      "gate_left_token_is_a_short_form": 50,
+      "gate_not_an_operator": 135,
+      "gate_separators": 136,
+      "gold_long_form_spans": 1804,
+      "gold_long_form_spans_after_a_separator": 16,
+      "gold_long_form_spans_after_a_separator_pct": 0.89,
+      "pairs_emitted": [
+        {
+          "long_form": "Echo planar imaging",
+          "sample": "train:00003",
+          "short_form": "EPI"
+        },
+        {
+          "long_form": "Languages 1\u20133",
+          "sample": "train:00705",
+          "short_form": "L3"
+        },
+        {
+          "long_form": "least absolute shrinkage and selection operator",
+          "sample": "train:00756",
+          "short_form": "LASSO"
+        },
+        {
+          "long_form": "N-acetyl-aspartate",
+          "sample": "train:00794",
+          "short_form": "NAA"
+        },
+        {
+          "long_form": "odds ratio",
+          "sample": "train:00804",
+          "short_form": "OR"
+        },
+        {
+          "long_form": "confidence interval",
+          "sample": "train:00804",
+          "short_form": "CI"
+        },
+        {
+          "long_form": "human immunodeficiency virus",
+          "sample": "train:00804",
+          "short_form": "HIV"
+        },
+        {
+          "long_form": "Quest-Quality of upper extremity skills test",
+          "sample": "dev:00000",
+          "short_form": "QUEST"
+        },
+        {
+          "long_form": "Crude Odds Ratio",
+          "sample": "dev:00125",
+          "short_form": "COR"
+        },
+        {
+          "long_form": "Care and Comfort Hypertonicity Questionnaire",
+          "sample": "test:00152",
+          "short_form": "CCHQ"
+        },
+        {
+          "long_form": "Gross motor functional classification scale",
+          "sample": "test:00152",
+          "short_form": "GMFCS"
+        },
+        {
+          "long_form": "Gross Motor Function Measure",
+          "sample": "test:00152",
+          "short_form": "GMFM"
+        }
+      ],
+      "profile_settings": {
+        "extraction_max_short_form_length": 10,
+        "extraction_min_short_form_length": 2,
+        "extraction_require_uppercase": true
+      },
+      "split": "all (held_out, span detection)"
+    },
     "shortform.plod_all.spaced.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_all",
       "detokenisation": "spaced",
       "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.21,
       "long_form.exact_false_negatives": 870,
       "long_form.exact_false_positives": 171,
@@ -2790,9 +3162,11 @@
     },
     "shortform.plod_all.spaced.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "plod_cw_all",
       "detokenisation": "spaced",
       "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.21,
       "long_form.exact_false_negatives": 870,
       "long_form.exact_false_positives": 171,
@@ -2828,9 +3202,11 @@
     },
     "shortform.plod_all.spaced.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_all",
       "detokenisation": "spaced",
       "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.21,
       "long_form.exact_false_negatives": 870,
       "long_form.exact_false_positives": 171,
@@ -2866,9 +3242,11 @@
     },
     "shortform.plod_all.spaced.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "plod_cw_all",
       "detokenisation": "spaced",
       "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.21,
       "long_form.exact_false_negatives": 872,
       "long_form.exact_false_positives": 167,
@@ -2902,11 +3280,53 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
-    "shortform.plod_all.spaced.high_precision.two_word": {
-      "balanced_trim": false,
+    "shortform.plod_all.spaced.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
       "corpus": "plod_cw_all",
       "detokenisation": "spaced",
       "documents": 1351,
+      "legend_syntax": true,
+      "long_form.exact_f1": 64.64,
+      "long_form.exact_false_negatives": 860,
+      "long_form.exact_false_positives": 173,
+      "long_form.exact_precision": 84.51,
+      "long_form.exact_recall": 52.33,
+      "long_form.exact_true_positives": 944,
+      "long_form.overlap_f1": 69.02,
+      "long_form.overlap_false_negatives": 796,
+      "long_form.overlap_false_positives": 109,
+      "long_form.overlap_precision": 90.24,
+      "long_form.overlap_recall": 55.88,
+      "long_form.overlap_true_positives": 1008,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "scorer": "PLOD token-index spans, per label",
+      "short_form.exact_f1": 52.94,
+      "short_form.exact_false_negatives": 1814,
+      "short_form.exact_false_positives": 62,
+      "short_form.exact_precision": 94.45,
+      "short_form.exact_recall": 36.77,
+      "short_form.exact_true_positives": 1055,
+      "short_form.overlap_f1": 52.94,
+      "short_form.overlap_false_negatives": 1814,
+      "short_form.overlap_false_positives": 62,
+      "short_form.overlap_precision": 94.45,
+      "short_form.overlap_recall": 36.77,
+      "short_form.overlap_true_positives": 1055,
+      "span_source": "native offsets",
+      "split": "all (held_out, span detection)",
+      "system": "acronymkit",
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
+    "shortform.plod_all.spaced.high_precision.two_word": {
+      "balanced_trim": false,
+      "comparator": "baseline",
+      "corpus": "plod_cw_all",
+      "detokenisation": "spaced",
+      "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.21,
       "long_form.exact_false_negatives": 870,
       "long_form.exact_false_positives": 171,
@@ -2942,9 +3362,11 @@
     },
     "shortform.plod_all.tight.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_all",
       "detokenisation": "tight",
       "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.25,
       "long_form.exact_false_negatives": 865,
       "long_form.exact_false_positives": 180,
@@ -2980,9 +3402,11 @@
     },
     "shortform.plod_all.tight.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "plod_cw_all",
       "detokenisation": "tight",
       "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.25,
       "long_form.exact_false_negatives": 865,
       "long_form.exact_false_positives": 180,
@@ -3018,9 +3442,11 @@
     },
     "shortform.plod_all.tight.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_all",
       "detokenisation": "tight",
       "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.25,
       "long_form.exact_false_negatives": 865,
       "long_form.exact_false_positives": 180,
@@ -3056,9 +3482,11 @@
     },
     "shortform.plod_all.tight.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "plod_cw_all",
       "detokenisation": "tight",
       "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.27,
       "long_form.exact_false_negatives": 867,
       "long_form.exact_false_positives": 175,
@@ -3092,11 +3520,53 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
-    "shortform.plod_all.tight.high_precision.two_word": {
-      "balanced_trim": false,
+    "shortform.plod_all.tight.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
       "corpus": "plod_cw_all",
       "detokenisation": "tight",
       "documents": 1351,
+      "legend_syntax": true,
+      "long_form.exact_f1": 64.67,
+      "long_form.exact_false_negatives": 855,
+      "long_form.exact_false_positives": 182,
+      "long_form.exact_precision": 83.91,
+      "long_form.exact_recall": 52.61,
+      "long_form.exact_true_positives": 949,
+      "long_form.overlap_f1": 69.44,
+      "long_form.overlap_false_negatives": 785,
+      "long_form.overlap_false_positives": 112,
+      "long_form.overlap_precision": 90.1,
+      "long_form.overlap_recall": 56.49,
+      "long_form.overlap_true_positives": 1019,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "scorer": "PLOD token-index spans, per label",
+      "short_form.exact_f1": 52.95,
+      "short_form.exact_false_negatives": 1810,
+      "short_form.exact_false_positives": 72,
+      "short_form.exact_precision": 93.63,
+      "short_form.exact_recall": 36.91,
+      "short_form.exact_true_positives": 1059,
+      "short_form.overlap_f1": 53.6,
+      "short_form.overlap_false_negatives": 1797,
+      "short_form.overlap_false_positives": 59,
+      "short_form.overlap_precision": 94.78,
+      "short_form.overlap_recall": 37.36,
+      "short_form.overlap_true_positives": 1072,
+      "span_source": "native offsets",
+      "split": "all (held_out, span detection)",
+      "system": "acronymkit",
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
+    "shortform.plod_all.tight.high_precision.two_word": {
+      "balanced_trim": false,
+      "comparator": "baseline",
+      "corpus": "plod_cw_all",
+      "detokenisation": "tight",
+      "documents": 1351,
+      "legend_syntax": false,
       "long_form.exact_f1": 64.18,
       "long_form.exact_false_negatives": 866,
       "long_form.exact_false_positives": 181,
@@ -3146,11 +3616,43 @@
       "split": "dev (held_out, span detection)",
       "tokens": 5000
     },
+    "shortform.plod_dev.legend_exposure": {
+      "corpus": "plod_cw_dev",
+      "detokenisation": "tight",
+      "gate_a_prefix_aligns": 2,
+      "gate_a_window_follows": 9,
+      "gate_left_token_is_a_short_form": 9,
+      "gate_not_an_operator": 20,
+      "gate_separators": 21,
+      "gold_long_form_spans": 152,
+      "gold_long_form_spans_after_a_separator": 3,
+      "gold_long_form_spans_after_a_separator_pct": 1.97,
+      "pairs_emitted": [
+        {
+          "long_form": "Quest-Quality of upper extremity skills test",
+          "sample": "dev:00000",
+          "short_form": "QUEST"
+        },
+        {
+          "long_form": "Crude Odds Ratio",
+          "sample": "dev:00125",
+          "short_form": "COR"
+        }
+      ],
+      "profile_settings": {
+        "extraction_max_short_form_length": 10,
+        "extraction_min_short_form_length": 2,
+        "extraction_require_uppercase": true
+      },
+      "split": "dev (held_out, span detection)"
+    },
     "shortform.plod_dev.spaced.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_dev",
       "detokenisation": "spaced",
       "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.29,
       "long_form.exact_false_negatives": 64,
       "long_form.exact_false_positives": 14,
@@ -3186,9 +3688,11 @@
     },
     "shortform.plod_dev.spaced.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "plod_cw_dev",
       "detokenisation": "spaced",
       "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.29,
       "long_form.exact_false_negatives": 64,
       "long_form.exact_false_positives": 14,
@@ -3224,9 +3728,11 @@
     },
     "shortform.plod_dev.spaced.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_dev",
       "detokenisation": "spaced",
       "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.29,
       "long_form.exact_false_negatives": 64,
       "long_form.exact_false_positives": 14,
@@ -3262,9 +3768,11 @@
     },
     "shortform.plod_dev.spaced.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "plod_cw_dev",
       "detokenisation": "spaced",
       "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.29,
       "long_form.exact_false_negatives": 64,
       "long_form.exact_false_positives": 14,
@@ -3298,11 +3806,53 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
-    "shortform.plod_dev.spaced.high_precision.two_word": {
-      "balanced_trim": false,
+    "shortform.plod_dev.spaced.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
       "corpus": "plod_cw_dev",
       "detokenisation": "spaced",
       "documents": 126,
+      "legend_syntax": true,
+      "long_form.exact_f1": 70.31,
+      "long_form.exact_false_negatives": 62,
+      "long_form.exact_false_positives": 14,
+      "long_form.exact_precision": 86.54,
+      "long_form.exact_recall": 59.21,
+      "long_form.exact_true_positives": 90,
+      "long_form.overlap_f1": 75.0,
+      "long_form.overlap_false_negatives": 56,
+      "long_form.overlap_false_positives": 8,
+      "long_form.overlap_precision": 92.31,
+      "long_form.overlap_recall": 63.16,
+      "long_form.overlap_true_positives": 96,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "scorer": "PLOD token-index spans, per label",
+      "short_form.exact_f1": 53.41,
+      "short_form.exact_false_negatives": 165,
+      "short_form.exact_false_positives": 6,
+      "short_form.exact_precision": 94.23,
+      "short_form.exact_recall": 37.26,
+      "short_form.exact_true_positives": 98,
+      "short_form.overlap_f1": 53.41,
+      "short_form.overlap_false_negatives": 165,
+      "short_form.overlap_false_positives": 6,
+      "short_form.overlap_precision": 94.23,
+      "short_form.overlap_recall": 37.26,
+      "short_form.overlap_true_positives": 98,
+      "span_source": "native offsets",
+      "split": "dev (held_out, span detection)",
+      "system": "acronymkit",
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
+    "shortform.plod_dev.spaced.high_precision.two_word": {
+      "balanced_trim": false,
+      "comparator": "baseline",
+      "corpus": "plod_cw_dev",
+      "detokenisation": "spaced",
+      "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.29,
       "long_form.exact_false_negatives": 64,
       "long_form.exact_false_positives": 14,
@@ -3338,9 +3888,11 @@
     },
     "shortform.plod_dev.tight.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_dev",
       "detokenisation": "tight",
       "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.26,
       "long_form.exact_false_negatives": 63,
       "long_form.exact_false_positives": 16,
@@ -3376,9 +3928,11 @@
     },
     "shortform.plod_dev.tight.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "plod_cw_dev",
       "detokenisation": "tight",
       "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.26,
       "long_form.exact_false_negatives": 63,
       "long_form.exact_false_positives": 16,
@@ -3414,9 +3968,11 @@
     },
     "shortform.plod_dev.tight.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_dev",
       "detokenisation": "tight",
       "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.26,
       "long_form.exact_false_negatives": 63,
       "long_form.exact_false_positives": 16,
@@ -3452,9 +4008,11 @@
     },
     "shortform.plod_dev.tight.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "plod_cw_dev",
       "detokenisation": "tight",
       "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.26,
       "long_form.exact_false_negatives": 63,
       "long_form.exact_false_positives": 16,
@@ -3488,11 +4046,53 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
-    "shortform.plod_dev.tight.high_precision.two_word": {
-      "balanced_trim": false,
+    "shortform.plod_dev.tight.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
       "corpus": "plod_cw_dev",
       "detokenisation": "tight",
       "documents": 126,
+      "legend_syntax": true,
+      "long_form.exact_f1": 70.27,
+      "long_form.exact_false_negatives": 61,
+      "long_form.exact_false_positives": 16,
+      "long_form.exact_precision": 85.05,
+      "long_form.exact_recall": 59.87,
+      "long_form.exact_true_positives": 91,
+      "long_form.overlap_f1": 74.13,
+      "long_form.overlap_false_negatives": 56,
+      "long_form.overlap_false_positives": 11,
+      "long_form.overlap_precision": 89.72,
+      "long_form.overlap_recall": 63.16,
+      "long_form.overlap_true_positives": 96,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "scorer": "PLOD token-index spans, per label",
+      "short_form.exact_f1": 54.05,
+      "short_form.exact_false_negatives": 163,
+      "short_form.exact_false_positives": 7,
+      "short_form.exact_precision": 93.46,
+      "short_form.exact_recall": 38.02,
+      "short_form.exact_true_positives": 100,
+      "short_form.overlap_f1": 54.05,
+      "short_form.overlap_false_negatives": 163,
+      "short_form.overlap_false_positives": 7,
+      "short_form.overlap_precision": 93.46,
+      "short_form.overlap_recall": 38.02,
+      "short_form.overlap_true_positives": 100,
+      "span_source": "native offsets",
+      "split": "dev (held_out, span detection)",
+      "system": "acronymkit",
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
+    "shortform.plod_dev.tight.high_precision.two_word": {
+      "balanced_trim": false,
+      "comparator": "baseline",
+      "corpus": "plod_cw_dev",
+      "detokenisation": "tight",
+      "documents": 126,
+      "legend_syntax": false,
       "long_form.exact_f1": 69.26,
       "long_form.exact_false_negatives": 63,
       "long_form.exact_false_positives": 16,
@@ -3542,11 +4142,48 @@
       "split": "test (held_out, span detection)",
       "tokens": 5000
     },
+    "shortform.plod_test.legend_exposure": {
+      "corpus": "plod_cw_test",
+      "detokenisation": "tight",
+      "gate_a_prefix_aligns": 3,
+      "gate_a_window_follows": 3,
+      "gate_left_token_is_a_short_form": 3,
+      "gate_not_an_operator": 11,
+      "gate_separators": 11,
+      "gold_long_form_spans": 152,
+      "gold_long_form_spans_after_a_separator": 3,
+      "gold_long_form_spans_after_a_separator_pct": 1.97,
+      "pairs_emitted": [
+        {
+          "long_form": "Care and Comfort Hypertonicity Questionnaire",
+          "sample": "test:00152",
+          "short_form": "CCHQ"
+        },
+        {
+          "long_form": "Gross motor functional classification scale",
+          "sample": "test:00152",
+          "short_form": "GMFCS"
+        },
+        {
+          "long_form": "Gross Motor Function Measure",
+          "sample": "test:00152",
+          "short_form": "GMFM"
+        }
+      ],
+      "profile_settings": {
+        "extraction_max_short_form_length": 10,
+        "extraction_min_short_form_length": 2,
+        "extraction_require_uppercase": true
+      },
+      "split": "test (held_out, span detection)"
+    },
     "shortform.plod_test.spaced.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_test",
       "detokenisation": "spaced",
       "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 73.23,
       "long_form.exact_false_negatives": 59,
       "long_form.exact_false_positives": 9,
@@ -3582,9 +4219,11 @@
     },
     "shortform.plod_test.spaced.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "plod_cw_test",
       "detokenisation": "spaced",
       "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 73.23,
       "long_form.exact_false_negatives": 59,
       "long_form.exact_false_positives": 9,
@@ -3620,9 +4259,11 @@
     },
     "shortform.plod_test.spaced.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_test",
       "detokenisation": "spaced",
       "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 73.23,
       "long_form.exact_false_negatives": 59,
       "long_form.exact_false_positives": 9,
@@ -3658,9 +4299,11 @@
     },
     "shortform.plod_test.spaced.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "plod_cw_test",
       "detokenisation": "spaced",
       "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 73.23,
       "long_form.exact_false_negatives": 59,
       "long_form.exact_false_positives": 9,
@@ -3694,11 +4337,53 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
-    "shortform.plod_test.spaced.high_precision.two_word": {
-      "balanced_trim": false,
+    "shortform.plod_test.spaced.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
       "corpus": "plod_cw_test",
       "detokenisation": "spaced",
       "documents": 153,
+      "legend_syntax": true,
+      "long_form.exact_f1": 74.71,
+      "long_form.exact_false_negatives": 56,
+      "long_form.exact_false_positives": 9,
+      "long_form.exact_precision": 91.43,
+      "long_form.exact_recall": 63.16,
+      "long_form.exact_true_positives": 96,
+      "long_form.overlap_f1": 77.82,
+      "long_form.overlap_false_negatives": 52,
+      "long_form.overlap_false_positives": 5,
+      "long_form.overlap_precision": 95.24,
+      "long_form.overlap_recall": 65.79,
+      "long_form.overlap_true_positives": 100,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "scorer": "PLOD token-index spans, per label",
+      "short_form.exact_f1": 54.93,
+      "short_form.exact_false_negatives": 167,
+      "short_form.exact_false_positives": 2,
+      "short_form.exact_precision": 98.1,
+      "short_form.exact_recall": 38.15,
+      "short_form.exact_true_positives": 103,
+      "short_form.overlap_f1": 54.93,
+      "short_form.overlap_false_negatives": 167,
+      "short_form.overlap_false_positives": 2,
+      "short_form.overlap_precision": 98.1,
+      "short_form.overlap_recall": 38.15,
+      "short_form.overlap_true_positives": 103,
+      "span_source": "native offsets",
+      "split": "test (held_out, span detection)",
+      "system": "acronymkit",
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
+    "shortform.plod_test.spaced.high_precision.two_word": {
+      "balanced_trim": false,
+      "comparator": "baseline",
+      "corpus": "plod_cw_test",
+      "detokenisation": "spaced",
+      "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 73.23,
       "long_form.exact_false_negatives": 59,
       "long_form.exact_false_positives": 9,
@@ -3734,9 +4419,11 @@
     },
     "shortform.plod_test.tight.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_test",
       "detokenisation": "tight",
       "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.87,
       "long_form.exact_false_negatives": 62,
       "long_form.exact_false_positives": 12,
@@ -3772,9 +4459,11 @@
     },
     "shortform.plod_test.tight.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "plod_cw_test",
       "detokenisation": "tight",
       "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.87,
       "long_form.exact_false_negatives": 62,
       "long_form.exact_false_positives": 12,
@@ -3810,9 +4499,11 @@
     },
     "shortform.plod_test.tight.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "plod_cw_test",
       "detokenisation": "tight",
       "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.87,
       "long_form.exact_false_negatives": 62,
       "long_form.exact_false_positives": 12,
@@ -3848,9 +4539,11 @@
     },
     "shortform.plod_test.tight.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "plod_cw_test",
       "detokenisation": "tight",
       "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.87,
       "long_form.exact_false_negatives": 62,
       "long_form.exact_false_positives": 12,
@@ -3884,11 +4577,53 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
-    "shortform.plod_test.tight.high_precision.two_word": {
-      "balanced_trim": false,
+    "shortform.plod_test.tight.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
       "corpus": "plod_cw_test",
       "detokenisation": "tight",
       "documents": 153,
+      "legend_syntax": true,
+      "long_form.exact_f1": 72.37,
+      "long_form.exact_false_negatives": 59,
+      "long_form.exact_false_positives": 12,
+      "long_form.exact_precision": 88.57,
+      "long_form.exact_recall": 61.18,
+      "long_form.exact_true_positives": 93,
+      "long_form.overlap_f1": 77.04,
+      "long_form.overlap_false_negatives": 53,
+      "long_form.overlap_false_positives": 6,
+      "long_form.overlap_precision": 94.29,
+      "long_form.overlap_recall": 65.13,
+      "long_form.overlap_true_positives": 99,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "scorer": "PLOD token-index spans, per label",
+      "short_form.exact_f1": 54.4,
+      "short_form.exact_false_negatives": 168,
+      "short_form.exact_false_positives": 3,
+      "short_form.exact_precision": 97.14,
+      "short_form.exact_recall": 37.78,
+      "short_form.exact_true_positives": 102,
+      "short_form.overlap_f1": 54.4,
+      "short_form.overlap_false_negatives": 168,
+      "short_form.overlap_false_positives": 3,
+      "short_form.overlap_precision": 97.14,
+      "short_form.overlap_recall": 37.78,
+      "short_form.overlap_true_positives": 102,
+      "span_source": "native offsets",
+      "split": "test (held_out, span detection)",
+      "system": "acronymkit",
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
+    "shortform.plod_test.tight.high_precision.two_word": {
+      "balanced_trim": false,
+      "comparator": "baseline",
+      "corpus": "plod_cw_test",
+      "detokenisation": "tight",
+      "documents": 153,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.87,
       "long_form.exact_false_negatives": 62,
       "long_form.exact_false_positives": 12,
@@ -3989,8 +4724,10 @@
     },
     "shortform.sdu22_ae_legal_dev.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "sdu22_ae_legal_dev",
       "documents": 445,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.0,
       "long_form.exact_false_negatives": 263,
       "long_form.exact_false_positives": 85,
@@ -4026,8 +4763,10 @@
     },
     "shortform.sdu22_ae_legal_dev.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "sdu22_ae_legal_dev",
       "documents": 445,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.0,
       "long_form.exact_false_negatives": 263,
       "long_form.exact_false_positives": 85,
@@ -4063,8 +4802,10 @@
     },
     "shortform.sdu22_ae_legal_dev.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "sdu22_ae_legal_dev",
       "documents": 445,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.0,
       "long_form.exact_false_negatives": 263,
       "long_form.exact_false_positives": 85,
@@ -4100,8 +4841,10 @@
     },
     "shortform.sdu22_ae_legal_dev.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "sdu22_ae_legal_dev",
       "documents": 445,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.19,
       "long_form.exact_false_negatives": 264,
       "long_form.exact_false_positives": 80,
@@ -4135,10 +4878,51 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
-    "shortform.sdu22_ae_legal_dev.high_precision.two_word": {
-      "balanced_trim": false,
+    "shortform.sdu22_ae_legal_dev.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
       "corpus": "sdu22_ae_legal_dev",
       "documents": 445,
+      "legend_syntax": true,
+      "long_form.exact_f1": 78.2,
+      "long_form.exact_false_negatives": 183,
+      "long_form.exact_false_positives": 88,
+      "long_form.exact_precision": 84.67,
+      "long_form.exact_recall": 72.65,
+      "long_form.exact_true_positives": 486,
+      "long_form.overlap_f1": 89.78,
+      "long_form.overlap_false_negatives": 111,
+      "long_form.overlap_false_positives": 16,
+      "long_form.overlap_precision": 97.21,
+      "long_form.overlap_recall": 83.41,
+      "long_form.overlap_true_positives": 558,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "scorer": "SDU-22 AE phrase-level char spans, per label",
+      "short_form.exact_f1": 60.5,
+      "short_form.exact_false_negatives": 673,
+      "short_form.exact_false_positives": 32,
+      "short_form.exact_precision": 94.41,
+      "short_form.exact_recall": 44.52,
+      "short_form.exact_true_positives": 540,
+      "short_form.overlap_f1": 63.98,
+      "short_form.overlap_false_negatives": 642,
+      "short_form.overlap_false_positives": 1,
+      "short_form.overlap_precision": 99.83,
+      "short_form.overlap_recall": 47.07,
+      "short_form.overlap_true_positives": 571,
+      "span_source": "native offsets",
+      "split": "dev (tuning, contaminated)",
+      "system": "acronymkit",
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
+    "shortform.sdu22_ae_legal_dev.high_precision.two_word": {
+      "balanced_trim": false,
+      "comparator": "baseline",
+      "corpus": "sdu22_ae_legal_dev",
+      "documents": 445,
+      "legend_syntax": false,
       "long_form.exact_f1": 70.0,
       "long_form.exact_false_negatives": 263,
       "long_form.exact_false_positives": 85,
@@ -4171,6 +4955,441 @@
       "system": "acronymkit",
       "two_word_short_form": true,
       "variant": "two_word"
+    },
+    "shortform.sdu22_ae_legal_dev.legend_exposure": {
+      "corpus": "sdu22_ae_legal",
+      "detokenisation": "tight",
+      "gate_a_prefix_aligns": 83,
+      "gate_a_window_follows": 127,
+      "gate_left_token_is_a_short_form": 127,
+      "gate_not_an_operator": 138,
+      "gate_separators": 138,
+      "gold_long_form_spans": 669,
+      "gold_long_form_spans_after_a_separator": 130,
+      "gold_long_form_spans_after_a_separator_pct": 19.43,
+      "pairs_emitted": [
+        {
+          "long_form": "administrative and operational services",
+          "sample": "5",
+          "short_form": "AOS"
+        },
+        {
+          "long_form": "Global Environment Facility",
+          "sample": "5",
+          "short_form": "GEF"
+        },
+        {
+          "long_form": "support for policy and programme development",
+          "sample": "5",
+          "short_form": "SPPD"
+        },
+        {
+          "long_form": "support for technical services",
+          "sample": "5",
+          "short_form": "STS"
+        },
+        {
+          "long_form": "target for resource assignment from the core",
+          "sample": "5",
+          "short_form": "TRAC"
+        },
+        {
+          "long_form": "United Nations Capital Development Fund",
+          "sample": "5",
+          "short_form": "UNCDF"
+        },
+        {
+          "long_form": "Medical attendance",
+          "sample": "12",
+          "short_form": "MA"
+        },
+        {
+          "long_form": "other resources emergency",
+          "sample": "55",
+          "short_form": "ORE"
+        },
+        {
+          "long_form": "other resources regular",
+          "sample": "55",
+          "short_form": "ORR"
+        },
+        {
+          "long_form": "regular resources",
+          "sample": "55",
+          "short_form": "RR"
+        },
+        {
+          "long_form": "Living Quarters",
+          "sample": "82",
+          "short_form": "LQ"
+        },
+        {
+          "long_form": "Housing Units",
+          "sample": "82",
+          "short_form": "HU"
+        },
+        {
+          "long_form": "Local level",
+          "sample": "97",
+          "short_form": "LL"
+        },
+        {
+          "long_form": "Field Service",
+          "sample": "97",
+          "short_form": "FS"
+        },
+        {
+          "long_form": "certification report",
+          "sample": "108",
+          "short_form": "CR"
+        },
+        {
+          "long_form": "Bureau for Programme and Policy Support",
+          "sample": "127",
+          "short_form": "BPPS"
+        },
+        {
+          "long_form": "Division for Global and Interregional Programmes",
+          "sample": "127",
+          "short_form": "DGIP"
+        },
+        {
+          "long_form": "Global Environment Facility",
+          "sample": "132",
+          "short_form": "GEF"
+        },
+        {
+          "long_form": "support for policy and programme development",
+          "sample": "132",
+          "short_form": "SPPD"
+        },
+        {
+          "long_form": "Positive ignition",
+          "sample": "138",
+          "short_form": "PI"
+        },
+        {
+          "long_form": "Compression ignition",
+          "sample": "138",
+          "short_form": "CI"
+        },
+        {
+          "long_form": "Collaborative Partnerships on Forests",
+          "sample": "153",
+          "short_form": "CPF"
+        },
+        {
+          "long_form": "accredited independent entity",
+          "sample": "156",
+          "short_form": "AIE"
+        },
+        {
+          "long_form": "designated focal point",
+          "sample": "156",
+          "short_form": "DFP"
+        },
+        {
+          "long_form": "determination and verification manual",
+          "sample": "156",
+          "short_form": "DVM"
+        },
+        {
+          "long_form": "joint implementation",
+          "sample": "156",
+          "short_form": "JI"
+        },
+        {
+          "long_form": "Joint Implementation Supervisory Committee",
+          "sample": "156",
+          "short_form": "JISC"
+        },
+        {
+          "long_form": "programme of activities",
+          "sample": "156",
+          "short_form": "PoA"
+        },
+        {
+          "long_form": "fuel sulphur content mass fraction",
+          "sample": "157",
+          "short_form": "FSF"
+        },
+        {
+          "long_form": "Commonwealth of Independent States",
+          "sample": "179",
+          "short_form": "CIS"
+        },
+        {
+          "long_form": "land use, land-use change and forestry",
+          "sample": "189",
+          "short_form": "LULUCF"
+        },
+        {
+          "long_form": "Global Environment Facility",
+          "sample": "216",
+          "short_form": "GEF"
+        },
+        {
+          "long_form": "indicative planning figures",
+          "sample": "216",
+          "short_form": "IPF"
+        },
+        {
+          "long_form": "support for policy and programme development",
+          "sample": "216",
+          "short_form": "SPPD"
+        },
+        {
+          "long_form": "support for technical services",
+          "sample": "216",
+          "short_form": "STS"
+        },
+        {
+          "long_form": "technical cooperation among developing countries",
+          "sample": "216",
+          "short_form": "TCDC"
+        },
+        {
+          "long_form": "target for resource assignment from the core",
+          "sample": "216",
+          "short_form": "TRAC"
+        },
+        {
+          "long_form": "United Nations Capital Development Fund",
+          "sample": "216",
+          "short_form": "UNCDF"
+        },
+        {
+          "long_form": "United Nations Volunteers",
+          "sample": "216",
+          "short_form": "UNV"
+        },
+        {
+          "long_form": "European Union",
+          "sample": "223",
+          "short_form": "EU"
+        },
+        {
+          "long_form": "Organization for Economic Cooperation and Development",
+          "sample": "223",
+          "short_form": "OECD"
+        },
+        {
+          "long_form": "United Nations Development Programme",
+          "sample": "223",
+          "short_form": "UNDP"
+        },
+        {
+          "long_form": "United Nations Environment Programme",
+          "sample": "223",
+          "short_form": "UNEP"
+        },
+        {
+          "long_form": "expert provided in kind, together",
+          "sample": "223",
+          "short_form": "E+T"
+        },
+        {
+          "long_form": "Assistant Secretary-General",
+          "sample": "227",
+          "short_form": "ASG"
+        },
+        {
+          "long_form": "Field Service",
+          "sample": "227",
+          "short_form": "FS"
+        },
+        {
+          "long_form": "National Staff",
+          "sample": "227",
+          "short_form": "NS"
+        },
+        {
+          "long_form": "United Nations Volunteers",
+          "sample": "227",
+          "short_form": "UNV"
+        },
+        {
+          "long_form": "Government-Provided Personnel",
+          "sample": "227",
+          "short_form": "GPP"
+        },
+        {
+          "long_form": "United Nations military observer",
+          "sample": "227",
+          "short_form": "UNMO"
+        },
+        {
+          "long_form": "support staff",
+          "sample": "227",
+          "short_form": "SS"
+        },
+        {
+          "long_form": "dilution factor",
+          "sample": "242",
+          "short_form": "DF"
+        },
+        {
+          "long_form": "Not available",
+          "sample": "245",
+          "short_form": "NA"
+        },
+        {
+          "long_form": "Not reported",
+          "sample": "249",
+          "short_form": "NR"
+        },
+        {
+          "long_form": "Papua New Guinea",
+          "sample": "257",
+          "short_form": "PNG"
+        },
+        {
+          "long_form": "molecular mass of carbon",
+          "sample": "262",
+          "short_form": "MC"
+        },
+        {
+          "long_form": "No data",
+          "sample": "263",
+          "short_form": "ND"
+        },
+        {
+          "long_form": "Not monitored",
+          "sample": "263",
+          "short_form": "NM"
+        },
+        {
+          "long_form": "Core Budget Administrative Account",
+          "sample": "277",
+          "short_form": "CBAA"
+        },
+        {
+          "long_form": "Voluntary Contributions Administrative Expenses",
+          "sample": "277",
+          "short_form": "VCAE"
+        },
+        {
+          "long_form": "Lactational amenorrhoea method",
+          "sample": "301",
+          "short_form": "LAM"
+        },
+        {
+          "long_form": "Positive Ignition",
+          "sample": "311",
+          "short_form": "PI"
+        },
+        {
+          "long_form": "Compression Ignition",
+          "sample": "311",
+          "short_form": "CI"
+        },
+        {
+          "long_form": "support for policy and programme development",
+          "sample": "353",
+          "short_form": "SPPD"
+        },
+        {
+          "long_form": "support for technical services",
+          "sample": "353",
+          "short_form": "STS"
+        },
+        {
+          "long_form": "target for resource assignment from the core",
+          "sample": "353",
+          "short_form": "TRAC"
+        },
+        {
+          "long_form": "molar mass of carbon",
+          "sample": "365",
+          "short_form": "MC"
+        },
+        {
+          "long_form": "molar mass of hydrogen",
+          "sample": "365",
+          "short_form": "MH"
+        },
+        {
+          "long_form": "molar mass of",
+          "sample": "365",
+          "short_form": "MO"
+        },
+        {
+          "long_form": "Programme Coordinating Centre",
+          "sample": "381",
+          "short_form": "PCC"
+        },
+        {
+          "long_form": "Programme Main Research Centre",
+          "sample": "381",
+          "short_form": "PMRC"
+        },
+        {
+          "long_form": "Programme Centre",
+          "sample": "381",
+          "short_form": "PC"
+        },
+        {
+          "long_form": "Coordination Centre for Effects",
+          "sample": "381",
+          "short_form": "CCE"
+        },
+        {
+          "long_form": "relative humidity",
+          "sample": "383",
+          "short_form": "RH"
+        },
+        {
+          "long_form": "relative humidity",
+          "sample": "386",
+          "short_form": "RH"
+        },
+        {
+          "long_form": "country adjusted",
+          "sample": "398",
+          "short_form": "CA"
+        },
+        {
+          "long_form": "common reporting format",
+          "sample": "424",
+          "short_form": "CRF"
+        },
+        {
+          "long_form": "Field Service",
+          "sample": "430",
+          "short_form": "FS"
+        },
+        {
+          "long_form": "Security Service",
+          "sample": "430",
+          "short_form": "SS"
+        },
+        {
+          "long_form": "General Service",
+          "sample": "430",
+          "short_form": "GS"
+        },
+        {
+          "long_form": "Field Service",
+          "sample": "433",
+          "short_form": "FS"
+        },
+        {
+          "long_form": "Field Service",
+          "sample": "434",
+          "short_form": "FS"
+        },
+        {
+          "long_form": "Security Service",
+          "sample": "434",
+          "short_form": "SS"
+        }
+      ],
+      "profile_settings": {
+        "extraction_max_short_form_length": 10,
+        "extraction_min_short_form_length": 2,
+        "extraction_require_uppercase": true
+      },
+      "split": "dev (tuning, contaminated)"
     },
     "shortform.sdu22_ae_scientific_dev.corpus": {
       "ceiling_pct": 74.23,
@@ -4232,8 +5451,10 @@
     },
     "shortform.sdu22_ae_scientific_dev.high_precision.balanced_trim": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "sdu22_ae_scientific_dev",
       "documents": 497,
+      "legend_syntax": false,
       "long_form.exact_f1": 75.1,
       "long_form.exact_false_negatives": 230,
       "long_form.exact_false_positives": 95,
@@ -4269,8 +5490,10 @@
     },
     "shortform.sdu22_ae_scientific_dev.high_precision.baseline": {
       "balanced_trim": false,
+      "comparator": null,
       "corpus": "sdu22_ae_scientific_dev",
       "documents": 497,
+      "legend_syntax": false,
       "long_form.exact_f1": 75.1,
       "long_form.exact_false_negatives": 230,
       "long_form.exact_false_positives": 95,
@@ -4306,8 +5529,10 @@
     },
     "shortform.sdu22_ae_scientific_dev.high_precision.both": {
       "balanced_trim": true,
+      "comparator": "baseline",
       "corpus": "sdu22_ae_scientific_dev",
       "documents": 497,
+      "legend_syntax": false,
       "long_form.exact_f1": 75.1,
       "long_form.exact_false_negatives": 230,
       "long_form.exact_false_positives": 95,
@@ -4343,8 +5568,10 @@
     },
     "shortform.sdu22_ae_scientific_dev.high_precision.function_word": {
       "balanced_trim": false,
+      "comparator": "baseline",
       "corpus": "sdu22_ae_scientific_dev",
       "documents": 497,
+      "legend_syntax": false,
       "long_form.exact_f1": 75.08,
       "long_form.exact_false_negatives": 232,
       "long_form.exact_false_positives": 92,
@@ -4378,10 +5605,51 @@
       "two_word_short_form": false,
       "variant": "function_word"
     },
-    "shortform.sdu22_ae_scientific_dev.high_precision.two_word": {
-      "balanced_trim": false,
+    "shortform.sdu22_ae_scientific_dev.high_precision.legend": {
+      "balanced_trim": true,
+      "comparator": "balanced_trim",
       "corpus": "sdu22_ae_scientific_dev",
       "documents": 497,
+      "legend_syntax": true,
+      "long_form.exact_f1": 77.83,
+      "long_form.exact_false_negatives": 197,
+      "long_form.exact_false_positives": 101,
+      "long_form.exact_precision": 83.81,
+      "long_form.exact_recall": 72.64,
+      "long_form.exact_true_positives": 523,
+      "long_form.overlap_f1": 90.03,
+      "long_form.overlap_false_negatives": 115,
+      "long_form.overlap_false_positives": 19,
+      "long_form.overlap_precision": 96.96,
+      "long_form.overlap_recall": 84.03,
+      "long_form.overlap_true_positives": 605,
+      "profile": "high_precision",
+      "reject_leading_function_word": false,
+      "scorer": "SDU-22 AE phrase-level char spans, per label",
+      "short_form.exact_f1": 74.91,
+      "short_form.exact_false_negatives": 373,
+      "short_form.exact_false_positives": 27,
+      "short_form.exact_precision": 95.67,
+      "short_form.exact_recall": 61.55,
+      "short_form.exact_true_positives": 597,
+      "short_form.overlap_f1": 76.29,
+      "short_form.overlap_false_negatives": 362,
+      "short_form.overlap_false_positives": 16,
+      "short_form.overlap_precision": 97.44,
+      "short_form.overlap_recall": 62.68,
+      "short_form.overlap_true_positives": 608,
+      "span_source": "native offsets",
+      "split": "dev (tuning, contaminated)",
+      "system": "acronymkit",
+      "two_word_short_form": false,
+      "variant": "legend"
+    },
+    "shortform.sdu22_ae_scientific_dev.high_precision.two_word": {
+      "balanced_trim": false,
+      "comparator": "baseline",
+      "corpus": "sdu22_ae_scientific_dev",
+      "documents": 497,
+      "legend_syntax": false,
       "long_form.exact_f1": 75.1,
       "long_form.exact_false_negatives": 230,
       "long_form.exact_false_positives": 95,
@@ -4414,6 +5682,221 @@
       "system": "acronymkit",
       "two_word_short_form": true,
       "variant": "two_word"
+    },
+    "shortform.sdu22_ae_scientific_dev.legend_exposure": {
+      "corpus": "sdu22_ae_scientific",
+      "detokenisation": "tight",
+      "gate_a_prefix_aligns": 39,
+      "gate_a_window_follows": 110,
+      "gate_left_token_is_a_short_form": 112,
+      "gate_not_an_operator": 144,
+      "gate_separators": 147,
+      "gold_long_form_spans": 720,
+      "gold_long_form_spans_after_a_separator": 103,
+      "gold_long_form_spans_after_a_separator_pct": 14.31,
+      "pairs_emitted": [
+        {
+          "long_form": "labeled recall",
+          "sample": "13",
+          "short_form": "LR"
+        },
+        {
+          "long_form": "labeled precision",
+          "sample": "13",
+          "short_form": "LP"
+        },
+        {
+          "long_form": "terse information",
+          "sample": "15",
+          "short_form": "TI"
+        },
+        {
+          "long_form": "animate NP, VBZ--inflected  main",
+          "sample": "39",
+          "short_form": "ANIM"
+        },
+        {
+          "long_form": "prepositional phrase",
+          "sample": "39",
+          "short_form": "PP"
+        },
+        {
+          "long_form": "Broadcast Conversations",
+          "sample": "58",
+          "short_form": "BC"
+        },
+        {
+          "long_form": "Broadcast News",
+          "sample": "58",
+          "short_form": "BN"
+        },
+        {
+          "long_form": "Conversational Telephone Speech",
+          "sample": "58",
+          "short_form": "CTS"
+        },
+        {
+          "long_form": "descriptor array",
+          "sample": "66",
+          "short_form": "DA"
+        },
+        {
+          "long_form": "Word Distributional Similarity",
+          "sample": "71",
+          "short_form": "WDS"
+        },
+        {
+          "long_form": "Confidence Interval",
+          "sample": "71",
+          "short_form": "C.I"
+        },
+        {
+          "long_form": "Natural Language Processing",
+          "sample": "94",
+          "short_form": "NLP"
+        },
+        {
+          "long_form": "Computer scientist",
+          "sample": "94",
+          "short_form": "CS"
+        },
+        {
+          "long_form": "Link Grammar Parser",
+          "sample": "94",
+          "short_form": "LGP"
+        },
+        {
+          "long_form": "Stanford De",
+          "sample": "94",
+          "short_form": "SD"
+        },
+        {
+          "long_form": "highly negative",
+          "sample": "112",
+          "short_form": "HN"
+        },
+        {
+          "long_form": "highly positive",
+          "sample": "112",
+          "short_form": "HP"
+        },
+        {
+          "long_form": "Cross Language Evaluation Forum",
+          "sample": "138",
+          "short_form": "CLEF"
+        },
+        {
+          "long_form": "Filled Pause",
+          "sample": "163",
+          "short_form": "FP"
+        },
+        {
+          "long_form": "shared variables",
+          "sample": "195",
+          "short_form": "SV"
+        },
+        {
+          "long_form": "shared modifier",
+          "sample": "211",
+          "short_form": "SM"
+        },
+        {
+          "long_form": "unlabeled attachment score",
+          "sample": "211",
+          "short_form": "UAS"
+        },
+        {
+          "long_form": "Total number of links",
+          "sample": "212",
+          "short_form": "TL"
+        },
+        {
+          "long_form": "Relevant Links",
+          "sample": "212",
+          "short_form": "RL"
+        },
+        {
+          "long_form": "high attachment",
+          "sample": "242",
+          "short_form": "HA"
+        },
+        {
+          "long_form": "low attachment",
+          "sample": "242",
+          "short_form": "LA"
+        },
+        {
+          "long_form": "hashtag pattern",
+          "sample": "343",
+          "short_form": "HP"
+        },
+        {
+          "long_form": "rel loc",
+          "sample": "359",
+          "short_form": "RL"
+        },
+        {
+          "long_form": "Indirect Object",
+          "sample": "371",
+          "short_form": "IO"
+        },
+        {
+          "long_form": "Direct Object",
+          "sample": "371",
+          "short_form": "DO"
+        },
+        {
+          "long_form": "lexical cohesion",
+          "sample": "393",
+          "short_form": "LC"
+        },
+        {
+          "long_form": "repetition / content",
+          "sample": "393",
+          "short_form": "RC"
+        },
+        {
+          "long_form": "temporal expression",
+          "sample": "447",
+          "short_form": "TE"
+        },
+        {
+          "long_form": "trigger term",
+          "sample": "447",
+          "short_form": "TT"
+        },
+        {
+          "long_form": "Segment frequency",
+          "sample": "454",
+          "short_form": "SF"
+        },
+        {
+          "long_form": "word error rate",
+          "sample": "466",
+          "short_form": "WER"
+        },
+        {
+          "long_form": "Discharge Summary",
+          "sample": "476",
+          "short_form": "DS"
+        },
+        {
+          "long_form": "Emergency Department",
+          "sample": "476",
+          "short_form": "ED"
+        },
+        {
+          "long_form": "Surgical Pathology",
+          "sample": "476",
+          "short_form": "SP"
+        }
+      ],
+      "profile_settings": {
+        "extraction_max_short_form_length": 10,
+        "extraction_min_short_form_length": 2,
+        "extraction_require_uppercase": true
+      },
+      "split": "dev (tuning, contaminated)"
     },
     "spans.plod.all.corpus": {
       "corpus": "plod_cw_all",

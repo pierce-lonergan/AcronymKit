@@ -50,7 +50,6 @@ from typing import Any, Optional
 from .resources import bundled_resources, read_binary_resource
 
 __all__ = [
-    "DATA_PACK_GROUP",
     "OFFLINE_ENV_VAR",
     "capabilities",
     "format_report",
@@ -76,12 +75,56 @@ _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 #: Entry-point group ``pydantic`` scans on every model build. Third-party code
 #: advertised here is imported by ``pydantic`` itself, without asking us.
+#:
+#: This is the only group this module looks at, and the restriction is
+#: deliberate. See the note below before adding a second one.
 _PYDANTIC_PLUGIN_GROUP = "pydantic"
 
-#: Entry-point group an optional data pack advertises itself under. Nothing
-#: ships one yet; the group is named here so a pack can be discovered without
-#: the base package knowing its name in advance, and never downloaded.
-DATA_PACK_GROUP = "acronymkit.data"
+# There was a second group here: ``acronymkit.data``, exported as
+# ``DATA_PACK_GROUP``, discovered by :func:`capabilities` under a ``data_packs``
+# key and printed by ``doctor``. It is deleted, and this note exists so that it
+# is not re-added by someone who reads the audit's recommendation without its
+# kill criterion.
+#
+# The declaration had one load-bearing assumption -- that somebody would publish
+# a pack -- and the audit set the test for it: would this project ship one
+# within a release or two? It would not, and D-029 measured the population that
+# might: no dependents, no external code-search hits, and a download count that
+# decomposes into this project's own CI.
+#
+# Note what the deletion does *not* rest on. D-029's numbers are readings of
+# live counters and D-029 says itself that they decay, so an argument of the
+# form "nobody would notice" would expire. This one does not need it. With no
+# loader anywhere in the library, ``data_packs`` could only ever be ``[]`` --
+# for a user who exists exactly as much as for one who does not. It was a report
+# field that never varied, a line in ``doctor`` describing a mechanism no code
+# could act on, and a public name with no referent. D-029 kills the reason to
+# *build* the loader; the always-empty key is why the declaration goes now
+# rather than waiting for that decision to be revisited.
+#
+# D-035 is the governing precedent and it is one commit old: collaborators are
+# injected, not discovered, "no registry, no entry-point group, no discovery,
+# nothing reachable at import time". It reverted the same failure shape
+# elsewhere in this package -- documentation describing a seam the code did not
+# implement -- while this group sat here being the literal instance of it.
+#
+# What was deleted is the cheap half. The expensive half was never built: a
+# loader, a frozen descriptor contract, ``schema`` and ``kind`` refusal, the
+# ``redistributable`` opt-in, and a fix for ``load_bundle`` raising a bare
+# ``TypeError`` on a zip-imported ``Traversable``. Nothing about writing those
+# got harder. :func:`_entry_point_names` below is the discovery mechanism,
+# still here, still generic, still one argument away from a second group. Build
+# that when a first pack exists to load, not to attract one.
+#
+# One constraint carries over to whoever does. Never scan at import. The audit
+# timed the scan at a large fraction of the whole bare import on a small venv
+# and at several times the whole bare import on a populated one
+# (docs/AUDIT-2026-08.md, section 7C, un-gated), which would make it the
+# largest regression this package has ever taken to its cheapest operation.
+# :func:`pydantic_plugins` has exactly two callers -- :func:`capabilities` and
+# ``config._enforce_offline``, which runs only when a caller asks for strict
+# offline mode -- and neither is on an import path. R10 makes that a rule
+# rather than a taste.
 
 #: Optional backends, as ``{distribution: what it provides}``.
 _OPTIONAL_BACKENDS = {
@@ -111,6 +154,13 @@ def offline_requested() -> bool:
 
 def _entry_point_names(group: str) -> tuple[str, ...]:
     """Return the names of every installed entry point in ``group``.
+
+    Generic although :func:`pydantic_plugins` is now its only caller: the
+    version-compatibility dance below is the whole reason this is a named
+    function rather than three lines inline, and it does not become less true
+    for having one caller. It is also the surviving half of the deleted data
+    pack group -- see the note beside :data:`_PYDANTIC_PLUGIN_GROUP` for why
+    that is not an invitation.
 
     Args:
         group: Entry-point group to enumerate.
@@ -153,11 +203,6 @@ def pydantic_plugins() -> tuple[str, ...]:
     if os.environ.get("PYDANTIC_DISABLE_PLUGINS", "").strip() in {"__all__", "1", "true"}:
         return ()
     return _entry_point_names(_PYDANTIC_PLUGIN_GROUP)
-
-
-def _data_packs() -> tuple[str, ...]:
-    """Return installed ``acronymkit`` data packs, by entry-point name."""
-    return _entry_point_names(DATA_PACK_GROUP)
 
 
 def _is_importable(distribution: str) -> bool:
@@ -206,6 +251,11 @@ def capabilities(*, include_checksums: bool = True) -> dict[str, Any]:
         A nested, JSON-serialisable dictionary. Keys are stable: fields may be
         added, but the meaning of an existing one will not change under a
         patch release, because the point of this function is to be asserted on.
+        A key may still be *removed*, and that is a minor-release event, not a
+        patch one. One has been: ``data_packs``, which enumerated an
+        entry-point group nothing in this library ever loaded from. It is named
+        here rather than quietly dropped, so that a CI asserting on it finds
+        the reason in the same place it finds the report.
 
     Example:
         >>> report = capabilities(include_checksums=False)
@@ -260,7 +310,6 @@ def capabilities(*, include_checksums: bool = True) -> dict[str, Any]:
             name: {"importable": available, "provides": _OPTIONAL_BACKENDS[name]}
             for name, available in backends.items()
         },
-        "data_packs": list(_data_packs()),
         "resources": {
             "count": len(bundled_resources()),
             "names": list(bundled_resources()),
@@ -307,8 +356,6 @@ def format_report(report: Optional[dict[str, Any]] = None) -> str:
     for name, info in data["backends"].items():
         state = "importable" if info["importable"] else "absent"
         lines.append(f"  {name:<30}: {state:<11} ({info['provides']})")
-    packs = data["data_packs"]
-    lines += ["", f"data packs                      : {', '.join(packs) if packs else 'none'}"]
     lines += ["", f"bundled resources               : {data['resources']['count']}"]
     for name in data["resources"]["names"]:
         digest = data["resources"].get("digests", {}).get(name)
