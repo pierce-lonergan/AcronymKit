@@ -23,6 +23,7 @@ used yet fails here, on a laptop, rather than in the release job.
 
 from __future__ import annotations
 
+import ast
 import shlex
 from fnmatch import fnmatch
 from pathlib import Path
@@ -133,22 +134,114 @@ def test_the_manifest_covers_the_conftest_the_suite_cannot_start_without() -> No
 _UNSHIPPED_ROOTS = ("bench",)
 
 
-def _module_level_path_loads(source: str) -> list[str]:
-    """Return module-level names that build a path into an unshipped directory.
+def _unshipped_path_names(tree: ast.Module) -> set:
+    """Names bound at module level to a path inside an unshipped directory.
 
-    Deliberately crude — a textual scan for a `REPO_ROOT / "<root>" / ...`
-    assignment at column zero. A test that does this at import time cannot be
-    rescued by ``pytest.mark.skipif``, because the mark is consulted at
-    collection and the module body has already run by then.
+    Matched structurally — any assignment whose right-hand side mentions one of
+    :data:`_UNSHIPPED_ROOTS` as a string literal — so the binding is found
+    regardless of how the path is spelled or which helper consumes it.
     """
-    found: list[str] = []
-    for line in source.splitlines():
-        if line.startswith((" ", "\t", "#")) or "REPO_ROOT" not in line:
+    bound = set()
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
             continue
-        for root in _UNSHIPPED_ROOTS:
-            if f'"{root}"' in line and "=" in line:
-                found.append(line.split("=", 1)[0].strip())
-    return found
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        literals = {
+            child.value
+            for child in ast.walk(node)
+            if isinstance(child, ast.Constant) and isinstance(child.value, str)
+        }
+        if not literals.intersection(_UNSHIPPED_ROOTS):
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                bound.add(target.id)
+    return bound
+
+
+def _functions_reaching_unshipped(tree: ast.Module) -> set:
+    """Functions in this module whose own body builds an unshipped path.
+
+    The second thing the earlier versions of this check could not see. A
+    module-level ``corpora = _load_corpora()`` mentions no path at all — the
+    path is built inside the function — so a check that only looks at the call
+    site is blind to it, which is exactly how the fifth breakage got through.
+    One level of indirection is enough to catch every instance this repository
+    has actually produced; a deeper chain would need real call-graph analysis
+    and has never occurred here.
+    """
+    reaching = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        literals = {
+            child.value
+            for child in ast.walk(node)
+            if isinstance(child, ast.Constant) and isinstance(child.value, str)
+        }
+        if literals.intersection(_UNSHIPPED_ROOTS):
+            reaching.add(node.name)
+    return reaching
+
+
+def _unguarded_module_level_uses(source: str) -> list:
+    """Module-level statements that CONSUME an unshipped path without a guard.
+
+    The earlier version of this check matched the text ``= _load(NAME``, which
+    tied it to one helper's name. The fifth breakage of this class was spelled
+    ``_load_corpora`` and sailed straight through — a guard that varied
+    everything except the spelling the bug used, which is the failure shape this
+    file exists to catch. Structure, not spelling: walk the module's top-level
+    statements, find the ones that call something with an unshipped-path name in
+    the call, and accept only those whose statement also tests the path.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:  # pragma: no cover - a broken test file fails elsewhere
+        return []
+
+    bound = _unshipped_path_names(tree)
+    reaching = _functions_reaching_unshipped(tree)
+    if not bound and not reaching:
+        return []
+
+    offenders = []
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.Expr)):
+            continue
+        calls = [child for child in ast.walk(node) if isinstance(child, ast.Call)]
+        if not calls:
+            continue
+        mentioned = {
+            child.id
+            for child in ast.walk(node)
+            if isinstance(child, ast.Name) and child.id in bound
+        }
+        # A path constant may also be USED to build another constant, which is
+        # inert. Only a call is a load.
+        called = {call.func.id for call in calls if isinstance(call.func, ast.Name)}
+        uses_path = (
+            bool(mentioned)
+            or bool(called.intersection(reaching))
+            or any(
+                isinstance(child, ast.Constant)
+                and isinstance(child.value, str)
+                and child.value in _UNSHIPPED_ROOTS
+                for call in calls
+                for child in ast.walk(call)
+            )
+        )
+        if not uses_path:
+            continue
+        # Accepted guards: a conditional expression, or an `is_file`/`exists`
+        # test anywhere in the same statement.
+        guarded = any(isinstance(child, ast.IfExp) for child in ast.walk(node)) or any(
+            isinstance(child, ast.Attribute) and child.attr in {"is_file", "exists"}
+            for child in ast.walk(node)
+        )
+        if not guarded:
+            offenders.append(getattr(node, "lineno", 0))
+    return offenders
 
 
 @pytest.mark.skipif(not MANIFEST.is_file(), reason="not a source checkout")
@@ -170,17 +263,11 @@ def test_no_test_imports_an_unshipped_path_at_module_level() -> None:
     Caught in CI's sdist job, where the suite runs inside the built artifact.
     Caught here means caught on a laptop instead.
     """
-    offenders: dict[str, list[str]] = {}
+    offenders: dict[str, list[int]] = {}
     for path in sorted((REPO_ROOT / "tests").rglob("test_*.py")):
-        source = path.read_text(encoding="utf-8")
-        names = _module_level_path_loads(source)
-        if not names:
-            continue
-        # A constant is fine; executing it unconditionally is not.
-        for name in names:
-            unguarded = f"= _load({name}" in source.replace(" ", "").replace("=_load(", "= _load(")
-            if unguarded and f"if {name}.is_file()" not in source:
-                offenders.setdefault(path.name, []).append(name)
+        lines = _unguarded_module_level_uses(path.read_text(encoding="utf-8"))
+        if lines:
+            offenders[path.name] = lines
 
     assert not offenders, (
         "these tests load an unshipped path while being imported, so "

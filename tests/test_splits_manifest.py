@@ -106,7 +106,13 @@ def _load_corpora() -> ModuleType:
 
 
 splits = _load_tool()
-corpora = _load_corpora()
+# Guarded, and the guard has to be here rather than on `pytestmark`: the mark is
+# consulted at COLLECTION and this line runs at IMPORT, which is earlier. The
+# sdist ships `tests/` but deliberately not `bench/*.py`, so this module is
+# imported without its subject every time CI runs the suite from the artifact.
+# That has now broken the build five times in a row, in five different spellings.
+CORPORA_SOURCE = REPO_ROOT / "bench" / "corpora.py"
+corpora = _load_corpora() if CORPORA_SOURCE.is_file() else None
 
 #: 3.9 and 3.10 have no ``tomllib``, and ``tomli`` is not a declared dev
 #: dependency, so on those interpreters there is no parser to test with. The
