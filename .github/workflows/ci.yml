@@ -33,14 +33,36 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev]"
       - name: Ruff
-        run: python -m ruff check src tests tools
+        # `bench` is linted too. It was outside the check while holding every
+        # benchmark runner -- the only writers of bench/results.json, which is
+        # the file every published claim is verified against.
+        run: python -m ruff check src tests tools bench
       - name: Ruff format check
-        run: python -m ruff format --check src tests tools
+        run: python -m ruff format --check src tests tools bench
       - name: Mypy
         run: python -m mypy
+      - name: The train/test manifest parses, and every corpus cites its licence
+        # bench/splits.toml is where operating rule 2 (MED1250 is a tuning
+        # split) and operating rule 4 (licences come from terms, never a badge)
+        # actually live. For months nothing read it: eleven citations in prose,
+        # zero parsers -- and it had been invalid TOML the whole time, because a
+        # `status` key was written twice inside [corpora.plod] while adding a
+        # correction block. A governance artifact no tool reads is a habit.
+        #
+        # This runs the same validator that tests/test_splits_manifest.py drives
+        # and that bench/corpora.py consults, so the three cannot disagree about
+        # what "valid" means.
+        run: python tools/splits.py --check
       - name: Every performance claim is backed by a measurement
         # A docstring once claimed an F1 that had never been measured. This is
         # the enforcement so the rule does not depend on catching it by hand.
+        #
+        # It now also enforces the value-matched ratchet: the 87 claims backed
+        # only by "some measurement happens to equal this number" are
+        # grandfathered per file and no new one may join them. That fallback
+        # cannot tell a correct claim from a coincidence, which is how
+        # "Headroom today is 113,269 bytes" survived two audits after the budget
+        # it was derived under had been replaced. New claims cite a run id.
         run: python tools/check_claims.py
 
   resources:
@@ -572,10 +594,6 @@ jobs:
           # whole point. Everything anyone has actually proposed fits; the one
           # thing that would change the character of the distribution does not.
           #
-          # Headroom is now 295,139 B, and the largest .py in the wheel
-          # compresses to 18,856 B, so that is roughly fifteen more modules of
-          # the biggest size currently present.
-          #
           # The 10 MB originally proposed was rejected and still is. It is 20x
           # this wheel; nothing anyone has proposed could reach it. A ceiling
           # that cannot be hit is not a budget, it is a permission slip, and it
@@ -585,6 +603,23 @@ jobs:
           # largest entries printed below before making it, and re-derive the
           # rationale rather than editing the constant -- that is what went
           # stale last time.
+          #
+          # And it went stale again, here, in the comment that says so. This
+          # block used to end "Headroom is now 295,139 B, and the largest .py in
+          # the wheel compresses to 18,856 B, so that is roughly fifteen more
+          # modules of the biggest size currently present." Both figures were
+          # derived when the wheel was 491,293 B. Re-derived 2026-08-23 against
+          # `python -m build --wheel`, the wheel is 565,730 B, headroom is
+          # 220,702 B, and the largest .py is acronymkit/cli.py at 31,468 B
+          # compressed -- so it is about SEVEN more modules of the biggest size
+          # present, not fifteen.
+          #
+          # Which is why the numbers are no longer written down here. A figure
+          # in a comment goes stale silently; a figure the gate computes and
+          # prints on every run cannot. Headroom is printed below. The same
+          # correction is applied to D-020 in docs/DECISIONS.md, which carried
+          # the 113,269 B figure from the *previous* budget in two places and
+          # had it re-quoted as current by two independent auditors.
           BUDGET_BYTES = 786_432
 
           wheel = glob.glob("dist/*.whl")[0]
@@ -592,7 +627,15 @@ jobs:
           entries = sorted(
               zipfile.ZipFile(wheel).infolist(), key=lambda item: -item.compress_size
           )
+          modules = [e for e in entries if e.filename.endswith(".py")]
           print(f"{wheel}: {size} B of {BUDGET_BYTES} B ({size / BUDGET_BYTES:.1%} of budget)")
+          print(f"headroom: {BUDGET_BYTES - size} B")
+          if modules:
+              biggest = modules[0]
+              print(
+                  f"largest module: {biggest.filename} at {biggest.compress_size} B compressed, "
+                  f"so headroom is ~{(BUDGET_BYTES - size) // biggest.compress_size} more of that size"
+              )
           print("largest entries, compressed:")
           for item in entries[:5]:
               print(f"  {item.compress_size:>9} B  {item.filename}")

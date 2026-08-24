@@ -22,13 +22,40 @@ If it does not resolve, the build fails. That is the whole point: a citation
 can be *wrong*, and being wrong is detectable.
 
 **Value-matched (fallback, unsound).** The number appears somewhere in
-``bench/results.json``, matched at the precision written. This is how roughly
-seventy existing claims are backed and it is kept working deliberately -- a
-flag day would be worse -- but it cannot tell a correct claim from a number
-that coincidentally equals an unrelated measurement. ``--migrate`` lists which
+``bench/results.json``, matched at the precision written. This is how the 87
+existing claims are backed and it is kept working deliberately -- a flag day
+would be worse -- but it cannot tell a correct claim from a number that
+coincidentally equals an unrelated measurement. ``--migrate`` lists which
 value-matched claims are ambiguous under that test, and those are exactly the
 ones whose backing means nothing. The summary line reports how many claims sit
 on each path so the migration can be tracked rather than hoped for.
+
+Why value matching had to stop being a *path a new claim may take*
+-------------------------------------------------------------------
+Value matching does not verify a claim; it verifies that *some* measurement
+somewhere happens to have that value. The August 2026 audit found what that
+costs: ``docs/DECISIONS.md`` said "Headroom today is 113,269 bytes", the figure
+had been derived under a budget that no longer existed, and **two independent
+auditors re-quoted it as current**. Nothing failed, because nothing was
+checking that the number came from where the sentence said it came from.
+
+So the fallback is now a **ratchet** rather than an open door.
+:data:`VALUE_MATCHED_BASELINE` records how many value-matched claims each file
+is allowed to carry -- the 87 that existed when the ratchet was installed. The
+count per file must match exactly:
+
+* **more** than the baseline means a new claim was written without a citation.
+  That is the enforcement: new claims must use ``{{claim:<run-id>.<field>}}``,
+  which names its source and can therefore be *wrong*, which is the only
+  property that makes a check worth running.
+* **fewer** means a claim was migrated to a citation, which is the goal --
+  lower the number in the same commit. ``--update-baseline`` prints the block
+  to paste. It is deliberately a source edit and not a file the tool rewrites
+  itself: the diff is the record of which direction the migration went.
+
+The ratchet only engages when scanning **this** checkout. Pointed at any other
+root -- which is how the tool's own tests drive it -- it is off, because the
+baseline is a fact about these documents and not about the algorithm.
 
 Two further escapes exist, both narrow:
 
@@ -59,6 +86,7 @@ Usage::
     python tools/check_claims.py                  # scan and report; the CI gate
     python tools/check_claims.py --list           # show every claim and how it is backed
     python tools/check_claims.py --migrate        # which run ids could supply each value-matched claim
+    python tools/check_claims.py --update-baseline    # the ratchet block to paste after a migration
     python tools/check_claims.py --render --dry-run   # what --render would rewrite
     python tools/check_claims.py --render         # rewrite {{claim:...}} to current values
 """
@@ -90,6 +118,24 @@ SCAN_GLOBS = (
     "src/acronymkit/*.py",
     "src/acronymkit/**/*.py",
 )
+
+#: How many value-matched claims each file may carry. This is the ratchet
+#: described in the module docstring: value matching backs what is already
+#: written and admits nothing new, because it cannot tell a correct claim from a
+#: coincidence and a stale re-quote survived two audits on exactly that gap.
+#:
+#: A file absent from this mapping is allowed **zero**, which is what makes new
+#: documents cite by run id from the start. Regenerate after a migration with
+#: ``python tools/check_claims.py --update-baseline``.
+#:
+#: Recorded 2026-08-23: 87 claims across 5 files.
+VALUE_MATCHED_BASELINE: Dict[str, int] = {
+    "README.md": 12,
+    "docs/DECISIONS.md": 42,
+    "docs/EVALUATION.md": 28,
+    "docs/notes/scoring-objective.md": 3,
+    "src/acronymkit/enums.py": 2,
+}
 
 #: A number is a claim when it sits within this many characters of a keyword.
 _PROXIMITY = 48
@@ -181,11 +227,23 @@ class Project:
 
     Exists so the check can be pointed at a fixture directory in tests rather
     than only at the repository it happens to sit in.
+
+    Attributes:
+        root: Checkout being scanned.
+        results_path: ``bench/results.json``.
+        allowlist_path: ``tools/claims_allowlist.txt``.
+        value_baseline: Per-file ceiling on value-matched claims, or ``None``
+            for "ratchet off". It is ``None`` for every root except this
+            repository's, because :data:`VALUE_MATCHED_BASELINE` is a fact about
+            *these documents*. Applying it to a fixture directory would be the
+            tool asserting a property of the checkout it lives in against a
+            checkout it was handed, which is a different tool.
     """
 
     root: Path
     results_path: Path
     allowlist_path: Path
+    value_baseline: Optional[Dict[str, int]] = None
 
     @classmethod
     def at(cls, root: Path) -> Project:
@@ -195,6 +253,7 @@ class Project:
             root=root,
             results_path=root / "bench" / "results.json",
             allowlist_path=root / "tools" / "claims_allowlist.txt",
+            value_baseline=dict(VALUE_MATCHED_BASELINE) if root == REPO_ROOT else None,
         )
 
 
@@ -954,6 +1013,67 @@ def report_migration(project: Project, index: Dict[str, object], claims: Sequenc
     )
 
 
+def value_matched_counts(project: Project, claims: Sequence[Claim]) -> Dict[str, int]:
+    """How many value-matched claims each scanned file currently carries.
+
+    Keyed by repo-relative POSIX path, so the baseline in the source reads the
+    same on every platform.
+    """
+    counts: Dict[str, int] = {}
+    for claim in claims:
+        if claim.backing != "value":
+            continue
+        key = _relative(claim.path, project)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def baseline_problems(project: Project, claims: Sequence[Claim]) -> List[str]:
+    """Where the value-matched ratchet has been broken.
+
+    Args:
+        project: The checkout being scanned. When ``value_baseline`` is
+            ``None`` the ratchet is off and this returns nothing.
+        claims: Every classified claim.
+
+    Returns:
+        One message per file whose count does not equal its recorded budget.
+        An increase is a new claim written without a citation; a decrease is a
+        successful migration whose baseline was not lowered in the same commit.
+        Both are reported, because a ratchet that only tightens on request is a
+        ratchet with slack -- migrate one claim, leave the number alone, and the
+        slot is free for the next uncited number.
+    """
+    if project.value_baseline is None:
+        return []
+    counts = value_matched_counts(project, claims)
+    problems: List[str] = []
+    for path in sorted(set(counts) | set(project.value_baseline)):
+        actual = counts.get(path, 0)
+        allowed = project.value_baseline.get(path, 0)
+        if actual == allowed:
+            continue
+        if actual > allowed:
+            problems.append(
+                f"  {path}\n"
+                f"    {actual} value-matched claim(s), baseline {allowed}. "
+                f"{actual - allowed} new number(s) here are backed only by the fact that "
+                "some measurement happens to equal them.\n"
+                "    Cite the measurement instead: {{claim:<run-id>.<field>}}. Run\n"
+                "      python tools/check_claims.py --migrate\n"
+                "    to see which run ids could supply each one."
+            )
+        else:
+            problems.append(
+                f"  {path}\n"
+                f"    {actual} value-matched claim(s), baseline {allowed}. "
+                f"{allowed - actual} were migrated or removed -- lower the baseline in\n"
+                "    tools/check_claims.py so the slot cannot be silently reused:\n"
+                "      python tools/check_claims.py --update-baseline"
+            )
+    return problems
+
+
 def _unused_allowlist(allowlist: Dict[str, str], claims: Sequence[Claim]) -> List[str]:
     """Allowlist entries no claim needs any more."""
     used = {claim.text for claim in claims if claim.backing == "allowlist"}
@@ -979,6 +1099,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--migrate",
         action="store_true",
         help="report which run ids could supply each value-matched claim",
+    )
+    parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help="print the VALUE_MATCHED_BASELINE block to paste after a migration",
     )
     parser.add_argument(
         "--render",
@@ -1050,21 +1175,53 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         report_migration(project, index, claims)
         return 0
 
+    if args.update_baseline:
+        counts = value_matched_counts(project, claims)
+        print("# Paste into tools/check_claims.py, replacing VALUE_MATCHED_BASELINE.")
+        print(f"# {sum(counts.values())} value-matched claim(s) across {len(counts)} file(s).")
+        print("VALUE_MATCHED_BASELINE: Dict[str, int] = {")
+        for path in sorted(counts):
+            print(f'    "{path}": {counts[path]},')
+        print("}")
+        return 0
+
     print(f"scanned {len(paths)} files, found {len(claims)} claim-shaped numbers")
     print(_summarise(claims, len(citations)))
+
+    ratchet = baseline_problems(project, claims)
+    if project.value_baseline is None:
+        print("value-matched ratchet: off (not this checkout)")
+    else:
+        budget = sum(project.value_baseline.values())
+        print(
+            f"value-matched ratchet: {sum(value_matched_counts(project, claims).values())}"
+            f" of {budget} budgeted across {len(project.value_baseline)} file(s); "
+            "new claims must cite a run id"
+        )
 
     stale = _unused_allowlist(allowlist, claims)
     if stale:
         print(f"note: {len(stale)} allowlist entry(ies) back nothing any more: {', '.join(stale)}")
 
     unbacked = [claim for claim in claims if claim.backing == "unbacked"]
-    if not unbacked and not citation_problems:
+    if not unbacked and not citation_problems and not ratchet:
         print(
             f"all backed by {_relative(project.results_path, project)}, a citation, or the allowlist"
         )
         return 0
 
     sys.stdout.flush()
+    if ratchet:
+        print(f"\n{len(ratchet)} file(s) break the value-matched ratchet:\n", file=sys.stderr)
+        for problem in ratchet:
+            print(problem, file=sys.stderr)
+        print(
+            "\nValue matching does not verify a claim; it verifies that some measurement\n"
+            "somewhere happens to equal it. That is how 'Headroom today is 113,269 bytes'\n"
+            "survived two audits after the budget it was derived under had been replaced.\n"
+            "New numbers cite their source: {{claim:<run-id>.<field>}}.",
+            file=sys.stderr,
+        )
     if citation_problems:
         print(f"\n{len(citation_problems)} broken citation(s):\n", file=sys.stderr)
         for problem in citation_problems:

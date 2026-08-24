@@ -192,6 +192,90 @@ Genuinely MIT -- the README's carve-out puts the evaluation script and baseline 
 
 Retained for the same reason as ab3p-readme: it is the normative description of the data format. It is also the *only* place the dataset's real licence is stated, so pinning it is what makes the CC BY-NC-SA finding reproducible rather than a claim in a note.
 
+### `sdu22-ae-legal-train` — sdu22_ae_legal_train.json
+
+- **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/data/english/legal/train.json>
+- **SHA-256:** `f04259b3f55bf31e782096d950b0a361a95ce881b5980e8b975f3b3e4cfd9791`
+- **Size:** 1,733,260 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
+- **Used for:** 3,564 samples, 3,554 labelled, 9,532 gold acronym spans and 5,246 gold long-form spans of character-offset annotation. The only split of this corpus nobody has read: the August 2026 audit decomposed the *dev* misses, so dev is a tuning split, and this is the one blind arm SDU-22 AE still offers. Spend it deliberately.
+- **Attribution:** Veyseh APB, Meister N, Dernoncourt F, Nguyen TH. MACRONYM: A Large-Scale Dataset for Multilingual and Multi-Domain Acronym Extraction. SDU@AAAI-22 shared task 1. Dataset licensed CC BY-NC-SA 4.0.
+
+NOT vendorable, and the same licence trap as both SDU-21 repositories, now for the third time. The repository root ships an MIT LICENSE, and api.github.com/repos/amirveyseh/AAAI-22-SDU-shared-task-1-AE duly reported `"license": {"key": "mit", "spdx_id": "MIT"}` when queried live on 2026-08-23. The README narrows it: MIT covers 'the evaluation script and the baseline', while 'the dataset provided for this shared task is licensed under CC BY-NC-SA 4.0'. Non-commercial plus share-alike cannot go into an MIT wheel, and it would be fetch-only regardless on the med1250 precedent: an evaluation corpus is not a runtime resource and nothing in src/ reads it.
+
+### `sdu22-ae-legal-dev` — sdu22_ae_legal_dev.json
+
+- **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/data/english/legal/dev.json>
+- **SHA-256:** `d41f4961f5524d0f3b031b7ae2636f6f4fdb3d9795861ff6eb9a98f2206a8473`
+- **Size:** 291,388 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
+- **Used for:** 445 samples, 444 labelled, 1,213 gold acronym spans and 669 gold long-form spans. NOT legal text despite the folder name: across all 445 samples, 'United Nations' appears in 151 while 'statute', 'plaintiff', 'defendant', 'tribunal', 'litigation' and 'judgment' appear in zero. It is UN institutional and development-policy prose -- see bench/splits.toml, [corpora.sdu22_ae_legal].domain_finding. An extractor emitting exactly the annotated definitions lands at 55.15% short-form recall here (669/1,213); that is not a hard bound -- 45.4% of gold acronym spans exceed their sample's definitions -- but every point above it is paid for in long-form precision. Print it beside any recall figure from this split.
+- **Attribution:** Veyseh APB, Meister N, Dernoncourt F, Nguyen TH. MACRONYM: A Large-Scale Dataset for Multilingual and Multi-Domain Acronym Extraction. SDU@AAAI-22 shared task 1. Dataset licensed CC BY-NC-SA 4.0.
+
+NOT vendorable, and the same licence trap as both SDU-21 repositories, now for the third time. The repository root ships an MIT LICENSE, and api.github.com/repos/amirveyseh/AAAI-22-SDU-shared-task-1-AE duly reported `"license": {"key": "mit", "spdx_id": "MIT"}` when queried live on 2026-08-23. The README narrows it: MIT covers 'the evaluation script and the baseline', while 'the dataset provided for this shared task is licensed under CC BY-NC-SA 4.0'. Non-commercial plus share-alike cannot go into an MIT wheel, and it would be fetch-only regardless on the med1250 precedent: an evaluation corpus is not a runtime resource and nothing in src/ reads it.
+
+### `sdu22-ae-scientific-train` — sdu22_ae_scientific_train.json
+
+- **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/data/english/scientific/train.json>
+- **SHA-256:** `00b8fba7f16d8d0b44c7b21ac7dbdc02106ffc867a6d9a3f166c11fd67143cdf`
+- **Size:** 966,723 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
+- **Used for:** 3,980 samples, 3,979 labelled, 7,689 gold acronym spans and 5,715 gold long-form spans. Unread, like its legal counterpart, and for the same reason the audit only touched dev.
+- **Attribution:** Veyseh APB, Meister N, Dernoncourt F, Nguyen TH. MACRONYM: A Large-Scale Dataset for Multilingual and Multi-Domain Acronym Extraction. SDU@AAAI-22 shared task 1. Dataset licensed CC BY-NC-SA 4.0.
+
+NOT vendorable, and the same licence trap as both SDU-21 repositories, now for the third time. The repository root ships an MIT LICENSE, and api.github.com/repos/amirveyseh/AAAI-22-SDU-shared-task-1-AE duly reported `"license": {"key": "mit", "spdx_id": "MIT"}` when queried live on 2026-08-23. The README narrows it: MIT covers 'the evaluation script and the baseline', while 'the dataset provided for this shared task is licensed under CC BY-NC-SA 4.0'. Non-commercial plus share-alike cannot go into an MIT wheel, and it would be fetch-only regardless on the med1250 precedent: an evaluation corpus is not a runtime resource and nothing in src/ reads it.
+
+### `sdu22-ae-scientific-dev` — sdu22_ae_scientific_dev.json
+
+- **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/data/english/scientific/dev.json>
+- **SHA-256:** `bf93f57c5f35c4e61730d7aa6235087561f5c131c26ab82e0a30fee92c07ba45`
+- **Size:** 189,240 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
+- **Used for:** 497 samples, all labelled, 970 gold acronym spans and 720 gold long-form spans. An extractor emitting exactly the annotated definitions lands at 74.23% short-form recall (720/970). The 19-point gap in that figure against the legal split is annotation density, not domain difficulty, and it accounts for most of the apparent difference between the two splits' measured recalls.
+- **Attribution:** Veyseh APB, Meister N, Dernoncourt F, Nguyen TH. MACRONYM: A Large-Scale Dataset for Multilingual and Multi-Domain Acronym Extraction. SDU@AAAI-22 shared task 1. Dataset licensed CC BY-NC-SA 4.0.
+
+NOT vendorable, and the same licence trap as both SDU-21 repositories, now for the third time. The repository root ships an MIT LICENSE, and api.github.com/repos/amirveyseh/AAAI-22-SDU-shared-task-1-AE duly reported `"license": {"key": "mit", "spdx_id": "MIT"}` when queried live on 2026-08-23. The README narrows it: MIT covers 'the evaluation script and the baseline', while 'the dataset provided for this shared task is licensed under CC BY-NC-SA 4.0'. Non-commercial plus share-alike cannot go into an MIT wheel, and it would be fetch-only regardless on the med1250 precedent: an evaluation corpus is not a runtime resource and nothing in src/ reads it.
+
+### `sdu22-ae-scorer` — sdu22_ae_scorer.py
+
+- **Licence:** MIT
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/LICENSE>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/scorer.py>
+- **SHA-256:** `4ece9756e1cad3857b20de86b262a0562dcf1325d8487763e49b849230250bdd`
+- **Size:** 3,064 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
+- **Used for:** The shared task's official scorer. Defines the convention any SDU-22 AE number of ours would be quoted under: macro-averaged precision, recall and F1 over acronym and long-form span predictions, reported separately for short and long forms.
+- **Attribution:** Amir Pouran Ben Veyseh and contributors; MIT licensed.
+
+Genuinely MIT -- the README's carve-out puts the evaluation script and the baseline under the repository licence, and only the data under CC BY-NC-SA. Not vendored, for the same reason as the SDU-21 scorer: it is a benchmark script, and pinning it is what keeps our reimplementation auditable against the original.
+
+### `sdu22-ae-readme` — sdu22_ae_README.md
+
+- **Licence:** MIT (the document), describing a CC BY-NC-SA-4.0 dataset
+- **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **SHA-256:** `58996464a4a27bc09e66ef408d82c0b2ef4fbf1fbfbdd6a04cc6ffc33ab81442`
+- **Size:** 4,180 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** no
+- **Used for:** Specification of the SDU@AAAI-22 AE record format -- text, character-offset `acronyms` and `long-forms` tuples, id -- the official metric, and the licence split between data and scripts.
+- **Attribution:** Amir Pouran Ben Veyseh and contributors.
+
+Retained for the same reason as ab3p-readme and sdu21-ad-readme: it is the normative description of the record format, and it is the ONLY place this dataset's real licence is stated. The repository's LICENSE file and GitHub's own licence field both say MIT. Pinning this file is what makes the CC BY-NC-SA finding reproducible rather than a claim in a note.
+
 ### `plod-cw-test` — plod_cw_test.conll
 
 - **Licence:** CC-BY-SA-4.0

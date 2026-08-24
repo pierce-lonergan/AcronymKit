@@ -11,6 +11,28 @@
 # long-form boundary experiment was run against it, and its failures shaped the
 # roadmap. Nothing about it is blind any more. It is a tuning set now and it
 # cannot be un-tuned.
+#
+# ---------------------------------------------------------------------------
+# HOW TO READ THIS FILE, AND WHAT NOW READS IT
+# ---------------------------------------------------------------------------
+# `tools/splits.py` parses this file into typed objects and validates it.
+# `bench/corpora.py` consults it when a corpus is loaded, so a reader cannot be
+# registered for a corpus that was never declared. CI runs
+# `python tools/splits.py --check`, and `tests/test_splits_manifest.py` drives
+# the same validator. Before that existed, eleven places cited this file in
+# prose and none of them parsed it -- and the file had been invalid TOML for
+# months without anyone noticing, because noticing required a reader.
+#
+# Required of every corpus: `role`, `task`, `licence`, `licence_url`,
+# `licence_read_on`.
+#
+# `licence_url` and `licence_read_on` are required because a bare `licence`
+# string records a conclusion and destroys the evidence for it. This project
+# has now recorded a corpus as more permissive than it is THREE times -- both
+# SDU-21 entries, and GLADIS during the August 2026 audit -- and every
+# correction came from a person opening the actual terms. So the terms get
+# cited, with the date they were read, and `tools/splits.py` rejects a URL that
+# points at a badge rather than at licence text.
 
 [policy]
 # Every headline number must come from a held-out corpus. Numbers from the
@@ -22,13 +44,29 @@ label_tuning_numbers = true
 [corpora.med1250]
 role = "tuning"
 task = "extraction"
+domain = "Biomedical (MEDLINE titles and abstracts)"
 pairs = 1221
 licence = "Public domain (United States Government Work)"
+licence_url = "https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md"
+licence_read_on = 2026-08-23
 contaminated = true
 contamination_reason = """
 Miss taxonomy analysed in full; a boundary-selection experiment was run and
 reverted against it; the configuration knobs that cost 17.6% of its misses were
 identified from it. Any future number reported on MED1250 is a tuning number.
+"""
+note = """
+LICENCE, read from the terms on 2026-08-23 at the URL above. The Ab3P README's
+"Public Domain Notice" states the work "is a 'United States Government Work'
+under the terms of the United States Copyright Act", that it "cannot be
+copyrighted within the United States", and that "The National Library of
+Medicine and the U.S. Government have not placed any restriction on its use or
+reproduction." That is the widest grant any asset in this project carries.
+
+Fetch-only anyway, and for a reason that is not the licence: it is a 1.6 MB
+evaluation corpus, nothing in the library reads it, and shipping it would
+inflate every wheel for the few people running benchmarks. See
+tools/fetch_data.py, asset key `med1250`.
 """
 
 # ---------------------------------------------------------------------------
@@ -44,11 +82,15 @@ identified from it. Any future number reported on MED1250 is a tuning number.
 #     (ftp.ncbi.nlm.nih.gov/pub/lu/ABBR/) returns 404 and BIOADI's SourceForge
 #     project page is gone. "One BioC reader covers all four" is not available.
 #
-#   * SDU@AAAI-21 (MIT) and PLOD (CC BY-SA) are both reachable, but both are
-#     BIO token-classification: they label short-form and long-form *spans*
-#     without pairing them. Deriving pairs requires an adjacency assumption,
-#     which would make part of the "gold standard" mine. A gold standard I
-#     partly invented cannot adjudicate my own system.
+#   * SDU@AAAI-21 and PLOD are both reachable, but both are BIO token
+#     classification: they label short-form and long-form *spans* without
+#     pairing them. Deriving pairs requires an adjacency assumption, which would
+#     make part of the "gold standard" mine. A gold standard I partly invented
+#     cannot adjudicate my own system.
+#
+#   * SDU@AAAI-22 AE is now registered below and does NOT close this gap. Its
+#     test splits carry zero labels, and its dev splits have already been mined
+#     for a miss taxonomy. Read those two entries before assuming otherwise.
 #
 # Two honest routes forward, in preference order:
 #   1. Score span-level detection on SDU/PLOD -- the metric those corpora were
@@ -64,18 +106,54 @@ identified from it. Any future number reported on MED1250 is a tuning number.
 role = "held_out"
 task = "span_detection"
 status = "reader_not_written"
+domain = "Scientific (computer-science papers)"
 # CORRECTION. This said "MIT", which is the same error already caught and
 # corrected on [corpora.sdu21_ad] and never propagated here. The repository
 # ships an MIT LICENSE, but its README narrows the grant: MIT covers the
 # evaluation script and the baseline, while the dataset is CC BY-NC-SA 4.0.
 licence = "CC BY-NC-SA 4.0 (data); MIT (scorer and baseline only)"
-note = "BIO tags over scientific-paper sentences; no annotator pairing."
+licence_url = "https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-1-AI/master/README.md"
+licence_read_on = 2026-08-23
+vendorable = false
+note = """
+BIO tags over scientific-paper sentences; no annotator pairing.
+
+LICENCE, read from the terms on 2026-08-23. The README's "# Licenses" section
+reads, verbatim: "The dataset provided for this shared task is licensed under
+CC BY-NC-SA 4.0 international license, and the evaluation script and the
+baseline are licensed under MIT license." The repository root LICENSE, read the
+same day, is a plain MIT licence naming "Copyright (c) 2020 amirveyseh" -- so a
+reader who stops at the LICENSE file gets the wrong answer for the data, which
+is precisely how this entry came to say MIT.
+
+THE ERROR PROPAGATES DOWNSTREAM, and this is the part worth carrying forward.
+The HuggingFace mirror `amirveyseh/acronym_identification` CONTRADICTS ITSELF
+inside a single file. Verified live 2026-08-23 at
+https://huggingface.co/datasets/amirveyseh/acronym_identification/raw/main/README.md :
+
+    line   8  (YAML front-matter)  license:
+    line   9                       - mit
+    line 224  (### Licensing Information)
+              "The dataset provided for this shared task is licensed under
+               CC BY-NC-SA 4.0 international license."
+
+The half that says `mit` is the MACHINE-READABLE half -- it is what the Hub's
+licence filter indexes, what the dataset card badge renders, and what any tool
+reading the card's metadata will believe. The half that is correct is prose
+nobody parses. So anyone who trusts the badge inherits a non-commercial
+share-alike corpus believing it to be MIT, and the two mistakes cancel to
+silence rather than to an error. That is why `tools/splits.py` refuses a badge
+host as a `licence_url`.
+"""
 
 [corpora.plod]
 role = "held_out"
 task = "span_detection"
 status = "evaluated (span detection)"
+domain = "Biomedical / life sciences (PLOS journal articles)"
 licence = "CC BY-SA 4.0"
+licence_url = "https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE"
+licence_read_on = 2026-08-23
 vendorable = false
 note = """
 CORRECTION. This entry called PLOD a "non-biomedical counterweight". It is not.
@@ -88,14 +166,31 @@ Evaluated on its own task (span detection, no derived pairing) rather than
 forced into a pair format. Share-alike travels to Adapted Material, so a
 statistics table derived from PLOD would inherit BY-SA -- which rules PLOD out
 of the derived-term-frequency route as well as out of the wheel.
+
+LICENCE, read from the terms on 2026-08-23 at the pinned URL above, which is
+the deed itself and not a card, a badge or an SPDX id. Its first line is
+"Attribution-ShareAlike 4.0 International"; section 3(b) is the share-alike
+clause that reaches Adapted Material and therefore reaches any table derived
+from the corpus. The URL is pinned to revision c40ba19 rather than to `main`,
+because a dataset repository can be force-pushed and an unpinned licence
+citation is a citation of whatever is there today.
 """
 
 [corpora.sdu21_ad]
 role = "tuning"
 task = "disambiguation"
 status = "evaluated"
+domain = "Scientific (computer-science papers)"
 licence = "CC BY-NC-SA 4.0 (data); MIT (scorer and baseline only)"
+licence_url = "https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md"
+licence_read_on = 2026-08-23
 vendorable = false
+contaminated = true
+contamination_reason = """
+The per-candidate-count breakdown has been read in full (docs/EVALUATION.md),
+and the August 2026 audit ran an ablation, a ceiling study and an abstention
+sweep against dev. Any figure from this corpus is a tuning figure.
+"""
 note = """
 CORRECTION. This entry previously said "MIT", and that was wrong. The repository
 root ships an MIT LICENSE, but its README narrows the grant: MIT covers "the
@@ -103,10 +198,209 @@ evaluation script and the baseline", while "the dataset provided for this shared
 task is licensed under CC BY-NC-SA 4.0". So the AD data carries exactly the same
 non-commercial share-alike terms as the SDU-22 data it was supposed to be a
 better alternative to. Fetch-only, benchmark use, never vendored, never
-committed.
+committed. Re-read from the terms on 2026-08-23 at the pinned URL above; the
+sentence is unchanged.
 
 Role is "tuning" rather than "held_out" because its per-candidate-count
-breakdown has now been read (docs/EVALUATION.md). test.json is fetchable from the
-same pin and is deliberately NOT fetched, so a genuinely blind split remains
-available for anyone who improves the disambiguator.
+breakdown has now been read (docs/EVALUATION.md). test.json is fetchable from
+the same pin and is deliberately NOT fetched, so a genuinely blind split
+remains available for anyone who improves the disambiguator. IT CAN BE SPENT
+ONCE. It is reserved for confirming a shipped abstention policy and is not
+available for a sanity check, a curiosity or a second look.
 """
+
+# ---------------------------------------------------------------------------
+# SDU@AAAI-22 AE -- registered 2026-08-23, and it does NOT close the held-out gap
+# ---------------------------------------------------------------------------
+# The project's first non-biomedical annotated corpus, and the temptation is to
+# read that as "held-out evidence at last". It is not, for two independent
+# reasons, and both are recorded on each entry below:
+#
+#   1. Both English test splits carry ZERO labels. Verified live 2026-08-23:
+#      legal/test.json is 446 samples and 0 labelled; scientific/test.json is
+#      498 samples and 0 labelled. The labels stayed on the CodaLab server. So
+#      there is no blind split here to spend, only train and dev.
+#
+#   2. The dev splits are already contaminated. The August 2026 audit
+#      decomposed their misses by legend separator -- 669 gold long forms, 263
+#      missed, `{'=': 127, ':': 4}` on legal -- which is the same act that
+#      contaminated MED1250. A corpus whose miss taxonomy has been read cannot
+#      adjudicate anything blind, and pretending otherwise a week after the
+#      audit said so would be remarkable.
+#
+# The train splits are unread and are the only honest blind arm this corpus
+# offers. They are recorded as such rather than promoted to `role = "held_out"`,
+# because the corpus is one artefact and the roles are declared per corpus.
+#
+# THE DOMAIN LABEL IS THE CORPUS'S WORD, NOT A DESCRIPTION. See below.
+
+[corpora.sdu22_ae_legal]
+role = "tuning"
+task = "span_detection"
+status = "registered; reader in bench/corpora.py; not yet scored through a runner"
+# The corpus calls this split "legal". It is not legal text, and the field
+# below says what it actually is. See `domain_finding`.
+domain = "Institutional and development-policy prose (United Nations system)"
+licence = "CC BY-NC-SA 4.0 (data); MIT (scorer and baseline only)"
+licence_url = "https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md"
+licence_read_on = 2026-08-23
+vendorable = false
+contaminated = true
+contamination_reason = """
+The August 2026 audit decomposed this split's misses by legend separator over
+the 30 characters preceding each gold long-form span (669 gold long forms, 263
+missed, legend matches {'=': 127, ':': 4}) and used the result to rank a recall
+proposal. Reading a miss taxonomy is exactly what made MED1250 a tuning split.
+Only `train.json` is unread.
+"""
+shortform_recall_ceiling_pct = 55.15
+shortform_recall_ceiling_basis = """
+Gold long-form spans divided by gold acronym spans, on dev: 669 / 1,213 =
+55.15%. Re-derived live from the pinned commit on 2026-08-23, not copied from
+the audit page.
+
+WHAT IT IS. This corpus annotates every acronym OCCURRENCE, while acronymkit
+reports only DEFINED PAIRS -- and every pair it emits carries exactly one long
+form. The corpus records 669 definitions against 1,213 tagged acronym
+occurrences, so an extractor whose emitted definitions are exactly the annotated
+ones scores 55.15% short-form recall and no more.
+
+AND WHAT IT IS NOT -- READ THIS BEFORE QUOTING IT. It is NOT a hard bound, and
+saying so would be this project's own recorded mistake repeated. `41.53` was
+published as "the ceiling of the feature set" and the same run exceeded it four
+times; the August 2026 audit killed the word and kept the finding. The same
+discipline applies here.
+
+The escape route is real and it is large. 551 of the 1,213 gold acronym spans in
+this split (45.42%) are in excess of the definitions their own sample records --
+18 of them sit in samples with ZERO annotated long forms. An extractor can reach
+any of those by emitting a definition the annotators did not mark: the acronym
+span still scores as a short-form true positive, because short forms and long
+forms are scored separately by the task's own scorer.
+
+So the exact statement is: **every point of short-form recall above 55.15% here
+is bought by emitting a definition this corpus does not annotate, which is paid
+for in long-form precision.** That is decisive enough without being false --
+long-form precision is what this library is for -- and it is the sentence that
+belongs beside a recall figure, not the word "cannot".
+
+IT DECOMPOSES, which is why it is corpus structure and not sample noise:
+  legal train   5,246 / 9,532 = 55.04%
+  legal dev       669 / 1,213 = 55.15%
+Eleven hundredths of a point apart across a 7.9x change in sample size.
+
+PRINT THIS BESIDE ANY RECALL FIGURE FROM THIS CORPUS. The August 2026 audit
+measured short-form recall 37.76% here -- UN-GATED, from a scratch runner, NOT
+in bench/results.json, and re-run it before building on it. Against 55.15% that
+is 68.5% of what an annotation-matching extractor reaches, and quoting the raw
+37.76 beside a biomedical figure measured on a pair corpus with no such
+structure compares two different quantities.
+
+The 55.15% itself is a COUNT OVER THE CORPUS, not a measurement of this library,
+which is why it lives here rather than in bench/results.json. bench/corpora.py's
+`sdu22_ae_recall_ceiling` recomputes it from the fetched files, so it is
+checkable. Any acronymkit RECALL figure on this corpus is a different thing and
+must go through a bench runner's --save before it is published anywhere.
+"""
+domain_finding = """
+THE DOMAIN LABEL IS A FINDING, NOT A DESCRIPTION, AND THIS IS THE PLOD MISTAKE
+WAITING TO BE MADE AGAIN. "Legal" is the corpus's own folder name. The text is
+not legal text.
+
+Verified 2026-08-23 by counting term occurrences across all 445 dev samples:
+
+    "United Nations"   151 samples      statute       0 samples
+    Committee           46              plaintiff     0
+    environment         30              defendant     0
+    Secretariat         23              tribunal      0
+    Convention          19              litigation    0
+    UNECE                8              judgment      0
+    UNEP                 6              court         2
+
+Zero occurrences of six of the most basic terms of legal practice, in a corpus
+split named "legal", against 151 samples naming the United Nations.
+
+IT DECOMPOSES, and it has a clean control. On train -- 3,564 samples, eight
+times the dev sample -- the same ratio holds: "United Nations" 1,261 samples
+(35.4%), against plaintiff 0, litigation 0, defendant 0, judgment 2, statute 10,
+tribunal 20, court 27 (each under 0.8%). So it is a property of the split, not a
+small-sample artifact. And the term is not a corpus-wide quirk: in the
+"scientific" dev split, "United Nations" appears in ZERO of 497 samples. The two
+splits really are different text; the "legal" one is simply not legal. A random
+sample of twelve returns UNISDR/UNCCD drought and sand-storm coordination,
+UNECE livestock statistics, Committee on the Rights of the Child country
+reporting, an FAO forest resources assessment, UNCTAD working party procedure,
+WFP emergency response, and IOC Law of the Sea advisory work. One sample is
+outright biomedical ("DNA synthesis in tubular segments ... immunostaining with
+bromodeoxyuridine").
+
+CALLING THIS LEGAL-DOMAIN EVIDENCE WOULD REPEAT THE PLOD MISTAKE DELIBERATELY.
+[corpora.plod] above records what that cost: a corpus was filed as a
+"non-biomedical counterweight" on the strength of its name, cited as
+domain-generalisation evidence in two documents, and had to be corrected in
+three. This corpus is institutional and development-policy prose. It is a
+genuinely different genre from MEDLINE and that is worth having -- it is just
+not the legal domain, and the domain-generalisation gap stays open.
+"""
+
+[corpora.sdu22_ae_scientific]
+role = "tuning"
+task = "span_detection"
+status = "registered; reader in bench/corpora.py; not yet scored through a runner"
+domain = "Scientific (mixed-discipline papers)"
+licence = "CC BY-NC-SA 4.0 (data); MIT (scorer and baseline only)"
+licence_url = "https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md"
+licence_read_on = 2026-08-23
+vendorable = false
+contaminated = true
+contamination_reason = """
+Same audit pass as the legal split: dev misses were decomposed by legend
+separator (720 gold long forms, 230 missed, legend matches {'=': 102, ':': 13})
+and the result was used to rank a recall proposal. Only `train.json` is unread.
+"""
+shortform_recall_ceiling_pct = 74.23
+shortform_recall_ceiling_basis = """
+Gold long-form spans divided by gold acronym spans, on dev: 720 / 970 = 74.23%.
+Re-derived live from the pinned commit on 2026-08-23. Same mechanism as
+[corpora.sdu22_ae_legal], and the same caveat: it is where an extractor whose
+definitions match the annotation lands, NOT a bound. 265 of the 970 gold acronym
+spans here (27.32%) exceed the definitions their own sample records, and any of
+them can be recalled by emitting a definition the corpus does not annotate.
+Every point above 74.23% is bought in long-form precision.
+
+It decomposes the same way:
+  scientific train   5,715 / 7,689 = 74.33%
+  scientific dev       720 /   970 = 74.23%
+
+The August 2026 audit measured short-form recall 57.84% here -- UN-GATED, from a
+scratch runner, NOT in bench/results.json -- which is 77.9% of 74.23%. Against
+the legal split's 68.5% of 55.15%, the two are far closer to each other than
+their raw recalls (57.84 vs 37.76) suggest: MOST OF THE APPARENT DOMAIN GAP
+BETWEEN THESE TWO SPLITS IS ANNOTATION DENSITY, NOT EXTRACTOR BEHAVIOUR. Quoting
+the raw pair as domain evidence would attribute to the text a difference that
+lives in how the two splits were annotated. Re-run both through a bench runner
+with --save before publishing either.
+"""
+
+# ---------------------------------------------------------------------------
+# LICENCE NOTE COVERING BOTH SDU@AAAI-22 AE ENTRIES
+# ---------------------------------------------------------------------------
+# Read from the terms on 2026-08-23. The README's "# Licenses" section reads,
+# verbatim: "The dataset provided for this shared task is licensed under
+# CC BY-NC-SA 4.0 international license, and the evaluation script and the
+# baseline are licensed under MIT license."
+#
+# THE BADGE SAYS OTHERWISE, AGAIN. api.github.com/repos/amirveyseh/
+# AAAI-22-SDU-shared-task-1-AE returned, live on 2026-08-23:
+#
+#     "license": {"key": "mit", "spdx_id": "MIT", "name": "MIT License"}
+#
+# because the repository root ships an MIT LICENSE file covering the scorer and
+# the baseline. That is the third repository in this project's registry whose
+# machine-readable licence field is wrong about its own data, after both SDU-21
+# repositories. `tools/splits.py` rejects an `api.github.com/.../license` URL as
+# a `licence_url` for exactly this reason.
+#
+# Non-commercial plus share-alike: fetch-only, benchmark use, never vendored,
+# never committed. Asset entries are in tools/fetch_data.py under the keys
+# `sdu22-ae-*`.

@@ -1053,10 +1053,19 @@ licence mix, 30,546-article sample of the two smallest ranges
 Four things stand between that and a shipped prior, in order of how likely each is to stop it:
 
 1. **The output must fit the wheel, and that is the binding constraint** — not the licence, not the
-   compute. Headroom today is 113,269 bytes and SDU-21's own candidate dictionary is 76,910 bytes for
-   732 acronyms, so a prior scoped to a comparable inventory fits and a general one does not. A prior
-   that ships is therefore a prior that has already decided which acronyms it covers, and nobody has
-   proposed how.
+   compute. Headroom is 220,702 bytes: the wheel measures 565,730 bytes against the 786,432-byte
+   `BUDGET_BYTES` in `ci.yml`, re-derived from `python -m build --wheel` on 2026-08-23. SDU-21's own
+   candidate dictionary is 76,910 bytes for 732 acronyms, so a prior scoped to a comparable
+   inventory fits and a general one does not. A prior that ships is therefore a prior that has
+   already decided which acronyms it covers, and nobody has proposed how.
+
+   *This paragraph previously read "Headroom today is 113,269 bytes". That figure was derived under
+   the 524,288-byte budget, which `ci.yml` replaced, and two independent auditors re-quoted it as
+   current — which is how a stale number in a decision record does its damage. The conclusion above
+   is unchanged, because 455 MB of PMC-derived counts clears either figure by four orders of
+   magnitude. `ci.yml` now computes and prints headroom on every run rather than recording it in a
+   comment, so the same drift cannot recur silently, and `tools/check_claims.py` no longer admits a
+   new number backed only by the fact that some measurement happens to equal it.*
 2. **The compute is not measured.** 80 GB, once, by a maintainer, with our own Schwartz & Hearst
    matcher run over full texts rather than abstracts. Nobody has timed that, so it is recorded as
    untimed rather than guessed at. It is not what would stop this.
@@ -1192,14 +1201,19 @@ actually ship in the wheel.
 
 ### Costs and limits
 
-The wheel is 411,019 bytes of the 524,288-byte budget (78.4 %), leaving 113,269 bytes; the new
-resource is 34,096 bytes on disk and costs 3,779 compressed. The figures in the two code blocks above
+At the time of this decision the wheel was 411,019 bytes of the then 524,288-byte budget (78.4 %),
+leaving 113,269 bytes; the new resource is 34,096 bytes on disk and costs 3,779 compressed. The
+figures in the two code blocks above
 are **not** in `bench/results.json` — no bench runner writes them — so they live here and in
 `data/LICENSES.md` and nowhere a claims gate can check them. If they should become citable, a runner
 has to be written. And `tools/build_reliability_table.py --check` is not wired into CI, because the
 check needs a fetched MED1250 and the `resources` job fetches no corpora; today only a maintainer
 running it locally catches a hand-edited resource, while `tests/test_pseudo_precision.py` carries the
 weaker corpus-free half.
+
+*The first three figures in that paragraph are history and are marked as such, because the 113,269
+was re-quoted as current by two auditors — from here and from D-020. Re-derived 2026-08-23: the
+budget is 786,432 bytes, the wheel 565,730, so headroom is 220,702.*
 
 ---
 

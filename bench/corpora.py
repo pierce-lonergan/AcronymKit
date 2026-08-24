@@ -7,19 +7,153 @@ looking at — and so adding a corpus is a reader, not a new evaluation.
 
 Corpora are fetched by ``tools/fetch_data.py`` into the git-ignored ``data/``
 directory. Nothing here is imported by the library.
+
+Every reader is bound to a declaration
+--------------------------------------
+``bench/splits.toml`` says what each corpus may be used for. For months nothing
+read that file — eleven citations, all prose — and it had silently been invalid
+TOML the whole time. This module is now one of its readers: every entry in
+:data:`DECLARED_AS` names the manifest corpus a reader draws from, and
+:func:`declaration` resolves it through ``tools/splits.py``.
+
+That binding is what makes the manifest load-bearing rather than decorative. A
+reader registered for a corpus nobody declared fails here, at the point the
+corpus is loaded, instead of quietly producing a number that is exempt from the
+train/test rule because nobody wrote the rule down for it.
 """
 
 from __future__ import annotations
 
 import functools
+import importlib.util
 import json
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import ModuleType
 from typing import Callable, Iterator, Optional, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "data"
+
+# ---------------------------------------------------------------------------
+# the manifest
+# ---------------------------------------------------------------------------
+#: Reader registry name -> the ``[corpora.<name>]`` table it draws from. The
+#: two namespaces are deliberately not merged: a reader name encodes a split and
+#: a detokenisation style (``plod_cw_test_spaced``), while a manifest name
+#: identifies the *corpus*, which is the thing a licence and a role attach to.
+#: Four PLOD readers share one declaration because they share one licence and
+#: one contamination story.
+DECLARED_AS = {
+    "med1250": "med1250",
+    "plod_cw": "plod",
+    "plod_cw_test": "plod",
+    "plod_cw_all": "plod",
+    "plod_cw_test_spaced": "plod",
+    "plod_cw_all_spaced": "plod",
+    "sdu21_ad": "sdu21_ad",
+    "sdu22_ae_legal": "sdu22_ae_legal",
+    "sdu22_ae_scientific": "sdu22_ae_scientific",
+}
+
+_SPLITS_TOOL = REPO_ROOT / "tools" / "splits.py"
+
+
+@functools.lru_cache(maxsize=1)
+def _splits_module() -> Optional[ModuleType]:
+    """Import ``tools/splits.py`` by path, or ``None`` if it cannot be read.
+
+    By path, and not as ``tools.splits``, because ``tools/`` is a directory of
+    scripts and must not become a package — the same reasoning
+    ``tests/test_check_claims.py`` records for ``check_claims.py``. Importing a
+    thing differently for the convenience of a caller changes the shape of the
+    thing.
+    """
+    if not _SPLITS_TOOL.is_file():  # pragma: no cover - not a source checkout
+        return None
+    spec = importlib.util.spec_from_file_location("_acronymkit_bench_splits", _SPLITS_TOOL)
+    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+        return None
+    module = importlib.util.module_from_spec(spec)
+    # Registered before execution, not after: ``@dataclass`` resolves a field's
+    # annotations through ``sys.modules[cls.__module__]`` while the class body
+    # is still running, so a by-path import that skips this step dies on the
+    # first dataclass in the file with an unrelated-looking AttributeError.
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@functools.lru_cache(maxsize=1)
+def _manifest() -> Optional[object]:
+    """The parsed manifest, or ``None`` when this interpreter cannot parse TOML.
+
+    The distinction matters and is why this returns ``None`` rather than
+    raising. "The manifest says this corpus is undeclared" is a rule violation
+    and must stop the run. "This interpreter has no TOML parser" (3.9 and 3.10,
+    where ``tomllib`` does not exist and ``tomli`` is not a declared dev
+    dependency) is an *environment* limitation, and turning it into a hard
+    failure would break every bench runner on the interpreters this package
+    still supports, to enforce a rule the environment simply cannot check.
+    """
+    module = _splits_module()
+    if module is None:  # pragma: no cover - not a source checkout
+        return None
+    try:
+        return module.load()
+    except module.SplitsError as error:  # pragma: no cover - 3.9/3.10 or a broken file
+        print(f"bench.corpora: cannot read bench/splits.toml ({error})", file=sys.stderr)
+        return None
+
+
+def declaration(name: str) -> Optional[object]:
+    """What ``bench/splits.toml`` declares about the corpus a reader draws from.
+
+    Args:
+        name: A reader registry name, e.g. ``"plod_cw_test"``, or a manifest
+            corpus name directly.
+
+    Returns:
+        The ``tools.splits.Corpus`` for it, or ``None`` when the manifest could
+        not be parsed on this interpreter. Callers that need the declaration
+        rather than merely preferring it should say so:
+        ``corpus = declaration(name); assert corpus is not None``.
+
+    Raises:
+        SystemExit: If the manifest parsed and does not declare this corpus.
+            That is the rule being enforced, not an accident: a corpus measured
+            but never declared is exempt from the train/test rule by omission,
+            which is the whole failure ``bench/splits.toml`` exists to prevent.
+    """
+    manifest = _manifest()
+    if manifest is None:
+        return None
+    module = _splits_module()
+    assert module is not None
+    target = DECLARED_AS.get(name, name)
+    try:
+        return manifest.corpus(target)  # type: ignore[attr-defined]
+    except module.SplitsError as error:
+        raise SystemExit(
+            f"corpus {name!r} maps to {target!r}, which bench/splits.toml does not declare.\n"
+            f"  {error}\n"
+            "Add a [corpora.<name>] table with role, task, licence, licence_url and "
+            "licence_read_on before measuring anything on it."
+        ) from error
+
+
+def label_for(name: str) -> str:
+    """The label every figure from this corpus must carry, per the manifest.
+
+    A runner that prints "tuning split" in its header is making a claim about
+    ``bench/splits.toml``; asking the manifest turns that claim into a lookup.
+    """
+    corpus = declaration(name)
+    if corpus is None:
+        return "unlabelled (bench/splits.toml unreadable on this interpreter)"
+    return corpus.label()  # type: ignore[attr-defined]
 
 
 @dataclass(frozen=True)
@@ -620,6 +754,231 @@ def read_plod_cw_text(split: str = "test", style: str = "tight") -> list[GoldDoc
 
 
 # ---------------------------------------------------------------------------
+# SDU@AAAI-22 AE — character-offset span detection over running text
+# ---------------------------------------------------------------------------
+#
+# The project's first corpus that is neither MEDLINE nor PLOS, and the first
+# that ships *running text* with character offsets rather than tokens. That
+# removes the largest arbitrary choice in the PLOD harness — there is nothing to
+# detokenise, so no reconstruction sits inside the number.
+#
+# Record format, per the README, a JSON list of::
+#
+#     {"text": "... United Nations Development Programme (UNDP) ...",
+#      "acronyms":   [[136, 140]],     <- character offsets
+#      "long-forms": [[98, 134]],
+#      "ID": "TR-0"}
+#
+# TWO THINGS THE README SAYS ABOUT THIS FORMAT ARE WRONG, and both are the kind
+# of quiet harness bug that moves an F1 without failing anything.
+#
+# 1. **The offsets are half-open, not inclusive.** The README says each tuple
+#    holds "the index of the first and last character". Taken literally that
+#    means ``text[start:end + 1]``, and it appends a trailing character to every
+#    single span. Measured across all four labelled English splits (14,778 +
+#    1,882 + 13,404 + 1,690 = 31,754 gold spans):
+#
+#        text[start:end]      ends on an alphanumeric   95.8 % - 99.3 %
+#        text[start:end + 1]  ends on an alphanumeric    0.7 % -  1.9 %
+#
+#    and the character sitting at index ``end`` is a space (8,045 times in legal
+#    train), a closing bracket (4,657), a comma, a semicolon or a slash. So
+#    ``UNDP`` reads as ``UNDP)`` and ``Economic Commission for Latin America and
+#    the Caribbean`` gains a trailing space. This reader uses ``text[a:b]``.
+#
+# 2. **The id key is ``ID``, not ``id``.** The README documents "id: The unique
+#    ID of the sample"; the files ship ``"ID"``. The task's own ``scorer.py``
+#    reads ``d['ID']``, so the data is right and the prose is wrong.
+#
+# Neither error can be caught by the official scorer, and that is the point:
+# ``scorer.py`` never opens the text. It compares ``"<index>#<start>-<end>"``
+# strings between two JSON files, so a reader that misreads the convention
+# scores perfectly against itself and mis-scores against everything else. The
+# MED1250 record-boundary bug had the same shape.
+#
+# ROLE. Both splits are declared ``role = "tuning"`` and ``contaminated = true``
+# in bench/splits.toml. The August 2026 audit decomposed their *dev* misses by
+# legend separator and ranked a recall proposal on the result, which is exactly
+# what made MED1250 a tuning split. Only ``train`` is unread.
+#
+# THE TEST SPLITS ARE UNLABELLED. Both were checked on 2026-08-23: legal/test
+# is 446 samples with 0 labels, scientific/test is 498 samples with 0 labels.
+# They are deliberately not in the fetch registry, so nothing here can read
+# them and mistake an empty gold set for a hard one.
+
+SDU22_AE_DOMAINS = ("legal", "scientific")
+
+#: Splits with labels. ``test`` is excluded on purpose; see above.
+SDU22_AE_SPLITS = ("train", "dev")
+
+
+@dataclass(frozen=True)
+class CharSpanDocument:
+    """One passage with its annotated spans as character offsets.
+
+    Deliberately neither :class:`GoldDocument` (which promises ``pairs``, and
+    this corpus has none) nor :class:`SpanDocument` (whose spans are *token*
+    indices over a token list this corpus does not ship). Widening either would
+    let a runner consume this corpus and report a number that means nothing,
+    which is the trap :func:`read_plod_cw_text` already documents.
+
+    Attributes:
+        uid: The corpus-native ``ID``, used as the prediction key exactly as
+            the shared task's own scorer does.
+        identifier: Same value, kept for display symmetry with the other types.
+        text: The passage, as running prose. No reconstruction is involved.
+        short_form_spans: Half-open ``(start, end)`` character offsets tagged
+            as acronyms.
+        long_form_spans: The same for long forms.
+    """
+
+    uid: str
+    identifier: str
+    text: str
+    short_form_spans: tuple[tuple[int, int], ...] = field(default_factory=tuple)
+    long_form_spans: tuple[tuple[int, int], ...] = field(default_factory=tuple)
+
+    def short_forms(self) -> tuple[str, ...]:
+        """The annotated acronym surfaces, sliced with the half-open convention."""
+        return tuple(self.text[start:end] for start, end in self.short_form_spans)
+
+    def long_forms(self) -> tuple[str, ...]:
+        """The annotated long-form surfaces, sliced with the half-open convention."""
+        return tuple(self.text[start:end] for start, end in self.long_form_spans)
+
+
+def _sdu22_ae_source(path: Optional[Path], domain: str, split: str) -> Path:
+    """Resolve and check the file backing one (domain, split)."""
+    if domain not in SDU22_AE_DOMAINS:
+        raise SystemExit(f"unknown SDU22-AE domain {domain!r}; known: {list(SDU22_AE_DOMAINS)}")
+    if split not in SDU22_AE_SPLITS:
+        raise SystemExit(
+            f"unknown SDU22-AE split {split!r}; known: {list(SDU22_AE_SPLITS)}. "
+            "test.json exists upstream and carries ZERO labels (446 and 498 samples, "
+            "0 labelled), so it is not registered and cannot be read here."
+        )
+    source = path or (DATA_DIR / f"sdu22_ae_{domain}_{split}.json")
+    if not source.is_file():
+        raise SystemExit(
+            f"missing {source}\nRun: python tools/fetch_data.py sdu22-ae-{domain}-{split}"
+        )
+    return source
+
+
+def _sdu22_ae_spans(
+    record: dict, key: str, text: str, uid: str, source: Path
+) -> tuple[tuple[int, int], ...]:
+    """Read one span list, enforcing the half-open convention's own bounds.
+
+    ``0 <= start < end <= len(text)`` is exactly the half-open reading. Under
+    the README's literal inclusive reading the last span of a passage ending on
+    its annotation would have ``end == len(text)`` and slice one character past
+    the string, so this bound is also the assertion that the convention is
+    right -- and it holds across all 31,754 gold spans in the four labelled
+    English splits.
+    """
+    out: list[tuple[int, int]] = []
+    for pair in record.get(key) or []:
+        start, end = int(pair[0]), int(pair[1])
+        if not 0 <= start < end <= len(text):
+            raise SystemExit(
+                f"{source}: sample {uid!r} has {key} span ({start}, {end}) "
+                f"outside a {len(text)}-character text"
+            )
+        out.append((start, end))
+    return tuple(out)
+
+
+def read_sdu22_ae(
+    path: Optional[Path] = None, domain: str = "legal", split: str = "dev"
+) -> list[CharSpanDocument]:
+    """Parse an SDU@AAAI-22 AE English split into span-annotated passages.
+
+    Args:
+        path: Override the default ``data/sdu22_ae_<domain>_<split>.json``.
+        domain: One of :data:`SDU22_AE_DOMAINS`. ``"legal"`` is the corpus's own
+            word and is not a description of the text — see
+            ``bench/splits.toml``, ``[corpora.sdu22_ae_legal].domain_finding``.
+        split: One of :data:`SDU22_AE_SPLITS`.
+
+    Returns:
+        One :class:`CharSpanDocument` per sample, in file order. Unlabelled
+        samples (10 in legal train, 1 in legal dev, 1 in scientific train) are
+        kept with empty span tuples rather than dropped: they are real passages
+        an extractor is scored on, and dropping them would inflate precision.
+
+    Raises:
+        SystemExit: For an unknown domain or split, a missing file, or a record
+            that is not the shape the format specifies.
+    """
+    declaration(f"sdu22_ae_{domain}")
+    source = _sdu22_ae_source(path, domain, split)
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise SystemExit(
+            f"{source} should hold a JSON list of samples, got {type(payload).__name__}"
+        )
+
+    documents: list[CharSpanDocument] = []
+    for position, record in enumerate(payload):
+        text = str(record["text"])
+        # "ID", not "id". The README documents the lower-case spelling and the
+        # files ship the upper-case one; scorer.py reads d['ID'].
+        uid = str(record.get("ID", record.get("id", f"{domain}-{split}-{position}")))
+        documents.append(
+            CharSpanDocument(
+                uid=uid,
+                identifier=uid,
+                text=text,
+                short_form_spans=_sdu22_ae_spans(record, "acronyms", text, uid, source),
+                long_form_spans=_sdu22_ae_spans(record, "long-forms", text, uid, source),
+            )
+        )
+    return documents
+
+
+def sdu22_ae_recall_ceiling(documents: Sequence[CharSpanDocument]) -> dict:
+    """Where short-form recall lands for an extractor that emits the annotated definitions.
+
+    This corpus annotates every acronym **occurrence**; acronymkit reports only
+    **defined pairs**, and every pair it emits carries exactly one long form. So
+    an extractor whose emitted definitions are exactly the annotated ones scores
+    ``long_form_spans / short_form_spans`` and no more.
+
+    **It is not a hard bound, and calling it one would be this project's own
+    recorded mistake.** ``41.53`` shipped as "the ceiling of the feature set"
+    and was exceeded four times in the run that published it. Here the escape
+    route is emitting a definition the annotators did not mark: the acronym span
+    still counts as a short-form true positive, because the task's scorer scores
+    short and long forms separately. On the dev splits, 45.4 % (legal) and
+    27.3 % (scientific) of gold acronym spans exceed the definitions their own
+    sample records, so the route is wide open.
+
+    The honest statement, and the one to print beside a recall figure: **every
+    point above this number is bought by emitting a definition the corpus does
+    not annotate, and paid for in long-form precision.**
+
+    It is computed here, from the data, rather than quoted, so the figure
+    recorded on the ``bench/splits.toml`` entry is checkable rather than
+    asserted. R9.6 requires it to appear in the same table as any recall figure
+    from this corpus; this is what produces it.
+
+    Args:
+        documents: A parsed split.
+
+    Returns:
+        ``{"gold_short_form_spans", "gold_long_form_spans", "ceiling_pct"}``.
+    """
+    shorts = sum(len(document.short_form_spans) for document in documents)
+    longs = sum(len(document.long_form_spans) for document in documents)
+    return {
+        "gold_short_form_spans": shorts,
+        "gold_long_form_spans": longs,
+        "ceiling_pct": round(longs / shorts * 100, 2) if shorts else 0.0,
+    }
+
+
+# ---------------------------------------------------------------------------
 # registry
 # ---------------------------------------------------------------------------
 READERS: dict[str, Callable[[], list[GoldDocument]]] = {"med1250": read_med1250}
@@ -643,9 +1002,30 @@ DISAMBIGUATION_READERS = {"sdu21_ad": read_sdu21_ad}
 #: has spans and no pairs.
 SPAN_READERS = {"plod_cw": read_plod_cw}
 
+#: Character-offset span corpora. A fourth registry rather than a widening of
+#: :data:`SPAN_READERS`, because ``CharSpanDocument`` carries offsets into real
+#: text while ``SpanDocument`` carries token indices into a token list. Mixing
+#: them would let a consumer index one with the other's numbers.
+#:
+#: Keyed per *domain* rather than by a single ``sdu22_ae`` family name, so every
+#: key in every registry here is a name :data:`DECLARED_AS` resolves. A family
+#: key would have been the one entry in this module for which ``label_for`` had
+#: no answer — and a corpus whose role cannot be looked up is the exact gap the
+#: manifest exists to close.
+CHAR_SPAN_READERS = {
+    "sdu22_ae_legal": functools.partial(read_sdu22_ae, domain="legal"),
+    "sdu22_ae_scientific": functools.partial(read_sdu22_ae, domain="scientific"),
+}
+
 
 def load(name: str) -> list[GoldDocument]:
-    """Load a corpus by registry name.
+    """Load a corpus by registry name, after checking it is declared.
+
+    The declaration lookup is not a formality. ``bench/splits.toml`` is where a
+    corpus says whether its figures are tuning figures and whether its licence
+    permits anything beyond measurement, and for months nothing read it. Doing
+    the lookup *here* means the rule is checked at the moment the corpus is
+    opened, which is the last point before a number exists.
 
     Args:
         name: Key in :data:`READERS`.
@@ -654,10 +1034,12 @@ def load(name: str) -> list[GoldDocument]:
         The normalised documents.
 
     Raises:
-        SystemExit: For an unknown corpus name.
+        SystemExit: For an unknown corpus name, or for a corpus that
+            ``bench/splits.toml`` does not declare.
     """
     if name not in READERS:
         raise SystemExit(f"unknown corpus {name!r}; known: {sorted(READERS)}")
+    declaration(name)
     return READERS[name]()
 
 
