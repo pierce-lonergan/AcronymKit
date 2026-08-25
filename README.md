@@ -6,11 +6,14 @@
 [![Typed](https://img.shields.io/badge/typing-py.typed-informational)](https://peps.python.org/pep-0561/)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/pierce-lonergan/AcronymKit/badge)](https://scorecard.dev/viewer/?uri=github.com/pierce-lonergan/AcronymKit)
 
-**Bi-directional, multi-tiered acronym processing for production systems.**
-Expand governed schema identifiers against a catalog you supply, generate acronyms from text,
-synthesise backronyms, extract abbreviations already defined in a document, and resolve ambiguous
-ones from context — from one typed library with a Tier 0 path that needs nothing but the standard
-library.
+**A governance instrument for names somebody else owns.**
+Expand governed schema identifiers against a catalog you supply, and report what the catalog cannot
+account for as *unknown* rather than approximating it. Generation, backronym synthesis, extraction
+and contextual disambiguation ship in the same typed library, are measured beside it wherever they
+can be measured at all, and do not lead.
+
+**[What this library is for](docs/POSITIONING.md)** — the commitment, what it costs, the two
+questions this project cannot answer at all, and what would reverse the decision.
 
 ```python
 from acronymkit.governed import GovernedNamer
@@ -20,10 +23,15 @@ nds.expand_identifier("TXN_APPLNT_ID").phrase        # 'Transaction Applicant Id
 nds.expand_identifier("TXN_KYC_ID").is_fully_known   # False — the catalog has no KYC
 ```
 
-**Governed naming leads this README because it is the larger half of the package and the one with a
-real integration story**: a little over a third of the source, close to half the public symbols,
-seven of the sixteen CLI commands, and a streaming batch mode another runtime can drive. It is also
-now measured, and it publishes its worst row beside its headline. Against
+**Governed naming leads this README for two reasons, and neither is that it is the larger half of the
+package.** It leads because nothing in the ecosystem table below addresses it — a bare column token,
+a catalog somebody else owns, and a requirement to refuse rather than guess — so it is the one thing
+here that no row of that table is aimed at. And it leads because it is the half the refuse-to-guess
+property is *about*: everywhere else in this package refusing is a tuning knob, and here it is the
+design. "It is bigger" was the reason this sentence used to give, and size is not an argument for
+anything.
+
+It is measured, and it publishes its worst row beside its headline. Against
 26,536<!--claim:governed_gold.socrata.columns.all.pairs:,--> Socrata field/caption pairs written by
 the publishers themselves, it cuts the identifier exactly where the human did on
 91.37<!--claim:governed_gold.socrata.columns.all.exact_pct:.2f--> % of them — and on the
@@ -31,6 +39,17 @@ the publishers themselves, it cuts the identifier exactly where the human did on
 all, on 34.93<!--claim:governed_gold.socrata.columns.unmarked.exact_pct:.2f--> %. That second number
 is the price of refusing to guess, and it is in the same table as the first, along with the SEC arms
 and the recall ceiling: [docs/EVALUATION.md](docs/EVALUATION.md).
+
+**What that number does not cover, stated here rather than one link away.** It measures *cut
+placement* — where the identifier is divided — through the public entry point with an **empty**
+catalog, and the empty catalog is forced by the metric rather than chosen: a populated one rewrites
+`TXN` to `Transaction`, which changes the character stream both strings have to share. So catalog
+resolution, class-word detection, compliance and naming are **not** in it. Those are lookups against
+data you supply; this is the judgement the package makes on its own, which is the only part of it we
+can put a number on without your catalog. `bench/run_governed_gold.py` says so at length and has
+since it was written — it is repeated here because this is the figure the rest of this README now
+leans on, and a scope disclosure that lives only in the runner is a scope disclosure the reader of
+the front page does not get.
 
 **Generation is measured, and nothing else measures it.** Fed the
 1,221<!--claim:generation.med1250.strict_initialism.gold_pairs:,--> human-authored
@@ -42,13 +61,18 @@ generator can address, and within the top 25 for
 89.7<!--claim:generation.med1250.strict_initialism.initialism_recall_at_25:.1f--> %. MED1250 is a
 **tuning split**. No competing library has a number here, because no competing library generates.
 
-Extraction is measured too, against four other systems through one harness: precision
-92.46<!--claim:extraction.med1250.acronymkit.exact_precision:.2f--> %, recall 77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f--> %, F1 **84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> %**. We are third of five there, and the table showing
-exactly that is in [docs/EVALUATION.md](docs/EVALUATION.md) — including where we lose.
+**Extraction is measured too, and it is a supporting number nobody optimises again.** Against four
+other systems through one harness: precision
+92.46<!--claim:extraction.med1250.acronymkit.exact_precision:.2f--> %, recall 77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f--> %, F1 **84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> %** — third of five, behind
+`pyab3p` at 88.87<!--claim:extraction.med1250.pyab3p.exact_f1:.2f--> and `abbreviation_extractor` at
+84.44<!--claim:extraction.med1250.abbreviation_extractor.exact_f1:.2f-->, both of which are compiled.
+Demoting it is not hiding it: the table showing exactly where it loses is in
+[docs/EVALUATION.md](docs/EVALUATION.md), and why this project stopped treating that figure as
+something to improve is in [docs/POSITIONING.md](docs/POSITIONING.md).
 
 ## Why
 
-The open-source acronym ecosystem is split in two, with nothing in between:
+Four kinds of tool exist in the open-source acronym ecosystem, and each stops somewhere:
 
 | | What it does well | Where it stops |
 |---|---|---|
@@ -57,12 +81,45 @@ The open-source acronym ecosystem is split in two, with nothing in between:
 | **Rule-based extractors** — Schwartz & Hearst (2003) in scispaCy, Blackstone | Few false positives on inline definitions, cheap | Strictly extractive; the definition must be present |
 | **Neural disambiguators** — AcroBERT, SDU/SciAD/GLADIS | Resolves standalone acronyms from context | GPU-bound, slow cold start, research codebases |
 
-A system that needs to *generate*, *extract* **and** *resolve* has to stitch three incompatible
-codebases together. `acronymkit` is the missing single library.
+**Nothing in that table addresses the governed case at all**: a bare column token with no sentence
+around it, a catalog somebody else owns, and a requirement to **refuse** rather than guess. That is
+the half of this package the rest of this README leads with, and it is the one acronym task here
+that the table above has no row for. This README used to conclude the table with "`acronymkit`
+is the missing single library", which is an argument about convenience, and convenience is not what
+this project has evidence for.
 
-Nothing in that table addresses the governed case at all: a bare column token with no sentence around
-it, a catalog somebody else owns, and a requirement to **refuse** rather than guess. That is the half
-of this package the rest of this README leads with.
+**And the third row is less plural than it looks.** Scored through one harness on PLOD-CW, five
+Schwartz & Hearst descendants at seven operating points turn out to be one algorithm — this library
+is the fifth of the five, and contributes three of the seven points. A single implementation — this
+library's `BIOMEDICAL` profile — accounts for
+93.55<!--claim:monoculture.plod_all.proposals.edges_sh_only.share_pct_acronymkit/biomedical:.2f--> %
+of everything the whole family proposes, and
+93.99<!--claim:monoculture.sdu22_scientific_dev.proposals.edges_sh_only.share_pct_acronymkit/biomedical:.2f--> %
+on SDU-22 scientific. All seven together reach
+57.65<!--claim:monoculture.plod_all.gold.long_form.overlap.class.sh_family_recall_pct:.2f--> % of
+PLOD's gold long-form spans, and
+34.98<!--claim:monoculture.plod_all.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form_pct_of_gold:.2f--> %
+of gold long forms go unreached **while cleanly alignable with a gold short form in the same
+passage** — not hard pairs, just pairs no bracket scanner offers. Adding the two proposers that make
+neither Schwartz & Hearst commitment — a trivial all-caps rule and `shapecue` — lifts family reach to
+79.60<!--claim:monoculture.plod_all.gold.long_form.overlap.class.all_proposers_recall_pct:.2f--> %.
+Run ids `monoculture.*`, decomposed in
+[docs/EVALUATION.md](docs/EVALUATION.md#the-extraction-monoculture-and-what-it-does-to-the-corpora).
+
+**The strong reading of that is confounded, and this README does not get to publish only the first
+half.** The tempting conclusion — that the benchmarks were drawn around the pool and therefore
+certify its blind spot — cannot be separated from **genre**. MED1250 is abstracts and PLOD is article
+body text; abstracts carry no figure legends and no table footnotes, which is exactly where the
+unproposed class lives. The control reads the same either way: on MED1250 the independent proposer's
+gain over gold is 0.00<!--claim:monoculture.med1250.gold.pairs.independent_gain_pct:.2f--> %, which
+is what provenance predicts and also what genre predicts. Separating them needs article body text
+whose gold was pooled from these systems, and nobody publishes one on purpose.
+
+So the argument for this library is not that it does more things than the rows above. It is that a
+system which reports what it cannot see is worth more, to somebody governing data, than one that
+reports a bigger number over the same blind spot. **That last step is a claim about users this
+project has never measured**, and [docs/POSITIONING.md](docs/POSITIONING.md) says so in its own
+words, along with what would reverse the decision.
 
 ## Install
 
@@ -526,6 +583,27 @@ python tools/fetch_data.py --verify      # re-check every checksum
   match falls to 34.93<!--claim:governed_gold.socrata.columns.unmarked.exact_pct:.2f--> % on Socrata
   and 0.75<!--claim:governed_gold.sec_xbrl.filer_extension.unmarked.exact_pct:.2f--> % on SEC filer
   extensions. Those rows ship in the same table as the headline, not beneath it.
+- **No catalog is in that figure, and no real governed catalog has ever been measured.**
+  `bench/run_governed_gold.py` scores every governed row through
+  `expand_identifier(identifier, GovernedDictionary({}))` — an **empty** catalog, which the corpus
+  admission rule forces, because a populated one would rewrite the identifier and the two strings
+  would stop sharing a character stream. So the number above is about the splitter with the catalog
+  switched off. Socrata captions and SEC filer extensions are **public substitutes** for a data
+  standard, not a standard anybody governs a schema with, and the one experiment that did build a
+  catalog — over real Socrata schemas, portal-disjoint — found it scoring no better than an empty
+  one. That is the standing unknown this project cannot close from inside itself, and it is
+  [reversal one](docs/POSITIONING.md#reversal-one-the-lead-is-wrong-if-a-catalog-is-worth-nothing-on-a-real-schema).
+- **Two of the four tasks the split manifest recognises have no corpus that could adjudicate them,
+  and that is a standing property rather than an emergency.**
+  `headline_capable('extraction')` and `headline_capable('disambiguation')` both return an empty
+  list, enforced in code and printed by `python tools/splits.py --check` on every run. Read "two"
+  with its denominator: `TASKS` holds four names, and **generation and backronym alignment are not
+  among them**, so for those two the question is never asked at all — their corpora are declared
+  tuning and contaminated, which is a weaker statement than an empty row and looks like a stronger
+  one. Filling the first needs a second adjudicator who
+  authored none of the pooled systems — a person, not an afternoon. Filling the second costs this
+  project its last blind split, which is already allocated elsewhere. Both are costed in
+  [docs/POSITIONING.md](docs/POSITIONING.md#the-two-rows-that-are-empty-and-what-filling-each-costs).
 - **Held-out evidence exists for span detection and for nothing else this README leads with.** PLOD
   and SDU@AAAI-21 AI are declared held out and uncontaminated in
   [`bench/splits.toml`](bench/splits.toml). MED1250 (extraction, generation) and SDU@AAAI-21 AD
@@ -577,12 +655,25 @@ python tools/fetch_data.py --verify      # re-check every checksum
   position fails the build. Both were injected to check it, and the test that pins the difference is
   `tests/test_claims_gate_coverage.py`. What the gate cannot recognise it
   **counts and publishes** rather than ignoring — `python tools/check_claims.py` prints the
-  unrecognised residue on every run, and `--residue` names it line by line. The structural counts above — share of the source, of the public symbols,
-  of the CLI commands — are not benchmark results; they are re-derived from the tree, and the
-  commands that derive them are in [docs/EVALUATION.md](docs/EVALUATION.md).
+  unrecognised residue on every run, and `--residue` names it line by line. **Three structural counts
+  are left in this README**, none of them a benchmark result and each re-derivable from the tree:
+  seven of the sixteen CLI commands read a governed vocabulary (`acronymkit --help`); the bundled
+  English lexicon's entry count (`grep -cv '^#\|^$' src/acronymkit/resources/lexicon_en.txt`); and
+  the size of the textbook-initialism corpus the default preset reproduces
+  (`len(conftest.CANONICAL_ACRONYMS)`). **The claims gate arms none of the three**, so none of them
+  would turn the build red on going stale — the lexicon figure was replaced with an invented value
+  in this tree and `python tools/check_claims.py` exited zero without naming the file. The two that
+  used to sit beside the CLI count, share of the source and share of the public symbols, are gone
+  with the argument they were making: "governed naming leads because it is bigger" was the wrong
+  reason, and the sentence that sent a reader to [docs/EVALUATION.md](docs/EVALUATION.md) for all
+  three derivations only ever resolved for one of them.
 
 ## Documentation
 
+- [What this library is for](docs/POSITIONING.md) — the positioning taken and the two that were not,
+  what committing to it costs, the monoculture measurement that is the argument for it and the genre
+  confound that limits how far it can be pushed, the two rows no corpus can adjudicate with each
+  filling instrument costed, and the three conditions that would reverse the decision
 - [Architecture](docs/ARCHITECTURE.md) — subsystem map, tier policy, resource formats, extension points
 - [Governed naming](docs/GOVERNED_NAMING.md) — deterministic short→long expansion against a schema
   catalog: the custom-first precedence chain, every verb with real output, the four invariants, and
@@ -613,10 +704,10 @@ python tools/fetch_data.py --verify      # re-check every checksum
   generation recall@k, disambiguation against a trivial baseline, and the abstention curve scored
   against that same baseline on its own answered subset
 - [Decisions](docs/DECISIONS.md) — what was tried and rejected, and why
-- [Definition of done](docs/DEFINITION-OF-DONE.md) — the eight criteria this library is held to,
-  swept and verdicted: which are met, which are not, what evidence each rests on, and the ninth
-  criterion nobody had written down — that neither the flagship extraction figure nor the
-  disambiguation figure has a corpus that could adjudicate it
+- [Definition of done](docs/DEFINITION-OF-DONE.md) — the fourteen criteria this library is held to,
+  swept and verdicted: which are met, which are not, what evidence each rests on, and the criterion
+  renumbered this round from the ninth to the tenth — that neither the flagship extraction figure
+  nor the disambiguation figure has a corpus that could adjudicate it
 - [Enterprise review](docs/ENTERPRISE.md) — the short answer for someone deciding whether to allow
   this package: air-gapped install, security posture with each claim's proof named, and the exact
   error text when something is missing

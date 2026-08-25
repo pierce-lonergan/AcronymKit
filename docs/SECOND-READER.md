@@ -65,10 +65,27 @@ from first principles would have omitted.
 exactly the user-facing files it touched, before the recorder writes the round's D-record.
 
 ```
-git diff --name-only <round-base>..HEAD -- README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md docs
+git status --porcelain -- README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md pyproject.toml docs
 ```
 
-minus `docs/DECISIONS.md` and `docs/AUDIT-*.md`, which are historical records rather than
+**CORRECTED IN PLACE ON THIS PAGE'S FIRST EXECUTION AS POLICY, AND THE CORRECTION IS THE PAGE'S
+BEST EVIDENCE FOR ITSELF.** The command published here was
+`git diff --name-only <round-base>..HEAD -- ...`, and it **returns nothing at the only moment it is
+supposed to run**: section 3 places the cold read *before* the recorder commits, so `HEAD` is still
+the round base and the range is empty. A reader who trusted it would have concluded the round
+touched no user-facing file and stopped. Worse, `git diff` cannot see a file that does not yet
+exist under either revision — and the first round to run this policy introduced its most important
+page as a **new file**, which the published command would have missed even with the range repaired.
+`pyproject.toml` is added to the pathspec for a third reason found the same way: its `description`
+is the sentence PyPI renders, it was rewritten that round, and no trigger on this page would have
+looked at it.
+
+The correction is left visible rather than swapped in silently. A procedure that cannot execute at
+the moment it fires is the same defect class this whole page exists to catch — a claim about a
+tool's behaviour that no ratchet can see — and it shipped **inside the fix for that class**, written
+by somebody who had just spent a round finding instances of it elsewhere.
+
+Minus `docs/DECISIONS.md` and `docs/AUDIT-*.md`, which are historical records rather than
 instructions to a user, and minus `docs/notes/*.md`, which are scoped technical notes read by
 somebody who arrived from a link that already warned them.
 
@@ -290,3 +307,63 @@ a report of the right shape whether or not anybody ran the commands. The only de
 finding carries the command that refutes it, so a fabricated finding is refutable by the same
 mechanism as a fabricated claim — which is the property this whole repository is built around, and
 it is a weaker defence than a gate.
+
+---
+
+## 8. The rotation cursor, and what the first execution as policy found out about the policy
+
+This section is the state section 3 says this page carries. It is appended by each cold reader,
+newest last.
+
+### 2026-08-25 — second execution, first one run as policy rather than as a one-off
+
+**Trigger B served [`docs/GOVERNED_NAMING.md`](GOVERNED_NAMING.md). The cursor now stands at
+[`docs/SUPPORT_MATRIX.md`](SUPPORT_MATRIX.md).**
+
+**Rotation set amended.** [`docs/POSITIONING.md`](POSITIONING.md) is appended to the section 3 list,
+which now runs to fifteen files. That page asked for it in its own words — *a positioning statement
+nobody re-reads is how a commitment becomes a slogan* — and it was the one user-facing page no
+trigger could ever reach. The amendment is recorded here rather than made quietly, because the
+rotation set is the only thing in this policy a later reader has to take on trust.
+
+```
+README.md · docs/EVALUATION.md · docs/OFFLINE.md · docs/GOVERNED_NAMING.md
+docs/SUPPORT_MATRIX.md · docs/JAVA_INTEROP.md · CHANGELOG.md · docs/ENTERPRISE.md
+docs/QUICKSTART_GOVERNED.md · docs/INSTALL.md · docs/ARCHITECTURE.md
+CONTRIBUTING.md · SECURITY.md · docs/DEFINITION-OF-DONE.md · docs/POSITIONING.md
+```
+
+### Three things about the policy itself, found by executing it
+
+**Trigger A's command returns nothing when the trigger fires.** Section 3 says the cold read happens
+*before the recorder writes the round's D-record*, and section 3's command reads committed history:
+
+```
+git diff --name-only <round-base>..HEAD -- README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md docs
+```
+
+At the moment a cold read is due, the round is still in the working tree and `<round-base>` **is**
+`HEAD`, so the command printed an empty list on a round that had rewritten the front page. The real
+list came from `git status --porcelain` and `git diff --name-only` with no revision range, plus the
+untracked entries — a new file is invisible to `git diff` either way, and this round's headline
+document was a new file. Either the command changes to read the working tree, or the trigger moves
+after the commit and stops being able to block it.
+
+**Trigger A's pathspec cannot see the most-read sentence this project ships.** It scans `README.md`,
+`CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md` and `docs`. `pyproject.toml`'s `description` is the
+line PyPI renders under the package name; it was rewritten this round, and no trigger on this page
+would have looked at it. Add it, or say in section 3 that packaging metadata is out of scope and why.
+
+**"Report everything else" did not produce a fix.** Section 4.2's C1 finding — that
+`docs/OFFLINE.md` and `docs/ENTERPRISE.md` claim the air-gap job drives "every CLI subcommand" while
+the probe in `.github/workflows/ci.yml` drives thirteen of the sixteen `acronymkit --help` lists —
+is still true in all three places, unaltered, one round later. Re-derive with:
+
+```
+git grep -n "every CLI subcommand" -- docs .github
+```
+
+Section 5 draws the report/fix line to keep the reader cold. The measured consequence of drawing it
+there is that a defect in a file nobody owns waits for a rotation slot even after somebody has
+already found it and written down where it is. That is a cost of the design, not an argument against
+it, and it should be priced in section 6 rather than discovered again.

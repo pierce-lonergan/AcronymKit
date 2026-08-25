@@ -1164,7 +1164,7 @@ opt-in: it may fill a gap, and it may not overrule.
 
 **This is true by construction and it is not a measurement.** A lookup table returns what is in the
 lookup table. There is no percentage attached to it anywhere in this project, and there should not
-be — see [Limits](#no-figure-belongs-next-to-this).
+be — see [Limits](#no-figure-belongs-next-to-the-lookup-and-one-now-belongs-beside-the-cut).
 
 ## Limits
 

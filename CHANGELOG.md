@@ -7,11 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing here changes what the library *computes* by default. Read two sections before upgrading.
-**Removed** takes a key out of the capability report, which is a breaking change if your CI asserts
-on that report's key set. **Changed** carries two behaviour changes, both of which make an existing
-report *stricter* rather than different, and one of which will newly flag identifiers a pipeline
-previously waved through.
+Nothing here changes what the library *computes* by default. Read three sections before upgrading.
+**Positioning** does not change any code and is the most important entry this project has written:
+what this library says it is for has changed, and if you adopted it for something else you should
+know that before the next release. **Removed** takes a key out of the capability report, which is a
+breaking change if your CI asserts on that report's key set. **Changed** carries two behaviour
+changes, both of which make an existing report *stricter* rather than different, and one of which
+will newly flag identifiers a pipeline previously waved through.
+
+### Positioning
+
+- **`acronymkit` is now stated to be a governance instrument, and the governed half leads.** No code
+  changed and no output moved. What changed is the answer to *what is this library for*, and it is
+  now written down in one place — [`docs/POSITIONING.md`](docs/POSITIONING.md) — with the reasoning,
+  what the choice costs, and the evidence that would reverse it.
+  - **The subject this library is built around is a name somebody else owns**: a schema column, a
+    data-standard identifier, a token from a vocabulary you supply and it may not extend. Its first
+    obligation on that subject is to report *unknown* rather than return a plausible answer.
+  - **What still ships:** everything. Generation, backronym synthesis and alignment, extraction and
+    contextual disambiguation are all still here, still supported, still measured wherever they can
+    be measured at all. None of them is deprecated and none is going away. What changed is which one
+    the front page leads with and which numbers are presented as headline versus supporting.
+  - **If you use this library for extraction or generation**, nothing breaks, but read this: the
+    extraction F1 on MED1250 is now presented as a *supporting* number, third of five, with the two
+    compiled systems that beat it named on the front page. That was always true; it was not always
+    said in the first paragraph. Nobody on this project is going to tune it further.
+  - **If you are evaluating the governed subsystem**, read the honest-scope list in the README first.
+    The most important sentence there is new: **every published governed accuracy figure was measured
+    with an empty catalog.** Those numbers say where an identifier gets cut. They say nothing about
+    what a governed vocabulary is worth on a real schema, because no real proprietary glossary has
+    ever been measured here.
+  - **Three sentences are retired** and are quoted verbatim in the positioning page so the retirement
+    is auditable: the old README tagline, the *"missing single library"* conclusion under the `## Why`
+    table, and the old `pyproject.toml` `description` — the line PyPI shows, which led with generation
+    and did not mention governance at all. The comparison table under `## Why` is accurate and stays;
+    what it concludes changed.
+  - **How to change this project's mind.** Three reversal conditions ship, each naming the evidence
+    that fires it, and one of them is aimed at you: **an issue, a pull request or a bug report from
+    somebody who did not author this library counts as evidence and a download count does not.** If
+    you are using this and the positioning is wrong for your case, saying so in the issue tracker is
+    the mechanism.
+  - `docs/DECISIONS.md` D-070 records the decision, its four named costs and its three reversal
+    conditions.
 
 ### Removed
 
@@ -172,7 +209,28 @@ previously waved through.
   execute in the test suite. They did not before, which is how a docstring example that abstains when
   it should answer survived being written.
 - `docs/EVALUATION.md` gains a decomposed section for the governed accuracy figures, behind run-id
-  citations.
+  citations, and now says which of its figures lead and which support.
+- **`README.md` corrects five things a reader could have been misled by**, each found by a cold read
+  against the code rather than against the previous draft: the governed limits bullet now says no
+  catalog is in the published figures; the definition-of-done link says fourteen criteria rather than
+  eight; the structural counts a reader can re-derive are named individually with their commands
+  rather than summarised as one; the monoculture roster is five implementations at seven operating
+  points rather than seven implementations; and the two independent proposers are named.
+- **[`docs/DEFINITION-OF-DONE.md`](docs/DEFINITION-OF-DONE.md) is swept a fourth time.** No verdict
+  moved. Two evidence cells were wrong and are corrected, and the page now says per row which
+  verdicts were re-derived this round and which were carried — half of them were carried.
+  `docs/DECISIONS.md` D-073.
+- **[`docs/SECOND-READER.md`](docs/SECOND-READER.md) carries state now.** The cold-read policy has a
+  rotation cursor, an amended rotation set that includes the positioning page, and a section
+  recording three defects the policy found in itself the first time it was executed as policy —
+  including that its own trigger command returns an empty list at the moment the trigger fires.
+  `docs/DECISIONS.md` D-072.
+- **[`docs/CLAIMS-LEDGER.md`](docs/CLAIMS-LEDGER.md)'s migration quota now binds the decision log
+  itself.** The file only the recorder may edit held the largest share of the unadjudicated numbers
+  and was exempt; the exemption is withdrawn, adding a decision record now fails the claims gate
+  until the round pays for it, and two rounds have taken that file's ledger down by close to half.
+  Nothing about this is visible at runtime; it is why the numbers in these documents can be trusted
+  to be falsifiable. `docs/DECISIONS.md` D-071.
 - **The abstention curve is now published, with the comparison that reverses its meaning in the same
   table.** `docs/EVALUATION.md` carries the coverage/accuracy/recall/F1 curve, a breakdown by
   candidate-set size, and a breakdown by whether the gold expansion appears verbatim in the sentence —

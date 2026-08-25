@@ -43,6 +43,16 @@ What is pinned here:
   directions, on synthetic trajectories -- and then asserts the *recorded* one
   agrees with the live baselines, which is what makes a future migration that
   forgets to append a round fail in CI rather than only under someone's eye.
+* **The record file is bound by the quota, and the binding can fail here.**
+  ``docs/DECISIONS.md`` held 115 of the 262 deferred numbers under a written
+  carve-out saying the quota could not reach it, which made the trajectory
+  asymptote at 115. ``TestRecordFileFloor`` drives the per-file floor in both
+  directions; ``TestRecordFilePin`` drives the half that makes the floor
+  reachable at all, because a floor that only judges rounds that *exist* is
+  satisfied by appending no round; and ``TestTheBindingCanFailWhereItRuns``
+  adds a decision record to the real file and asserts the real gate goes red,
+  because a check demonstrated only on a fixture has not been shown to fail
+  where it runs.
 * **The classification says which verdicts it derived and which a person
   assigned.** ``TestDetectors`` pins where each structural rule must *decline*
   -- a date part that is also a count, a dotted number with no version context,
@@ -69,6 +79,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
+import subprocess
 import sys
 from fnmatch import fnmatch
 from pathlib import Path
@@ -1410,3 +1422,291 @@ class TestLedgerTrajectory:
     def test_round_labels_are_unique(self) -> None:
         labels = [entry.label for entry in check_claims.LEDGER_TRAJECTORY]
         assert len(labels) == len(set(labels))
+
+
+# ---------------------------------------------------------------------------
+# The record file: the one document the quota could not reach
+# ---------------------------------------------------------------------------
+def _pinned(root: Path, pin_records: int, label: str) -> tuple:
+    """A project with the ratchets armed, plus a pin, for checks that read the tree."""
+    project = check_claims.Project(
+        root=root.resolve(),
+        results_path=root / "bench" / "results.json",
+        allowlist_path=root / "tools" / "claims_allowlist.txt",
+        value_baseline={},
+        deferred_baseline={},
+    )
+    return project, check_claims.RecordPin(label=label, records=pin_records)
+
+
+class TestRecordFileFloor:
+    """``docs/DECISIONS.md`` is not exempt from ``MIGRATION_QUOTA`` any more.
+
+    The carve-out the quota shipped with said the record file was "not reachable
+    by the quota" because no workstream may edit it. That is arithmetically
+    fatal: the exempt file held 115 of the 262 deferred numbers, so the
+    trajectory asymptotes there and the quota starts being waived for a reason
+    nobody chose. These pin the replacement, in both directions.
+    """
+
+    BINDING = "bound-round"
+
+    def _round(self, label: str, deferred: int, **kwargs: object) -> object:
+        return check_claims.LedgerRound(label=label, deferred=deferred, value_matched=0, **kwargs)
+
+    def _problems(self, trajectory: tuple, deferred_total: int) -> list:
+        return check_claims.trajectory_problems(
+            trajectory,
+            deferred_total=deferred_total,
+            value_total=0,
+            quota=12,
+            record_floor=12,
+            binding_label=self.BINDING,
+        )
+
+    def test_a_bound_round_that_ignores_the_record_file_is_reported(self) -> None:
+        # The whole point. Twenty migrations, none of them out of the file that
+        # holds most of the debt, is exactly the trajectory that was refused.
+        trajectory = (
+            self._round("earlier", 100),
+            self._round(self.BINDING, 80, by_citation=20, from_record_file=0),
+        )
+        problems = self._problems(trajectory, 80)
+        assert len(problems) == 1
+        assert "against a floor of 12" in problems[0]
+        assert "not exempt" in problems[0]
+
+    def test_a_bound_round_that_meets_the_floor_is_silent(self) -> None:
+        trajectory = (
+            self._round("earlier", 100),
+            self._round(self.BINDING, 80, by_citation=20, from_record_file=12),
+        )
+        assert self._problems(trajectory, 80) == []
+
+    def test_a_waiver_admits_a_round_that_cannot_reach_the_floor(self) -> None:
+        # The waiver survives as the named escape rather than as the mechanism:
+        # a waiver-only rule would turn the first inconvenient round into a
+        # permanent exemption granted one sentence at a time.
+        trajectory = (
+            self._round("earlier", 100),
+            self._round(
+                self.BINDING,
+                80,
+                by_citation=20,
+                from_record_file=0,
+                waiver="every remaining figure there is a superseded before-value",
+            ),
+        )
+        assert self._problems(trajectory, 80) == []
+
+    def test_fencing_may_not_be_counted_toward_the_floor(self) -> None:
+        # Fencing removes a number from the gate's view without deciding
+        # anything about it, so counting it as quota would make the binding
+        # worse than the carve-out it replaced.
+        trajectory = (
+            self._round("earlier", 100),
+            self._round(self.BINDING, 80, by_fencing=19, by_deletion=1, from_record_file=20),
+        )
+        problems = self._problems(trajectory, 80)
+        assert len(problems) == 1
+        assert "adjudicated only 1" in problems[0]
+        assert "Fencing" in problems[0]
+
+    def test_rounds_before_the_binding_are_not_retro_judged(self) -> None:
+        # A rule applied backwards to rounds that could not have known it is a
+        # rule nobody can act on, and it would redden the build on history.
+        trajectory = (
+            self._round("earlier", 100),
+            self._round("also before the binding", 80, by_citation=20, from_record_file=0),
+        )
+        assert self._problems(trajectory, 80) == []
+
+    def test_an_absent_binding_label_binds_nothing(self) -> None:
+        trajectory = (self._round("only", 80, from_record_file=0),)
+        assert self._problems(trajectory, 80) == []
+
+    def test_the_recorded_round_meets_the_floor_on_this_checkout(self) -> None:
+        # The live one. A future round that migrates nothing out of the record
+        # file fails here rather than only under somebody's eye.
+        #
+        # This first asserted `last.label == RECORD_BINDING_LABEL`, which is a
+        # statement that the newest round IS the round that installed the
+        # binding -- true for exactly one round, and false the moment a second
+        # bound round is appended. It failed on the next one. What the test is
+        # for is that the newest round is *bound at all*, so that is what it
+        # checks: the binding label must still be present, and the newest row
+        # must be at or after it. docs/DECISIONS.md D-071 records the class.
+        labels = [entry.label for entry in check_claims.LEDGER_TRAJECTORY]
+        assert check_claims.RECORD_BINDING_LABEL in labels
+        assert labels.index(check_claims.RECORD_BINDING_LABEL) <= len(labels) - 1
+        last = check_claims.LEDGER_TRAJECTORY[-1]
+        assert last.from_record_file >= check_claims.RECORD_FILE_FLOOR or last.waiver
+        assert last.from_record_file <= last.by_citation + last.by_deletion
+
+
+class TestRecordFilePin:
+    """A floor that only applies to rounds that *exist* is satisfied by silence.
+
+    ``trajectory_problems`` never runs against a round nobody appended, so a
+    recorder could add records forever and satisfy the floor vacuously. The pin
+    is what makes adding a record cost something.
+    """
+
+    def _write(self, root: Path, records: int) -> None:
+        (root / "docs").mkdir(parents=True, exist_ok=True)
+        body = "\n\n".join(f"## D-{n:03d} - a record\n\nprose.\n" for n in range(1, records + 1))
+        (root / "docs" / "DECISIONS.md").write_text(body, encoding="utf-8")
+
+    def _one_round(self, label: str = "latest") -> tuple:
+        return (check_claims.LedgerRound(label=label, deferred=0, value_matched=0),)
+
+    def test_counting_records_reads_headings_not_prose(self) -> None:
+        text = "## D-1 one\n\ntext mentioning D-2 and ## D-3 inline\n\n## D-2 two\n"
+        assert check_claims.count_records(text) == 2
+
+    def test_a_current_pin_is_silent(self, tmp_path: Path) -> None:
+        self._write(tmp_path, 3)
+        project, pin = _pinned(tmp_path, 3, "latest")
+        assert check_claims.record_file_problems(project, self._one_round(), pin) == []
+
+    def test_adding_a_record_without_a_round_is_reported(self, tmp_path: Path) -> None:
+        self._write(tmp_path, 4)
+        project, pin = _pinned(tmp_path, 3, "latest")
+        problems = check_claims.record_file_problems(project, self._one_round(), pin)
+        assert len(problems) == 1
+        assert "now holds 4 record(s)" in problems[0]
+        assert "Adding a record IS a round" in problems[0]
+
+    def test_a_pin_naming_an_older_round_is_reported(self, tmp_path: Path) -> None:
+        # Without this, appending a round would leave the pin quietly attached
+        # to the previous round's migration credit.
+        self._write(tmp_path, 3)
+        project, pin = _pinned(tmp_path, 3, "previous")
+        trajectory = (
+            check_claims.LedgerRound(label="previous", deferred=10, value_matched=0),
+            check_claims.LedgerRound(label="latest", deferred=0, value_matched=0),
+        )
+        problems = check_claims.record_file_problems(project, trajectory, pin)
+        assert len(problems) == 1
+        assert "the newest round is 'latest'" in problems[0]
+
+    def test_the_pin_is_off_where_the_ratchets_are_off(self, tmp_path: Path) -> None:
+        # The same rule the baselines follow: how many records this file holds
+        # is a fact about *these* documents, not about the algorithm.
+        self._write(tmp_path, 9)
+        project = check_claims.Project.at(tmp_path)
+        pin = check_claims.RecordPin(label="latest", records=3)
+        assert check_claims.record_file_problems(project, self._one_round(), pin) == []
+
+    def test_an_absent_record_file_says_nothing(self, tmp_path: Path) -> None:
+        project, pin = _pinned(tmp_path, 3, "latest")
+        assert check_claims.record_file_problems(project, self._one_round(), pin) == []
+
+    def test_the_live_pin_matches_this_checkout(self) -> None:
+        record_file = REPO_ROOT / check_claims.RECORD_FILE
+        if not record_file.is_file():  # pragma: no cover - checkout only
+            pytest.skip("docs/ is not part of an installed distribution")
+        assert check_claims.RECORD_FILE_PIN.label == check_claims.LEDGER_TRAJECTORY[-1].label
+        live = check_claims.count_records(record_file.read_text(encoding="utf-8"))
+        assert live == check_claims.RECORD_FILE_PIN.records
+
+
+class TestTheBindingCanFailWhereItRuns:
+    """R11 for the record-file pin, in the tree the gate actually reads.
+
+    The synthetic tests above drive the function; this one drives the *gate*,
+    because a check demonstrated red only on a fixture has not been shown to
+    fail in the environment where it runs. It mutates the real record file and
+    restores it, which is the pattern ``tests/test_claims_gate_coverage.py``
+    already uses on ``README.md`` and for the same reason: the tool resolves its
+    scan globs against the repository root, so a copied tree is a different
+    thing under test.
+    """
+
+    RECORDS = REPO_ROOT / "docs" / "DECISIONS.md"
+
+    def _gate(self) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(TOOL_PATH)],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+    def test_the_unmutated_tree_is_green(self) -> None:
+        # The control the mutation below is worthless without: if the gate were
+        # red anyway, a red run would say nothing about the injection.
+        if not self.RECORDS.is_file():  # pragma: no cover - checkout only
+            pytest.skip("docs/ is not part of an installed distribution")
+        assert self._gate().returncode == 0
+
+    def test_adding_a_record_reddens_the_real_gate(self) -> None:
+        if not self.RECORDS.is_file():  # pragma: no cover - checkout only
+            pytest.skip("docs/ is not part of an installed distribution")
+        original = self.RECORDS.read_bytes()
+        try:
+            text = original.decode("utf-8")
+            anchor = "\n## D-001 "
+            assert text.count(anchor) == 1, "record-file injection anchor is no longer unique"
+            injected = "\n## D-999 - a record added with no migration\n\nprose.\n\n---\n" + anchor
+            self.RECORDS.write_bytes(text.replace(anchor, injected, 1).encode("utf-8"))
+            completed = self._gate()
+        finally:
+            self.RECORDS.write_bytes(original)
+        assert completed.returncode == 1, (
+            "adding a decision record did not fail the claims gate. The record-file pin is "
+            "the half of the binding that makes the floor reachable at all: without it a "
+            "round satisfies the floor by appending no round."
+        )
+        assert "RECORD_FILE_PIN" in completed.stdout + completed.stderr
+
+
+class TestTheLedgerPageAgreesWithTheTool:
+    """*One sentence in two places corrected in one* is this repository's shape.
+
+    ``docs/CLAIMS-LEDGER.md`` is the prose copy of a policy whose live copy is
+    this module. The numbers are the checkable part of it, and the withdrawn
+    carve-out is checkable by its absence -- which is worth more than the
+    correction's presence, because restoring the old sentence would otherwise
+    only fail a positive check that reads like a wording nit.
+    """
+
+    PAGE = REPO_ROOT / "docs" / "CLAIMS-LEDGER.md"
+
+    def _flowed(self) -> str:
+        if not self.PAGE.is_file():  # pragma: no cover - checkout only
+            pytest.skip("docs/ is not part of an installed distribution")
+        return re.sub(r"\s+", " ", self.PAGE.read_text(encoding="utf-8"))
+
+    def test_the_page_carries_the_tools_quota_and_floor(self) -> None:
+        text = self._flowed()
+        assert f"quota {check_claims.MIGRATION_QUOTA} per round" in text
+        assert f"record-file floor {check_claims.RECORD_FILE_FLOOR}" in text
+
+    def test_the_page_names_the_bound_file_and_the_pin(self) -> None:
+        text = self._flowed()
+        assert check_claims.RECORD_FILE in text
+        assert "RECORD_FILE_PIN" in text
+        assert "from_record_file" in text
+
+    def test_the_withdrawn_carve_out_may_only_appear_in_quotation_marks(self) -> None:
+        # Asserting the ABSENCE of the retired wording is worth more than
+        # asserting the correction's presence -- somebody restoring the old
+        # sentence would otherwise only fail a positive check. But the page has
+        # to be able to QUOTE what was withdrawn in order to say it was, so the
+        # rule is not "never appears": it is "never appears asserted". A first
+        # draft of this test used a bare substring and failed on the page's own
+        # explanation of the withdrawal.
+        text = self._flowed()
+        for match in re.finditer(r"not reachable by the quota", text):
+            assert text[: match.start()].rstrip().endswith('"'), (
+                "docs/CLAIMS-LEDGER.md states the withdrawn carve-out as its own claim rather "
+                "than quoting it. That carve-out exempted the file holding most of the ledger "
+                "from MIGRATION_QUOTA, and the maintainer withdrew it."
+            )
+        assert "The reachable population is everything else" not in text, (
+            "docs/CLAIMS-LEDGER.md has reverted to the carve-out's conclusion. The reachable "
+            "population is no longer 'everything else': docs/DECISIONS.md is in it."
+        )

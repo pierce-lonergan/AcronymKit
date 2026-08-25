@@ -188,6 +188,28 @@ so the register has a trajectory rather than a size:
   turns the build red; and a round that moves less than :data:`MIGRATION_QUOTA`
   must write down a ``waiver`` saying why.
 
+The one file the quota could not reach, and now does
+-----------------------------------------------------
+That quota shipped with a carve-out: ``docs/DECISIONS.md`` holds the largest
+share of the ledger and no workstream may edit it, so the policy said its share
+was "not reachable by the quota" and the reachable population was everything
+else. The arithmetic of that is fatal and was spotted by the recorder itself:
+115 of the 262 deferred numbers and 217 of the 323 citation candidates sat in
+the exempt file, so the trajectory asymptotes at 115 and the quota starts being
+waived for a reason nobody chose. The carve-out is withdrawn. Three things
+implement the binding, and the third is the one that matters:
+
+* :data:`RECORD_FILE_FLOOR` -- a bound round must migrate at least this many
+  numbers **out of** :data:`RECORD_FILE`, recorded in
+  :attr:`LedgerRound.from_record_file`, or write a ``waiver``.
+* only ``by_citation`` and ``by_deletion`` may be counted toward it. Fencing a
+  number in a decision record hides it from the gate without deciding anything,
+  and counting that as quota would make the binding worse than the carve-out.
+* :data:`RECORD_FILE_PIN` -- because a floor that only applies to rounds that
+  *exist* is satisfied by appending no round. The pin records how many ``## D-``
+  records the file held at the newest round; growing the file turns the build
+  red until a round is appended and the pin re-taken.
+
 The policy those three implement is [docs/CLAIMS-LEDGER.md](../docs/CLAIMS-LEDGER.md).
 
 How this fails
@@ -217,6 +239,26 @@ something else entirely.
 hyphenated-range rule into three "numbers", two of which are a month and a day.
 That rule is shared with the armed path and predates this change, so fixing it
 would move the value ledger too and needs its own measurement.
+
+**Citing a number can arm its neighbour, and the ledger it arms it onto is
+closed.** :func:`keyword_positions` reads the *raw* line so that a metric named
+inside a code span still arms -- and a rendered citation is raw text, so the
+field name inside ``<!--claim:oracle.med1250.oracle_union_recall-->`` puts the
+word ``recall`` within :data:`_PROXIMITY` of whatever else is on the line.
+Measured on this tree: citing two figures in ``docs/DECISIONS.md`` moved two
+neighbouring bare ``100 %`` tokens off the deferred ledger and onto the
+**value-matched** one, which is closed and may not grow, so the correct
+migration failed the gate. Masking citations before reading keywords fixes it
+and costs four numbers in ``docs/EVALUATION.md``, which are armed today only by
+a keyword inside a citation body and would become ``unexamined`` -- a coverage
+narrowing in a file the round that found this did not own. Reported, not fixed;
+the two figures were left uncited instead, and they are named in
+``docs/CLAIMS-LEDGER.md`` section 5.
+
+**The record-file pin is a deterrent where it is not a mechanism.** See
+:data:`RECORD_FILE_PIN`: the gate sees one tree and not a history, so a
+recorder can re-take the pin against a round whose migrations were already
+counted, and nothing detects the second spend.
 
 **The escape hatches are unchanged, and one of them is a habit rather than a
 mechanism.** A figure can be fenced, cited, marked ``measured: <run-id>`` or
@@ -365,7 +407,19 @@ DEFERRED_BASELINE: Dict[str, int] = {
     "CHANGELOG.md": 28,
     "README.md": 1,
     "bench/splits.toml": 32,
-    "docs/DECISIONS.md": 115,
+    # Lowered from 115 by the round that withdrew this file's carve-out from
+    # MIGRATION_QUOTA. 30 numbers became run-id citations and one rounded
+    # restatement was deleted; see LEDGER_TRAJECTORY[RECORD_BINDING_LABEL].
+    #
+    # Lowered again from 84 by the first round the recorder itself ran under the
+    # binding: 18 more citations, no deletion and no fencing, across 10 records.
+    # What is left is 53 in the three records docs/CLAIMS-LEDGER.md section 4
+    # names as blocked, 4 in indented display blocks a comment-form citation
+    # cannot enter without rendering visibly, 4 blocked by this module's own
+    # citation-arms-neighbour defect, and 5 that are not measurements of this
+    # library at all. The citable remainder is zero and the next bound round
+    # owes a waiver; see LEDGER_TRAJECTORY["M2-P5 (the recorder pays)"].
+    "docs/DECISIONS.md": 66,
     "docs/DEFINITION-OF-DONE.md": 1,
     "docs/EVALUATION.md": 10,
     "docs/OFFLINE.md": 3,
@@ -2163,9 +2217,16 @@ class LedgerRound:
             measurement rather than of the debt. Keeping it in its own column is
             what stops the trajectory from reading as progress it did not make.
         by_other: Anything else, which must be explained in ``note``.
+        from_record_file: How many of this round's migrations came out of
+            :data:`RECORD_FILE`. Counted apart from everything else because
+            that file is the one no workstream may edit, which made it the one
+            place the quota could not reach -- see :data:`RECORD_FILE_FLOOR`.
+            Only citations and deletions may be counted here: fencing a number
+            in a decision record removes it from the gate's view without
+            adjudicating it, which is the move this column exists to refuse.
         note: Free text. Required when ``by_other`` is non-zero.
-        waiver: Why this round is allowed to miss :data:`MIGRATION_QUOTA`.
-            Empty means it did not miss it.
+        waiver: Why this round is allowed to miss :data:`MIGRATION_QUOTA` or
+            :data:`RECORD_FILE_FLOOR`. Empty means it missed neither.
     """
 
     label: str
@@ -2175,22 +2236,81 @@ class LedgerRound:
     by_deletion: int = 0
     by_fencing: int = 0
     by_other: int = 0
+    from_record_file: int = 0
     note: str = ""
     waiver: str = ""
+
+
+@dataclass(frozen=True)
+class RecordPin:
+    """How many decision records :data:`RECORD_FILE` held at a recorded round.
+
+    Attributes:
+        label: The :class:`LedgerRound` this pin was taken with. It must name
+            the newest row, which is what stops a later commit from re-taking
+            the pin against an older round's migration credit.
+        records: ``count_records`` of :data:`RECORD_FILE` at that moment.
+    """
+
+    label: str
+    records: int
 
 
 #: How far the deferred ledger must fall in a round that appends a row.
 #:
 #: Sized from the classification rather than picked: ``--classify`` puts most of
-#: the ledger's ``gate-able`` population inside ``docs/DECISIONS.md``, which no
-#: workstream may edit -- a recorder writes that file. The reachable population
-#: is everything else, and it is small. A quota a round cannot reach is a quota
-#: that will be waived every time, which is a rubber stamp with extra steps.
+#: the ledger's ``gate-able`` population inside :data:`RECORD_FILE`, and the
+#: rest of the reachable population is small. A quota a round cannot reach is a
+#: quota that will be waived every time, which is a rubber stamp with extra
+#: steps.
 #:
 #: It is deliberately far below what the round that installed it achieved. A
 #: quota is a floor on a system, not a target for one workstream, and setting it
 #: at this round's number would guarantee the first waiver.
+#:
+#: **The register this floor applies to is the whole register**, including
+#: :data:`RECORD_FILE`. It did not, for one round: the quota was installed with
+#: a written carve-out saying the record file was "not reachable by the quota"
+#: because no workstream may edit it. That carve-out made the trajectory
+#: asymptote at whatever the record file held -- 115 of 262 -- and it was
+#: withdrawn by the maintainer on the recorder's own escalation. See
+#: :data:`RECORD_FILE_FLOOR`.
 MIGRATION_QUOTA = 12
+
+#: The file only the recorder may edit, and therefore the one the quota could
+#: not reach until it was made to.
+RECORD_FILE = "docs/DECISIONS.md"
+
+#: How many of a bound round's migrations must come out of :data:`RECORD_FILE`.
+#:
+#: **Why a per-file floor rather than the two alternatives.** A whole-register
+#: floor with the record file merely *counted* is what the policy already had:
+#: nothing stopped a round from paying its twelve out of the eleven other files
+#: forever, which is exactly how ``docs/DECISIONS.md`` reached 115 of 262
+#: deferred numbers and 217 of 323 citation candidates while the trajectory
+#: reported healthy movement. A waiver-only rule fails the other way: a waiver
+#: is free text nothing grades, so making the record file waiver-gated without a
+#: floor turns the first inconvenient round into a permanent exemption granted
+#: one sentence at a time. The floor is the only one of the three that produces
+#: a red build for the case the maintainer actually decided against -- a round
+#: that adds records and migrates none of them -- and the waiver survives
+#: underneath it as the named escape rather than as the mechanism.
+#:
+#: It is set equal to :data:`MIGRATION_QUOTA` on purpose. The record file holds
+#: the majority of the reachable debt, so a floor below the quota would say that
+#: the largest ledger owes less than the small ones.
+RECORD_FILE_FLOOR = 12
+
+#: The first :class:`LedgerRound` that :data:`RECORD_FILE_FLOOR` applies to.
+#:
+#: Rows before it were appended under the carve-out and are not retro-judged: a
+#: rule applied backwards to rounds that could not have known it is a rule
+#: nobody can act on. Rows from this label onward are bound, including the one
+#: that carries the label.
+RECORD_BINDING_LABEL = "M2-P4 (the recorder is bound)"
+
+#: A decision-record heading in :data:`RECORD_FILE`.
+_RECORD_HEADING = re.compile(r"(?m)^##\s+D-\d+")
 
 #: Where the two ledgers have been, newest **last**.
 #:
@@ -2224,7 +2344,144 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
             "by citation. NO number was fenced."
         ),
     ),
+    LedgerRound(
+        label=RECORD_BINDING_LABEL,
+        deferred=231,
+        value_matched=64,
+        by_citation=30,
+        by_deletion=1,
+        from_record_file=31,
+        note=(
+            "the round that withdrew the record file's carve-out and then spent the whole "
+            "quota inside it. All 31 came out of docs/DECISIONS.md, re-derived from the "
+            "file rather than from the plan: 24 citations in D-015 against "
+            "disambiguation.sdu21.{acronymkit,most_frequent,random}, 3 in D-011 and 2 in "
+            "D-012 against oracle.med1250, 1 in D-008 against "
+            "analysis.med1250.miss_taxonomy at one decimal, and 1 deletion in D-013 -- a "
+            "rounded '149 ms' restating the '149.3 ms' of a table nine lines above it. NO "
+            "number was fenced, and no record was added, renumbered or reworded. 29 of the "
+            "31 were mechanical: the record's own Evidence line already named the run and "
+            "the field name restates the sentence. The other 2 are the D-008 citation and "
+            "the D-013 deletion, which each needed a judgement. Two further figures were "
+            "reachable and were NOT taken -- see docs/CLAIMS-LEDGER.md section 5, where "
+            "citing them arms a neighbouring bare '100 %' onto the closed value ledger."
+        ),
+    ),
+    LedgerRound(
+        label="M2-P5 (the recorder pays)",
+        deferred=213,
+        value_matched=64,
+        by_citation=18,
+        from_record_file=18,
+        note=(
+            "the first round the recorder ran under the binding, and the first in which "
+            "adding a record cost something: four records were appended, the pin went red "
+            "at 73 against 69, and this row is what closes it. All 18 came out of "
+            "docs/DECISIONS.md by citation -- none by deletion, none by fencing -- across "
+            "10 records: 2 in D-005, 1 in D-013, 3 in D-017, 1 in D-023, 1 in D-026, 3 in "
+            "D-030, 2 in D-039, 2 in D-045, 1 in D-046, 2 in D-047. --render --dry-run "
+            "reports 'up to date', so every one renders to the text already on the page. "
+            "TWO OF THE 18 CAME OUT OF RECORDS docs/CLAIMS-LEDGER.md SECTION 4 CALLS "
+            "BLOCKED: D-023's own sentence names bench/results.json as its figure of "
+            "record, and D-013's 128.1 appears once more in prose outside the frozen "
+            "before/after table. Those verdicts were written per record and applied per "
+            "number, and per number they were too wide. 16 of the 18 were mechanical; the "
+            "other 2 are the equation-surface floor, whose value is replicated identically "
+            "across all three shipped profiles, and the MED1250 arm's 0.00 capability, "
+            "which value-matches over a thousand fields and was resolved by reading the "
+            "census block the sentence sits under. Every citation was chosen with a field "
+            "name carrying no arming keyword, to route around the defect the previous "
+            "round reported -- reproduced here first, red, and restored. THE NEXT BOUND "
+            "ROUND OWES A WAIVER: the 66 that remain hold no citable measurement. See "
+            "docs/DECISIONS.md D-071 for the residue walked number by number."
+        ),
+    ),
 )
+
+#: How many records :data:`RECORD_FILE` held when the newest round was appended.
+#:
+#: This is the half of the binding that makes the floor reachable at all.
+#: :func:`trajectory_problems` only ever runs against rows that exist, so a round
+#: that adds a record and migrates nothing satisfies the floor *vacuously* by
+#: appending no row -- which is precisely the trajectory the maintainer refused.
+#: Pinning the record count turns that into a red build: growing
+#: :data:`RECORD_FILE` forces a row to be appended, and appending a row forces
+#: the floor or a written waiver.
+#:
+#: The pin counts **records**, not lines or bytes, so a typo fix or a reflow does
+#: not spend a waiver. Only ``## D-<n>`` -- the recorder's actual unit of work --
+#: moves it. Re-take it with ``--update-baseline``.
+#:
+#: **Where this is gameable, named rather than hidden.** The gate sees one tree,
+#: not a history. A recorder who adds a record may bump ``records`` here and
+#: leave ``label`` pointing at the round that is already the newest -- and the
+#: floor check passes, because that round's migrations satisfied it once
+#: already. Nothing detects a second spend of the same credit. The defence is
+#: the one every ratchet in this file has: it is a visible source edit in a file
+#: the gate reads, and ``label`` puts the words "which round paid for this"
+#: into the diff. It is a deterrent, not a mechanism, and calling it a mechanism
+#: would be the same overclaim this policy exists to stop.
+RECORD_FILE_PIN = RecordPin(label="M2-P5 (the recorder pays)", records=73)
+
+
+def count_records(text: str) -> int:
+    """How many ``## D-<n>`` decision records ``text`` holds."""
+    return len(_RECORD_HEADING.findall(text))
+
+
+def record_file_problems(
+    project: Project,
+    trajectory: Sequence[LedgerRound],
+    pin: RecordPin,
+) -> List[str]:
+    """Where :data:`RECORD_FILE` has moved without a round accounting for it.
+
+    Args:
+        project: The checkout being scanned. Silent when the ratchets are off,
+            for the same reason they are: how many records this file holds is a
+            fact about *these* documents and not about the algorithm.
+        trajectory: The rounds, oldest first.
+        pin: :data:`RECORD_FILE_PIN`.
+
+    Returns:
+        One message per disagreement, empty when the pin is current.
+
+    Unlike :func:`trajectory_problems` this *does* read the tree -- deliberately,
+    and it is the one live comparison the policy makes. The objection to live
+    comparisons is that they redden on any edit by any workstream; it does not
+    apply here, because no workstream but the recorder may edit this file. The
+    count is of records rather than of lines so that only the recorder's unit of
+    work moves it.
+    """
+    if project.deferred_baseline is None or not trajectory:
+        return []
+    try:
+        text = (project.root / RECORD_FILE).read_text(encoding="utf-8")
+    except OSError:
+        # Absent in a distribution that ships tools/ without docs/. The scan
+        # already reports what it could not read; this check has nothing to say.
+        return []
+
+    problems: List[str] = []
+    last = trajectory[-1]
+    if pin.label != last.label:
+        problems.append(
+            f"  RECORD_FILE_PIN names round {pin.label!r}; the newest round is {last.label!r}.\n"
+            f"    The pin must be re-taken in the commit that appends a round, or an older\n"
+            "    round's migration credit would be spent twice:\n"
+            "      python tools/check_claims.py --update-baseline"
+        )
+    live = count_records(text)
+    if live != pin.records:
+        direction = "now holds" if live > pin.records else "has fallen to"
+        problems.append(
+            f"  {RECORD_FILE} {direction} {live} record(s); RECORD_FILE_PIN says {pin.records}.\n"
+            f"    Adding a record IS a round. Append a LedgerRound that migrates at least\n"
+            f"    {RECORD_FILE_FLOOR} number(s) out of {RECORD_FILE} -- or that records a waiver\n"
+            "    saying why it could not -- and re-take the pin in the same commit.\n"
+            f"    {RECORD_FILE} is not exempt from MIGRATION_QUOTA."
+        )
+    return problems
 
 
 def trajectory_problems(
@@ -2233,6 +2490,8 @@ def trajectory_problems(
     deferred_total: int,
     value_total: int,
     quota: int = MIGRATION_QUOTA,
+    record_floor: int = RECORD_FILE_FLOOR,
+    binding_label: str = RECORD_BINDING_LABEL,
 ) -> List[str]:
     """Where the recorded trajectory disagrees with the tree or with itself.
 
@@ -2241,6 +2500,11 @@ def trajectory_problems(
         deferred_total: ``sum(DEFERRED_BASELINE.values())``.
         value_total: ``sum(VALUE_MATCHED_BASELINE.values())``.
         quota: The per-round floor on how far the deferred ledger must fall.
+        record_floor: How many of a bound round's migrations must come out of
+            :data:`RECORD_FILE`.
+        binding_label: The label of the first row ``record_floor`` applies to.
+            Rows before it predate the binding and are not retro-judged; if no
+            row carries this label, no row is bound.
 
     Returns:
         One message per disagreement, empty when the trajectory is sound.
@@ -2285,6 +2549,31 @@ def trajectory_problems(
                 "Either migrate more or write down why this round could not."
             )
 
+    binding_index = next(
+        (index for index, entry in enumerate(trajectory) if entry.label == binding_label),
+        None,
+    )
+    for index, entry in enumerate(trajectory):
+        if binding_index is None or index < binding_index:
+            continue
+        where = f"  LEDGER_TRAJECTORY[{entry.label!r}]\n    "
+        adjudicated = entry.by_citation + entry.by_deletion
+        if entry.from_record_file > adjudicated:
+            problems.append(
+                where + f"claims {entry.from_record_file} migration(s) out of {RECORD_FILE} "
+                f"but this round adjudicated only {adjudicated} (citation {entry.by_citation}, "
+                f"deletion {entry.by_deletion}). Fencing and 'other' may not be counted "
+                "toward the record-file floor: fencing removes a number from the gate's view "
+                "without deciding anything about it."
+            )
+        if entry.from_record_file < record_floor and not entry.waiver:
+            problems.append(
+                where + f"moved {entry.from_record_file} number(s) out of {RECORD_FILE} "
+                f"against a floor of {record_floor}, and records no waiver. "
+                f"{RECORD_FILE} is not exempt from the quota -- that carve-out is withdrawn. "
+                "Either migrate more from it or write down why this round could not."
+            )
+
     last = trajectory[-1]
     if last.deferred != deferred_total:
         problems.append(
@@ -2319,8 +2608,9 @@ def trajectory_line(trajectory: Sequence[LedgerRound]) -> str:
         f"ledger trajectory: {len(trajectory)} rounds | {last.label} moved {fall} "
         f"(citation {last.by_citation}, deletion {last.by_deletion}, "
         f"fencing {last.by_fencing}, other {last.by_other}) | "
+        f"{last.from_record_file} of them out of {RECORD_FILE} | "
         f"deferred {last.deferred}, value-matched {last.value_matched} | "
-        f"quota {MIGRATION_QUOTA} per round"
+        f"quota {MIGRATION_QUOTA} per round, record-file floor {RECORD_FILE_FLOOR}"
     )
 
 
@@ -2466,6 +2756,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             for file_key in sorted(counts):
                 print(f'    "{file_key}": {counts[file_key]},')
             print("}")
+        record_path = project.root / RECORD_FILE
+        if record_path.is_file():
+            records = count_records(record_path.read_text(encoding="utf-8"))
+            print("# Re-take with the label of the round you are appending.")
+            print(f"RECORD_FILE_PIN = RecordPin(label=RECORD_BINDING_LABEL, records={records})")
         return 0
 
     missing = absent_targets(project)
@@ -2495,6 +2790,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             deferred_total=sum(project.deferred_baseline.values()),
             value_total=sum(project.value_baseline.values()),
         )
+        # The one live comparison the policy makes, and it is confined to the
+        # file no workstream but the recorder may edit. Without it the
+        # record-file floor is satisfiable by appending no row at all.
+        ratchet += record_file_problems(project, LEDGER_TRAJECTORY, RECORD_FILE_PIN)
         print(trajectory_line(LEDGER_TRAJECTORY))
 
     stale = _unused_allowlist(allowlist, claims)

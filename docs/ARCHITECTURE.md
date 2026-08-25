@@ -2,7 +2,7 @@
 
 ## Why this library exists
 
-The open-source acronym ecosystem is split into four tiers that do not talk to each other:
+Four kinds of tool exist in the open-source acronym ecosystem, and each stops somewhere:
 
 | Tier | Representative work | What it does well | Where it stops |
 |---|---|---|---|
@@ -11,9 +11,16 @@ The open-source acronym ecosystem is split into four tiers that do not talk to e
 | Rule-based extractors | Schwartz & Hearst (2003) in scispaCy, Blackstone | Few false positives on inline definitions, cheap | Strictly extractive; needs the definition present in the span |
 | Neural disambiguators | AcroBERT, SDU/SciAD/GLADIS models | Resolves standalone acronyms from context | GPU-bound, slow cold start, research codebases |
 
-Nothing spans them. A production system that needs to *generate* an acronym, *extract* the ones already
-defined in a document, and *resolve* the ones that are not, has to stitch three incompatible codebases
-together. `acronymkit` is that missing single library: bi-directional, multi-tiered, and typed.
+**Nothing in that table addresses the case this library is built around**: a bare column token with no
+sentence to lean on, a catalog somebody else owns, and a requirement to refuse rather than guess. That
+is the governed subsystem, it is the one acronym task here that the table has no row for, and it is
+what the rest of this map is arranged around.
+
+This section used to conclude "`acronymkit` is that missing single library: bi-directional,
+multi-tiered, and typed" — an argument that spanning four tiers is worth something to somebody. It is
+retired. The commitment that replaces it, what it costs, and what would reverse it are in
+[docs/POSITIONING.md](POSITIONING.md). The other four subsystems below are real, are measured
+wherever they can be measured at all, and do not lead.
 
 ## Subsystem map
 

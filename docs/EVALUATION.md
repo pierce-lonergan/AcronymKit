@@ -60,6 +60,14 @@ to find. Counting them as gold would inflate recall against a target that does n
 
 ## Status of these numbers
 
+**Which of these numbers leads, and which are supporting.** The governed cut-placement figures and
+the monoculture measurement are what this project stands on. Extraction, generation, backronym
+alignment and disambiguation are measured beside them and are **supporting** numbers that nobody
+optimises for. That is a positioning decision rather than a property of the measurements, and it is
+stated, costed and given its reversal conditions in [docs/POSITIONING.md](POSITIONING.md). It changes
+nothing about how any figure below is derived or reported: every one of them keeps its losing
+comparison in the same table either way.
+
 **MED1250 is a tuning set, not a held-out one, and every number below is labelled accordingly.**
 Its miss taxonomy has been read in full, a boundary experiment was run and reverted against it, and
 the configuration knobs responsible for 17.6<!--claim:analysis.med1250.miss_taxonomy.config_attributable_pct:.1f--> % of its misses were identified from it. Nothing about
@@ -751,6 +759,10 @@ every one it is compared against. D-056 found that pooling four of them over Fed
 rules produced a union that was almost entirely one system's, and gave the reason: it is one
 algorithm with four implementations. That is a claim about the *field's* instruments, not about
 this library, and it is worth more than any of the accuracy numbers above if it holds.
+
+**This section is the argument [docs/POSITIONING.md](POSITIONING.md) rests on**, which is why the
+genre confound under *What this does not establish* is part of the finding rather than a caveat
+appended to it. Anything quoted out of here into a positioning claim has to carry both halves.
 
 `bench/run_monoculture.py` measures it. Two commitments define the algorithm and both are
 executable here: candidates are generated only from a **bracketed window**, and a candidate is
