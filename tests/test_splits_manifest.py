@@ -70,7 +70,7 @@ import io
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Optional
+from typing import Callable, Optional
 
 import pytest
 
@@ -261,6 +261,35 @@ def _mutated(field: str, value: Optional[str]) -> str:
 # ---------------------------------------------------------------------------
 # the real file
 # ---------------------------------------------------------------------------
+def _unreserved_filename(resolve: Callable[[], Path]) -> str:
+    """The file an *unreserved* arm resolves to, fetched or not.
+
+    The controls in the reservation tests exist to show the guard is arm-scoped:
+    that an arm carrying no reservation is not refused by it. They do not need
+    the corpus on disk, and asserting on a returned path quietly made them need
+    it -- green in a checkout with `data/` fetched, and three failures on every
+    CI runner, where `data/` is not vendored. The docstrings already claimed the
+    refusal fires "before the path is resolved"; this is the controls finally
+    being written the way the docstrings describe.
+
+    Both outcomes prove the same thing and both name the same file: a resolved
+    path when the corpus is present, and the fetch refusal when it is not. What
+    neither may be is the reservation, which is what this asserts.
+    """
+    try:
+        return Path(resolve()).name
+    except SystemExit as exc:
+        message = str(exc)
+        assert "RESERVED" not in message, (
+            f"the reservation fired on an arm that carries none: {message}"
+        )
+        first = message.splitlines()[0]
+        assert first.startswith("missing "), (
+            f"expected a resolved path or the fetch refusal, got: {message}"
+        )
+        return Path(first[len("missing ") :]).name
+
+
 class TestTheRealManifest:
     """The manifest this repository actually ships."""
 
@@ -557,8 +586,10 @@ class TestTheRealManifest:
             corpora._sdu22_ae_source(None, "legal", "train")
         with pytest.raises(SystemExit, match="RESERVED"):
             corpora._sdu22_ae_source(None, "scientific", "train")
-        # Control: the dev arms carry no reservation and resolve as before.
-        assert corpora._sdu22_ae_source(None, "legal", "dev").name.endswith("legal_dev.json")
+        # Control: the dev arms carry no reservation and are not refused by it.
+        assert _unreserved_filename(
+            lambda: corpora._sdu22_ae_source(None, "legal", "dev")
+        ).endswith("legal_dev.json")
 
     def test_the_ad_reservation_is_refused_before_the_split_is_called_a_typo(self) -> None:
         """D-043's arm, and the ordering that makes its reservation live rather than lucky.
@@ -573,7 +604,9 @@ class TestTheRealManifest:
             corpora._sdu21_ad_source(None, "test")
         # Controls: the unreserved arms are untouched, and a real typo is still
         # reported as a typo rather than swallowed by the guard.
-        assert corpora._sdu21_ad_source(None, "dev").name.endswith("sdu21_ad_dev.json")
+        assert _unreserved_filename(lambda: corpora._sdu21_ad_source(None, "dev")).endswith(
+            "sdu21_ad_dev.json"
+        )
         with pytest.raises(SystemExit, match="unknown SDU21-AD split"):
             corpora._sdu21_ad_source(None, "tset")
 
@@ -595,8 +628,9 @@ class TestTheRealManifest:
             decision="D-047",
             purpose="legend precision cost on an unmined arm, two_word row saved beside it",
         )
-        resolved = corpora._sdu22_ae_source(None, "legal", "train")
-        assert resolved.name.endswith("legal_train.json")
+        assert _unreserved_filename(
+            lambda: corpora._sdu22_ae_source(None, "legal", "train")
+        ).endswith("legal_train.json")
         # And the declaration is arm-scoped: it opens one arm of one corpus.
         with pytest.raises(SystemExit, match="RESERVED"):
             corpora._sdu22_ae_source(None, "scientific", "train")

@@ -230,6 +230,15 @@ previously waved through.
 
 ### Notes
 
+- **The type checker now models the Python floor this package claims.** `[tool.mypy]` targeted
+  `3.10` while `requires-python` is `>=3.9`, on a rationale — that mypy had dropped
+  `python_version = "3.9"` — which is not true of the pinned mypy and may never have been true of it.
+  Restored to `3.9`, where the tree is clean. This is a contributor-facing change only; nothing about
+  what the library computes moves. It is recorded because the override had already let a `3.10`-only
+  stdlib call ship through every local gate, and both copies of the stale claim are retired in place
+  rather than deleted. Note the limit: mypy still checks `src/acronymkit` only, so `tools/` and
+  `bench/` remain unchecked at any version. See D-058.
+
 - **New claims must now cite a run id.** `tools/check_claims.py` still accepts the existing figures
   that are backed only by matching a value somewhere in `bench/results.json` — 71 of them across four
   files, down from 87 across five when the ratchet was installed, with `README.md` now at zero and no

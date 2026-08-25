@@ -9,6 +9,93 @@ Newest first.
 
 ---
 
+## D-058 — The round that shipped W10 also reddened `14` of `17` CI jobs, and both causes were invisible to every local gate
+
+**Status:** fixed · **Amends:** D-052 (the gate's coverage), the `[tool.mypy]` rationale in
+`pyproject.toml` · **Evidence:** run `32794319528`; `python -m mypy --python-version 3.9`;
+`python -m pytest tests` with `data/` moved aside · **No experiment number spent** —
+**experiment eleven is still free**
+
+Five workstreams and a recorder landed green on the author's machine and broke almost every cell of
+the matrix on push. Neither cause was a mistake in the work; both were **properties of the local
+environment that no gate in this repository models**. That is the finding worth keeping, and it is
+the same shape twice.
+
+### Cause one: three tests needed a corpus that CI does not vendor
+
+`tests/test_splits_manifest.py` grew controls showing the new reservations are arm-scoped — that an
+arm carrying no reservation is *not* refused by one. The controls asserted on a returned path:
+
+```python
+assert corpora._sdu22_ae_source(None, "legal", "dev").name.endswith("legal_dev.json")
+```
+
+`data/` is fetched, never committed. On a runner that call raises `SystemExit: missing ...` before it
+can return anything, so the control failed for a reason that has nothing to do with what it tests.
+
+**The docstring above it already said the fix.** It read: *"The refusal fires inside
+`_sdu22_ae_source` before the path is resolved, which is why this test can assert it without opening
+the file."* The prose described a test that needed no data; the code underneath needed data. The
+controls now assert on the filename, which both outcomes name — the resolved path when the corpus is
+present, the fetch refusal when it is not — and assert positively that the refusal was **not** the
+reservation. Verified in both environments: green normally, and green with `data/` moved aside.
+
+### Cause two: a `3.10`-only stdlib call, in a package whose floor is `3.9`
+
+`Path.write_text` grew a `newline` parameter in `3.10`. `requires-python` is `>=3.9`. Five calls
+shipped. They pass `ruff`, pass `mypy`, pass the suite on `3.13`, and fail only on the `3.9` cells.
+Replaced with an explicit `path.open(..., newline=...)` helper, which every supported interpreter
+has. The endings are not cosmetic: a pinned digest is taken over the normalised text, so a CRLF
+checkout writing CRLF would change every hash and make the corpus look un-refetchable.
+
+### The reason cause two could exist was a stale comment that had already changed a setting
+
+`[tool.mypy]` set `python_version = "3.10"` against a `requires-python` of `>=3.9`, and justified it
+at length: mypy had *dropped* `python_version = "3.9"`, printed `Python 3.9 is not supported (must be
+3.10 or higher)`, and silently used the running interpreter's typeshed — so the override was the
+honest choice, a checker saying plainly which version it models.
+
+Re-tested against the pinned mypy, `1.19.0`, rather than assumed:
+
+```
+$ mypy --config-file <python_version = 3.9> probe.py
+error: Unexpected keyword argument "newline" for "write_text" of "Path"  [call-arg]
+
+$ mypy --no-incremental          # with python_version = "3.9", real tree
+Success: no issues found in 40 source files
+```
+
+No warning. `3.9`'s typeshed is used. The tree is clean at the floor, so the `type: ignore` collision
+that forced the move has been resolved elsewhere since. **The setting bought nothing and cost the
+floor, and it names the exact defect the moment it is restored.** Floor restored; both copies of the
+stale claim — one in `[tool.mypy]`, one in the dev-dependency pinning rationale — retired in place
+rather than deleted, because a wrong sentence in a config comment is not decoration. This one
+changed a setting, and the setting let a defect ship.
+
+This is the second time in two rounds that a prose claim about a tool's configuration went false and
+nothing turned red — the first being the `socrata` entry's note that `tools/check_claims.py` does not
+scan `bench/splits.toml`, corrected in the same commit. **A ratchet counting numbers cannot see a
+number-free assertion about what a tool does.** No mechanism is proposed here; the pattern is
+recorded because two instances in two rounds is a shape, not a coincidence.
+
+### What is not done, with its cost measured rather than guessed
+
+Restoring the floor helps `src/acronymkit` and **does not close the hole that broke this build**.
+`files` is `src/acronymkit` only, so `tools/` — where all five bad calls were — is unchecked at any
+version. Extending `files`:
+
+```
+$ mypy tools bench
+Found 51 errors in 14 files (checked 31 source files)
+```
+
+That is real work and its own decision, not a line to slip into a version bump. Until it is taken,
+the `3.9` floor is modelled for the shipped library and enforced for everything else only by the
+`3.9` cells of the test matrix — which is what caught this, three minutes after it could have been
+caught locally for free.
+
+---
+
 ## D-057 — The definition of done, second sweep: one criterion closes by amendment, one gets worse by being measured, and the flagship gap now has a costed route
 
 **Status:** swept · **Amends:** D-051 (criteria 2, 3, 4 and the ninth) ·

@@ -505,6 +505,20 @@ _ANCHOR = re.compile(r"(?is)<a\s[^>]*>(.*?)</a>")
 _ANY_TAG = re.compile(r"(?s)<[^>]+>")
 
 
+def _write_lf(path: Path, text: str) -> None:
+    """Write ``text`` with LF endings, on every interpreter this package supports.
+
+    ``Path.write_text`` grew a ``newline`` parameter in 3.10 and ``requires-python``
+    is ``>=3.9``, so the obvious spelling type-checks, passes every local gate and
+    fails only on the 3.9 matrix job -- which is how it reached CI. Endings are not
+    cosmetic here: a pinned digest is taken over the normalised text, so a CRLF
+    checkout writing CRLF would change every hash and make the whole corpus look
+    un-refetchable.
+    """
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+
+
 def normalise_body(raw: bytes) -> str:
     """Turn a fetched Federal Register body into the text the corpus is made of.
 
@@ -642,7 +656,7 @@ def fetch_body(pin: PinnedDocument, *, cache_dir: Path = BODY_DIR, refresh: bool
     if cached.is_file() and not refresh:
         return cached.read_text(encoding="utf-8")
     text = normalise_body(_download(body_url(pin.document_number, pin.publication_date)))
-    cached.write_text(text, encoding="utf-8", newline="\n")
+    _write_lf(cached, text)
     return text
 
 
@@ -1535,7 +1549,7 @@ def write_worklist(path: Path, pool: Pool, drawn: Sequence[Candidate], *, seed: 
         row["adjudicated_long_form"] = None
         row["note"] = ""
         lines.append(json.dumps(row))
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    _write_lf(path, "\n".join(lines) + "\n")
     return path
 
 
@@ -1927,7 +1941,7 @@ def freeze(
             "is a necessary and not a sufficient condition."
         )
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(envelope, indent=1) + "\n", encoding="utf-8", newline="\n")
+    _write_lf(path, json.dumps(envelope, indent=1) + "\n")
     return path
 
 
@@ -2010,7 +2024,7 @@ def _cmd_pool(args: argparse.Namespace) -> int:
         "candidates": [asdict(candidate) for candidate in pool.candidates],
     }
     _pool_cache().parent.mkdir(parents=True, exist_ok=True)
-    _pool_cache().write_text(json.dumps(payload), encoding="utf-8", newline="\n")
+    _write_lf(_pool_cache(), json.dumps(payload))
     print(f"documents  {len(texts)}")
     print(f"characters {sum(len(text) for text in texts.values())}")
     for name, counts in sorted(pool.proposer_counts.items()):

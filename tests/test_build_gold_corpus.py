@@ -444,9 +444,7 @@ class TestReadingAdjudications:
         head.update(header)
         path = tmp_path / "adjudications.jsonl"
         rows = [head] + [dict(item, record="item") for item in items]
-        path.write_text(
-            "\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8", newline="\n"
-        )
+        builder._write_lf(path, "\n".join(json.dumps(row) for row in rows) + "\n")
         return path
 
     def _item(self, **overrides: object) -> dict:

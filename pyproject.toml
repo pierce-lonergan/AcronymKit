@@ -67,12 +67,23 @@ dev = [
     "hypothesis>=6.80.0",
     # The two linters are pinned to a minor range, and everything else is not,
     # because they are the only dev dependencies whose *new releases change
-    # whether the build passes*. Both have now reded CI for a rule that did not
-    # exist when the code was written and that no local run could have caught:
-    # mypy dropped `python_version = "3.9"` and turned a needed `type: ignore`
-    # into an unused one, and ruff added RUF036 and flagged a union written
+    # whether the build passes*. Both have now reddened CI for a rule that did
+    # not exist when the code was written and that no local run could have
+    # caught: a mypy release turned a needed `type: ignore` into an unused one
+    # under a newer typeshed, and ruff added RUF036 and flagged a union written
     # months earlier. In both cases the failing commit had nothing to do with
     # the failure.
+    #
+    # CORRECTED IN PLACE. This used to attribute the mypy break to mypy having
+    # "dropped `python_version = \"3.9\"`". That was wrong, or has stopped being
+    # true: mypy 1.19.0 accepts the setting in a config file, warns about
+    # nothing, and type-checks against 3.9's typeshed. The break was the
+    # typeshed change alone. The claim is left visible because it did not stay
+    # in this comment -- it was carried into `[tool.mypy]` below as the reason
+    # to raise the floor to 3.10, where it silently stopped the checker
+    # modelling the version this package claims to support, and a 3.10-only
+    # stdlib call shipped through the gap. A wrong sentence in a config comment
+    # is not decoration; this one changed a setting.
     #
     # This repository already pins every GitHub Action by commit SHA for the
     # same reason. Letting the linters float was the same decision made the
@@ -147,19 +158,29 @@ ignore = [
 "tests/*" = ["N802", "N806"]
 
 [tool.mypy]
-# 3.10, not 3.9, and the difference is that this line now does something.
-# mypy dropped support for `python_version = "3.9"`: current versions print
-# "Python 3.9 is not supported (must be 3.10 or higher)" and carry on against
-# the running interpreter's typeshed. So the setting read as if the codebase
-# were being checked against its own floor while it silently was not -- and it
-# broke a build, because a `type: ignore` written for the 3.9 typeshed is an
-# *unused* ignore against the newer one.
+# BACK TO 3.9, WHICH IS `requires-python`, AND THE PREVIOUS RATIONALE HAD GONE
+# STALE. This said mypy had dropped `python_version = "3.9"` -- that current
+# versions print "Python 3.9 is not supported (must be 3.10 or higher)" and
+# carry on against the running interpreter's typeshed -- and that the override
+# was therefore honest about a floor mypy refused to model. Re-tested against
+# the pinned mypy (1.19.0): the config-file form is accepted with no warning,
+# 3.9's typeshed is used, and `mypy` over `src/acronymkit` is clean at 3.9. The
+# `type: ignore` collision that forced the move has since been resolved
+# elsewhere. So the setting bought nothing and cost the floor.
 #
-# 3.9 support is real and stays; it is enforced where it can be, by the 3.9
-# cells of the CI test matrix, which run the suite on the interpreter itself.
-# A type checker asserting a floor it refuses to model is worse than one that
-# says plainly which version it is modelling.
-python_version = "3.10"
+# It cost something concrete. `Path.write_text(newline=...)` is 3.10+, and a
+# call to it shipped, type-checked clean, passed every local gate and failed
+# only on the 3.9 cells of the CI matrix. At 3.9 mypy names it exactly:
+# `Unexpected keyword argument "newline" for "write_text" of "Path"`.
+#
+# This does NOT close that hole, and the gap is worth stating rather than
+# implying. `files` below is `src/acronymkit` only, so the call that actually
+# broke -- in `tools/` -- is still unchecked at any version. Extending `files`
+# to `tools` and `bench` reports 51 errors across 14 files at this strictness,
+# which is a real piece of work and its own decision, not a line to slip into a
+# version bump. Until then the 3.9 floor is modelled for the shipped library
+# and enforced for everything else only by the 3.9 cells of the test matrix.
+python_version = "3.9"
 files = ["src/acronymkit"]
 strict = false
 warn_unused_ignores = true
