@@ -199,7 +199,9 @@ def write_lexicon(words: Iterable[str], destination: Path, *, header: Sequence[s
     lines.append(f"# entries: {len(ordered)}")
     lines.append("")
     lines.extend(ordered)
-    destination.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    # ``Path.write_text`` grew ``newline`` in 3.10; ``requires-python`` is ``>=3.9``.
+    with destination.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write("\n".join(lines) + "\n")
     return len(ordered)
 
 

@@ -155,62 +155,198 @@ tools/fetch_data.py, asset key `med1250`.
 # number.
 
 # ---------------------------------------------------------------------------
-# A THIRD ROUTE WAS BUILT, AND ITS PRODUCT IS DELIBERATELY NOT DECLARED HERE.
+# A THIRD ROUTE WAS BUILT, AND ITS PRODUCT IS NOW DECLARED -- AT A ROLE THAT
+# CAN NEVER BACK A HEADLINE.
 # ---------------------------------------------------------------------------
-# `tools/build_gold_corpus.py` fetches, pools, samples and freezes an
-# adjudicated PAIR corpus over Federal Register final rules -- the first
-# instrument in this project that produces EDGES rather than spans, which is
-# the shape D-048 established the flagship claim needs. It has been run end to
-# end. There is a frozen artifact on disk, `bench.corpora.ReferenceSet` parses
-# it, and `bench.corpora.read_federal_register_reference` will load it.
+# D-056 refused to write this table, and the refusal was right: `ROLES` was
+# ("tuning", "held_out") and neither was true of the artifact. What that record
+# left standing was a REFUSAL WITH NO DISPOSITION -- a corpus excluded from the
+# governance file by a five-line tuple nobody had been assigned to extend. A
+# refusal is a deliverable and it ships fixed, blocked on a named decision, or
+# permanent with the reason; this one was none of the three, and "permanent"
+# was never argued, only inherited.
 #
-# NO `[corpora.<name>]` TABLE IS WRITTEN FOR IT, AND THAT IS THE DECISION.
-# D-056 records it in full. The short version, because the temptation is one
-# word wide and will recur:
+# `tools/splits.py` `ROLES` now carries `single_annotator_reference`. Read the
+# `ROLES` docstring there for the decision, INCLUDING the opposing reading --
+# that `role = "tuning"` was honest enough on `Corpus.is_tuning`'s own
+# definition, which is a statement about figures rather than about fitting --
+# stated fairly and then answered. The short answer: `tuning` would have been a
+# correct LABEL carrying no obligation, and the three properties the new role
+# enforces are the point. It is in `NEVER_HEADLINE_ROLES`, so
+# `headline_capable()` excludes it for every task unconditionally and
+# `validate()` refuses a `[policy] headline_requires` naming it. It makes
+# `adjudicators` and `pooling_recipe` mandatory. And it has its own label, so a
+# figure from it can never print "held out" in a runner header.
 #
-#   * The artifact is a SINGLE-ANNOTATOR REFERENCE SET. It says so about
-#     itself: `artifact_kind`, `is_gold_standard = false`,
-#     `headline_eligible = false`, `adjudicator_count`, and a `role_note`
-#     naming what ROLES cannot express. The adjudicator authored the extractor
-#     that proposed most of the pool.
-#
-#   * `ROLES` is ("tuning", "held_out") and NEITHER IS TRUE OF IT.
-#     `held_out` would make a self-adjudicated corpus headline-eligible
-#     through `Manifest.headline_capable`, which is the one standing it must
-#     never have -- filing it that way would fill this file's one honestly
-#     empty slot with a corpus that cannot adjudicate anything.
-#     `tuning` asserts something was fitted to it, and nothing was.
-#     The documented escape is not available either: `role = "held_out"` with
-#     `contaminated = true` is a HARD VALIDATION ERROR by validate()'s own
-#     rule, because a contaminated corpus may not hold the headline role.
-#
-#   * It is also a PILOT and is NOT SCORABLE IN EITHER DIRECTION. A minority
-#     of the pooled candidates are adjudicated and no document is exhaustively
-#     annotated, so recall has an unknown denominator and precision is
-#     understated -- an unsampled correct pair scores as a false positive.
-#     `ReferenceSet.documents_for_scoring()` refuses on exactly those two
-#     conditions. A corpus in this file is one `--save` away from a table.
-#
-# WHAT THE ENTRY NEEDS, so that whoever writes it does not have to re-derive
-# this. `ROLES` must gain `single_annotator_reference`, taken as its own
-# decision in `tools/splits.py`. `[policy] headline_requires` needs NO change:
-# `headline_capable()` filters on the headline role and would exclude the new
-# one automatically, which is the property that makes the widening safe.
-# `bench/corpora.py` carries `UNREGISTERED_READERS` naming this reader and the
-# reason it is held back, and `tests/test_build_gold_corpus.py` asserts that
-# every name in that map is absent from THIS FILE -- so the moment an entry
-# lands, that test goes red and says the exemption is no longer describing
-# anything. Adding a table here without deleting the exemption is a broken
-# build, on purpose.
-#
-# AND THE ROLE IS NOT THE ONLY BAR. Promotion to anything a headline could
-# cite needs, in order: a second adjudicator who authored none of the pooled
-# systems, with agreement computed and published; a written guideline settling
-# long-form boundaries, contractions in legends, non-initialism defined terms
-# and typesetting artefacts; EXHAUSTIVE adjudication of every pooled candidate
-# in the documents to be scored; and an unproposed sample whose upper bound is
-# small against the definitions found. An honest refusal to register beats a
-# comfortable mislabel, and this is what the refusal looks like written down.
+# THE `headline_capable("extraction")` SLOT IS STILL EMPTY, and the advisory
+# `tools/splits.py --check` prints now says how many corpora are declared for
+# the task AND how many hold the headline role -- because "declared, none
+# eligible" reads as a near miss, and this is not one.
+
+[corpora.federal_register_rules_2024q1]
+role = "single_annotator_reference"
+task = "extraction"
+status = "pilot adjudicated; frozen; not scorable in either direction"
+domain = "United States agency rulemaking (Federal Register final rules). A random draw is dominated by environmental, aviation, fisheries and maritime-safety prose. One more domain, not general text."
+licence = "Public domain (United States Government Work, 17 U.S.C. 105)"
+licence_url = "https://www.govinfo.gov/about/policies"
+licence_read_on = 2026-08-24
+vendorable = false
+contaminated = true
+adjudicators = [
+  "pierce-lonergan (author of acronymkit, the proposer contributing most of the pool)",
+]
+pooling_recipe = """
+Four proposers over the pinned draw, and the pool is deliberately NOT presented
+as corroboration. Three of the four are parenthesis scanners descended from
+Schwartz & Hearst, so their agreement is one algorithm agreeing with itself:
+
+  acronymkit_high_recall  AbbreviationExtractor(Config(
+                            extraction_min_short_form_length=1,
+                            extraction_max_short_form_length=14,
+                            extraction_require_uppercase=False,
+                            extraction_capture_sentences=False)), legend_syntax off
+  external                pyab3p, under a separate interpreter, default settings
+  all_caps                every token of length two or more equal to its own
+                          uppercase and holding a letter -- a proposer of
+                          VERTICES (short forms with no long form), present
+                          because a pool of bracket scanners can only ever hold
+                          abbreviations that were defined in brackets
+  legend rows             agency-authored Table of Abbreviations rows, carried
+                          as `legend_support` -- EVIDENCE FOR A HUMAN, never a
+                          label
+
+The adjudicated items are a stratified sample, not the pool. The load-bearing
+stratum is `unproposed_parenthetical` -- candidates NO proposer put forward --
+because the question a single-annotator set cannot answer for itself is what
+the pool never saw. `_rule_of_three_upper` exists so a stratum's point estimate
+of zero can never be printed without its bound.
+"""
+contamination_reason = """
+The adjudicator authored the extractor that proposed most of the pool, and
+adjudicated by reading the candidates that extractor produced. That is a
+different and worse defect than having been fitted to: nothing here was tuned,
+and nothing here is blind either. `contaminated = true` is therefore belt and
+braces rather than the operative bar -- the role is the bar -- and it is set
+because it makes a later promotion to `held_out` a HARD VALIDATION ERROR by
+validate()'s own rule rather than a one-word edit.
+"""
+note = """
+A single-annotator reference set over thirty pinned Federal Register final
+rules from 2024 Q1, built by `tools/build_gold_corpus.py` and read by
+`bench.corpora.read_federal_register_reference`. It is the first instrument in
+this project that produces EDGES rather than spans, which is the shape D-048
+established the flagship claim needs. It is a PILOT and it is NOT SCORABLE IN
+EITHER DIRECTION: a minority of pooled candidates are adjudicated and no
+document is exhaustively annotated, so recall has an unknown denominator and
+precision is understated -- an unsampled correct pair scores as a false
+positive. `ReferenceSet.documents_for_scoring()` refuses on exactly those two
+conditions, and `ReferenceSet.require_headline_eligible()` refuses outright.
+
+THIS ENTRY EXISTS TO RECORD WHY THE CORPUS IS WEAK. An entry saying a corpus
+exists is worth less than one saying what is wrong with it, and the premises
+this corpus was funded on died when they were measured. Every figure below is
+UN-GATED: no benchmark runner has saved one, none carries a run id, and they
+are written inside fenced blocks for that reason -- which is mechanically the
+same thing as hiding them, and is distinguishable from it only by this sentence
+and by the command printed above each block. Do not quote any of them as a
+gated figure. Re-derive them.
+
+```
+re-derived over the thirty pinned bodies, not transcribed  -- command output
+  documents                                              30
+  documents carrying a Table of Abbreviations             3
+  legend rows parsed                                     39
+  acronymkit pairs, legend_syntax OFF                    719
+  acronymkit pairs, legend_syntax ON                     719
+  documents where OFF and ON emit the IDENTICAL list      30
+```
+
+PREMISE 1, REFUTED: "Federal Register rules routinely carry their own
+abbreviation legends, so the arbiter is the agency rather than us." A small
+minority do. Worse, the ones that do write `SF LF` or `SF--LF`, never the
+`SF = LF` form `AbbreviationExtractor(legend_syntax=True)` reads -- so the two
+settings return IDENTICAL output on both Federal Register shapes. The last row
+above is the sharp form and the two rows before it are the blunt one: equal
+totals could hide two offsetting changes, and per-document list identity cannot.
+The substrate does not supply the arbiter this corpus was costed on, and that is
+the operative half of the premise.
+
+```
+distinct (document, short form, long form) edges over data/federal_register/pool.json
+  --- re-derived here, CASE-FOLDED edge identity ---
+  acronymkit_high_recall     584
+  pyab3p (`external`)        179
+  union of the two           594   acronymkit share 98.32 %
+  --- the same two rows under EXACT-CASE identity, which is a different table ---
+  acronymkit_high_recall     588
+  pyab3p (`external`)        182
+  union of the two           598
+  --- D-056's four-way table, NOT re-derivable from this repository ---
+  abbreviation_extractor     330   overlap 302   adds  28
+  abbreviations              217   overlap 207   adds  10
+  union of all four          623   acronymkit share 93.74 %
+```
+
+PREMISE 2, REFUTED: "Pooling three independent extractors makes the
+false-negative rate estimable." Every one of them descends from Schwartz &
+Hearst, so the union is one algorithm with several implementations and its
+agreement is not corroboration. `pooling_recipe` above publishes the asymmetry
+rather than averaging it away. Adding another descendant buys nothing, and the
+sample of candidates NO proposer put forward is the load-bearing step rather
+than a budget line.
+
+PROVENANCE OF THAT BLOCK, because two of its rows are and three are not.
+`abbreviation_extractor` and `abbreviations` are not in `PROPOSERS` and the
+shipped pipeline never drives them, so their rows, the four-way union and the
+`93.74 %` share cannot be reproduced from anything in this repository; they are
+carried from D-056 and are marked as such rather than repeated as though
+checked. The two rows the frozen pool DOES hold reproduce it exactly -- but only
+under case-folded edge identity, which no record stated. Under exact-case
+identity the same pool gives a different table, and a reader re-deriving it
+would have found a discrepancy and had nothing to attribute it to. **A figure
+whose identity rule is unwritten is a figure two people reproduce differently**,
+which is the same defect as an un-cited number one level down. Whichever
+identity is taken, the conclusion is unchanged and the sharper number is the
+reproducible one: one system supplies almost the whole union.
+
+PREMISE 3, REFUTED ELSEWHERE AND RECORDED HERE because it bears on the legend
+reader this substrate was chosen for: "equation surface is where the legend
+rule bleeds precision" is ANTI-CORRELATED with emissions on every corpus that
+has been measured for it. That is not a Federal Register measurement and no
+figure for it belongs in this entry; it is named so the next person does not
+re-fund the legend route from a third direction.
+
+WHAT IS STRONG HERE, AND IT IS NOT THE LABELS. The thirty documents RE-FETCH
+COLD AND REPRODUCE EXACTLY. Every pinned text digest matches, and every one
+also matches the independent Government Publishing Office mirror -- a different
+host serving the same statutory text:
+
+```
+python tools/build_gold_corpus.py fetch --refresh --mirror-check   -- command output, abridged
+  ok  2023-28849    15762 chars  mirror==
+  ok  2024-02008   652096 chars  mirror==
+  ... thirty documents, thirty digest comparisons, thirty mirror comparisons
+  exit 0, no MISMATCH, no DIFFERS
+```
+
+The digest is over NORMALISED text and not over the fetched bytes, because both
+hosts rewrite e-mail addresses into a per-response token; that is what makes
+the mirror comparison a second opinion rather than a second copy. No corpus
+this project benchmarks against offers a reproducibility guarantee of that
+shape. It had been filed under the disappointment.
+
+PROMOTION, AND THE CONDITIONS. `single_annotator_reference` is the honest role
+and it is NOT a step toward `held_out`. Promotion needs, in order, none
+optional: a second adjudicator who authored none of the pooled systems, with
+agreement computed and published; a written guideline settling long-form
+boundaries, contractions in legends, non-initialism defined terms and
+typesetting artefacts; EXHAUSTIVE adjudication of every pooled candidate in the
+documents to be scored; an unproposed sample whose upper bound is small against
+the definitions found, in the hundreds rather than the dozens; and only then a
+role change here. The first condition is the one this project cannot meet
+alone.
+"""
 
 [corpora.sdu21_ai]
 role = "held_out"
@@ -412,7 +548,14 @@ task = "span_detection"
 # quietly -- the same failure class as the three published sentences D-037
 # retired. If it goes stale again, delete it rather than fixing it: a field
 # nothing checks is a field that lies eventually.
-status = "evaluated; gated in bench/results.json under shortform.sdu22_ae_legal_dev.*"
+# CORRECTED AGAIN 2026-08-24, by the recorder, and this is the second time this
+# one field has gone stale. The `train` arm was spent under D-047 this round, so
+# a status naming only the dev runs was false the moment the spend landed. No
+# workstream owned this field: the spending workstream was scoped to the
+# reservation and its ledger line, and the workstream editing this file was
+# scoped to a new corpus. That is how a field nothing validates goes stale --
+# not because somebody was careless, but because nobody was assigned it.
+status = "evaluated; gated in bench/results.json under shortform.sdu22_ae_legal_dev.* and shortform.sdu22_ae_legal_train.*"
 # The corpus calls this split "legal". It is not legal text, and the field
 # below says what it actually is. See `domain_finding`.
 domain = "Institutional and development-policy prose (United Nations system)"
@@ -426,7 +569,15 @@ The August 2026 audit decomposed this split's misses by legend separator over
 the 30 characters preceding each gold long-form span (669 gold long forms, 263
 missed, legend matches {'=': 127, ':': 4}) and used the result to rank a recall
 proposal. Reading a miss taxonomy is exactly what made MED1250 a tuning split.
-Only `train.json` is unread.
+
+CORRECTED 2026-08-24 by the recorder. This ended "Only `train.json` is unread",
+which stopped being true when D-047's allocation was discharged: `train.json`
+has now been read once, scored at all three shipped profiles, and had its own
+miss decomposition published beside the delta. BOTH arms of this corpus are
+read. See the reservation below, whose state is `spent` and whose `spent_in`
+names the runs. Nothing on this corpus is unread, so there is no unmined arm
+here for any future question -- which is a cost of the spend and is recorded as
+one in D-064 rather than left for somebody to discover.
 """
 shortform_recall_ceiling_pct = 55.15
 shortform_recall_ceiling_basis = """
@@ -529,20 +680,9 @@ not the legal domain, and the domain-generalisation gap stays open.
 [[corpora.sdu22_ae_legal.reservations]]
 arm = "train"
 file = "data/english/legal/train.json -> data/sdu22_ae_legal_train.json"
-state = "allocated"
+state = "spent"
 decided_in = "D-047"
-allocated_to = """
-The legend flag's precision cost, measured on an arm that was not mined to
-invent it. D-039 shipped `legend_syntax` off; D-045 measured its cost only on
-the two dev splits whose miss taxonomy suggested the rule. THAT WORKSTREAM OWNS
-THE READ: it decides when the split is read, which miss decomposition is
-published, and what may be concluded.
-
-LOSER: experiment nine, the two-word bracketed short form (D-032). It stays
-HELD. Holding costs nothing; the legend flag is SHIPPED with an unmeasured
-cost, which is a live liability rather than a parked one. Experiment nine may
-NOT commission a read of its own, or a miss decomposition of its own.
-"""
+spent_in = "shortform.sdu22_ae_legal_train.*, saved by `python bench/run_shortform.py --spend-legal-train --save`"
 spend_trigger = """
 The legend workstream elects to publish `legend_syntax`'s precision cost on an
 unmined arm, and commits in the same run to publishing the miss decomposition
@@ -556,24 +696,59 @@ The run that spends this split MUST save the `two_word` row as well. It costs
 zero extra reads and it is the only way experiment nine is ever answered once
 the arm is mined.
 """
-lapse_trigger = """
-Either (a) a corpus that annotates legend definitions, is structurally capable,
-and can be declared uncontaminated is registered -- D-039's real precondition,
-which makes this arm redundant for the winner; or (b) `legend_syntax` is
-deleted rather than defaulted, at which point the question no longer exists.
-Then experiment nine inherits the split.
-"""
 not_a_trigger = """
 Experiment nine being older; a workstream needing a number this round; the
 legend work stalling. Priority does not transfer by default.
+
+AND NOW, POST-SPEND: a re-run. This arm is mined and the reservation no longer
+refuses a read, which is what `state = "spent"` means. That is not permission to
+re-read it for a new question and call the answer blind. Every figure from this
+file is a tuning figure and the corpus entry above records why.
 """
 note = """
-WHAT IS SCARCE, because it is less than "held out" implies. This corpus is
-already role = "tuning" and contaminated = true, and both English test splits
-carry zero labels, so there is no blind arm here and never was. What train.json
-holds is the last UNMINED arm -- 3,564 unread samples, a split nobody has read
-the misses of, which can be run against once before it is as contaminated as
-the dev split beside it.
+SPENT, and this is the ledger line. The read happened once, under D-047, by the
+workstream that owns the question; `declare_spend` printed the banner and
+`spent_in` above names what came out of it. Everything below this paragraph is
+preserved verbatim from the allocation, because the half about what the spend
+CANNOT buy is the half D-047 says gets lost, and it survives the spend intact.
+
+WHAT IT WAS ALLOCATED TO, kept because a spent arm still has to say what bought
+it. The legend flag's precision cost, measured on an arm that was not mined to
+invent it. D-039 shipped `legend_syntax` off; D-045 measured its cost only on
+the two dev splits whose miss taxonomy suggested the rule. THAT WORKSTREAM OWNED
+THE READ: it decided when the split was read, which miss decomposition was
+published, and what may be concluded.
+
+LOSER: experiment nine, the two-word bracketed short form (D-032). It stayed
+HELD, and it still is. It rode the free ride -- the `two_word` row is saved
+under `shortform.sdu22_ae_legal_train.*.two_word` and it wins on this arm at
+every profile -- and a row saved is not a decision taken. Shipping it needs its
+own record.
+
+WHAT WOULD HAVE MADE THE ALLOCATION LAPSE, and did not: either a corpus that
+annotates legend definitions, is structurally capable, and can be declared
+uncontaminated being registered -- D-039's real precondition, which would have
+made this arm redundant for the winner; or `legend_syntax` being deleted rather
+than defaulted, at which point the question would no longer exist. Neither
+happened, the winner spent it, and experiment nine does not inherit a split that
+no longer exists to inherit.
+
+WHAT WAS SCARCE, because it was less than "held out" implies -- and the tense
+is the point, since this paragraph described the arm before the spend and would
+now be false in the present. This corpus is already role = "tuning" and
+contaminated = true, and both English test splits carry zero labels, so there
+was no blind arm here and never had been. What train.json held was the last
+UNMINED arm -- 3,564 unread samples, a split nobody had read the misses of,
+which could be run against once before becoming as contaminated as the dev split
+beside it. It has been, and it is.
+
+TWO SENTENCES IN THIS FILE WENT FALSE WITH THIS SPEND AND ARE NOT FIXED HERE.
+The `contamination_reason` on this corpus entry above still ends "Only
+`train.json` is unread", and the `status` string names only the dev run ids.
+Both are corpus-level fields owned by whoever maintains this entry rather than
+by the reservation, and editing another workstream's field in the same commit
+as a spend is how two people's corrections collide. They are named here so the
+next reader meets the correction rather than the claim.
 
 WHAT THE SPEND CANNOT BUY, and this is the half that gets lost.
 

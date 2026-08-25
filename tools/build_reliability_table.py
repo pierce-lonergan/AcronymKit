@@ -251,7 +251,9 @@ def write(destination: Path) -> Path:
     """
     _derive_guard(SOURCE_ASSET, destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(render(build()), encoding="utf-8", newline="\n")
+    # ``Path.write_text`` grew ``newline`` in 3.10; ``requires-python`` is ``>=3.9``.
+    with destination.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(render(build()))
     return destination
 
 

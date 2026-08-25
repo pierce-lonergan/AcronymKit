@@ -615,7 +615,7 @@ def discover(selection: Selection, *, pause: float = 0.5) -> List[Dict[str, Any]
         time.sleep(pause)
 
 
-def draw(rows: Sequence[Mapping[str, Any]], selection: Selection) -> List[Dict[str, Any]]:
+def draw(rows: Sequence[Dict[str, Any]], selection: Selection) -> List[Dict[str, Any]]:
     """Take the seeded uniform sample that defines the population.
 
     The rows are sorted by document number before the draw, not left in the

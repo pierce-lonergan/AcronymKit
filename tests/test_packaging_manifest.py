@@ -147,7 +147,19 @@ def test_every_fixture_data_file_is_named_by_the_manifest() -> None:
     )
 
 
+#: This test loads `tools/check_claims.py`, and `tools/` is not part of an
+#: installed distribution. Without this guard the test FAILS rather than skips
+#: wherever the tool is absent -- which is the same defect it was written to
+#: close, reintroduced by the commit that closed it. Caught by the deprived-tree
+#: check, not by CI: `tools/` is present in every CI environment that runs this
+#: file, so the shape is invisible there. It is the fourth instance of a check
+#: that cannot fail where it runs, and the first one authored by the round that
+#: named the pattern.
 @pytest.mark.skipif(not MANIFEST.is_file(), reason="not a source checkout")
+@pytest.mark.skipif(
+    not (REPO_ROOT / "tools" / "check_claims.py").is_file(),
+    reason="tools/ is not part of an installed distribution",
+)
 def test_every_file_the_claims_gate_reads_is_shipped_by_the_manifest() -> None:
     """Whatever the gate reads, the sdist ships -- derived, not remembered.
 

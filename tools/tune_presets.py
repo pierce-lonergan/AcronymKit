@@ -183,7 +183,12 @@ def _report(results: list[tuple[int, ScoringWeights]]) -> Optional[ScoringWeight
 def _mean_pronounceability(strategy: ScoringStrategy) -> float:
     """Mean pronounceability of the primary result across the canonical corpus."""
     engine = AcronymEngine(Config(scoring_strategy=strategy))
-    scores = [engine.generate(phrase).primary.pronounceability_score for phrase, _ in CANONICAL]
+    scores = []
+    for phrase, _ in CANONICAL:
+        primary = engine.generate(phrase).primary
+        if primary is None:  # pragma: no cover - a canonical phrase that generates nothing
+            raise SystemExit(f"no candidate for {phrase!r}; the canonical corpus moved")
+        scores.append(primary.pronounceability_score)
     return sum(scores) / len(scores)
 
 

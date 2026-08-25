@@ -670,12 +670,24 @@ class TestFreezing:
         assert frozen["headline_eligible"] is False
         assert "gold standard" not in frozen["artifact_kind"]
 
-    def test_it_asks_for_a_role_the_manifest_cannot_express_rather_than_the_nearest_wrong_one(
-        self, frozen: dict
-    ) -> None:
-        """``held_out`` would make it headline-eligible; ``tuning`` would be a lie."""
+    def test_it_asks_for_a_role_that_can_never_back_a_headline(self, frozen: dict) -> None:
+        """The artifact asked for a role by name; the vocabulary now has it.
+
+        This assertion used to be ``requested_role not in splits.ROLES`` -- the
+        artifact naming a role the manifest could not express, which was the true
+        and useful statement for exactly one round. Inverting it rather than
+        deleting it keeps the binding: the envelope's ``requested_role`` and the
+        manifest's vocabulary are still checked against each other, and the
+        property that made the role worth adding is checked beside it.
+
+        ``held_out`` would make a self-adjudicated set headline-eligible;
+        ``tuning`` would assert a fitting that never happened. Neither is
+        reachable from here now, because the requested role is in
+        ``NEVER_HEADLINE_ROLES``.
+        """
         assert frozen["requested_role"] == builder.REQUESTED_ROLE
-        assert frozen["requested_role"] not in splits.ROLES
+        assert frozen["requested_role"] in splits.ROLES
+        assert frozen["requested_role"] in splits.NEVER_HEADLINE_ROLES
         assert "held_out" in frozen["role_note"]
 
     def test_the_freeze_date_travels_with_the_corpus(self, frozen: dict) -> None:
@@ -874,15 +886,44 @@ class TestTheReader:
 
 
 @needs_corpora
-class TestTheRegistryGap:
-    """The reader is unregistered on purpose, and the reason is checkable."""
+class TestTheRegistration:
+    """The corpus is declared now, at a role that can never back a headline.
 
-    def test_the_corpus_is_declared_nowhere_and_is_named_as_a_known_gap(self) -> None:
-        assert corpora.FEDERAL_REGISTER_CORPUS in corpora.UNREGISTERED_READERS
-        assert corpora.UNREGISTERED_READERS[corpora.FEDERAL_REGISTER_CORPUS].strip()
+    This class replaces ``TestTheRegistryGap``, which pinned the *absence* of the
+    entry. The gap is closed the way D-056 said it had to be: a new role, not a
+    wrong one, and the exemption deleted in the same commit as the table.
+    """
 
-    def test_it_is_in_no_registry_and_no_declaration_map(self) -> None:
-        """Registering it before the manifest can describe it is the failure mode."""
+    def test_the_role_the_artifact_asked_for_exists_now(self) -> None:
+        """``builder.REQUESTED_ROLE`` was a string no vocabulary contained.
+
+        The artifact has been writing ``requested_role`` into its own envelope
+        since it was first frozen, and ``tools/splits.py`` had no such role. The
+        two are bound here rather than left to agree by memory.
+        """
+        assert set(splits.ROLES) >= {"tuning", "held_out", builder.REQUESTED_ROLE}
+        assert builder.REQUESTED_ROLE in splits.NEVER_HEADLINE_ROLES
+        assert builder.REQUESTED_ROLE == corpora.FEDERAL_REGISTER_ROLE
+
+    def test_the_manifest_declares_it_at_exactly_that_role(self) -> None:
+        manifest = splits.load(REPO_ROOT / "bench" / "splits.toml")
+        corpus = manifest.corpus(corpora.FEDERAL_REGISTER_CORPUS)
+        assert corpus.role == builder.REQUESTED_ROLE
+        assert corpus.may_back_a_headline is False
+        for task in splits.TASKS:
+            assert corpora.FEDERAL_REGISTER_CORPUS not in {
+                entry.name for entry in manifest.headline_capable(task)
+            }, task
+
+    def test_it_is_still_in_no_registry_and_no_declaration_map(self) -> None:
+        """Declared is not the same as registered, and it must not become so by drift.
+
+        ``READERS`` promises ``GoldDocument`` lists and this reader returns a
+        ``ReferenceSet``; ``DECLARED_AS`` maps *reader* names to *manifest*
+        names, and this reader is called by its manifest name directly. Adding it
+        to either would hand a pair scorer a corpus that refuses to be scored,
+        one call further in than the refusal.
+        """
         name = corpora.FEDERAL_REGISTER_CORPUS
         assert name not in corpora.DECLARED_AS
         assert name not in corpora.DECLARED_AS.values()
@@ -895,39 +936,120 @@ class TestTheRegistryGap:
         ):
             assert name not in registry
 
-    def test_the_manifest_refuses_the_undeclared_corpus(self) -> None:
-        """The rule enforcing itself, at the point the corpus would be opened."""
-        with pytest.raises(SystemExit, match="does not declare"):
+    def test_the_reader_no_longer_dies_on_the_declaration(self) -> None:
+        """The refusal that was the point of the last round, gone for the right reason.
+
+        Asserted as "not *this* failure" rather than as a successful load,
+        because the artifact lives under the git-ignored ``data/`` and no CI
+        runner has it. Both outcomes are acceptable and only one message is not:
+        a runner with the corpus gets a ``ReferenceSet``, a runner without it
+        gets the fetch instruction, and neither may be the manifest saying the
+        corpus is undeclared.
+        """
+        try:
+            reference = corpora.read_federal_register_reference()
+        except SystemExit as exit_:
+            message = str(exit_)
+            assert "does not declare" not in message, message
+            assert "is declared role=" not in message, message
+            assert message.startswith("missing "), message
+            return
+        assert reference.name == corpora.FEDERAL_REGISTER_CORPUS
+        assert reference.adjudicator_count == 1
+
+    def test_the_reader_refuses_a_corpus_re_filed_under_another_role(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The one-word edit, driven through the reader rather than beside it.
+
+        ``declaration()`` establishes only that the manifest says *something*
+        about this corpus. The danger is that it says ``held_out``, which would
+        make a self-adjudicated set the eligible source for the project's
+        flagship claim. So the reader asserts the role before it opens the file.
+
+        **This test exists because its first draft did not test that.** The draft
+        called ``Corpus.require_role`` directly, which exercises
+        ``tools/splits.py`` and not the wiring in ``read_federal_register_reference``:
+        deleting the reader's role check left the whole suite green. It now
+        re-files the real manifest, injects the resulting declaration, and calls
+        the reader -- so removing that branch is red.
+
+        The corpus is built by the *reader's own* loader module rather than by
+        this file's copy, because ``tools/splits.py`` is imported by path in two
+        places and the ``SplitsError`` the reader catches is the other module's.
+        """
+        module = corpora._splits_module()
+        assert module is not None
+        source = (REPO_ROOT / "bench" / "splits.toml").read_text(encoding="utf-8")
+        re_filed = source.replace('role = "single_annotator_reference"', 'role = "held_out"', 1)
+        assert re_filed != source, "the re-filing did not take; this test proves nothing"
+        path = tmp_path / "splits.toml"
+        path.write_text(re_filed, encoding="utf-8")
+        corpus = module.load(path).corpus(corpora.FEDERAL_REGISTER_CORPUS)
+        assert corpus.role == "held_out", "the mutation did not take; this test proves nothing"
+
+        monkeypatch.setattr(corpora, "declaration", lambda name: corpus)
+        with pytest.raises(SystemExit, match="the only role this reader will open it at"):
             corpora.read_federal_register_reference()
 
-    def test_the_exemption_is_still_describing_something(self) -> None:
-        """When the entry lands, this test is what says the exemption is stale.
+    def test_the_exemption_map_is_empty_and_its_tripwire_still_fires(self) -> None:
+        """The exemption is deleted, and the check that reads it is not now vacuous.
 
-        ``TEXT_ONLY_VIEWS`` carries the same check for the same reason: an
-        exemption that no longer excuses anything is worse than no exemption,
-        because it reads as a live decision.
+        The old test looped over ``UNREGISTERED_READERS`` asserting each name was
+        undeclared. With the map empty that loop runs **zero times** and passes
+        unconditionally -- a green measuring nothing, which is D-051's vacuous
+        criterion and D-056's ``all()`` over an empty pool arriving a third time.
+
+        So the check is a function, and it is exercised twice: once against the
+        real (empty) map, where it must find nothing, and once against a
+        synthetic map that excuses a corpus the manifest really declares, where
+        it must find it. The second call is what gives this test a firing count
+        above zero.
         """
         manifest = splits.load(REPO_ROOT / "bench" / "splits.toml")
-        for name in corpora.UNREGISTERED_READERS:
-            assert name not in manifest.names, (
-                f"{name} is declared now; remove it from UNREGISTERED_READERS and "
-                "register its reader"
-            )
+        assert corpora.UNREGISTERED_READERS == {}
+        assert corpora.stale_exemptions(corpora.UNREGISTERED_READERS, manifest.names) == []
 
-    def test_the_role_the_artifact_needs_does_not_exist_yet(self) -> None:
-        """Pinned so that widening ``ROLES`` is a decision somebody takes deliberately.
+        synthetic = {
+            corpora.FEDERAL_REGISTER_CORPUS: "held back because ROLES cannot say what it is"
+        }
+        assert corpora.stale_exemptions(synthetic, manifest.names) == [
+            corpora.FEDERAL_REGISTER_CORPUS
+        ], "the tripwire does not fire on an exemption that excuses a declared corpus"
 
-        ``tools/splits.py`` is not this workstream's file. When ``ROLES`` gains
-        ``single_annotator_reference`` this test fails, and the failure is the
-        prompt to register the corpus and delete the exemption above.
+    def test_declaring_it_did_not_make_it_scorable(self) -> None:
+        """A corpus in the governance file is one ``--save`` from a table; this one is not.
 
-        It asserts the absence of that one value rather than the exact contents
-        of ``ROLES``. Pinning the whole tuple would turn any unrelated widening
-        -- by a workstream that has never heard of this corpus -- into a red
-        build here, which is a false alarm charged to somebody else.
+        Both refusals are on the artifact rather than on the manifest, so
+        registration could not have relaxed either. Driven through
+        ``parse_reference_set`` so it holds on a runner with no ``data/``.
         """
-        assert set(splits.ROLES) >= {"tuning", "held_out"}
-        assert builder.REQUESTED_ROLE not in splits.ROLES
+        envelope = {
+            "artifact_kind": "single-annotator reference set",
+            "adjudicators": ["one person"],
+            "payload": {"doc-1": [["NPRM", "notice of proposed rulemaking"]]},
+            "exhaustively_annotated_documents": [],
+        }
+        reference = corpora.parse_reference_set(corpora.FEDERAL_REGISTER_CORPUS, "x.json", envelope)
+        with pytest.raises(SystemExit, match="no exhaustively annotated document"):
+            reference.documents_for_scoring()
+        with pytest.raises(SystemExit, match="may not back a headline number"):
+            reference.require_headline_eligible()
+
+    def test_the_manifest_entry_carries_the_two_facts_the_role_requires(self) -> None:
+        """Who decided, and how the candidates they decided on were proposed.
+
+        They were inside the frozen envelope in a git-ignored directory, which is
+        somewhere the governance file cannot see. The role's whole content is
+        that they are now in the file that governs what may be measured.
+        """
+        manifest = splits.load(REPO_ROOT / "bench" / "splits.toml")
+        corpus = manifest.corpus(corpora.FEDERAL_REGISTER_CORPUS)
+        assert corpus.adjudicator_count == 1
+        assert corpus.pooling_recipe.strip()
+        assert builder.EXTERNAL_SYSTEMS[0] in corpus.pooling_recipe, (
+            "the recipe must name the external proposer the tool actually drives"
+        )
 
 
 # ---------------------------------------------------------------------------

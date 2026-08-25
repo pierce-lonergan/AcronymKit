@@ -55,7 +55,7 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Optional, Sequence, cast
 
 #: ``<repo>/tools`` -- this script's own directory.
 TOOLS_DIR = Path(__file__).resolve().parent
@@ -389,9 +389,12 @@ def validate_ngram(path: Path, language: str) -> tuple[str, list[str]]:
         violations.append("'boundary_start' and 'boundary_end' must differ")
 
     backoff = payload.get("backoff_log_prob")
-    if not _is_number(backoff) or not math.isfinite(float(backoff)):
+    # ``_is_number`` establishes int-or-float, which a bool-returning predicate
+    # cannot tell the checker; the cast records only what the guard proved.
+    number = cast(float, backoff) if _is_number(backoff) else None
+    if number is None or not math.isfinite(number):
         violations.append(f"'backoff_log_prob' must be a finite number, got {backoff!r}")
-    elif float(backoff) > 0.0:
+    elif number > 0.0:
         violations.append(f"'backoff_log_prob' must be <= 0, got {backoff!r}")
 
     size = payload.get("vocabulary_size", 0)

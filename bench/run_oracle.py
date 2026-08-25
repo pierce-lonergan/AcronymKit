@@ -131,7 +131,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     union_correct = 0
     universal_miss = 0
-    exclusive = Counter()
+    exclusive: Counter = Counter()
     for uid, pairs in gold.items():
         for pair in pairs:
             finders = [s for s in SYSTEM_ORDER if pair in found[s].get(uid, set())]

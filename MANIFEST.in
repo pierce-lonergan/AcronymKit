@@ -74,10 +74,19 @@ recursive-include .github/workflows *.yml
 # checksummed", and README/conftest cite it for why only English ships a lexicon
 # -- so leaving it out made those links unresolvable for anyone holding a
 # distribution rather than a checkout, which is the audience the claim is aimed
-# at. Only the ledger ships. The corpora it describes stay out: `data/` measures
-# 34,482,534 B here, several of its assets are copyleft, and
+# at. Only the ledger ships. The corpora it describes stay out: `data/` runs to
+# tens of megabytes, several of its assets are copyleft, and
 # `tools/fetch_data.py` re-fetches every one of them against the SHA-256 digests
 # recorded in the source.
+#
+# CORRECTED IN PLACE. That sentence gave a byte count for `data/`. It was wrong
+# when this was written -- roughly half the directory's actual size -- and it was
+# never a property of this repository in the first place: `data/` is fetched, not
+# committed, so its size says which assets the reader happens to have pulled.
+# `tools/check_claims.py` does not scan MANIFEST.in, so the figure could not go
+# stale loudly. Re-derive it rather than re-stamping it:
+#   python -c "import pathlib; print(sum(f.stat().st_size "
+#              "for f in pathlib.Path('data').rglob('*') if f.is_file()))"
 include data/LICENSES.md
 
 global-exclude __pycache__

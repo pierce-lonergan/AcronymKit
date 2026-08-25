@@ -688,7 +688,7 @@ def ceilings(records: Sequence[Decomposed]) -> dict:
         return lambda c: a * c.overlap + b * c.initials + d * c.register
 
     steps = [index * WEIGHT_STEP for index in range(round(1 / WEIGHT_STEP) + 1)]
-    best_score, best_weights = -1.0, None
+    best_score, best_weights = -1.0, (0.0, 0.0, 0.0)
     for w_overlap in steps:
         for w_initials in steps:
             if w_overlap + w_initials > 1.0 + 1e-9:
@@ -849,7 +849,7 @@ def default_path(instances: Sequence[DisambiguationInstance], config: Config) ->
     from acronymkit import AcronymEngine  # local: only this function needs the facade
 
     engine = AcronymEngine(config)
-    counts = Counter()
+    counts: Counter = Counter()
     correct = 0
     for instance in instances:
         result = engine.disambiguate(instance.acronym, instance.context)
@@ -1167,7 +1167,7 @@ def abstention_curve(
                 for index in members
             ]
             row.update(_curve_rows(flags, len(members), f"gate_{threshold:.2f}"))
-        present = [margins[index] for index in members if margins[index] is not None]
+        present = [margin for margin in (margins[index] for index in members) if margin is not None]
         row["median_margin"] = round(statistics.median(present), 4) if present else None
         by_arity[label] = row
     out["by_arity"] = by_arity
@@ -1232,9 +1232,9 @@ def abstention_curve(
     out["by_gold_evidence"] = by_evidence
     out["gold_word_in_sentence_base_rate_pct"] = round(sum(gold_verbatim) / total * 100, 2)
     for threshold in MARGIN_GRID:
-        answered = [index for index in range(total) if _gate_admits(base[index], threshold)]
+        picked = [index for index in range(total) if _gate_admits(base[index], threshold)]
         out[f"gate_{threshold:.2f}_share_of_answered_that_is_gold_verbatim_pct"] = round(
-            sum(gold_verbatim[index] for index in answered) / len(answered) * 100, 2
+            sum(gold_verbatim[index] for index in picked) / len(picked) * 100, 2
         )
 
     # -- per-arity thresholds, the audit's proposed remedy, measured ----------
@@ -1306,9 +1306,8 @@ def _per_arity_thresholds(
         wanted = max(1, min(len(members), round(target * len(members))))
         # Exempt instances are answered at every threshold, so they fill the
         # quota first and only the rest is bought with a threshold.
-        gateable = sorted(
-            (gate_key[index] for index in members if gate_key[index] is not None), reverse=True
-        )
+        keys = [gate_key[index] for index in members]
+        gateable = sorted((key for key in keys if key is not None), reverse=True)
         exempt = len(members) - len(gateable)
         if wanted <= exempt or not gateable:
             threshold = None
@@ -1316,8 +1315,8 @@ def _per_arity_thresholds(
             threshold = gateable[min(wanted - exempt, len(gateable)) - 1]
         chosen = [
             index
-            for index in members
-            if gate_key[index] is None or (threshold is not None and gate_key[index] >= threshold)
+            for index, key in zip(members, keys)
+            if key is None or (threshold is not None and key >= threshold)
         ]
         thresholds[label] = None if threshold is None else round(threshold, 4)
         answered_total += len(chosen)
@@ -1416,9 +1415,17 @@ def frequency_prior(records: Sequence[Decomposed], train: Sequence[Disambiguatio
             }
         )
 
+    def prior_scorer(prior: dict) -> Callable[[Scored], float]:
+        """Bind ``prior`` by closure rather than by default argument.
+
+        The default-argument idiom binds the loop variable correctly and is
+        opaque to the checker, which then cannot infer the lambda at all.
+        """
+        return lambda candidate: prior[candidate.expansion]
+
     prior_ok = context_ok = union = context_only = prior_only = 0
     for record, prior in zip(records, priors):
-        by_prior = predict(record, lambda c, p=prior: p[c.expansion], inline="off") == record.gold
+        by_prior = predict(record, prior_scorer(prior), inline="off") == record.gold
         by_context = predict(record, OVERLAP_ONLY, inline="off") == record.gold
         prior_ok += by_prior
         context_ok += by_context
@@ -1472,7 +1479,7 @@ def frequency_prior(records: Sequence[Decomposed], train: Sequence[Disambiguatio
             gate_used += 1
             prediction = predict(record, OVERLAP_ONLY, inline="off")
         else:
-            prediction = predict(record, lambda c, p=prior: p[c.expansion], inline="off")
+            prediction = predict(record, prior_scorer(prior), inline="off")
         gated += prediction == record.gold
 
     return {

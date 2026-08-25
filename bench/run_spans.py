@@ -263,7 +263,7 @@ def predict_acronymkit_native(
     """
     from acronymkit import AcronymEngine, Config
 
-    engine = AcronymEngine(Config(**overrides))  # type: ignore[arg-type]
+    engine = AcronymEngine(Config(**overrides))
     predictions: dict[str, SpanPrediction] = {}
     started = time.perf_counter()
     for document in documents:

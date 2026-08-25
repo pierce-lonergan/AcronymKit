@@ -1309,44 +1309,81 @@ def read_governed_gold(name: str, path: Optional[Path] = None) -> SegmentationCo
 # the other. ``tools/build_gold_corpus.py`` builds the corpus that would close
 # it, out of public-domain Federal Register rules.
 #
-# What lands here is the reader, and it is deliberately **not in any registry**.
 # The corpus it reads is adjudicated by one person, and that person is the author
-# of the extractor it would be used to score. There is no role in
-# ``tools/splits.py`` that says so -- ``ROLES`` is ``("tuning", "held_out")`` --
-# and filing it under either would be a lie in a different direction:
-# ``held_out`` makes it headline-eligible through ``Manifest.headline_capable``,
-# which is exactly what a self-adjudicated set must never be, and ``tuning``
-# claims something was fitted to it when nothing was.
+# of the extractor it would be used to score. For one round ``tools/splits.py``
+# had no role that could say so -- ``ROLES`` was ``("tuning", "held_out")``, and
+# filing it under either would have been a lie in a different direction --
+# so the reader shipped and the corpus was left undeclared, with the omission
+# recorded in :data:`UNREGISTERED_READERS` (D-056).
 #
-# So the reader exists, refuses to produce a corpus until the manifest declares
-# one, and the honest role is reported rather than approximated. See
-# :data:`UNREGISTERED_READERS`.
+# ``ROLES`` now carries ``single_annotator_reference``: never headline-capable
+# for any task, and required to name its adjudicators and its pooling recipe in
+# the manifest. The corpus is declared at that role, the exemption is deleted in
+# the same commit -- ``tests/test_build_gold_corpus.py`` requires exactly that
+# pairing -- and :func:`read_federal_register_reference` now asserts the declared
+# role rather than merely asserting that *some* declaration exists. Registering
+# it did not make it scorable: ``ReferenceSet.documents_for_scoring`` and
+# ``ReferenceSet.require_headline_eligible`` both still refuse.
 
 #: Where ``tools/build_gold_corpus.py`` writes its frozen artifact. Inside the
 #: git-ignored ``data/``, like every other fetched evaluation asset.
 FEDERAL_REGISTER_CACHE = DATA_DIR / "federal_register"
 
-#: The ``[corpora.<name>]`` table this reader would draw from. It does not exist
-#: yet, on purpose: ``bench/splits.toml`` is not this workstream's file, and the
-#: entry it needs declares a role the validator would reject today.
+#: The ``[corpora.<name>]`` table this reader draws from.
 FEDERAL_REGISTER_CORPUS = "federal_register_rules_2024q1"
+
+#: The role ``bench/splits.toml`` must declare :data:`FEDERAL_REGISTER_CORPUS`
+#: under, asserted at read time by :func:`read_federal_register_reference`.
+#:
+#: Checking the role and not merely the *existence* of a declaration is the
+#: difference between the manifest governing this corpus and the manifest merely
+#: mentioning it. ``role = "held_out"`` is one word away at all times and would
+#: make a self-adjudicated set the eligible source for the project's flagship
+#: claim; the loader refuses to open the artifact under any role but this one, so
+#: that edit fails where the corpus is used and not only where it is validated.
+FEDERAL_REGISTER_ROLE = "single_annotator_reference"
 
 #: Readers that exist and are deliberately absent from every registry, with the
 #: reason each one is held back.
 #:
-#: This is a set for the same reason :data:`TEXT_ONLY_VIEWS` is a set: the
-#: alternative is a paragraph, and ``tests/test_splits_manifest.py`` cannot
-#: consult a paragraph. An entry here is a promise that the omission is
-#: deliberate and that the manifest gap is the thing blocking it -- so when the
-#: entry lands, the test that reads this constant is what says the exemption is
-#: no longer describing anything.
-UNREGISTERED_READERS = {
-    FEDERAL_REGISTER_CORPUS: (
-        "single-annotator reference set adjudicated by the author of the extractor it "
-        "would score; tools/splits.py ROLES cannot express that, and neither 'tuning' "
-        "nor 'held_out' is true of it"
-    ),
-}
+#: **Empty, and kept.** It held exactly one entry -- the Federal Register
+#: reference set, held back because ``ROLES`` could not express what it was --
+#: and that entry was deleted in the commit that registered the corpus, because
+#: ``tests/test_build_gold_corpus.py`` asserts every name here is absent from the
+#: manifest and would otherwise have gone red. An empty exemption map is the
+#: correct state: it excuses nothing, and it is the structure the next
+#: unregistered reader is recorded in rather than a paragraph nothing can
+#: consult.
+#:
+#: The tripwire that reads it is now guarded against becoming vacuous. A loop
+#: over an empty mapping asserts nothing while looking like a check, which is
+#: D-051's vacuous criterion, so the check is a function
+#: (:func:`stale_exemptions`) exercised against a synthetic map as well as
+#: against this one.
+UNREGISTERED_READERS: dict[str, str] = {}
+
+
+def stale_exemptions(exemptions: dict, declared: Sequence[str]) -> list[str]:
+    """Names excused by ``exemptions`` that ``declared`` already covers.
+
+    Extracted from the test that used to inline it. The test looped over
+    :data:`UNREGISTERED_READERS` and asserted each name was undeclared; with the
+    map empty that loop runs zero times and passes unconditionally -- a green
+    that measures nothing, which is the exact shape D-051 found in a vacuous
+    criterion and D-056 found in an ``all()`` over an empty pool. As a function
+    it can be driven with a map that *does* excuse something, so the tripwire's
+    own firing count is greater than zero whatever the real map holds.
+
+    Args:
+        exemptions: A mapping like :data:`UNREGISTERED_READERS`.
+        declared: Every corpus name the manifest declares.
+
+    Returns:
+        The excused names that are declared, sorted. Empty means every exemption
+        still describes a real omission.
+    """
+    known = set(declared)
+    return sorted(name for name in exemptions if name in known)
 
 
 @dataclass(frozen=True)
@@ -1601,30 +1638,51 @@ def parse_reference_set(
 def read_federal_register_reference(path: Optional[Path] = None) -> ReferenceSet:
     """Load the frozen Federal Register reference set.
 
-    This **will raise today**, and that is the design rather than a gap. The
-    corpus is not declared in ``bench/splits.toml``, :func:`declaration` refuses
-    an undeclared corpus, and the refusal is the manifest doing the job it exists
-    to do: a corpus that is measured but never declared is exempt from the
-    train/test rule by omission.
+    For one round this raised unconditionally, because the corpus was undeclared
+    and :func:`declaration` refuses an undeclared corpus. It is declared now, at
+    ``role = "single_annotator_reference"`` -- a role that can never appear in
+    ``Manifest.headline_capable`` for any task.
 
-    The entry it needs cannot be written yet either, and the reason is in
-    :data:`UNREGISTERED_READERS`. That is the finding this reader carries, and it
-    is more useful in the repository than a reader that quietly filed a
-    self-adjudicated corpus as ``held_out`` to make an import work.
+    **The role is asserted here and not merely assumed.** ``declaration`` only
+    establishes that the manifest says *something* about this corpus; the whole
+    danger with this artifact is the one-word edit that says the wrong thing. So
+    the reader requires :data:`FEDERAL_REGISTER_ROLE` before it opens the file,
+    which means a re-filing to ``held_out`` fails at the point the corpus is
+    read, not only at the point the manifest is validated.
+
+    Loading it is still not scoring it. :meth:`ReferenceSet.documents_for_scoring`
+    refuses while no document is exhaustively annotated, and
+    :meth:`ReferenceSet.require_headline_eligible` refuses while one person
+    adjudicated.
 
     Args:
         path: An explicit artifact, so the parse can be exercised against a
-            fixture. The declaration check runs either way; passing a path is not
-            a way around it.
+            fixture. The declaration and role checks run either way; passing a
+            path is not a way around them.
 
     Returns:
         The reference set.
 
     Raises:
-        SystemExit: If the corpus is undeclared, if the artifact is missing, or
-            if the envelope fails :func:`parse_reference_set`.
+        SystemExit: If the corpus is undeclared, if it is declared under a role
+            other than :data:`FEDERAL_REGISTER_ROLE`, if the artifact is missing,
+            or if the envelope fails :func:`parse_reference_set`.
     """
-    declaration(FEDERAL_REGISTER_CORPUS)
+    declared = declaration(FEDERAL_REGISTER_CORPUS)
+    if declared is not None:
+        module = _splits_module()
+        assert module is not None
+        try:
+            declared.require_role(FEDERAL_REGISTER_ROLE)  # type: ignore[attr-defined]
+        except module.SplitsError as error:
+            raise SystemExit(
+                f"{error}\n"
+                f"{FEDERAL_REGISTER_CORPUS} is a single-annotator reference set adjudicated by "
+                "the author of the extractor that proposed most of its pool. The role it is "
+                f"declared under is what keeps it out of headline_capable(); {FEDERAL_REGISTER_ROLE!r} "
+                "is the only role this reader will open it at. Changing it is a promotion, and "
+                "bench/splits.toml lists the conditions a promotion needs."
+            ) from error
     source = Path(path) if path is not None else FEDERAL_REGISTER_CACHE / "reference_set.json"
     if not source.is_file():
         raise SystemExit(

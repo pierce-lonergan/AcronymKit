@@ -199,7 +199,7 @@ def evaluate_preset(
     }
     if strategy_name:
         options["scoring_strategy"] = ScoringStrategy.coerce(strategy_name)
-    engine = AcronymEngine(Config(**options))  # type: ignore[arg-type]
+    engine = AcronymEngine(Config(**options))
 
     buckets = {name: Bucket(name) for name in ("initialism", "subword", "unreachable")}
     failures: list[tuple[str, str, list[str]]] = []
@@ -299,7 +299,7 @@ def rank_pairs(
     if strategy_name:
         options["scoring_strategy"] = ScoringStrategy.coerce(strategy_name)
     options.update(overrides)
-    engine = AcronymEngine(Config(**options))  # type: ignore[arg-type]
+    engine = AcronymEngine(Config(**options))
 
     ranks: list[Optional[int]] = []
     started = time.perf_counter()
@@ -465,7 +465,7 @@ def coverage_streams() -> dict[str, tuple[Tokenizer, int, bool]]:
     }
     streams: dict[str, tuple[Tokenizer, int, bool]] = {}
     for name, (overrides, subsequence) in variants.items():
-        config = Config(**{**base, **overrides})  # type: ignore[arg-type]
+        config = Config(**{**base, **overrides})
         streams[name] = (Tokenizer(config), config.max_letters_per_token, subsequence)
     return streams
 
@@ -569,10 +569,13 @@ def run_coverage(pairs: Sequence[tuple[str, str]], corpus: str) -> dict[str, dic
         pooled[preset], _ = rank_pairs(initialism, preset, max_candidates=POOL_DEPTH)
         print(render_curve(preset, ranked[preset], pooled[preset]))
 
-    union_25 = [
-        any(ranked[p][i] is not None and ranked[p][i] <= max(CUTOFFS) for p in PRESETS)
-        for i in range(total)
-    ]
+    top_cutoff = max(CUTOFFS)
+
+    def within_top(rank: Optional[int]) -> bool:
+        """Whether a rank exists and is inside the deepest reported cutoff."""
+        return rank is not None and rank <= top_cutoff
+
+    union_25 = [any(within_top(ranked[p][i]) for p in PRESETS) for i in range(total)]
     union_pool = [any(pooled[p][i] is not None for p in PRESETS) for i in range(total)]
     never = [initialism[i] for i in range(total) if not union_pool[i]]
     deep = [initialism[i] for i in range(total) if union_pool[i] and not union_25[i]]

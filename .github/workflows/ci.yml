@@ -64,6 +64,30 @@ jobs:
         # "Headroom today is 113,269 bytes" survived two audits after the budget
         # it was derived under had been replaced. New claims cite a run id.
         run: python tools/check_claims.py
+      - name: Every CI gate is registered, and says whether it has ever failed on purpose
+        # THE REGISTER, AND WHY IT IS A GATE RATHER THAN A DOCUMENT.
+        #
+        # Four defects shipped in one round and every one was the same shape: a
+        # check that could not fail in the environment where it ran (D-058).
+        # The claims gate could not fail in a checkout holding every file it
+        # scans; the suite could not fail on a machine holding data/ and
+        # tools/; mypy could not fail against a click predating `match`; and
+        # tests/test_splits_manifest.py had never once run in the extracted
+        # tree, hiding 74 tests behind a green `build` job. None of the four
+        # was found by a gate.
+        #
+        # .github/gates.toml registers every job in every workflow, what each
+        # gate detects, what it is blind to, and whether its capacity to fail
+        # has ever been demonstrated -- in situ, with a date. This step fails if
+        # a job is added and not registered, if a gate points at a step that has
+        # been renamed, or if a mutation is declared without edits or refused
+        # without a reason.
+        #
+        # It prints, on every run, how many gates carry in-situ evidence. That
+        # number started at zero and the line says so, because a register that
+        # only reports its flattering totals is the document this repository
+        # keeps finding stale.
+        run: python tools/gates.py --check
 
   resources:
     name: Validate bundled resources
@@ -127,6 +151,38 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: Install
         run: python -m pip install -e ".[dev]"
+      - name: This runner is the environment the register says it is
+        # A POSITIVE CONTROL FOR THIS JOB, AND THE REPOSITORY'S SECOND.
+        #
+        # `data/` is fetched and never committed, so all fifteen cells of this
+        # job are already a run of the suite with the evaluation corpora
+        # absent. Several tests depend on that absence -- D-058's cause one was
+        # three controls that asserted on a resolved corpus path, green on a
+        # machine that had fetched them and red on every runner.
+        #
+        # Nothing asserted the absence. A cached or vendored `data/` would turn
+        # every gate that rests on it into a tautology, silently, and no other
+        # check here would notice. `.github/gates.toml` declares what this
+        # environment holds and lacks as globs, and this step checks them.
+        #
+        # The pattern is copied from the `air-gap` job below, which has opened
+        # with "Prove the network namespace really has no route" since it was
+        # written, for exactly this reason: without it, a runner where `unshare`
+        # silently did nothing would turn every later step into a tautology
+        # that passes. That job was the only one in this repository with a
+        # positive control.
+        #
+        # SKIPPED ON 3.9 AND 3.10, AND THAT IS A HOLE RATHER THAN A DETAIL.
+        # `tools/gates.py` needs a TOML parser; `tomllib` is 3.11+ and `tomli`
+        # is not a declared dev dependency, so on those interpreters the tool
+        # exits saying it cannot read the file rather than passing quietly. Four
+        # of the fifteen cells therefore run without this control. Adding
+        # `tomli` to the dev extra for `python_version < "3.11"` closes it in
+        # one line of pyproject.toml; that file was not this workstream's to
+        # edit, and the gap is registered in .github/gates.toml rather than
+        # left to be discovered.
+        if: matrix.python-version != '3.9' && matrix.python-version != '3.10'
+        run: python tools/gates.py --assert-environment test
       - name: Test
         run: python -m pytest --cov=acronymkit --cov-report=xml --cov-report=term-missing
       - name: Upload coverage
@@ -745,10 +801,24 @@ jobs:
         #   test_packaging_manifest.py  skips  -- needs MANIFEST.in
         #   test_pseudo_precision.py    skips  -- says "not a checkout" itself
         #   an optional NLP backend     skips  -- the same ones a checkout skips
-        #   test_check_claims.py,       never  -- execute a `tools/` script at
-        #   test_splits_manifest.py     collect    import; see the list below
+        #   test_check_claims.py,       skips  -- each executes a `tools/`
+        #   test_splits_manifest.py,               script at import, and
+        #   test_build_gold_corpus.py              `tools/` is not shipped
         #
         # plus the six checkout-only tests enumerated in EXPECTED_NON_PASSING.
+        #
+        # CORRECTED IN PLACE, AND THE CORRECTION IS THE INTERESTING PART.
+        # That row read `never collect` for the first two files, which is what
+        # they did until the round that shipped the note on EXPECTED_NON_PASSING
+        # below: a module body runs at import, so a `skipif` mark could not save
+        # them and the file ERRORED rather than skipping. All three now call
+        # `pytest.skip(..., allow_module_level=True)` on one named condition,
+        # before the load. The note below was rewritten when that happened and
+        # THIS LIST WAS NOT -- so one file asserted two different behaviours of
+        # the same two test modules, sixty lines apart, and nothing could turn
+        # red over it. Re-derive with:
+        #   grep -l allow_module_level tests/*.py
+        # which names exactly the three files above.
         #
         # The TOTALS move every time somebody adds a test, so they are stamped
         # rather than maintained, and the gate prints the current ones on every

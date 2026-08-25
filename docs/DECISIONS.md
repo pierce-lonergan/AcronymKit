@@ -9,6 +9,1138 @@ Newest first.
 
 ---
 
+## D-059 — The deferred ledger gets a written policy, a quota and a trajectory the gate enforces; the four buckets the mandate scoped needed six; and the page describing all of it went stale inside the session that wrote it
+
+**Status:** shipped · **Amends:** D-052 (the residue is classified and the ledger now has a rate),
+D-057 (criterion 3's evidence) · **Evidence:** `tools/check_claims.py` — `LEDGER_TRAJECTORY`,
+`MIGRATION_QUOTA`, `trajectory_problems()`, `--classify`; `docs/CLAIMS-LEDGER.md`;
+`tests/test_check_claims.py` · **No experiment number spent — experiment eleven is still free**
+
+This record is first because it changes the rule every other record in this round publishes under.
+A commit that lowers either ratchet without appending a round to `LEDGER_TRAJECTORY` now turns the
+CI gate red, and the round it appends must say where every migrated number went.
+
+```
+python tools/check_claims.py -- command output, re-run by the recorder for this record
+  value-matched ratchet:  64 of 64 budgeted across 3 file(s)
+  deferred ratchet:      262 of 262 budgeted across 10 file(s)
+  ledger trajectory: 2 rounds | M2-P3 X4 (first burn-down)
+                     moved 54 (citation 52, deletion 2, fencing 0, other 0)
+                     deferred 262, value-matched 64 | quota 12 per round
+```
+
+**The fencing column is the load-bearing one and it reads zero.** D-052 established that a fenced
+number leaves the gate's view entirely, so a falling ledger is not evidence of adjudication unless
+the fencing column is published beside it. It is now a checked field: `trajectory_problems()`
+refuses a round whose four columns do not add up to the fall it claims, demonstrated red by
+mutation.
+
+### Value matching is unsound in the direction nobody had measured
+
+D-052 established that value-matching the residue would relabel invisible numbers "backed". The
+converse was measured this round on a real population: of the nineteen `UNIQUE`/`REPLICATED`
+deferred numbers in `docs/EVALUATION.md`, **four rows carrying three distinct values** match a
+measurement of something else entirely — three competitor cold-import times matching a short-form
+F1 delta, an abstention recall and an ablation score. So `gate-able` is a **candidate** label
+wherever it appears, in the tool, the report and the page.
+
+That coincidence is what hid the underlying defect, and it is the sharper finding: **the whole
+"Cold import" column of the flagship extraction comparison table in `docs/EVALUATION.md` has never
+been saved by any runner.** `bench/run_micro.py` measures this library's import and nothing else.
+Reported, not fixed — that table is not the recorder's file either.
+
+### The classification needed six buckets, and the debt is the ledger, not the residue
+
+```
+python tools/check_claims.py --classify -- command output, re-run for this record
+  bucket          deferred  unexamined   total
+  gate-able            123         200     323
+  no-number              0           0       0
+  stale                  0           0       0
+  blocked              135          10     145
+  not-a-claim            4         365     369
+  unclassified           0         919     919
+  ALL                  262        1494    1756
+```
+
+`not-a-claim` and `unclassified` are not editorial hedges. Forcing several hundred calendar years,
+ISO-date fragments and interpreter versions into "prose that should not carry a number" would have
+been a false statement about them. **The debt is the ledger column, not the total.**
+
+### The page describing this went stale before this record was written, and only one column held
+
+Three readings of the same `ALL` row, all inside one session, on one tree:
+
+```
+docs/CLAIMS-LEDGER.md as shipped, fenced          ALL  262  1480  1742
+the sampled-verification pass, hours later        ALL  262  1483  1745
+this record, re-run by the recorder               ALL  262  1494  1756
+```
+
+The `deferred` column is identical in all three because it is the ratcheted one. The other two move
+whenever any workstream adds a scanned document — `docs/SECOND-READER.md` landing is enough. The
+page says of itself that its counts drift; it is fenced, so the gate is silent about it; and it
+became false within hours of being written. **That is D-052's warning arriving on the document that
+quotes D-052's warning**, and it is the reason this record publishes the drift rather than a
+corrected snapshot.
+
+### Two migrations that are corrections rather than migrations
+
+`README.md` and `docs/ARCHITECTURE.md` both claimed `F₁ > 96 %` for rule-based extractors in a
+comparison row. That is a precision figure labelled F1: this file records the published
+Schwartz & Hearst range as `~86–89 % F1 on Ab3P` and this project's own harness scores the two
+shipped descendants at `88.87` and `80.73`. Both rows now carry no figure. **Deleting a number
+created one**: the first replacement wording put the keyword `precision` inside the proximity window
+of a `2003` citation year and armed a number in two files whose value baseline is zero. The gate
+caught it. That failure mode was not predicted by anyone and belongs in this record.
+
+### How it fails
+
+**The quota is gameable in exactly one way and nothing detects it.** `trajectory_problems()`
+compares the last row to the baselines, not to a live scan — deliberate, because a live comparison
+would redden on any edit by any workstream — so a round that adds debt in one file and migrates the
+same amount in another nets to zero and passes. Only the per-file ratchets catch that, and the
+trajectory has no per-file column.
+
+**A waiver is free text and nothing grades it.** The quota was set at `12` against a round that
+moved `54`, which avoids guaranteeing the first waiver and is unfalsifiable until a round misses.
+
+**And the structural ceiling is now the recorder's problem, which is a conflict of interest worth
+writing down.** `docs/DECISIONS.md` holds `115` of the `262` deferred numbers and `217` of the
+`323` `gate-able` ones — nearly half the ledger and two thirds of its citable half — and no
+workstream may edit this file. **I am the only agent who can migrate them and I migrated none of
+them this round.** The trajectory will asymptote at roughly `115` and start being waived for a
+reason nobody chose, unless the recorder is bound by the same policy as everybody else. That should
+be the next round's first question about this record.
+---
+
+## D-060 — The gate that adjudicates this project's claims cannot see a latency claim, and two user-facing pages promise that it can. A second reader now exists, and it found the flagship page's correctness argument citing numbers that are not in the file
+
+**Status:** finding published and reproduced; policy shipped; the two overstated sentences **not**
+corrected · **Amends:** the claims-gate scope sentence in `README.md` and in `docs/EVALUATION.md`;
+D-059's account of its own instrument's reach · **Evidence:** `docs/SECOND-READER.md`,
+`CONTRIBUTING.md`, the mutation below, `docs/EVALUATION.md` line `144` ·
+**No experiment number spent — experiment eleven is still free**
+
+`README.md` and `docs/EVALUATION.md` both say CI fails the build when a performance claim *anywhere
+in the docs or the source* cannot be traced to a benchmark run. **The recorder reproduced the
+counter-example rather than carrying it on a report's word:**
+
+```
+one prose bullet inserted at README.md line 577, then `python tools/check_claims.py`
+  A  "- Median latency for a governed expansion fell to 41 microseconds in this release."
+       rc=0    every checked number is backed by bench/results.json, a citation, or the allowlist
+  B  "- Extraction accuracy reached 99.94 % in this release."      <- positive control, same line
+       rc=1    README.md:577   '99.94' in: - Extraction accuracy reached 99.94 % ...
+  restored     rc=0
+```
+
+`latency` is not in the gate's keyword vocabulary and a spelled-out `microseconds` is not in its
+unit vocabulary, so the sentence is never armed and never seen. Not corrected here: the right
+wording is a judgement about how strong a promise the project wants to make, and `SCAN_GLOBS`
+excludes `CONTRIBUTING.md`, `SECURITY.md`, `tools/*.py` and `bench/*.py` besides.
+
+**A recorder's own null result, with its firing count, because it nearly went into this record as a
+finding.** My first attempt inserted both sentences at `README.md` line `101` and **both** returned
+`rc=0` — which reads as "the gate misses its own control too". Line `101` is inside a fenced Python
+block. The instrument fired **zero times** on both runs; I had measured nothing. The mutation is
+evidence only at a prose line, and the gap between those two attempts is the entire content of R12
+demonstrated on the person writing the rule down.
+
+### The flagship page's harness-correctness argument cites two numbers that are not in the results file
+
+`docs/EVALUATION.md` line `144` reads that pyab3p's `96.96 / 83.62` "lands within half a point of
+the figures published for Ab3P on MED1250, which is the strongest available evidence that this
+harness, reader and scorer are correct". Verified by the recorder:
+
+```
+the table twelve lines above  pyab3p  P 96.91  R 82.06
+grep -c "83.62" bench/results.json                       0
+extraction.med1250.pyab3p     exact 96.91 / 82.06        relaxed 97.10 / 82.23
+```
+
+`96.96` does occur in `bench/results.json` — as a long-form overlap precision on unrelated SDU-22
+scientific legend rows, which is to say it would value-match by coincidence, which is D-059's
+finding arriving on the sentence that argues the harness is correct. Both the sentence and the
+table row entered in the commit that created the file. **Six audits, two adversarial passes and
+four documentation sweeps did not read the sentence against the table five lines above it.** Not
+fixed: repairing the numbers collapses the "within half a point" conclusion the sentence exists to
+carry, and rewriting that argument is a decision for whoever owns the page. The comparison is also
+**unmeasurable from this repository in either direction** — no published Ab3P figure appears
+anywhere in the tree.
+
+### The deliverable, and why the trigger has two halves
+
+`docs/SECOND-READER.md` is a two-trigger cold-read policy, wired into `CONTRIBUTING.md` as a
+required step and costed at one agent slot or about ninety minutes. **Trigger A** cold-reads the
+user-facing files a round actually touched. **Trigger B** rotates one untouched file per round, and
+it exists on a count rather than a hunch: `7` of the `15` findings in the first pass were in files
+this round's diff never touched, so a diff-only trigger has a measured miss of `7` in `15` on this
+round's own evidence. Six mechanical checks ship, each named for the live defect it caught.
+
+`CONTRIBUTING.md` itself carried three false statements and is corrected: it listed four gates and
+omitted the two that fail on a *document* rather than on code; it said mypy runs over
+`src/acronymkit`; and its non-negotiable 6 forbade network access "in the library or in `tools/`",
+which is false of the three tools whose entire purpose is fetching. Two outright errors in
+`README.md` are fixed — a documented backronym output the shipped library does not produce, and a
+four-verb dependency-isolation claim for a CI job that runs two verbs.
+
+### How it fails
+
+**The policy has no gate, and this repository has learned to distrust exactly that object.** Eleven
+places cited `bench/splits.toml` in prose, none parsed it, and it was invalid TOML for months. The
+enforcing check is specified in one paragraph and was declined, because it belongs in files nobody
+this round owned and because a gate never demonstrated failing where it runs is D-058's shape. A
+reader who calls the deliverable aspirational until that job exists and has been mutated red on a
+real push is reading it correctly.
+
+**A second reader who fixes things stops being cold, and three things were fixed.** The line drawn
+was "the correct text is fully determined by a command I ran"; a reader may reasonably call that
+line arbitrary.
+
+**The yield is self-graded.** `15` findings and `6` material is one reader's classification of one
+reader's output, with no second adjudicator — the circular structure this criterion exists to
+break, one level up.
+
+**Trigger B bounds nothing.** One untouched file per round over a fourteen-file rotation means a
+defect in a quiet document waits seven rounds on average. The two oldest defects it found had been
+wrong for far longer than that.
+
+**And three of the fourteen rotation files were never read** — `docs/GOVERNED_NAMING.md`,
+`docs/QUICKSTART_GOVERNED.md`, `docs/INSTALL.md`, about `2,400` lines between them. Absence of
+findings there is absence of looking, and the page says so rather than reporting a clean read.
+---
+
+## D-061 — R11 made executable: a gate register, a mutation harness, and the finding that shrinking a list is not the same as growing coverage
+
+**Status:** shipped — register, validator, mutation harness, scheduled workflow, docs, `51` tests,
+two `ci.yml` steps · **Amends:** D-050's `[[defect_coverage]]` reasoning for breakage `e`; D-058's
+closing note on its two ad-hoc checks · **Evidence:** `.github/gates.toml`, `tools/gates.py`,
+`tools/gate_packaging_mutation.py`, `.github/workflows/gate-mutation.yml`,
+`tests/test_gate_manifest.py`, `docs/GATES.md`; exports of `4f812e1` and `a62f99a` ·
+**No experiment number spent — experiment eleven is still free**
+
+R11 says a gate must be demonstrated capable of failing **in the environment where it runs**. This
+round made the premise executable for the first time. Re-derived by the recorder:
+
+```
+python tools/gates.py --check -- command output, re-run for this record
+  gate manifest: 36 gate(s) across 21 environment(s) in 5 workflow file(s)
+  mutation kind: automated 13, control 2, inline 8, manual 13
+  demonstrable by this harness: 13 of 36
+  CARRYING IN-SITU EVIDENCE:   0 of 36   <- R11 is not satisfied for any gate here
+  gate manifest OK
+```
+
+**That last line is the state of the deliverable and it is printed on every CI run.** The mechanism
+ships; the evidence does not exist for a single gate, because nothing in this round could push,
+dispatch a workflow or read a run log. A count that makes the absence unmissable is not a table
+that implies coverage, and it is also not evidence.
+
+### The finding: D-050's coverage numbers reproduce exactly and the reason for one of them has changed
+
+`installed-suite` still misses breakage `e`. It used to miss it because of a file-keyed
+`EXPECTED_NON_PASSING` entry; D-058 deleted both file-keyed entries; it is still missed, now because
+`tests/test_splits_manifest.py` fires a module-level skip at line `133` before the unguarded load at
+line `143`. **The blind spot moved out of a list of names in `ci.yml` and into a skip condition in a
+test file. It did not shrink: `2` of `5` before, `2` of `5` after.**
+
+```
+tools/gate_packaging_mutation.py -- five historical breakages on a real sdist
+  case    test -f   extracted tree   installed-suite   label
+  control passes    passes           passes            unmutated control
+  a       FAILS     FAILS            passes            bench/results.json out of the sdist
+  b       FAILS     passes           passes            data/LICENSES.md out of the sdist
+  c       passes    FAILS            FAILS             tests/fixtures/* out of the sdist
+  d       passes    FAILS            FAILS             test_governed_gold.py loads bench/ unguarded
+  e       passes    FAILS            passes            test_splits_manifest.py, same defect
+  build/extracted tree catches 4 of 5  |  installed-suite catches 2 of 5
+```
+
+**Reading "the list shrank" as "the coverage grew" is the error to book**, and the workstream that
+found it had reasoned its way to the opposite answer before measuring.
+
+### A transcript-only check went green to red in one commit and nothing noticed
+
+D-058's `4348 passed, 112 skipped, zero collection errors` for a checkout with `tools/` and `bench/`
+moved aside is exact at `4f812e1` and red at `a62f99a` on
+`tests/test_packaging_manifest.py::test_every_file_the_claims_gate_reads_is_shipped_by_the_manifest`
+— a test **added by `a62f99a` itself**, the commit that fixed the previous instance of a check that
+cannot fail where it runs. The record was right; the tree moved under it in one commit. The
+workstream's first draft said the record was wrong, and exporting the commit is what stopped it.
+
+### R11 demonstrated in two runs of one command
+
+With D-058's cause one restored on one export of HEAD: `88 passed` with `data/` present,
+`1 failed, 87 passed` with `data/` absent. Same tree, same suite, same defect, opposite verdicts,
+and no local gate could have said so.
+
+### What the register buys, and its unit
+
+`--assert-environment` makes the environment premise executable — `holds`/`lacks` as repo-relative
+globs rather than prose — generalising the `air-gap` job's namespace control, which was the only
+positive control in the repository and had never been applied to a second job. **Splitting one YAML
+step into three gates was a finding, not tidiness**: "verify the sdist ships the files its own suite
+reads" runs a `test -f` list *and* a whole pytest run, catching `2` of `5` and `4` of `5`
+respectively. Registered as one gate it would have published a single number true of neither. **The
+register's unit is the assertion, not the step.**
+
+### How it fails
+
+**Zero of thirty-six gates carry in-situ evidence, and that is the whole objection.**
+`.github/workflows/gate-mutation.yml` has never executed — `260` lines of YAML written blind, which
+is precisely the state every workflow file in this repository that has ever been wrong was in. Expect
+the first scheduled run to be red.
+
+**Twenty-one of thirty-six gates carry no mutation at all** — `8` refused `inline`, `13` `manual`.
+Each carries a reason, which is R14 satisfied, and R14 satisfied is not R11 satisfied. Three of the
+eight fall to one afternoon of extracting heredocs into `tools/`, and the architectural argument for
+refusing them is also a very comfortable place to stop.
+
+**The mypy probe's demonstration is the least transferable thing on the page** — Windows, CPython
+`3.13`, `click 8.1.8`. The gate most worth demonstrating is the one whose demonstration depends most
+on the environment nobody could enter.
+
+**`installed-suite` and `build` are reproduced, not invoked.** Drift between `ci.yml` and the
+harness is undetected except for the `EXPECTED_NON_PASSING` half.
+
+**The anti-rot rule rests on a single point of failure that is an indentation matcher.** The PyYAML
+cross-check is an `importorskip`; on a runner without PyYAML the scanner is checked only against
+itself.
+
+**The mutation runner writes to files outside its brief and restores from bytes read at apply time.**
+In a tree several agents were editing, a write landing between the read and the restore is silently
+lost. Nothing was lost — the two resource files were md5-verified — but the hazard is structural.
+
+**`docs/GATES.md` ships in the sdist and `.github/gates.toml` does not**, so a shipped page links to
+an absent file: the `data/LICENSES.md` shape, fifth instance, arriving through a door this round
+opened and could not close because `MANIFEST.in` belonged to another workstream.
+---
+
+## D-062 — The paragraph refusing to extend the type checker was measured with the checker configured not to see the defect, and three more of that defect were still shipping
+
+**Status:** fixed · **Amends:** D-058 (its "what is not done" measurement, and its commit message's
+"all five bad calls"), the `[tool.mypy]` comment in `pyproject.toml`, the `installed-suite`
+composition list in `.github/workflows/ci.yml`, `MANIFEST.in`'s `data/` size, `CHANGELOG.md`'s
+`[Unreleased]` note on the mypy floor · **Evidence:** `python -m mypy`;
+`python -m mypy tools bench --python-version {3.9,3.10,3.13}`; the mutation battery; the
+`click 8.4.2` MYPYPATH reproduction · **No experiment number spent — experiment eleven is still
+free**
+
+D-058 refused to extend `files` and priced the refusal at `51 errors in 14 files`. That is the
+`python_version = "3.10"` reading — **the setting the same commit deleted three lines above it.**
+
+```
+python -m mypy tools bench --no-incremental, re-derived
+  --python-version 3.9    Found 54 errors in 17 files (checked 31 source files)   <- the configured floor
+  --python-version 3.10   Found 51 errors in 14 files (checked 31 source files)   <- the deleted setting
+  --python-version 3.13   Found 50 errors in 13 files (checked 31 source files)
+```
+
+The `3.9`-to-`3.10` delta is exactly three errors in three files: the three surviving
+`Path.write_text(newline=...)` calls in `tools/fetch_data.py`, `tools/build_lexicons.py` and
+`tools/build_reliability_table.py`. D-058's commit message says "`tools/` — where all five bad calls
+were". Five were, all in the one file that round had just written; three older ones in three other
+files were never looked for. **The class was named correctly and the search was scoped to the
+symptom.**
+
+All three are fixed. `files` is now `["src/acronymkit", "tools", "bench"]`, all `54` errors are
+cleared, and the recorder confirms `python -m mypy` reports `Success: no issues found in 75 source
+files` against `40` before.
+
+### Two rules this bought, both of which will be re-litigated
+
+**`warn_unused_ignores` is only as trustworthy as the file set it runs over.** Ten suppressions in
+`bench/` read as dead under `mypy tools bench` at every version tried, and two came straight back
+under the configured run, because including `src/acronymkit` changes import resolution. Two adjacent
+monkeypatch sites that had **never** carried a suppression needed one for the first time — that
+patching had been invisible while `bench/` sat outside `files`. **A suppression audit taken on a
+subset is not an audit.**
+
+**`disallow_untyped_defs = false` without `check_untyped_defs = true` is a weakened check that
+reports green.** The one relaxation is three named `bench` analysis runners; dropping the signature
+requirement alone would have removed sixteen function bodies from analysis while the run printed
+success. Turning `check_untyped_defs` on immediately surfaced two further real errors inside
+previously unreadable bodies. `tools/` takes the library's strictness with **no override of any
+kind**, because every defect of this class so far has been in `tools/`.
+
+### The number-free assertion class now has a measured error rate
+
+A mechanically harvested population — a comment block, docstring or paragraph naming a repository
+artefact *and* carrying an assertion verb — gives `757` candidate units in `99` files. A census of
+the configuration stratum plus a seeded sample of the rest plus a targeted grep for the exact shape
+that had gone false twice gives `43` assertions checked and `5` false: **`11.6 %`, or `7.0 %`
+excluding the two this round's own work falsified.** Two of the five were the same sentence written
+twice and updated once — `pyproject.toml` against this file, and `ci.yml` against itself sixty lines
+apart — which with D-058's two makes **four instances of one mechanism.**
+
+**`.github/workflows/ci.yml` contradicted itself about the same two test modules for a whole round**
+and nothing could turn red over it. It is still wrong, in the other direction, and the recorder
+verified it live: the file's own prescribed re-derivation `grep -l allow_module_level tests/*.py`
+names **five** files while the comment beside it says "which names exactly the three files above".
+Two new test modules landed this round carrying that skip. Reported, not fixed — the file is not
+the recorder's.
+
+### The one mechanically checkable sub-class, named because "no gate exists" would be too broad
+
+Path existence and symbol existence would have caught **none** of the five found here. Re-running
+fenced `$ command` blocks and diffing the output would have caught the headline one, in both copies,
+and needs an opt-in marker — which is D-052's fencing problem with the sign reversed. **Cross-copy
+divergence detection** is the one that matches the actual defect pattern: four instances of one
+mechanism is a shape, and a lint that flags a commit changing one copy of a near-duplicate sentence
+and not the other is a real gate rather than a wish. None of the three was built.
+
+### How it fails
+
+**The headline rests on an identification, not a reproduction.** Nobody checked out the commit that
+published `51 errors in 14 files` and re-ran it there. What exists is: today's tree reads exactly
+`51 errors in 14 files` at `3.10`, `54 in 17` at `3.9`, and the difference is precisely the three
+version-sensitive errors. That is strong and it is still an identification.
+
+**The mutation battery ran locally, which R11 says is not the environment.** Four of five mutations
+applied and all four were killed; the fifth was skipped for a non-unique anchor and not re-anchored.
+The `click 8.4.2` reproduction is the one substitute that uses the mechanism CI has actually broken
+this gate with.
+
+**The `11.6 %` is a rate over the easy-to-find half.** The harvester requires an artefact token
+*and* an assertion verb in one unit, so a sentence that says "the checker only looks at the library"
+without naming a file is invisible to it. `757` is a lower bound on the population and the in-class
+denominator on the sampled stratum is `18`, not `40`.
+
+**`bench/` is now inside `files`, and four other workstreams had that cost imposed on them without
+being asked.** The first instance arrived within minutes.
+---
+
+## D-063 — A refusal with no disposition is an unclosed ticket wearing principle's coat: `ROLES` gains a third member, and the corpus that could never back a headline now cannot even by policy edit
+
+**Status:** shipped · **Amends:** D-056 (the registration refusal), D-057 (criterion 9's evidence) ·
+**Evidence:** `tools/splits.py`, `bench/splits.toml`, `bench/corpora.py`,
+`tests/test_splits_manifest.py`, `tests/test_build_gold_corpus.py`;
+`python tools/splits.py --check`; `python tools/build_gold_corpus.py fetch --refresh --mirror-check`
+· **No experiment number spent — experiment eleven is still free**
+
+D-056 refused to register the Federal Register reference set because `ROLES` could not say what it
+was, and that refusal was correct on its merits. **Its permanence was never argued.** It persisted
+because a two-element tuple had not been extended. The disposition is now *fixed*, not *permanent*.
+
+Re-derived by the recorder against running code:
+
+```
+tools.splits.ROLES                  ('tuning', 'held_out', 'single_annotator_reference')
+tools.splits.NEVER_HEADLINE_ROLES   ('single_annotator_reference',)
+bench.corpora.UNREGISTERED_READERS  {}
+python tools/splits.py --check      9 corpora, 3 reserved arm(s), 0 problem(s)
+```
+
+**Three enforced properties, not one label.** `NEVER_HEADLINE_ROLES` is enforced twice — the
+validator refuses a `[policy] headline_requires` naming such a role, *and* `headline_capable()`
+filters it out unconditionally — so the exclusion survives a bad policy, a bypassed gate or a caller
+that never validated. `ROLE_REQUIRED_FIELDS` makes `adjudicators` and `pooling_recipe` mandatory,
+and a bare string is refused rather than coerced to an empty tuple that would report as *missing*.
+`ROLE_LABEL` replaces a two-branch conditional that was correct for two roles and would have printed
+**"held out"** for the third in every runner header on the commit that added it.
+
+**The opposing reading, stated fairly because it is good.** `Corpus.is_tuning`'s docstring defines
+the field as a statement about *figures*, so `role = "tuning"` was available on day one with no enum
+change. That reading is right about the label and wrong about the field: `role` is read by
+`headline_capable`, `require_role`, `bench/corpora.py` and every runner header, where `tuning` means
+*the system has seen this* — false here — and it carries no obligation to record the adjudicator at
+all.
+
+### The R12 line this record must carry, and it cuts against the work
+
+Under the shipped `[policy] headline_requires = "held_out"`, the new filter inside
+`headline_capable()` evaluates **zero times** on the corpus it was written for: `with_role` excludes
+it upstream. One full pass over the real manifest evaluates it `48` times across the four held-out
+corpora and `0` times on the Federal Register set. **The braces have only ever fired in a test.**
+The defence is a design argument — D-056's whole finding is that the wrong filing is one word away,
+and an exclusion depending on a *different* word staying put is one word away too — and a design
+argument is not a measurement.
+
+### Two false greens, kept because they are the shape
+
+A reader-role assertion with **no test that failed when it was deleted** — the test drove
+`Corpus.require_role` directly rather than the wiring, so removing the reader's branch left `81`
+tests passing at `rc=0`. And a never-headline test whose fixture was **also contaminated**, so a
+different rule did the excluding and deleting the role filter left `101` tests passing. Both were
+found by mutation, both rebuilt, all eight mutations now red. A vacuous tripwire was caught in the
+same commit that would have made it vacuous: a loop over `UNREGISTERED_READERS` runs zero times once
+the map is empty, so the check became a function driven against both the real empty map and a
+synthetic one.
+
+### A correction to nobody's fault, and a rule that was never written down
+
+D-056's four-way proposer table reproduces **exactly** — but only under **case-folded** edge
+identity. Under exact-case identity the same frozen pool gives `588 / 182 / 598` where the record
+publishes `584 / 179 / 594`. The identity rule was never stated, and two readers reproducing the
+same file with different dedup rules get different tables. The entry now publishes both, labelled.
+The workstream was one edit away from accusing D-056 of not reproducing.
+
+### How it fails
+
+**A governance vocabulary was widened to hold exactly one corpus, and that corpus is a pilot nothing
+can score.** A reader who says a role with one occupant is a special case wearing a vocabulary's
+clothes is making a fair point.
+
+**Reproduction was verified and mistaken for verifying the corpus.** `30` of `30` documents re-fetch
+to matching digests against both the pin and an independent government mirror, with both failure
+branches demonstrated firing. That says the *text* is stable. It says nothing about whether the
+payload documents' pairs are right or whether one adjudicator's verdicts would survive a second
+reader — and this criterion is about adjudication, not provenance.
+
+**Three published fenced blocks were made stale on purpose and none were fixed by their author.**
+`--check` moved from `8 corpora` to `9`, and from `(1 declared, none eligible)` to
+`(2 declared, 0 in that role, none eligible)`. `docs/DEFINITION-OF-DONE.md` criterion 4 quoted the
+old text; so do D-057 and D-053 in this file. **The recorder has corrected the first and
+deliberately left the other two standing**, because a D-record is a historical document and
+rewriting one to match a later tree is how a record stops being evidence. Which means this file
+knowingly carries two false blocks, marked nowhere except here.
+
+**Two rows of the proposer table cannot be re-derived from this repository at all** — the two
+proposers behind the Tier 0 `93.74 %` share are not in `PROPOSERS`, not in the frozen pool, and need
+an external interpreter no test exercises. They are labelled as carried, and one round from now
+nothing will remember they need an external environment unless somebody reads that entry.
+---
+
+## D-064 — The legend flag's cost on the arm nobody had mined is not a cost; and the runner that was supposed to have measured it was covering a third of the shipped configuration surface
+
+**Status:** allocation discharged, arm spent once, coverage gaps closed for two runners and refused
+for a third · **Amends:** D-047 (the allocation, and its loser clause), D-045 (its unclosed hole for
+the legal genre only), D-039 (the "unmeasured cost" half of the shipping rationale is retired; the
+"no uncontaminated structurally-capable corpus" half is untouched and is now the *whole* reason the
+default is off), D-046 (its firing-count rule is now satisfied at full profile coverage) ·
+**Evidence:** `shortform.sdu22_ae_legal_train.*` — `28` run ids;
+`shortform.plod_*.{tight,spaced}.{general,biomedical}.*`; `bench/splits.toml`
+`[[corpora.sdu22_ae_legal.reservations]]`; `docs/EVALUATION.md` ·
+**No experiment number spent — experiment eleven is still free**
+
+SDU-22 AE legal `train.json` is spent, once, through the declared door, by the workstream that owned
+the read, with all three of D-047's conditions met. Re-derived by the recorder from
+`bench/results.json`:
+
+```
+shortform.sdu22_ae_legal_train.<profile>.{baseline,legend} -- precision deltas, four cells each
+  profile          SF exact   SF overlap   LF exact   LF overlap
+  high_precision    +0.80       +0.03       +1.54       +0.53
+  general           +0.81       +0.03       +1.55       +0.54
+  biomedical        +0.66       -0.10       +1.61       +0.68
+  SF exact recall  38.76 -> 45.91  against a ceiling of 55.04
+  LF exact F1      70.43 -> 78.37
+  corpus: 3,564 documents, 9,532 gold short-form spans
+```
+
+**Eleven of twelve precision cells rise and the single negative move anywhere on the arm is
+`-0.10`.** No F1 falls. The rule fired: `688` legend pairs at `high_precision` and `general`, `703`
+at `biomedical`, in `270` of `3,564` documents — this is a measurement, not a null. The phrase "the
+legend flag is shipped with an unmeasured cost" is retired.
+
+**The free ride was saved as D-047 required.** Experiment nine, the two-word bracketed short form,
+wins at every profile — at `high_precision`, `+61` true positives and `-53` false positives on
+short-form exact spans, on a corpus with `200` multi-token gold short forms where PLOD has none.
+**It is still held.** Nothing is shipped on it.
+
+### The second, separable finding, and it is a class rather than a rule
+
+**A benchmark runner that does not cover the shipped configuration surface reports a slice under the
+name of the whole.** `--spans` swept one profile of three. Swept across all three it reverses a sign
+on PLOD-CW, the only held-out corpus here — and closing the gap exposed a sentence in
+`docs/EVALUATION.md`, "it emits `12` predictions across the whole corpus and improves every field",
+that was **already false against data sitting in `bench/results.json`**: on the pooled PLOD split at
+the very profile the sentence was measured at, three fields fall under `tight` and four under
+`spaced`. Nothing was checking.
+
+**D-052's warning generalises, and this is the instance.** A ratchet counting numbers cannot see a
+scope. "Improves every field" contains no number. Nothing turned red for it and nothing would have.
+
+Firing counts are now known at every shipped profile on every corpus this repository reads:
+`MED1250 0/0/0` on `401` separators — D-046's vacuity finding surviving at full coverage —
+`PLOD dev 2/2/5`, `PLOD test 3/3/3`, `PLOD all 12/12/16`, `SDU-22 legal dev 83/83/88`,
+`scientific dev 39/39/52`, `legal train 688/688/703`.
+
+### The refusal, with its disposition (R14)
+
+`bench/run_extraction.py` is still one profile of three and is **blocked on a named decision**:
+whether `extraction.med1250.acronymkit` gains a profile segment or publishes three rows under one
+name. That run id is the figure `README.md` leads the extraction section with; it is cited in three
+documents; and `profile.med1250_test.*` already shows the three profiles differing by more than a
+point of F1. **That is a decision about the flagship number's identity and it belongs in a record
+rather than in a diff.** Two closed-experiment runners and the backronym runner are named in the
+published coverage table with the same constant and are not fixed, for stated reasons.
+
+### How it fails
+
+**The spend bought a number on a corpus that cannot answer the question the flag is off for, and
+D-047 said so in advance.** The legal split is UN institutional prose; its equation surface is `27`
+separators of `1,063` on train and `0` of `138` on dev. The genre the risk is named for is still
+unmeasured. Anyone reading "eleven of twelve precision cells rise" as "the equation risk is
+measured" has repeated D-045's finding one corpus over. **The default does not move and this result
+is not an argument that it should.**
+
+**`-0.10` is quoted as "the worst move anywhere on this arm" and is not distinguishable from zero on
+any principle the same workstream applied elsewhere** — it refused a `-2.23` on PLOD dev as three
+false positives and did not compute the equivalent count for `-0.10`. The asymmetry is unresolved.
+
+**The arm is contaminated the moment it is read, and it cannot be spent again.** If the legend
+question ever needs an unmined arm on this corpus, there is not one. Scientific `train.json` is
+unallocated and D-047 refuses first-come.
+
+**The miss decomposition's bucket rule is the workstream's, not the audit's.** The `30`-character
+window is the audit's; the four *ordered* buckets are not, and that ordering is the likely reason
+its `=` bucket reads `131` on dev against the audit's `127`. The recovered column is
+order-independent and is the load-bearing one.
+
+**The coverage table is one reader's reading of source on one afternoon, on a tree four other
+workstreams were editing, and nothing in CI asserts any cell.** Two runners appeared mid-round and
+were deliberately left out of it. `check_claims` catches a stale number; nothing catches a stale
+table.
+
+**An assignment overrun, declared.** `tests/test_splits_manifest.py` was edited by that workstream
+without being assigned it, because three tests encoded the pre-spend state and had to move with the
+manifest. The edits were kept to those assertions, each test's stated intent preserved, and the
+result mutation-tested in situ. The recorder judges this correct and records it as an overrun
+anyway.
+
+### Corrections owed on the manifest, one taken here
+
+`[corpora.sdu22_ae_legal]`'s corpus-level `contamination_reason` ended "Only `train.json` is
+unread", and `status` named only the dev runs. Both went false with the spend. They are corpus-level
+fields, the reservation workstream was scoped to the reservation, and the workstream editing that
+file this round was scoped elsewhere — so nobody owned them. **The recorder has corrected both, in
+`bench/splits.toml`, and that is the only edit made to the governance file this round.**
+`tools/splits.py --check` still prints "`3 reserved arm(s) -- no runner may open one without
+declaring a spend`" above a list that now includes a `spent` arm, which opens without any
+declaration; and `bench/corpora.py`'s `_sdu22_ae_source` docstring still says both train arms
+refuse. Both are reported and not fixed.
+---
+
+## D-065 — The proposer pool is one algorithm on five corpora, the corpora that reward it were drawn around it, and the second half of that sentence is confounded and says so
+
+**Status:** measured and published; no behaviour changed; `103` new run ids under `monoculture.*` ·
+**Amends:** D-056 (its `93.74 %` is generalised off the Federal Register and shown to be a property
+of the *pool*, not the substrate) · **Bears on:** D-048, D-051 and D-057's criterion 9, D-017
+(PLOD's provenance is now read from the paper rather than from the dataset card), D-039 and D-047
+(the largest recoverable sub-class of the blind spot is legend-shaped) ·
+**Evidence:** `bench/run_monoculture.py`, `tests/test_monoculture.py`, `docs/EVALUATION.md` ·
+**No experiment number spent — experiment eleven is still free**
+
+**The monoculture is real and it reproduces off its original substrate.** On the Schwartz & Hearst
+descendants alone, one implementation is `93.55 %` of the edge union on PLOD-CW and `93.99 %` on
+SDU-22 scientific — within `0.19` and `0.25` points of D-056's Federal Register `93.74 %`, on
+different substrates with a partly different pool. So `93.74 %` was a property of the pool, not of
+the substrate.
+
+**R13 is satisfied with a published matrix, not an assertion.** Pairwise overlap, Jaccard, share,
+unique and union gain are saved per corpus on two units, and the full square matrix for PLOD-CW is
+printed into `docs/EVALUATION.md` as command output. Two proposers are labelled decoration **in a
+column**: `acronymkit GENERAL` and `HIGH_PRECISION` have union gain `0.00` on every corpus, from
+`1,119` and `1,122` proposed edges respectively — they proposed plenty and none of it was unique.
+
+**The blind spot has a size, on gold with an author arbiter.** Re-derived by the recorder from
+`bench/results.json`:
+
+```
+monoculture.plod_all.gold.long_form.overlap.class
+  gold long-form spans                                            1,804
+  reached by the S&H family                              1,040    57.65 %
+  unreached                                                764    42.35 %
+  unreached AND alignable with a gold short form in the passage   34.98 % of gold
+  reached once the independent proposers are added                79.60 %
+  gold provenance: PLOS article Abbreviations sections, matched onto body text
+```
+
+The third figure separates the two Schwartz & Hearst commitments empirically: those pairs pass the
+validator and are never offered by the candidate generator. **C1, the bracket, is the binding
+constraint; C2, the alignment, is not** — and the two are now separable on evidence rather than by
+argument.
+
+Control, and it is the one that matters: on MED1250, `sh_family_recall_pct` is `86.41` and the
+independent gain is `0.00`. **On the corpus these systems were built against, a proposer that cannot
+be one of them is worth exactly nothing.**
+
+### The independent proposer, and why its independence is a measurement
+
+`shapecue` makes neither S&H commitment. Independence is argued three ways: by construction and
+tested (it proposes a pair sharing no character with its own abbreviation, and proposes **nothing**
+on `World Health Organization (WHO)`); mechanically on C1 —
+`bracketless_edges_pct_shapecue` is `99.83` on PLOD-CW against a descendant maximum of `4.75` on any
+corpus, re-derived by the recorder; and mechanically on C2, which the document names as the weaker
+axis because most real abbreviations *are* alignable.
+
+**The criterion the workstream built the runner around was killed by its own measurement.**
+`sh_unalignable_pct` has a noise floor — descendants report surfaces their internal alignment never
+saw, a truncation artefact — and it asks a sufficient indicator to carry a necessary claim. Replaced
+as load-bearing by the C1 axis, which separates cleanly and whose separation is not an artefact of
+what the corpora happen to contain.
+
+### The premise that was checked instead of inherited
+
+The brief asserted PLOD's gold is not pooled from these systems. The dataset card says only
+"automatically annotated" — the exact shape of the NameGuess and GLADIS failures this project has
+already paid for twice. Two fetches of the paper were needed; the second returned the verbatim
+sentence about extracting short and long forms from each article's *Abbreviations* section, which is
+the glossary the journal requires authors to submit. **Had the answer come back "scispaCy", the
+deliverable would have had no corpus and that would have been the report.** A dataset card is not a
+provenance: fourth door, same shape.
+
+### How it fails
+
+**The control corpus differs from the treatment corpus on two variables at once, and the workstream
+killed its own headline for it.** MED1250 is abstracts; PLOD is article body text. Abstracts carry
+no figure legends and no table footnotes, which is exactly where the un-proposed class lives, so
+every number offered as evidence of *provenance* is equally consistent with *genre*. Separating them
+needs article body text whose gold was pooled from S&H descendants, and nobody publishes one on
+purpose. **That absence is itself a publishable result and is recorded as one, not as a to-do.**
+
+**The independent proposer's coverage is post-hoc and its independence is not.** Its `585` unique
+roster edges come from a rule written *after looking at the misses*, on a corpus that is `held_out`.
+The independence claim is design-level and survives; the coverage number is not held-out evidence of
+anything, and its short-form F1 beating every extractor is not a new finding — the one-line all-caps
+rule already did that.
+
+**PLOD's own authors report wrong annotation in one segment in twenty and missing annotation in more
+than a quarter**, so every "unreached" figure has an incomplete denominator in an unknown direction.
+
+**Family membership is a claim about mechanism, tested for three of seven rows and argued for four.**
+The bracketless percentage is strong circumstantial evidence and is not a proof.
+
+**`SDU AE legal, dev` is the row that spoils the pattern and nobody chased it** — `pyab3p` gains
+`10.90` there, five times its gain anywhere else, and the shipped extractor's share drops to the low
+end at `79.33`.
+
+**The refusal, with its disposition (R14): no LLM proposer was built — permanent for the shipped
+library, open as a corpus-construction route.** Non-deterministic, network-touching, cannot pass the
+air-gap job, and decisively **not needed**: every deliverable was answered without one. The
+reachability guard that would catch one being smuggled in exists and was mutation-tested red.
+---
+
+## D-066 — The sixteen-point deficit against the one-line all-caps rule dissolves and then reverses, and the whole reversal is one factor — measured under a metric that cannot see what the library actually claims
+
+**Status:** measurement; no behaviour changed; `14` new run ids under `shortform_contest.plod.*` ·
+**Amends:** D-049's framing of the `68.62` / `52.56` pair · **Affirms:** D-048 (the span scorer has
+no slot for the edge), re-derived inside the new runner with a firing count ·
+**Evidence:** `bench/run_shortform_contest.py`, `docs/EVALUATION.md`, `README.md` ·
+**No experiment number spent — experiment eleven is still free**
+
+The comparison was decomposed on a `2 x 2` of the two structural handicaps — PLOD annotates every
+occurrence while `extract()` can only emit a *paired* short form (D-041), and `predict_all_caps` can
+only emit an all-caps token. **The deficit is not shared between them.** Re-derived by the recorder:
+
+```
+shortform_contest.plod.all.* -- short-form exact F1, native offsets
+  region              gold spans   acronymkit HIGH_PRECISION   allcaps      lead
+  all                     2,869              52.56              68.62    allcaps +16.06
+  caps                    2,105              54.98              78.38    allcaps +23.40
+  definitional            1,323              85.73              75.13    acronymkit +10.60
+  definitional_caps         979              88.66              86.56    acronymkit  +2.10
+  test split, definitional:                  87.22              72.36    acronymkit +14.86
+```
+
+Removing the *baseline's* handicap alone makes it worse; removing *this library's* handicap alone
+flips it. **The sixteen points were never a statement about either system — they were the corpus's
+annotation convention measured against a pair-emitting extractor.** The brief's conditional, that a
+surviving gap would be the most important open defect in the library, **does not fire**.
+
+**The regions filter gold and predictions by the same predicate**, so precision inside a region is a
+real precision and not a recall-only rescoring, and the filter does real work on one side only:
+`1,115` of `1,119` acronymkit predictions survive `definitional` against `1,283` of `3,266` for the
+baseline — and it still leaves the extractor ahead.
+
+### The conclusion that undercuts the result, published in the same document
+
+`bench.run_spans.SpanPrediction` has no slot for the edge. Replaying PLOD's gold with each
+sentence's long forms rotated against its short forms produced **byte-identical `100.00` on all four
+span metrics**, honest and rotated alike — with the firing count beside it, `342` of `1,351`
+documents rotated and `1,054` pairs made wrong, both saved as fields on the run so the null can
+never be read without them. **So `85.73` is not a defence of the extractor; it is a defence of its
+short-form spans**, and a reader who quotes it as "acronymkit beats the baseline on extraction" will
+still be wrong and will still find the number. Criterion 9 is untouched by this result.
+
+### The replacement constraint on how W11 may be pitched
+
+D-049 placed a constraint on W11 derived from the undecomposed comparison; it does not survive
+decomposition in the form D-049 states. **This does not revive W11** — it removes one argument
+against it and supplies none for it. The honest replacement: *the all-caps rule's advantage is
+confined to gold the pair model structurally cannot address, so "we can emit unpaired short forms"
+remains a capability claim and not a quality claim, and W11 must still be sold on the precision of
+what it would add.* `README.md`'s bullet is amended; the corresponding passage in
+`docs/notes/w11-emission-model.md` is **not**, and is now the last place asserting the old framing
+without qualification.
+
+### A premise inside the brief itself, checked
+
+The brief cited "definition-of-done criterion 12". There was no criterion 12 — the requirement
+described, a qualifier in the same table as the figure it qualifies, is criterion 5's clause. The
+substance was complied with; the misnumbering was an inherited premise nobody had checked, arriving
+in the instruction rather than in the tree. **This round's numbering of criteria 9 to 14 is recorded
+in D-069, and it does not retrospectively make that citation correct.**
+
+### How it fails
+
+**The premise handed down was subtly wrong and only half of it was caught.** `52.56` is the
+**native-offset** row; `bench/run_spans.py` says in its own docstring that headline rows go through
+the string localiser "because scoring our own row through a privileged path would flatter it".
+D-049 quoted the privileged row and the brief inherited it. The localised figures are `52.31` and
+`85.32`. Both are published, and the main table was still built on the native row to stay comparable
+with the quote — so somebody rebuilding this from the localised row gets a slightly larger raw
+deficit and a slightly smaller reversal.
+
+**"Scored, not diagnosed" is a claim about intent that nothing enforces.** D-049 permits PLOD to be
+scored and forbids it being diagnosed. The predicates are corpus-side and were fixed before the
+numbers were seen — and they were chosen knowing what a Schwartz & Hearst extractor does, which is a
+weak form of the thing the rule exists to stop. No test would catch a future round adding a
+`--misses` flag to this runner.
+
+**Everything rests on one corpus and it is the wrong domain**, and the only replication available
+(`test` against `all`) is not independent, because `test` is a subset of `all`.
+
+**The `definitional` region is a proxy for "definitional" and is not one.** It admits parenthetical
+*mentions* nobody should extract and excludes bracket-free definitions such as the legend form —
+which is nearly empty today only because `legend_syntax` ships off. **The published number is
+specific to the shipped configuration in a way the region name does not advertise**, which is
+D-064's class arriving inside a different runner in the same round.
+
+**The four external baselines have no `definitional` column and the firing count is stated as zero
+rather than dashed.** None imports under the interpreter on PATH. The specific unanswered question
+is whether `pyab3p`, which beats this library on MED1250, also loses to it in that column — so the
+cross-corpus ordering claim in `docs/EVALUATION.md` still rests on the undecomposed comparison.
+
+**The runner's own gate was demonstrated capable of failing exactly twice**, and the `caps` predicate
+has no gated counterpart to check against and is guarded by nothing but reading.
+---
+
+## D-067 — The amendment that closed criterion 2 was refuted by functions the amending round had already written: `align` carries an accuracy number, `synthesize` never will
+
+**Status:** measured and published; the criterion-2 amendment is **withdrawn** ·
+**Amends:** D-054 (the amendment), D-057 (criterion 2's verdict moves from "met, AMENDED" to
+"partly met") · **Evidence:** `bench/run_backronym.py --arm accuracy`;
+`backronym.{med1250,sdu21_ad}.accuracy`; `docs/EVALUATION.md`; `docs/DEFINITION-OF-DONE.md`
+criterion 2 · **No experiment number spent — experiment eleven is still free**
+
+D-054's central word was *cannot*, and it is false for half the subsystem. On a pair whose
+componentwise-earliest and componentwise-latest complete alignments read out the same words, every
+complete alignment reads out those words — so the pair has exactly one reading that no annotator,
+convention or opinion selected. `earliest_fit` and `latest_fit` are functions **D-054's own round
+wrote**, and used only to count the complement. Re-derived by the recorder:
+
+```
+backronym.{med1250,sdu21_ad}.accuracy.all
+                       MED1250    SDU-21 AD
+  pairs                  1,221        2,308
+  feasible               1,070        2,261
+  decidable                671        1,300      (54.95 % / 56.33 % of pairs)
+  EXACT MATCH           98.66 %     100.00 %
+  accuracy bound over all feasible pairs   [61.87, 99.16]   [57.50, 100.00]
+  interval width          37.29        42.50
+  returned_incomplete        9            0
+  unadjudicable            203 (18.97 %)  31 (1.37 %)
+```
+
+**The interval is the deliverable, not the point estimate.** Its width is the underdetermined share
+expressed in accuracy units, which is what makes its size legible: an accuracy figure whose
+uncertainty spans thirty-seven points exists and is not, on its own, an answer to "does this
+subsystem work".
+
+**`synthesize` cannot carry one, ever.** A target word with no source phrase has no correct
+expansion, so accuracy there is *undefined* rather than unmeasured. That half of criterion 2 is
+closed as **permanently unmeetable with the reason**, rather than left open — R14 applied to a
+refusal that is genuinely permanent.
+
+### The collision inside the existing evidence, which is the sharpest thing here
+
+D-054 re-scored its fourteen feasible-but-incomplete MED1250 pairs with the library's **own**
+`Scorer`, found all fourteen "objective_preferred" with zero search shortfalls, and concluded no
+defect. **Nine of those fourteen are pairs whose correct reading is unique and was not returned.**
+Same rows, opposite verdict, and the difference is which arbiter was consulted — the tautology the
+runner's own docstring says it exists to avoid, reappearing one section later.
+
+### Corrections this forces on the published record
+
+The judge-shaped hole is much smaller than D-054 states. `37.29 %` and `42.50 %` is the share the
+*constraint* does not settle; the share nothing settles is `18.97 %` and `1.37 %` of feasible pairs.
+
+And word-level determinacy is **unsound**, demonstrated against the shipped unmutated aligner:
+`'AA' <- "alpha acid alpha"` has earliest and latest both reading *alpha alpha* while `align`
+returns *alpha acid*. So the existing published `backronym.*.alignment.all.underdetermined_n`
+figures are lower bounds in a stronger sense than their document states. A provably sound
+position-unique variant ships beside the headline at `98.11 %` and `100.00 %`.
+
+### Guards, with firing counts, because every one of these is a zero
+
+`returned_other_words_n` is `0` and executed on **all `1,971` decidable pairs**, not only the misses,
+and was demonstrated firing on a constructed pair. `convention_cross_check_conflict_n` is `0` over
+`1,505` executions — `1,505` agreements out of `1,505` is the strongest independent evidence the
+uniqueness gold is right on real data. `convention_conflict_n` is `0` over `1,126` applicable pairs
+and fires at `196` and `930` under a second-best-candidate mutation. **`returned_nothing_n` is `0`
+and was never demonstrated firing** — an honest gap, stated. The metric itself is not one that
+cannot fail: it reports nine failures on real data with no mutation, and drops to `1.94 %` and
+`0.00 %` under mutation.
+
+### How it fails
+
+**The number is high and the high part is the easy part.** `98.66 %` and `100.00 %` are over the
+subset where the constraint already forces the answer. A reader who wants "how good is this at
+aligning acronyms" gets a bound thirty-seven points wide and no point estimate inside it. Publishing
+the interval is the honest answer; calling it an accuracy number that answers a question nobody
+asked is a criticism that lands.
+
+**On decidable pairs the metric collapses to one question about weights, not search.** All nine
+failures are `returned_incomplete` — the objective spent letters covering more words rather than
+take the unique complete reading — so on the shipped configuration `exact_match_pct` is very nearly
+"does `unmapped_penalty : delta` come out the human's way", measured `671` times.
+
+**The gold is this library's own constraint restated.** Reject the constraint and you reject the
+gold; the eligibility filter is *inside* it, so widening `token_ineligible` moves the feasible set,
+the decidable set and the figure together. One of the nine misses has a likely human reading that is
+out of order and therefore inexpressible under the constraint at all.
+
+**Both corpora are `tuning, contaminated`, and unlike D-054's properties this actually matters.**
+D-054's defence — no held-out split makes a *property* more trustworthy — does not transfer to an
+accuracy number. The figure that most needs a strong label carries the weakest one.
+
+**Seven new top-level objects ship with no unit tests**, because `tests/` was not that brief's file.
+The exact cases are written down and verified by hand and should be pasted in next round.
+
+**And nothing in `src/acronymkit` was changed.** The nine misses are the objective doing what its
+weights say — a design trade, not a bug, and R6 forbids changing it on a measurement taken in the
+same round. **It is a lever with a number on it now**: nine real MED1250 pairs where a caller gets a
+reading no reader would give. Pulling it invalidates this table and moves forward generation's
+numbers too.
+---
+
+## D-068 — The first measured error rate this project has on its own reporting: `5` of `24` sampled claims are not true, the failure rate is `5x` higher on claims that needed a command run, and most of the failures are staleness rather than error
+
+**Status:** measured; first-class finding, not an appendix · **Amends:** nothing; **establishes** a
+baseline every future round's reporting will be read against · **Evidence:** the R15 sampled pass,
+seed `20260825`, `24` of `187` submitted claims, checked against running code rather than against
+any report; two of its verdicts independently re-derived by the recorder ·
+**No experiment number spent — experiment eleven is still free**
+
+R15 required every workstream to submit at least twelve **non-load-bearing** checkable claims,
+uncurated, including the ones it was least sure of. A seeded sample was drawn and each was attacked.
+
+```
+24 checked | 19 TRUE | 4 FALSE | 1 MISLEADING | 0 UNCHECKABLE
+  not-true rate      5 of 24    20.8 %
+  strictly-false     4 of 24    16.7 %
+```
+
+**The rate is plausible and it is not zero, which is the first thing to check.** A pool curated for
+safety shows up as an implausibly low rate; this one does not.
+
+### The two decompositions matter more than the headline
+
+**By kind of check.** The thirteen claims settled by one file read or one stored-number lookup
+failed `1` in `13` — `7.7 %`. The eleven that needed a command run or a multi-step derivation failed
+`4` in `11` — `36.4 %`. **The round-level error rate is therefore a function of the sampler's mix,
+and `20.8 %` is a lower bound for the claims that required judgement.**
+
+**By failure mode.** Three of the five are **staleness** — a count that was probably right when its
+workstream measured it and went wrong because the tree kept moving under eight concurrent
+workstreams. Two are hard errors independent of drift, and one is an unreproducible wall-clock
+figure. Excluding staleness the rate is `8` to `13 %`; counting it, `20.8 %` stands. **This record
+counts it**, because R15's own framing is that a claim a stranger cannot reproduce is not a claim.
+
+### The two hard errors, both confirmed independently by the recorder
+
+**A count anchored to the wrong commit.** One workstream published `bench/results.json` holding
+`282` runs at `6cc9a01`. It holds `278`; `282` is the count at `a62f99a`. The arithmetic in that
+sentence was internally consistent and the anchor was wrong — **the sentence was re-checked against
+the previous sentence rather than against `git show`**, which is exactly the compression failure the
+mandate warns about.
+
+**A claim already false on its own author's tree.** One workstream named three test modules calling
+`pytest.skip(..., allow_module_level=True)`. The recorder ran the re-derivation that
+`.github/workflows/ci.yml` itself prescribes:
+
+```
+grep -l allow_module_level tests/*.py
+  tests/test_build_gold_corpus.py   tests/test_check_claims.py   tests/test_gate_manifest.py
+  tests/test_monoculture.py         tests/test_splits_manifest.py                    -- five
+```
+
+Two of the five landed during this round, one of them from the very workstream making the claim.
+**And `ci.yml`'s comment beside that command still says "which names exactly the three files
+above"** — a file refuted by its own recipe, sixty lines from its own comment describing this exact
+rot. That is D-062's cross-copy mechanism appearing for a fifth time, inside the round that named it.
+
+### The staleness finding, and why it is the useful one
+
+The most-repeated failure is a number that was true when written. `docs/CLAIMS-LEDGER.md` published
+`ALL 262 1480 1742`; the sampler measured `262 1483 1745`; the recorder measured `262 1494 1756`.
+Three readings, one session, one tree, and **only the ratcheted column held.** The lesson generalises
+past this round: **a present-tense count about a shared tree, published with no commit and no run id,
+is not a claim a stranger can check** — and this project's discipline for that (cite a run id, or
+fence and name the command) exists precisely because of it, and was not applied to any of the three.
+
+### How it fails
+
+**The sample is not uniformly hard and the rate is diluted by that.** Eight of the twenty-four are
+one grep or one dictionary lookup from certain. `36.4 %` on the execution-shaped subset is the
+number worth carrying forward.
+
+**One verdict is a judgement call that moves the headline.** The `MISLEADING` grade was given to a
+claim whose structural half reproduced exactly and whose wall-clock half did not — six timed runs
+spanning `8.26` to `8.94` seconds against a quoted `11.352`, no overlap. A stricter grader calls it
+FALSE and the strictly-false rate becomes `20.8 %` too.
+
+**One `TRUE` deserves an asterisk and the sampler flagged it.** A measured zero that is a
+*structural* impossibility — a filter never reached because an earlier filter excludes the corpus —
+is literally true and reads as evidence the filter was exercised there. That is the same shape as
+D-063's own R12 disclosure, arriving as a sampled claim.
+
+**The sampler measured a tree that moved while it measured.** Two files changed inside the same
+minute as its checks. That implicates three of its five failures directly, and it declined to curate
+them away. A reader who wants the harsher-on-the-sampler reading drops those three and reads `8` to
+`13 %`; a reader who holds that reproducibility is the standard reads `20.8 %`. **Both numbers are
+published and neither is hidden behind the other.**
+
+**And the sampler's own verdicts are claims.** The recorder re-derived two of the four FALSE
+verdicts against running code and both held. The other two, and all nineteen TRUE verdicts, are
+carried on the sampler's word. **The error rate of the error-rate measurement is unmeasured**, and
+one round of this is a baseline rather than a trend.
+---
+
+## D-069 — The definition of done, third sweep: fourteen criteria, a renumbering that breaks four cross-references on purpose, and the recorder's own account of what was verified and what was carried on trust
+
+**Status:** swept and reconciled · **Amends:** D-051 and D-057 (the criteria are renumbered; the
+criterion those records call "the ninth" is criterion `10` from this round on), D-057's verdicts on
+criteria 2, 3 and 4 · **Evidence:** `docs/DEFINITION-OF-DONE.md`; the six gates re-run on the tree
+as it is left; D-059 to D-068 above · **No experiment number spent — experiment eleven is still
+free, and see the reservation below**
+
+### The renumbering, which is a defect I am creating deliberately
+
+Mandate II adds six criteria and numbers them `9` to `14`. This document already carried a
+**proposed** ninth — "the two tasks the README leads with can be adjudicated by a corpus this
+project did not tune on" — which is not one of the standing eight and which four places cite **by
+number**. Mandate II's tenth is the same question restated with a costing clause, so the two merge.
+
+**Resolution: the mandate's numbering is adopted. The criterion formerly cited as "criterion 9" or
+"the ninth criterion" is criterion `10` from this round on.** These four cross-references are now
+stale and are **not** being rewritten, because three of them are historical records:
+`docs/AUDIT-2026-08.md` line `23`, `docs/DECISIONS.md` D-051 and D-057, `docs/EVALUATION.md` line
+`688`. A renumbering note ships at the head of `docs/DEFINITION-OF-DONE.md` naming all four. This is
+the stale-sentence class D-062 measured at `11.6 %`, created on purpose, in the round that measured
+it — and the alternative was renumbering six new criteria to avoid a collision the mandate itself
+had already resolved.
+
+### The fourteen verdicts
+
+```
+docs/DEFINITION-OF-DONE.md, third sweep -- a reading, not a measurement
+   1  abstention                       met with qualification   unchanged (D-044)
+   2  every subsystem scored           PARTLY MET               amendment withdrawn (D-067)
+   3  everything gated                 not met, better instrument  policy + quota + classification
+   4  splits.toml governance           met, strengthened again  third role; a spent arm; new residual
+   5  non-biomedical + ceiling         met with qualification   unchanged; discipline applied twice more
+   6  extension points                 met                      unchanged; NOT re-derived this round
+   7  clean-report-data-loss           met                      unchanged; NOT re-derived this round
+   8  do-not list grew                 met                      seven new items this mandate
+   9  every gate mutation-tested in situ   NOT MET              0 of 36 carry evidence (D-061)
+  10  an empty row filled, or costed   not met, now costed      was "criterion 9, proposed"
+  11  monoculture measured             MET                      union gain 32.04 % on PLOD-CW (D-065)
+  12  short-form detection vs allcaps  MET                      reversal on comparable gold (D-066)
+  13  deferred ledger policy + rate    met, one observation     trajectory is two rows (D-059)
+  14  a second reader exists           MET, and it is small     no gate enforces it (D-060)
+```
+
+**Three criteria closed this round and two of the three closed against the workstream that opened
+them**, which is the outcome this sweep exists to make visible. Criterion `2` went the other way:
+D-057 closed it by narrowing, and the narrowing's stated reason turned out to be false for half the
+subsystem, so it is re-opened as **partly met** — a criterion may be closed by being narrowed, and
+this is what it costs when the narrowing is wrong.
+
+**Criterion `14` is met and it is small.** "A second reader exists, in some form" is satisfied by a
+policy document and one performed pass. Nothing enforces it, and the wording is exactly the kind
+that closes by being modest about itself. That is stated in the verdict column rather than in a
+footnote, which is house style and exists because criterion `2` closed that way once already.
+
+**Criterion `9` is the one that will be argued about.** The register, the harness, the scheduled
+workflow and `51` tests all ship, and the count that matters reads `0 of 36`. Under R11 the verdict
+cannot be anything but **not met**, and a reader who says "the mechanism is the hard part" is making
+a real argument that R11 was written to refuse.
+
+### Reconciliation: what collided and what did not
+
+**No D-number collisions.** All nine workstreams declined to pick one and `docs/DECISIONS.md` was
+untouched at hand-off — verified by `git status`, not by their word. Numbering here is by
+dependency: the rules under which numbers are published (D-059), then the scope of the instrument
+that checks them (D-060), then what a green gate means (D-061), then what the type checker covers
+(D-062), then the governance vocabulary (D-063), then the measurements, then the error rate.
+
+**One finding was claimed twice and is booked once.** The staleness of `docs/CLAIMS-LEDGER.md`'s own
+table is reported by the sampled pass and is a property of the ledger workstream's deliverable; it
+is recorded in D-059 with the sampler's reading and the recorder's third reading beside it, and
+D-068 carries it only as an instance of the class.
+
+**Two workstreams reported the same underlying defect from opposite ends** — a runner reporting a
+slice under the name of the whole (D-064) and a region proxy that is specific to the shipped
+configuration (D-066). They are the same shape and each record points at the other.
+
+**`experiment eleven` is free, and that is not the whole answer.** Verified by grep rather than
+assumed: seven occurrences across `docs/DECISIONS.md` and `docs/notes/w11-emission-model.md`, none
+of them spending it — five assert it is free, one is the naming-hazard note distinguishing it from
+workstream W11, and one is a **conditional reservation**. Nine reports re-derived the free half
+independently. **But D-039 has reserved it**: its revert criterion says that if MED1250 precision
+moves at all under the legend flag, the revert is logged as experiment eleven. The number is unspent
+*and* spoken for. Anybody spending it on something else should say so against D-039 first, and no
+round so far has noticed that clause while reporting the number free.
+
+### What the recorder verified, and what was carried on trust
+
+**Verified against running code, one load-bearing claim per workstream, on the tree as it is left:**
+`tools/gates.py --check` printing `36` gates across `21` environments in `5` workflow files and
+`0 of 36` in-situ (D-061); `ROLES`, `NEVER_HEADLINE_ROLES` and an empty `UNREGISTERED_READERS`
+imported live, and `--check` reporting `9 corpora, 3 reserved arm(s), 0 problem(s)` (D-063); the
+monoculture class table and the independence percentage read out of `bench/results.json` (D-065);
+the `definitional` region's `85.73` against `75.13` and the pairing-blind firing counts (D-066); the
+backronym accuracy record in full, both corpora (D-067); the twelve legend precision cells, the
+two-word counts, the corpus totals and `state = "spent"` in the manifest (D-064); `python -m mypy`
+reporting `75` source files (D-062); the claims gate's ratchets, trajectory line and `--classify`
+table (D-059); and **the claims-gate blind spot reproduced by mutation with a positive control**
+(D-060). The six gates were re-run whole.
+
+**Carried on trust, and named because a recorder who pretends otherwise is this role's failure
+mode:** every mutation ledger reported by a workstream, including all eight of D-063's and all
+thirteen of D-061's; the `4f812e1` and `a62f99a` exports behind D-061's green-to-red finding; the
+cold re-fetch of `30` Federal Register documents and both its demonstrated failure branches; the
+`click 8.4.2` MYPYPATH reproduction; the timing of D-060's cold-read pass; every figure in the
+`docs/EVALUATION.md` sections written this round that is not one of the run ids listed above; and
+`19` of the `24` sampled verdicts in D-068. **I re-derived two of the sampler's four FALSE verdicts
+and no TRUE ones**, which is the weakest part of D-068 and is stated there.
+
+### How it fails
+
+**Every figure in every record above is inside a fenced block or a code span, and D-052 is explicit
+that fencing is mechanically indistinguishable from hiding.** That was done because
+`docs/DECISIONS.md` is grandfathered onto a deferred ledger that may not grow, so the discipline
+that keeps the gate green is the same discipline that removes these numbers from its view. **The
+recorder's own records went in under a rule that is, to the tool, identical to concealment.** The
+only thing separating them is this sentence, which nothing checks. That self-implication is house
+style and it is load-bearing: the day it stops being written down, the fencing is just hiding.
+
+**Nothing in CI asserts any of the fourteen**, which is unchanged from two sweeps ago and is still
+the largest weakness of the page.
+
+**Criteria `6` and `7` were not re-derived this round.** Their verdicts are carried from D-057. The
+page claims every verdict is re-derived; for two of fourteen, this round's is not, and the table
+says so rather than letting the claim stand.
+
+**Nine of fourteen read met, and that is the highest this page has ever read, in the round that also
+measured a `20.8 %` error rate on the project's own reporting.** Those two facts are in tension and
+a hostile reader should put them side by side. The defence is that four of the nine were closed by
+criteria that are modest about themselves — `11`, `12`, `13` and `14` each say "measured",
+"published" or "exists", not "good" — and the criteria that ask for something hard (`3`, `9`, `10`)
+are all open. **A definition of done whose met-count rises when six new criteria arrive is a
+definition of done that was scoped by the same people it grades**, and that objection is not
+answered here.
+
+**And the whole sweep was taken on a tree eight workstreams had been editing**, uncommitted, with
+`34` modified and `11` untracked paths at hand-off. Every command in this record was re-run at the
+end against that tree, and none of it is anchored to a commit.
+
+---
+
 ## D-058 — The round that shipped W10 also reddened `14` of `17` CI jobs, and both causes were invisible to every local gate
 
 **Status:** fixed · **Amends:** D-052 (the gate's coverage), the `[tool.mypy]` rationale in

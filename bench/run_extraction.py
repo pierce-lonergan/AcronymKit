@@ -42,7 +42,7 @@ def predict_acronymkit(documents: Sequence, **config_overrides: object) -> dict[
     """Run this library's extractor over every document."""
     from acronymkit import AcronymEngine, Config
 
-    engine = AcronymEngine(Config(**config_overrides))  # type: ignore[arg-type]
+    engine = AcronymEngine(Config(**config_overrides))
     return {
         document.uid: [
             (pair.short_form, pair.long_form) for pair in engine.extract_definitions(document.text)

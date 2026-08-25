@@ -228,6 +228,35 @@ previously waved through.
   between libraries on backronym quality, this section is the honest statement that nobody here has
   measured that. `docs/DECISIONS.md` D-054.
 
+- **Three new pages, and one of them exists to say the project cannot yet do what it claims.**
+  [`docs/GATES.md`](docs/GATES.md) lists every CI gate, what it checks, and — the point of the page —
+  what it is blind to; it opens by reporting that `0` of `36` gates carry recorded evidence of having
+  actually failed on purpose in the environment they guard. [`docs/CLAIMS-LEDGER.md`](docs/CLAIMS-LEDGER.md)
+  is the written policy for paying down figures the claims gate can see but cannot check.
+  [`docs/SECOND-READER.md`](docs/SECOND-READER.md) is a cold-read protocol for user-facing pages, with
+  the defects that motivated each of its six checks named beside them. `docs/DECISIONS.md` D-059,
+  D-060, D-061.
+- **Two corrections in `README.md` that a reader could have been bitten by.** The documented output of
+  `synthesize_backronym("NEXUS")` was not what the shipped library returns — it came from a
+  superseded ranking, and copying it into a test would have failed. And the dependency-isolation
+  claim said no optional dependency reaches `sys.modules` after a generate, extract, backronym and
+  disambiguate cycle; the CI job that proves it runs **generate and extract**, which is what the
+  claim now says. `docs/DECISIONS.md` D-060.
+- **A comparison row that labelled a precision figure as F1 is gone from `README.md` and
+  `docs/ARCHITECTURE.md`.** Both claimed `F₁ > 96 %` for rule-based extractors. The published
+  Schwartz & Hearst range is `~86–89 % F1 on Ab3P`, and this project's own harness scores the two
+  shipped descendants at `88.87` and `80.73`. The row now carries no figure rather than a wrong one.
+  `docs/DECISIONS.md` D-059.
+- **`CONTRIBUTING.md` now lists all six gates and describes them correctly.** It named four and
+  omitted the two that fail on a *document* rather than on code, said the type checker covers
+  `src/acronymkit` only, and forbade network access in `tools/` — which is the entire purpose of three
+  tools in it. All three were false. `docs/DECISIONS.md` D-060.
+- **`docs/EVALUATION.md` gained four measured sections**: the proposer-pool overlap matrix and the
+  size of what no bracket-scanning extractor can see; the decomposition of this library's short-form
+  score against a one-line all-caps rule; an accuracy figure for backronym *alignment* with its
+  coverage and its uncertainty published beside it; and the legend flag's cost on a corpus arm nobody
+  had read before. `docs/DECISIONS.md` D-064 to D-067.
+
 ### Notes
 
 - **The type checker now models the Python floor this package claims.** `[tool.mypy]` targeted
@@ -236,11 +265,14 @@ previously waved through.
   Restored to `3.9`, where the tree is clean. This is a contributor-facing change only; nothing about
   what the library computes moves. It is recorded because the override had already let a `3.10`-only
   stdlib call ship through every local gate, and both copies of the stale claim are retired in place
-  rather than deleted. Note the limit: mypy still checks `src/acronymkit` only, so `tools/` and
-  `bench/` remain unchecked at any version. See D-058.
+  rather than deleted. **That limit is closed in this same unreleased set:** `files` now names
+  `src/acronymkit`, `tools` and `bench`, so the checker covers all three at the `3.9` floor.
+  Extending it found three more `Path.write_text(newline=...)` calls still shipping in `tools/`,
+  which is the very defect the floor was restored to catch. Still contributor-facing only.
+  See D-058 and the `[tool.mypy]` comment in `pyproject.toml`.
 
 - **New claims must now cite a run id.** `tools/check_claims.py` still accepts the existing figures
-  that are backed only by matching a value somewhere in `bench/results.json` — 71 of them across four
+  that are backed only by matching a value somewhere in `bench/results.json` — 64 of them across three
   files, down from 87 across five when the ratchet was installed, with `README.md` now at zero and no
   longer budgeted at all — but that path is a ratchet and admits nothing new: every number added to
   the docs from
@@ -356,6 +388,36 @@ previously waved through.
   cannot carry accuracy, because scoring a backronym needs a judge this project does not have". If you
   were relying on that criterion as written, read `docs/DEFINITION-OF-DONE.md` — the narrowing is in
   the verdict column, not in a footnote. `docs/DECISIONS.md` D-054, D-057.
+- **The legend flag’s cost is now measured on a third corpus, and on that one it is not a cost.** On
+  the institutional-prose arm nobody had read before, `11` of `12` precision cells rise, no F1 falls,
+  and the single negative move anywhere is `-0.10`. **This does not change the recommendation and it
+  is not an argument for turning the flag on.** That arm contains almost no equations — `27` of
+  `1,063` separators open a number — so the risk the flag is off for is still unmeasured, and the
+  reason the default stays off is unchanged: there is no uncontaminated corpus that could show it.
+  `docs/DECISIONS.md` D-064.
+- **The one-line all-caps baseline that beat this library on short-form spans does not beat it on
+  comparable gold.** The deficit was the corpus annotating every occurrence while this library only
+  ever emits a *paired* short form. On gold both systems can address, the ordering reverses. The
+  qualifier is published in the same table as the figure it qualifies, and the section also says
+  plainly what the number does **not** show: the span scorer cannot tell a system that pairs
+  correctly from one that pairs at random. `docs/DECISIONS.md` D-066.
+- **The backronym subsystem now has an accuracy number for half of itself, and a permanent refusal
+  for the other half.** `align` is exactly right on `98.66 %` of MED1250 pairs whose correct reading
+  is forced by the constraint, over about half of each corpus, with the bound over all feasible pairs
+  published beside it. `synthesize` carries no accuracy number and never will: a target word with no
+  source phrase has no correct expansion. The definition-of-done criterion that was closed last round
+  by narrowing is **re-opened as partly met**, because the narrowing’s reason was false for half the
+  subsystem. `docs/DECISIONS.md` D-067.
+- **This project now has a measured error rate on its own reporting.** A seeded sample of `24`
+  incidental claims made during this round was checked against running code: `19` true, `4` false, `1`
+  misleading. Claims settled by one file read failed at `7.7 %`; claims needing a command run failed
+  at `36.4 %`. Most failures were counts that were correct when written and went stale on a tree eight
+  workstreams were editing at once. Contributor-facing, and published rather than filed:
+  `docs/DECISIONS.md` D-068.
+- **The definition of done is now fourteen criteria and the page has been renumbered.** Six were
+  added; what four documents cite as "criterion 9" is criterion `10` from now on. Nine of fourteen
+  read met, which is the highest that page has ever read, and the page says in its own words why that
+  is not straightforwardly good news. `docs/DEFINITION-OF-DONE.md`, `docs/DECISIONS.md` D-069.
 
 ## [0.3.0] — 2026-08-11
 

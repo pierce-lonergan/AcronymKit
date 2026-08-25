@@ -23,6 +23,7 @@ in the resource file header.
 
 - **Licence:** SCOWL (MIT-style permissive)
 - **Licence text:** <https://raw.githubusercontent.com/en-wl/wordlist/master/scowl/Copyright>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://downloads.sourceforge.net/wordlist/scowl-2020.12.07.tar.gz>
 - **SHA-256:** `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc`
 - **Size:** 2,569,810 bytes
@@ -37,6 +38,7 @@ Kevin Atkinson's notice grants permission to 'use, copy, modify, distribute and 
 
 - **Licence:** BSD-2-Clause
 - **Licence text:** <https://raw.githubusercontent.com/cmusphinx/cmudict/74790861f652b15e4ac49015a90074ad62a27690/LICENSE>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/cmusphinx/cmudict/74790861f652b15e4ac49015a90074ad62a27690/cmudict.dict>
 - **SHA-256:** `81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22`
 - **Size:** 3,618,488 bytes
@@ -51,6 +53,7 @@ Two-clause BSD from Carnegie Mellon University: redistribution in source and bin
 
 - **Licence:** BSD-2-Clause
 - **Licence text:** <https://raw.githubusercontent.com/cmusphinx/cmudict/74790861f652b15e4ac49015a90074ad62a27690/LICENSE>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/cmusphinx/cmudict/74790861f652b15e4ac49015a90074ad62a27690/LICENSE>
 - **SHA-256:** `bd4ce8e44170a5f9f481310ca85c51de3c4f851a65e679b40e603b143bd3542a`
 - **Size:** 1,754 bytes
@@ -70,6 +73,7 @@ shipping them would change the licence of the wheel. `data/` is git-ignored.
 
 - **Licence:** Public domain (United States Government Work)
 - **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/MED1250_labeled>
 - **SHA-256:** `5093fa8f130ee250add0d0fbde7fc736478e18fbcc4447b00b4179db47f4cf53`
 - **Size:** 1,613,108 bytes
@@ -84,6 +88,7 @@ Public domain, so redistribution would be lawful -- the NLM notice states the wo
 
 - **Licence:** Public domain (United States Government Work)
 - **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/WordData/Ab3P_prec.dat>
 - **SHA-256:** `77903769069451f67095b8aa677ac19b4074e86cf165519c3cd1cb02734db5c3`
 - **Size:** 4,050 bytes
@@ -98,6 +103,7 @@ Public domain and small enough that the size argument used against med1250 does 
 
 - **Licence:** Public domain (United States Government Work)
 - **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/WordData/Lf1chSf>
 - **SHA-256:** `93322990b04d6b5027e4d6e2b6a3da91ee76ed1d1b9b170ce8a5cc48e8084651`
 - **Size:** 48,126 bytes
@@ -112,6 +118,7 @@ NOT vendorable, and for once the licence is not the reason at all: the same publ
 
 - **Licence:** Public domain (United States Government Work)
 - **Licence text:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md>
 - **SHA-256:** `756d5fa9a5900901f10b357c11230e55febe2af1f16f3fa3a5353af415f750eb`
 - **Size:** 4,540 bytes
@@ -126,6 +133,7 @@ Retained alongside MED1250 because it defines the annotation format. It is also 
 
 - **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/dataset/diction.json>
 - **SHA-256:** `58e3450b5d77b4d791045c74cb0f487fdfbdd5c58d8d4c270d0fda4e2d2b12f5`
 - **Size:** 76,910 bytes
@@ -140,6 +148,7 @@ NOT vendorable, and the reason is a licence trap worth spelling out. The reposit
 
 - **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/dataset/dev.json>
 - **SHA-256:** `3980517288fd7f79d489edbc2cefd66a63bd97f91390fb419d6fad3752f414c7`
 - **Size:** 2,140,335 bytes
@@ -154,6 +163,7 @@ NOT vendorable, and the reason is a licence trap worth spelling out. The reposit
 
 - **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/dataset/train.json>
 - **SHA-256:** `bcc5c855c9c408ff76998db1d5c785c2ecbb694b7311ccb8bc6f2cfe7051266a`
 - **Size:** 17,354,149 bytes
@@ -168,6 +178,7 @@ NOT vendorable, and the reason is a licence trap worth spelling out. The reposit
 
 - **Licence:** MIT
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/LICENSE>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/scorer.py>
 - **SHA-256:** `2b68c764780dcd43821feb4d03ba6a9747a9017875ce22d569be173a8e3cdd38`
 - **Size:** 2,935 bytes
@@ -182,6 +193,7 @@ Genuinely MIT -- the README's carve-out puts the evaluation script and baseline 
 
 - **Licence:** MIT (the document), describing a CC BY-NC-SA-4.0 dataset
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-21-SDU-shared-task-2-AD/b9197428521f8fcf8c8d452eee2c6379050ceaea/README.md>
 - **SHA-256:** `12277bc8eb443b9e495e5a7ce08e7bd9e40dbcfada9cfd94260f278a63c31246`
 - **Size:** 6,958 bytes
@@ -196,6 +208,7 @@ Retained for the same reason as ab3p-readme: it is the normative description of 
 
 - **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/data/english/legal/train.json>
 - **SHA-256:** `f04259b3f55bf31e782096d950b0a361a95ce881b5980e8b975f3b3e4cfd9791`
 - **Size:** 1,733,260 bytes
@@ -210,6 +223,7 @@ NOT vendorable, and the same licence trap as both SDU-21 repositories, now for t
 
 - **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/data/english/legal/dev.json>
 - **SHA-256:** `d41f4961f5524d0f3b031b7ae2636f6f4fdb3d9795861ff6eb9a98f2206a8473`
 - **Size:** 291,388 bytes
@@ -224,6 +238,7 @@ NOT vendorable, and the same licence trap as both SDU-21 repositories, now for t
 
 - **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/data/english/scientific/train.json>
 - **SHA-256:** `00b8fba7f16d8d0b44c7b21ac7dbdc02106ffc867a6d9a3f166c11fd67143cdf`
 - **Size:** 966,723 bytes
@@ -238,6 +253,7 @@ NOT vendorable, and the same licence trap as both SDU-21 repositories, now for t
 
 - **Licence:** CC BY-NC-SA-4.0 (dataset files only; see README.md)
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/data/english/scientific/dev.json>
 - **SHA-256:** `bf93f57c5f35c4e61730d7aa6235087561f5c131c26ab82e0a30fee92c07ba45`
 - **Size:** 189,240 bytes
@@ -252,6 +268,7 @@ NOT vendorable, and the same licence trap as both SDU-21 repositories, now for t
 
 - **Licence:** MIT
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/LICENSE>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/scorer.py>
 - **SHA-256:** `4ece9756e1cad3857b20de86b262a0562dcf1325d8487763e49b849230250bdd`
 - **Size:** 3,064 bytes
@@ -266,6 +283,7 @@ Genuinely MIT -- the README's carve-out puts the evaluation script and the basel
 
 - **Licence:** MIT (the document), describing a CC BY-NC-SA-4.0 dataset
 - **Licence text:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/amirveyseh/AAAI-22-SDU-shared-task-1-AE/4a8f3b644c2824cf62e06907c8324fedc0941f24/README.md>
 - **SHA-256:** `58996464a4a27bc09e66ef408d82c0b2ef4fbf1fbfbdd6a04cc6ffc33ab81442`
 - **Size:** 4,180 bytes
@@ -280,6 +298,7 @@ Retained for the same reason as ab3p-readme and sdu21-ad-readme: it is the norma
 
 - **Licence:** CC-BY-SA-4.0
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/data/data_test.conll>
 - **SHA-256:** `87e81ad0061a6ff384fd207ced1ecbdb26a81910950b6d0b59dee79a58044c04`
 - **Size:** 72,652 bytes
@@ -294,6 +313,7 @@ NOT vendorable, and share-alike is the reason rather than the usual size argumen
 
 - **Licence:** CC-BY-SA-4.0
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/data/data_dev.conll>
 - **SHA-256:** `3feb27cc423bbd5e290b7cef6947c5570a2dcc8f6d486fec8f757e425bc5b0cd`
 - **Size:** 72,802 bytes
@@ -308,6 +328,7 @@ NOT vendorable, and share-alike is the reason rather than the usual size argumen
 
 - **Licence:** CC-BY-SA-4.0
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/data/data_train.conll>
 - **SHA-256:** `ba2e94e60920d764f4e0220e61a740eee4921103cac49406dee1f97fd6897743`
 - **Size:** 586,595 bytes
@@ -322,6 +343,7 @@ NOT vendorable, and share-alike is the reason rather than the usual size argumen
 
 - **Licence:** CC-BY-SA-4.0
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
 - **SHA-256:** `7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297`
 - **Size:** 20,131 bytes
@@ -336,6 +358,7 @@ The licence text itself, pinned so the share-alike finding above rests on the de
 
 - **Licence:** CC-BY-SA-4.0 (dataset card)
 - **Licence text:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/LICENSE>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://huggingface.co/datasets/surrey-nlp/PLOD-CW/resolve/c40ba1976a749d30fda147e11ed9030e1cd29354/README.md>
 - **SHA-256:** `e82dff3a0dd1edf20dddfd72910868799f3e4839eefeb8bc2293c2d92cd859cd`
 - **Size:** 8,371 bytes
@@ -350,6 +373,7 @@ Retained for the same reason as ab3p-readme and sdu21-ad-readme: it is the norma
 
 - **Licence:** MPL-2.0 (Dicollecte / Grammalecte)
 - **Licence text:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/fr_FR/dictionaries/README_dict_fr.txt>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/fr_FR/dictionaries/fr.dic>
 - **SHA-256:** `b78a868e31dd6e373b6c3217969afb898a9acde828a5e7ef97308da42218c88c`
 - **Size:** 1,236,490 bytes
@@ -364,6 +388,7 @@ MPL is file-level copyleft: an MPL file may sit inside a larger work under other
 
 - **Licence:** GPL-3.0-or-later OR LGPL-3.0-or-later OR MPL-1.1 (RLA-ES)
 - **Licence text:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/es/LICENSE.md>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/es/es_ES.dic>
 - **SHA-256:** `6975dddec3d5d2c676069537bc67b4b5f786c65c5d4cf6703a82acf779ac9ec1`
 - **Size:** 715,989 bytes
@@ -378,6 +403,7 @@ Disjunctive tri-licence; the MPL-1.1 arm would technically permit inclusion in a
 
 - **Licence:** GPL-2.0-or-later OR GPL-3.0-or-later OR LGPL-2.0/2.1 OR OASIS-0.1
 - **Licence text:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/de/COPYING_OASIS.txt>
+- **Terms read on:** not recorded (entry predates the field)
 - **Source:** <https://raw.githubusercontent.com/LibreOffice/dictionaries/master/de/de_DE_frami.dic>
 - **SHA-256:** `4ca3c958b0e5545910999bc246f668840bf8ede3df8e5e6790d05edd5a586c38`
 - **Size:** 4,356,903 bytes
@@ -387,6 +413,21 @@ Disjunctive tri-licence; the MPL-1.1 arm would technically permit inclusion in a
 - **Attribution:** igerman98 / Bjoern Jacke and the Frami contributors.
 
 NOT vendorable, and this one is not a judgement call. The permissive arm (OASIS 0.1) is conditional: it only permits distribution 'with programs that support the OASIS Open Document Format ... and whose PRIMARY format for saving documents is the Open Document Format'. acronymkit is not an ODF application, so that grant does not reach us and the fallback is GPL/LGPL, which is incompatible with vendoring into an MIT wheel.
+
+### `federal-register-terms` — federal_register_govinfo_policies.html
+
+- **Licence:** Public domain (United States Government Work, 17 U.S.C. 105)
+- **Licence text:** <https://www.govinfo.gov/about/policies>
+- **Terms read on:** 2026-08-24
+- **Source:** <https://www.govinfo.gov/about/policies>
+- **SHA-256:** `5189ea6f00ac5b788b6937d6024e9f5924ed958305e31afc7d94f7e4bc40c0a9`
+- **Size:** 64,162 bytes
+- **Ships in the wheel:** no
+- **Derived resources may ship:** yes
+- **Used for:** The terms behind the Federal Register substrate registered below. Pinned for the same reason as plod-cw-license: so the licence finding rests on the text rather than on a note in this file.
+- **Attribution:** U.S. Government Publishing Office, Public Domain & Copyright Notice.
+
+Read from GPO's Public Domain & Copyright Notice on 2026-08-24, not from a badge and not from the Federal Register's own reader-aids pages, which could not be read from this host -- see the CAPTCHA finding in the Substrate entry below. The notice quotes the statute: 'Copyright protection under this title is not available for any work of the United States Government'. It also carries a caveat that a one-word licence field would destroy, and that caveat is the reason the corpus is fetch-only rather than merely large: a Government publication may contain third-party copyrighted material used with permission, and publication in a Government document does not extend that permission to anyone else. Federal Register rules incorporate industry standards and manufacturers' service bulletins by reference and quote from them, so 'public domain' is true of the document and not automatically true of every string inside it.
 
 ## Derived resources shipped in the wheel
 
@@ -422,6 +463,31 @@ Character transition probabilities over the lexicon above. Second order removed 
 - **Attribution:** Sohn S, Comeau DC, Kim W, Wilbur WJ. Abbreviation definition identification based on automatic precision estimates. BMC Bioinformatics. 2008;9:402. National Library of Medicine.
 
 Estimated reliability per (short-form group, matching strategy), derived from the raw text of MED1250's development half with the estimator in acronymkit._pseudo_precision. Reproduces no text from the corpus: every key is one of this library's own group labels or strategy names and every value is a count or a float, which tests/test_pseudo_precision.py asserts rather than assumes. Two independent grounds permit it -- the public-domain licence, and the absence of any source content to license -- and the second is the one that would still stand if the first were disputed. Its own provenance block records the source URL, digest, licence and split seed, because JSON has no comment syntax to put a header in.
+
+## Substrates — fetched by document, not as a file
+
+A substrate is a query and a draw over a live corpus rather than a single
+pinned file, so its identity lives in the tool that builds it and this table
+records what a registry is for: licence, redistribution, provenance, and
+anything about reaching it that the next fetcher needs.
+
+### `federal-register` — Federal Register final rules
+
+- **Licence:** Public domain (United States Government Work, 17 U.S.C. 105)
+- **Licence text:** <https://www.govinfo.gov/about/policies>
+- **Terms read on:** 2026-08-24
+- **Discovery:** <https://www.federalregister.gov/api/v1/documents.json>
+- **Fetched by:** `python tools/build_gold_corpus.py fetch`
+- **Ships in the wheel:** no
+- **Derived resources may ship:** yes
+
+**Licence reading.** Read from GPO's Public Domain & Copyright Notice on 2026-08-24, not from a badge and not from the Federal Register's own reader-aids pages, which could not be read from this host -- see the CAPTCHA finding in the Substrate entry below. The notice quotes the statute: 'Copyright protection under this title is not available for any work of the United States Government'. It also carries a caveat that a one-word licence field would destroy, and that caveat is the reason the corpus is fetch-only rather than merely large: a Government publication may contain third-party copyrighted material used with permission, and publication in a Government document does not extend that permission to anyone else. Federal Register rules incorporate industry standards and manufacturers' service bulletins by reference and quote from them, so 'public domain' is true of the document and not automatically true of every string inside it. Statute cited from <https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title17-section105&num=0&edition=prelim>.
+
+**Pinning.** Pinned per document in tools/build_gold_corpus.py::PINNED_DOCUMENTS, by the SHA-256 of the NORMALISED TEXT rather than of the fetched bytes. Measured reason: both hosts serve the body through a CDN that rewrites e-mail addresses into a per-response obfuscation token, so the same document differs in bytes between hosts and a byte pin would fire the checksum failure this file reserves for a corpus that really changed. Under the text pin the primary host and the Government Publishing Office mirror agree exactly on every pinned document, which is what makes --mirror-check an independent verification rather than a second copy of the same fetch.
+
+**What the text is.** United States agency rulemaking. A random draw of final rules is dominated by environmental, aviation, fisheries and maritime-safety prose. It is ONE MORE DOMAIN and not general text, and it is not a general-purpose counterweight to the biomedical corpora -- the same correction [corpora.sdu22_ae_legal] already carries for calling UN institutional prose 'legal'.
+
+**Access.** The JSON API answers automated requests normally. The site's HTML pages do not: /reader-aids/developer-resources/rest-api and /reader-aids/legal-status both return a CAPTCHA interstitial headed 'Request Access', explaining that programmatic access to the site is limited to the API. That is why the licence above is read from GPO -- reachable, stating the same statute, and the terms of the host that serves the mirror. Anyone who wants the Federal Register's own wording should open the page in a browser and add it here with a read date. Do not defeat the CAPTCHA.
 
 ## Adding an asset
 

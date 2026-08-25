@@ -54,7 +54,7 @@ The open-source acronym ecosystem is split in two, with nothing in between:
 |---|---|---|
 | **Naive string utilities** — `acronymcreator`, countless gists | Fast, no dependencies | No tokenisation grammar, no phonetics, no semantics |
 | **Corpus matchers** — ACRONYM (Cook, 2019) | Finds candidates that spell real words | Offline batch, static corpus, no library bindings |
-| **Rule-based extractors** — Schwartz & Hearst (2003) in scispaCy, Blackstone | F₁ > 96 % on inline definitions, cheap | Strictly extractive; the definition must be present |
+| **Rule-based extractors** — Schwartz & Hearst (2003) in scispaCy, Blackstone | Few false positives on inline definitions, cheap | Strictly extractive; the definition must be present |
 | **Neural disambiguators** — AcroBERT, SDU/SciAD/GLADIS | Resolves standalone acronyms from context | GPU-bound, slow cold start, research codebases |
 
 A system that needs to *generate*, *extract* **and** *resolve* has to stitch three incompatible
@@ -80,7 +80,7 @@ pip install "acronymkit[all]"          # everything
 ```
 
 CI enforces the split: a dedicated job installs the base package alone and asserts that no optional
-dependency reaches `sys.modules` after a full generate + extract + backronym + disambiguate cycle.
+dependency reaches `sys.modules` after a generate + extract cycle.
 
 ## What it does
 
@@ -200,7 +200,7 @@ Or expand a word with no source phrase at all:
 
 ```python
 engine.synthesize_backronym("NEXUS").candidates[0].expansion_text
-# 'nag ear xenon urn sad'
+# 'nab ear xis ugh sac'
 ```
 
 ### Extraction (Schwartz & Hearst)
@@ -570,8 +570,14 @@ python tools/fetch_data.py --verify      # re-check every checksum
   97.45<!--claim:disambiguation.sdu21.diagnosis.default_path.no_candidate_pct:.2f--> % of that
   split's instances. If you came here for disambiguation, pass a dictionary.
 - Every *measured* figure in this README is traceable to [`bench/results.json`](bench/results.json),
-  and CI fails the build if a performance claim anywhere in the docs or the source cannot be traced
-  back to a benchmark run. The structural counts above — share of the source, of the public symbols,
+  and CI fails the build if a performance claim **that the gate can recognise** cannot be traced back
+  to a benchmark run. The word matters and it used to say *anywhere*, which was false: the gate arms
+  a number when a metric keyword sits near it or a unit follows it, so a sentence naming a median
+  latency in microseconds passes untouched while one naming an accuracy percentage in the same
+  position fails the build. Both were injected to check it, and the test that pins the difference is
+  `tests/test_claims_gate_coverage.py`. What the gate cannot recognise it
+  **counts and publishes** rather than ignoring — `python tools/check_claims.py` prints the
+  unrecognised residue on every run, and `--residue` names it line by line. The structural counts above — share of the source, of the public symbols,
   of the CLI commands — are not benchmark results; they are re-derived from the tree, and the
   commands that derive them are in [docs/EVALUATION.md](docs/EVALUATION.md).
 
@@ -596,9 +602,12 @@ python tools/fetch_data.py --verify      # re-check every checksum
 - [Technical note: using a ranking function as a generation objective](docs/notes/scoring-objective.md)
 - [Technical note: should `extract()` report an abbreviation whose expansion it does not
   know?](docs/notes/w11-emission-model.md) — the emission-model question scoped and costed. Nothing
-  is decided and no behaviour changed; read it before asking for the feature, because a one-line
-  all-caps rule already beats this library's short-form score on the one held-out corpus that can
-  see it, so "we can emit unpaired abbreviations" would not by itself be an improvement
+  is decided and no behaviour changed. A one-line all-caps rule does beat this library's short-form
+  score on the one held-out corpus that can see it — but only against the whole gold, which counts
+  every occurrence of an abbreviation rather than every definition. Restricted to the gold spans a
+  definition extractor can stand in front of at all, the result reverses; the decomposition, and
+  what the span scorer can and cannot see about a pairing, are in
+  [docs/EVALUATION.md](docs/EVALUATION.md)
 - [Evaluation](docs/EVALUATION.md) — every measured number, with the losing comparison beside each
   one: governed cut placement and its flatcase rows, extraction against four other systems,
   generation recall@k, disambiguation against a trivial baseline, and the abstention curve scored

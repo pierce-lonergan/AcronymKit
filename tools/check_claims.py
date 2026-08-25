@@ -149,12 +149,16 @@ decided by whether the gate could already see it**:
   :data:`SCAN_GLOBS` tomorrow cites from its first line.
 
 Where those figures come from, since this file is the one that adjudicates
-figures: ``316 across 11 files`` is not a quoted number, it is
-:data:`DEFERRED_BASELINE`, and CI re-derives and re-checks it on every run -- if
-it drifts, the build says so. The rest (``76``, ``1,144``, ``792``) are counts of
-one run, and the command that regenerates each is ``--residue``. None of them is
-a measurement of the library, and no runner can ``--save`` a property of the
-documents.
+figures: ``316 across 11 files`` is not a quoted number, it is what
+:data:`DEFERRED_BASELINE` summed to when the register was opened, and CI
+re-derives and re-checks the live sum on every run -- if it drifts, the build
+says so. The rest (``76``, ``1,144``, ``792``) are counts of one run, and the
+command that regenerates each is ``--residue``. None of them is a measurement of
+the library, and no runner can ``--save`` a property of the documents.
+
+The register is not a static number any more. It came off that opening figure in
+the round that added :data:`LEDGER_TRAJECTORY`, and every fall since is a
+recorded row rather than a nudged constant -- see the next section.
 
 The cost is named rather than hidden: a document at its budget cannot gain a
 figure without citing it. ``docs/DECISIONS.md``'s deferred count rose from 97 to
@@ -163,18 +167,50 @@ percentage into a D-record will find the gate red and will have to cite it, mark
 it, or record the figure in the baseline as a visible source edit. That friction
 is R1's actual price, and it was previously being paid by a blind spot.
 
+A ledger with no rate on it is a backlog with better manners
+-------------------------------------------------------------
+Counting the debt honestly does not retire any of it, and D-057 recorded the
+reading getting worse because the instrument got better. Three things were added
+so the register has a trajectory rather than a size:
+
+* ``--classify`` buckets every unverified number -- ``gate-able``,
+  ``no-number``, ``stale``, ``blocked``, ``not-a-claim``, ``unclassified`` --
+  and prints the counts per bucket and per file, plus what fraction was *judged*
+  rather than *derived*. It moves no ratchet and never fails a build.
+* :data:`LEDGER_TRAJECTORY` records where the two registers have been, what each
+  round migrated, and **how**: citation, deletion, fencing and other are separate
+  columns, because D-052 established that fencing removes a number from the
+  gate's view entirely and a count that falls by fencing has burned down the
+  measurement rather than the debt.
+* :func:`trajectory_problems` checks the trajectory against the baselines on
+  every run of the gate. Lowering a baseline without appending a round turns the
+  build red; a round whose ``by_*`` columns do not add up to the fall it claims
+  turns the build red; and a round that moves less than :data:`MIGRATION_QUOTA`
+  must write down a ``waiver`` saying why.
+
+The policy those three implement is [docs/CLAIMS-LEDGER.md](../docs/CLAIMS-LEDGER.md).
+
 How this fails
 --------------
-**The gate still does not check most numbers, and now says so.** 1,468 remain
-unexamined against 316 on the ledger, so the unit rule reaches about one number
-in six of what proximity misses. "Nothing is dropped silently" is the claim;
-"everything is checked" is not, and the summary prints both counts side by side
-precisely so the second cannot be read into the first.
+**The gate still does not check most numbers, and now says so.** Around 1,460
+remain unexamined against a few hundred on the ledger, so the unit rule reaches
+roughly one number in six of what proximity misses. "Nothing is dropped
+silently" is the claim; "everything is checked" is not, and the summary prints
+both counts side by side precisely so the second cannot be read into the first.
 
-**316 is a floor on the debt, not a measure of it.** It is the count under
-*this* unit vocabulary. Adding ``KB``, ``MB``, ``bytes`` or a speedup ``x`` to
-:data:`_UNIT_AFTER_NUMBER` would move more of the 1,468 across, and each such
-widening is another ratchet-lowering commit rather than a free win.
+**The deferred total is a floor on the debt, not a measure of it.** It is the
+count under *this* unit vocabulary. Adding ``KB``, ``MB``, ``bytes`` or a speedup
+``x`` to :data:`_UNIT_AFTER_NUMBER` would move more of the residue across, and
+each such widening is another ratchet-lowering commit rather than a free win.
+``--classify`` reports a second, larger instance of the same blind spot: numbers
+in a table cell under a metric column heading, which neither arming rule can see
+because a table names its metric once in the header.
+
+**A classification is not an adjudication.** ``gate-able`` means a measurement
+somewhere has that value -- the property D-052 refused to treat as a backing.
+Hand-checked on the nineteen ``UNIQUE``/``REPLICATED`` deferred numbers of one
+document, four rows carrying three distinct values matched a measurement of
+something else entirely.
 
 **The residue count inherits :func:`iter_claim_numbers`'s idea of a number.**
 117 of the 1,468 are fragments of ISO dates -- ``2026-08-23`` is split by the
@@ -186,13 +222,24 @@ would move the value ledger too and needs its own measurement.
 mechanism.** A figure can be fenced, cited, marked ``measured: <run-id>`` or
 allowlisted. Fencing is what ``docs/notes/`` already does, and it silences the
 gate completely rather than recording anything -- so a deferred count falling
-is not by itself evidence that a figure was adjudicated.
+is not by itself evidence that a figure was adjudicated. That is why
+:class:`LedgerRound` counts fencing in its own column.
+
+**Neither escape hatch fits a release note, and that is now a named refusal
+rather than a silence.** A ``{{claim:...}}`` citation is re-rendered to the
+CURRENT value, so citing in ``CHANGELOG.md`` would rewrite history the next time
+a runner saves; and ``measured: <run-id>`` validates only that the run id
+*exists*, so attaching a live run to a superseded release figure points at
+numbers that run no longer holds. The mechanism that would fit -- a marker that
+pins a value as of a release -- does not exist, and ``CHANGELOG.md`` carries a
+whole-file judgement saying so.
 
 Usage::
 
     python tools/check_claims.py                  # scan and report; the CI gate
     python tools/check_claims.py --list           # show every claim and how it is backed
     python tools/check_claims.py --residue        # every number surfaced but not verified
+    python tools/check_claims.py --classify       # bucket the residue: what could be gated, deleted, or is blocked
     python tools/check_claims.py --migrate        # which run ids could supply each value-matched claim
     python tools/check_claims.py --update-baseline    # the ratchet blocks to paste after a migration
     python tools/check_claims.py --render --dry-run   # what --render would rewrite
@@ -259,7 +306,8 @@ SCAN_GLOBS = (
 #: documents cite by run id from the start. Regenerate after a migration with
 #: ``python tools/check_claims.py --update-baseline``.
 #:
-#: Recorded 2026-08-23: 87 claims across 5 files. 71 across 4 as of 2026-08-24.
+#: Recorded 2026-08-23: 87 claims across 5 files. 71 across 4, then 64 across 3.
+#: Every fall is a row in :data:`LEDGER_TRAJECTORY`, and the gate checks that.
 VALUE_MATCHED_BASELINE: Dict[str, int] = {
     # Lowered from 12 and 28 when the MED1250 extraction headline was migrated to
     # run-id citations after `balanced_trim` shipped (D-032). The ratchet only
@@ -274,9 +322,14 @@ VALUE_MATCHED_BASELINE: Dict[str, int] = {
     # on, so it is the right one to take to zero first -- and an absent entry is
     # a stronger statement than `0`, because re-adding the key is a visible edit
     # rather than a number nudged upward.
+    #
+    # `docs/notes/scoring-objective.md` was 3 and is now ABSENT for the same
+    # reason: the generation recall figures it quotes were migrated to
+    # `generation.med1250.<preset>.initialism_recall_at_<k>` citations, which is
+    # the run that produced them. `docs/EVALUATION.md` fell from 24 to 20 in the
+    # same pass.
     "docs/DECISIONS.md": 42,
-    "docs/EVALUATION.md": 24,
-    "docs/notes/scoring-objective.md": 3,
+    "docs/EVALUATION.md": 20,
     "src/acronymkit/enums.py": 2,
 }
 
@@ -286,28 +339,38 @@ VALUE_MATCHED_BASELINE: Dict[str, int] = {
 #: the value budget would have raised a ratchet R1 pins shut, for figures nobody
 #: had adjudicated yet.
 #:
-#: A file absent from this mapping is allowed **zero**. The counts below are the
-#: state of the tree the day the unit rule was turned on, and they are a debt
-#: register, not a licence: 69 of these 255 match no measurement in
-#: ``bench/results.json`` at all, and ``--residue`` names every one.
+#: A file absent from this mapping is allowed **zero**. It is a debt register,
+#: not a licence, and ``--residue`` names every entry with the line it sits on.
 #:
 #: Regenerate after a migration with ``python tools/check_claims.py --update-baseline``.
 #:
-#: Recorded 2026-08-24 against commit 6cc9a01, and verified identical against a
-#: clean ``git archive HEAD`` export -- three other workstreams were editing the
-#: tree while this was written, so the counts were taken twice and only recorded
-#: because both readings agreed.
+#: **A fall here must be recorded in :data:`LEDGER_TRAJECTORY` in the same
+#: commit**, which the gate checks. That is the whole of
+#: [docs/CLAIMS-LEDGER.md](../docs/CLAIMS-LEDGER.md): an honest ledger with no
+#: rate attached is a backlog with better manners.
+#:
+#: Opened 2026-08-24 at 316 across 11 files against commit 6cc9a01, verified
+#: identical against a clean ``git archive HEAD`` export. 262 across 10 after the
+#: first burn-down round. Both readings were taken twice, minutes apart, because
+#: other workstreams were editing the same tree -- and the second reading is why
+#: `docs/EVALUATION.md`'s value count is 20 here rather than the 28 a single
+#: reading found mid-edit.
 DEFERRED_BASELINE: Dict[str, int] = {
+    # `docs/ARCHITECTURE.md` was 1 and is now ABSENT: its `F₁ > 96 %` for
+    # rule-based extractors was deleted rather than gated, together with
+    # README.md's copy of the same row. It was somebody else's published figure,
+    # it labelled a precision number as F1, and docs/DECISIONS.md records the
+    # published Schwartz & Hearst F1 range as ~86-89 on Ab3P -- so the sentence
+    # is truer without a figure than with that one.
     "CHANGELOG.md": 28,
-    "README.md": 2,
+    "README.md": 1,
     "bench/splits.toml": 32,
-    "docs/ARCHITECTURE.md": 1,
     "docs/DECISIONS.md": 115,
     "docs/DEFINITION-OF-DONE.md": 1,
-    "docs/EVALUATION.md": 60,
+    "docs/EVALUATION.md": 10,
     "docs/OFFLINE.md": 3,
     "docs/notes/pydantic-cost.md": 70,
-    "docs/notes/scoring-objective.md": 3,
+    "docs/notes/scoring-objective.md": 1,
     "src/acronymkit/governed/models.py": 1,
 }
 
@@ -1439,6 +1502,545 @@ def report_migration(project: Project, index: Dict[str, object], claims: Sequenc
     )
 
 
+# ---------------------------------------------------------------------------
+# Debt classification
+# ---------------------------------------------------------------------------
+#: The dispositions an unverified number can be given, in reporting order.
+#:
+#: The first four are the buckets the burn-down was scoped around. The fifth and
+#: sixth are here because the residue is not what the scoping assumed, and
+#: forcing it into four buckets would have been a false statement about it:
+#:
+#: * ``not-a-claim`` -- the number is not a measurement of this library and the
+#:   sentence holding it asserts nothing about performance. Calendar years,
+#:   ISO-date fragments, interpreter versions, byte sizes, section numbers. The
+#:   scoped bucket nearest to these is "prose that should not carry a number at
+#:   all", and that bucket is *wrong* about them: in ``Verified 2026-08-23`` the
+#:   number is the point of the sentence.
+#: * ``unclassified`` -- no derived rule fired and nobody has judged it.
+#:   Published rather than absorbed, because a classification with no residue of
+#:   its own is a classification that has been made to come out even.
+DEBT_BUCKETS = (
+    "gate-able",
+    "no-number",
+    "stale",
+    "blocked",
+    "not-a-claim",
+    "unclassified",
+)
+
+#: One line per bucket, printed by ``--classify`` so the report explains its own
+#: vocabulary instead of depending on a document standing beside it.
+BUCKET_MEANINGS: Dict[str, str] = {
+    "gate-able": "a measurement with this value exists, so a citation can be written today",
+    "no-number": "the sentence is better without the figure -- delete it",
+    "stale": "describes something that is no longer true",
+    "blocked": "reads as a metric and cannot be gated: no run supplies it, derived or judged",
+    "not-a-claim": "not a measurement (year, date part, version, byte size, ordinal)",
+    "unclassified": "no derived rule fired and nobody has judged it",
+}
+
+#: An ISO date. :func:`iter_claim_numbers` splits one into three numbers under
+#: the hyphenated-range rule it shares with the armed path, which is where a
+#: seventh of the residue comes from.
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+#: A four-digit number in the range a calendar year occupies.
+_YEAR_SHAPED = re.compile(r"^(?:19|20)\d{2}$")
+
+#: A dotted release number: ``3.9``, ``1.19.0``.
+_VERSION_SHAPED = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
+
+#: Words whose presence on a line make a dotted number a release number.
+_VERSION_CONTEXT = (
+    "python",
+    "cpython",
+    "version",
+    "jdk",
+    "graalvm",
+    "pypi",
+    "wheel",
+    "classifier",
+    "pydantic",
+    "mypy",
+    "ruff",
+    "pytest",
+    "release",
+    "abi",
+    "interpreter",
+)
+
+#: A size unit written after a number. These are properties of shipped files
+#: rather than results, and D-055 records two of them being moved out of prose
+#: for exactly that reason -- so the classifier names the class rather than
+#: leaving it to be re-litigated one document at a time.
+_SIZE_AFTER_NUMBER = re.compile(r"^[ \t]*(?:B|kB|KB|MB|GB|bytes?)\b")
+
+#: A section number: the number immediately after a Markdown heading's hashes.
+_SECTION_NUMBER = re.compile(r"^#{1,6}\s+(\d+(?:\.\d+)?)\s")
+
+#: An ordered-list marker. The trailing ``.`` or ``)`` is **required**, and that
+#: is not cosmetic: the first draft made it optional, and a sentence opening
+#: ``26 to 39 symbols that never appear ...`` was read as list item 26. Sampling
+#: the detector's own output found it, which is the only reason it is not still
+#: there.
+_LIST_ORDINAL = re.compile(r"^\s*(\d+)[.)]\s")
+
+
+def _free_offsets(line: str, text: str) -> List[int]:
+    """Where ``text`` occurs in ``line`` as a free-standing number."""
+    return [offset for offset, number in iter_claim_numbers(line) if number == text]
+
+
+def _inside_iso_date(line: str, text: str) -> bool:
+    """Whether *every* free-standing occurrence of ``text`` is part of a date.
+
+    "Every" rather than "any", on purpose. ``Verified 2026-08-23 across 23
+    portals`` holds a ``23`` that is a day and a ``23`` that is a count, and a
+    rule answering *any* would relabel the count. When the occurrences disagree
+    the detector declines and the number falls through to ``unclassified``,
+    where a reader can see it.
+    """
+    spans = [(match.start(), match.end()) for match in _ISO_DATE.finditer(line)]
+    if not spans:
+        return False
+    offsets = _free_offsets(line, text)
+    if not offsets:
+        return False
+    return all(any(start <= offset < end for start, end in spans) for offset in offsets)
+
+
+def detector_for(claim: Claim) -> str:
+    """The structural rule that says ``claim`` is not a claim, or ``""``.
+
+    **A unit-armed number is never handed to a detector.** ``62.40 µs`` and
+    ``96 %`` are metrics by their own shape, and letting a year-shaped or
+    version-shaped rule reach one would be the classifier arguing a measured
+    figure off the ledger -- the exact move D-052 warns a falling count must not
+    be achieved by.
+    """
+    if claim.arming == "unit":
+        return ""
+    text = claim.text
+    line = claim.line
+    if _inside_iso_date(line, text):
+        return "iso-date-fragment"
+    for offset in _free_offsets(line, text):
+        if _SIZE_AFTER_NUMBER.match(line[offset + len(text) :]):
+            return "byte-size"
+    if _YEAR_SHAPED.match(text):
+        return "year-shaped"
+    lowered = line.lower()
+    if _VERSION_SHAPED.match(text) and any(word in lowered for word in _VERSION_CONTEXT):
+        return "version-number"
+    for pattern in (_SECTION_NUMBER, _LIST_ORDINAL):
+        marker = pattern.match(line)
+        if marker and marker.group(1) == text:
+            return "section-or-list-ordinal"
+    return ""
+
+
+#: A Markdown table's alignment row: the ``|---|---:|`` under the header.
+_ALIGNMENT_ROW = re.compile(r"^\|?[\s:|-]*-[\s:|-]*\|[\s:|-]*$")
+
+#: Column headings that make a cell a measurement, beyond :data:`_KEYWORDS`.
+#:
+#: **Classifier-only, and wider than the gate's own vocabulary on purpose.**
+#: A published table names its metric once, in the header, and then writes bare
+#: numbers underneath -- which is a shape neither arming rule can reach, because
+#: proximity measures characters and the unit rule reads the number's own tail.
+#: Reading the column heading is a third rule, and it is used here to *size* the
+#: blind spot rather than to arm anything: moving it into :data:`_KEYWORDS` would
+#: put every number it finds on the deferred ledger, which is a ratchet-raising
+#: commit and needs its own decision.
+_METRIC_HEADER_SUBSTRINGS = ("%", " ms", "µs", "f₁", "share", "score", "delta", "ceiling")
+
+#: Headings short enough that a substring test would misfire, matched whole.
+_METRIC_HEADER_EXACT = frozenset({"n", "count", "ms", "p", "r", "f1", "instances", "pairs"})
+
+
+def _table_cells(row: str) -> List[str]:
+    """The cells of a Markdown table row, outer pipes discarded."""
+    return [cell.strip() for cell in row.strip().strip("|").split("|")]
+
+
+def _is_metric_header(header: str) -> bool:
+    """Whether a column heading says the cells under it are measurements."""
+    lowered = header.strip().strip("*`").lower()
+    if lowered in _METRIC_HEADER_EXACT:
+        return True
+    if keyword_positions(header):
+        return True
+    return any(token in lowered for token in _METRIC_HEADER_SUBSTRINGS)
+
+
+def table_header_map(path: Path) -> Dict[int, List[str]]:
+    """Line number -> the header cells of the table that line's row belongs to.
+
+    Only body rows are mapped; the header row and the alignment row are not,
+    because neither carries a claim.
+    """
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):  # pragma: no cover - unreadable file
+        return {}
+    mapping: Dict[int, List[str]] = {}
+    for position, line in enumerate(lines):
+        if not _ALIGNMENT_ROW.match(line.strip()) or position == 0:
+            continue
+        header = lines[position - 1]
+        if "|" not in header:
+            continue
+        cells = _table_cells(header)
+        cursor = position + 1
+        while cursor < len(lines) and "|" in lines[cursor]:
+            mapping[cursor + 1] = cells
+            cursor += 1
+    return mapping
+
+
+def metric_column_for(claim: Claim, headers: Dict[int, List[str]]) -> str:
+    """The metric column heading ``claim`` sits under, or ``""``.
+
+    A number in a table body cell whose column is headed by a metric is a claim
+    that neither arming rule can see. This does not arm anything -- it labels,
+    so ``--classify`` can report how much of the residue is a published table
+    rather than a stray integer.
+    """
+    cells = headers.get(claim.line_number)
+    if not cells or "|" not in claim.line:
+        return ""
+    row = _table_cells(claim.line)
+    for position, cell in enumerate(row):
+        if position >= len(cells):
+            break
+        if not _free_offsets(cell, claim.text):
+            continue
+        if _is_metric_header(cells[position]):
+            return cells[position]
+    return ""
+
+
+@dataclass(frozen=True)
+class Judgement:
+    """One number a person read and assigned a disposition to.
+
+    Attributes:
+        path: Repo-relative POSIX path of the file it lives in.
+        number: The number exactly as written.
+        anchor: A distinctive substring of the line it sits on. **Not a line
+            number.** The first draft keyed on ``<path>:<line>:<number>`` and an
+            entry went stale inside the same session, because another workstream
+            inserted seven lines above it in a file nobody had touched. A
+            judgement is about a sentence; anchoring it to the sentence makes it
+            die when the sentence dies and survive when the document merely
+            moves, which is the sensitivity that was wanted.
+        bucket: One of :data:`DEBT_BUCKETS`.
+        reason: Why, in one line. Printed with the row.
+    """
+
+    path: str
+    number: str
+    anchor: str
+    bucket: str
+    reason: str
+
+    @property
+    def key(self) -> str:
+        """How the entry is named in a report."""
+        return f"{self.path}:{self.number} @ {self.anchor!r}"
+
+
+#: Dispositions a person assigned by reading the sentence.
+#:
+#: Two of the four scoped buckets -- ``no-number`` and ``stale`` -- **cannot be
+#: derived**. "The sentence is better without this figure" and "this describes
+#: something no longer true" are readings, not properties of the token, and a
+#: rule claiming to compute them would be inventing the judgement it reports. So
+#: they are written down one at a time with the reason, and ``--classify`` prints
+#: what fraction of the tree was judged rather than derived. That fraction is
+#: small and is meant to be: a classification that is mostly hand-assigned is a
+#: spreadsheet, not an instrument.
+#:
+#: An entry matching no live number is reported as stale rather than ignored: a
+#: judgement pointing at a sentence that is no longer there is worse than no
+#: judgement at all.
+DEBT_JUDGEMENTS: Tuple[Judgement, ...] = (
+    # docs/notes/pydantic-cost.md quotes one figure that IS gated, and the
+    # whole-file entry below would otherwise bury it with the rest.
+    Judgement(
+        path="docs/notes/pydantic-cost.md",
+        number="128.1",
+        anchor="against 128.1 ms recorded in",
+        bucket="gate-able",
+        reason="quotes micro.import.cold_import_engine_ms, which D-013 gated",
+    ),
+    # Both are the perturbation range of tools/tune_presets.py -- how far the
+    # coefficients move while the sixteen-entry corpus still reproduces. That
+    # script is not a bench runner and writes no run id, so there is nothing to
+    # cite; and the value match is `100` equalling a great many unrelated
+    # measurements, which is the pathological case D-052 named.
+    Judgement(
+        path="README.md",
+        number="100",
+        anchor="a genuine plateau rather than a fitted point",
+        bucket="blocked",
+        reason="the perturbation range of tools/tune_presets.py, which saves no run",
+    ),
+    Judgement(
+        path="docs/notes/scoring-objective.md",
+        number="100",
+        anchor="`BALANCED_PRONOUNCEABLE` keeps its coefficients",
+        bucket="blocked",
+        reason="the perturbation range of tools/tune_presets.py, which saves no run",
+    ),
+    # An ad-hoc five-run probe of a third-party backend. No runner measures how
+    # long NLTK takes to fail, and none should.
+    Judgement(
+        path="docs/OFFLINE.md",
+        number="0.49",
+        anchor="ms over five runs",
+        bucket="blocked",
+        reason="NLTK probe latency from an ad-hoc session; no runner measures it",
+    ),
+    Judgement(
+        path="docs/OFFLINE.md",
+        number="0.50",
+        anchor="`NltkBackend().is_available()`",
+        bucket="blocked",
+        reason="NLTK probe latency from an ad-hoc session; no runner measures it",
+    ),
+    # A share of the offline bundle's compressed bytes. D-055 moved two figures
+    # of exactly this class out of prose because no runner measures the size of
+    # a shipped file, and D-057 booked that as a counter-example on criterion 3.
+    Judgement(
+        path="docs/OFFLINE.md",
+        number="53.2",
+        anchor="% of the compressed total",
+        bucket="blocked",
+        reason="a share of the offline bundle's bytes; no runner measures a shipped artifact",
+    ),
+    # Names a source comment by its text so a reader can find it. The sentence
+    # asserts nothing about performance, and deleting the number would break the
+    # reference rather than tighten the prose.
+    Judgement(
+        path="docs/DEFINITION-OF-DONE.md",
+        number="30",
+        anchor="comment in",
+        bucket="not-a-claim",
+        reason="quotes the text of a source comment, not a measurement",
+    ),
+    # Repeats pydantic-cost.md's attribution figure inside a docstring. Same
+    # missing runner; and every candidate its value matches is a short-form F1,
+    # which is what a coincidence looks like.
+    Judgement(
+        path="src/acronymkit/governed/models.py",
+        number="84.6",
+        anchor="of this distribution's import cost",
+        bucket="blocked",
+        reason="repeats the pydantic attribution figure; no runner measures it",
+    ),
+)
+
+#: A whole file's deferred ledger sharing one disposition, keyed by path.
+#:
+#: Applies only to numbers **on the deferred ledger** that no specific judgement
+#: and no detector already covers, because a file-wide verdict is a statement
+#: about the figures the gate can see, not about every digit in the document.
+#: ``--classify`` prints how many numbers ride on whole-file entries, so the
+#: summarisation is never larger than it looks.
+#:
+#: The alternative was seventy hand-written rows saying the same sentence, and
+#: this file's own docstring calls a mostly-hand-assigned classification a
+#: spreadsheet. One reason, one line, one count.
+DEBT_FILE_JUDGEMENTS: Dict[str, Tuple[str, str]] = {
+    # The whole note is one ad-hoc measurement session. ``bench/run_micro.py``
+    # saves ``micro.import`` and ``micro.generate_*`` and nothing else: no
+    # runner measures pydantic attribution, the frozen-dataclass shadow arms, or
+    # the serialisation microseconds. Half of these match no measurement at all,
+    # which is what the derived rule already says about them; the judgement says
+    # the same thing about the other half, whose value matches are coincidences
+    # against short-form F1s and generation percentages.
+    "docs/notes/pydantic-cost.md": (
+        "blocked",
+        "an ad-hoc session; no runner saves pydantic attribution or serialisation timings",
+    ),
+    # A release note records what was true at a release. Neither escape hatch
+    # fits: a ``{{claim:...}}`` citation is re-rendered to the CURRENT value, so
+    # citing here would silently rewrite history the next time a runner saves;
+    # and ``measured: <run-id>`` validates only that the run id EXISTS, so
+    # attaching ``extraction.med1250`` to an older release's figures would point
+    # a live run at numbers it no longer holds. The mechanism that fits -- a
+    # marker pinning a value as of a release -- does not exist.
+    "CHANGELOG.md": (
+        "blocked",
+        "a release note may not carry a live citation, and no value-pinning marker exists",
+    ),
+}
+
+
+def _matches(judgement: Judgement, claim: Claim, project: Project) -> bool:
+    """Whether ``judgement`` was written about ``claim``."""
+    return (
+        judgement.path == _relative(claim.path, project)
+        and judgement.number == claim.text
+        and judgement.anchor in claim.line
+    )
+
+
+def judgement_for(claim: Claim, project: Project) -> Optional[Judgement]:
+    """The hand-assigned disposition for ``claim``, if one was recorded."""
+    for judgement in DEBT_JUDGEMENTS:
+        if _matches(judgement, claim, project):
+            return judgement
+    return None
+
+
+def stale_judgements(project: Project, claims: Sequence[Claim]) -> List[str]:
+    """Judgements that match no unverified number in the tree.
+
+    Reported rather than ignored. An entry pointing at a sentence that has been
+    rewritten is a disposition nobody adjudicated any more, and the failure mode
+    of leaving it in place is a report that reads as considered when it is not.
+    """
+    residue = [claim for claim in claims if claim.backing in ("deferred", "unexamined")]
+    return sorted(
+        judgement.key
+        for judgement in DEBT_JUDGEMENTS
+        if not any(_matches(judgement, claim, project) for claim in residue)
+    )
+
+
+def classify_debt(
+    claim: Claim,
+    index: Dict[str, object],
+    project: Project,
+    headers: Optional[Dict[int, List[str]]] = None,
+) -> Tuple[str, str]:
+    """Which bucket an unverified number falls in, and on what basis.
+
+    Returns:
+        ``(bucket, basis)``, where ``basis`` starts ``judged:`` when a person
+        assigned it and ``derived:`` otherwise, so every row says which it is.
+
+    Judgement, then structure, then value -- and value is last deliberately.
+    **A value match is the weakest signal here and it is not a backing.**
+    ``gate-able`` says a citation *can be written*, not that the number is
+    right: of the nineteen ``UNIQUE``/``REPLICATED`` deferred numbers in
+    ``docs/EVALUATION.md`` before this round's migration, **four rows carrying
+    three distinct values** matched a measurement of something else entirely --
+    three competitors' cold-import times in milliseconds, against a short-form
+    F1 delta, an abstention recall and an ablation score. ``3.6`` appears twice,
+    which is why the row count and the value count differ.
+    """
+    judged = judgement_for(claim, project)
+    if judged is not None:
+        return judged.bucket, f"judged: {judged.reason}"
+    detector = detector_for(claim)
+    if detector:
+        return "not-a-claim", f"derived: {detector}"
+    if claim.backing == "deferred":
+        whole_file = DEBT_FILE_JUDGEMENTS.get(_relative(claim.path, project))
+        if whole_file is not None:
+            bucket, reason = whole_file
+            return bucket, f"judged (whole file): {reason}"
+    how = "armed"
+    if not claim.arming:
+        column = metric_column_for(claim, headers or {})
+        if not column:
+            return "unclassified", "derived: unarmed, no detector fired"
+        how = f"unarmed, under metric column {column!r}"
+    if not candidates_for(claim.text, index):
+        return "blocked", f"derived: {how}, no measurement has this value"
+    return "gate-able", f"derived: {how}, a measurement has this value"
+
+
+def classified_rows(
+    project: Project, index: Dict[str, object], claims: Sequence[Claim]
+) -> List[Tuple[Claim, str, str]]:
+    """Every unverified number with its bucket and basis."""
+    headers: Dict[Path, Dict[int, List[str]]] = {}
+    rows: List[Tuple[Claim, str, str]] = []
+    for claim in claims:
+        if claim.backing not in ("deferred", "unexamined"):
+            continue
+        if claim.path not in headers:
+            headers[claim.path] = table_header_map(claim.path)
+        rows.append((claim, *classify_debt(claim, index, project, headers[claim.path])))
+    return rows
+
+
+def report_classification(
+    project: Project, index: Dict[str, object], claims: Sequence[Claim]
+) -> None:
+    """Print the burn-down classification: per bucket, per file, judged fraction."""
+    rows = classified_rows(project, index, claims)
+    deferred_total = sum(1 for claim, _, _ in rows if claim.backing == "deferred")
+
+    print("classification of every number the gate has not verified\n")
+    print(f"{'bucket':<14}{'deferred':>10}{'unexamined':>12}{'total':>8}  meaning")
+    for bucket in DEBT_BUCKETS:
+        here = [claim for claim, name, _ in rows if name == bucket]
+        deferred = sum(1 for claim in here if claim.backing == "deferred")
+        print(
+            f"{bucket:<14}{deferred:>10}{len(here) - deferred:>12}{len(here):>8}  "
+            f"{BUCKET_MEANINGS[bucket]}"
+        )
+    print(f"{'ALL':<14}{deferred_total:>10}{len(rows) - deferred_total:>12}{len(rows):>8}")
+
+    print("\nper file. `ledger` is the deferred count -- the register the quota is against.\n")
+    files: Dict[str, Dict[str, int]] = {}
+    ledger: Dict[str, int] = {}
+    for claim, bucket, _ in rows:
+        key = _relative(claim.path, project)
+        files.setdefault(key, dict.fromkeys(DEBT_BUCKETS, 0))[bucket] += 1
+        ledger[key] = ledger.get(key, 0) + (1 if claim.backing == "deferred" else 0)
+    columns = "".join(f"{bucket[:10]:>11}" for bucket in DEBT_BUCKETS)
+    print(f"{'file':<38}{'ledger':>7}{columns}{'total':>7}")
+    for path in sorted(files, key=lambda name: (-sum(files[name].values()), name)):
+        counts = files[path]
+        cells = "".join(f"{counts[bucket]:>11}" for bucket in DEBT_BUCKETS)
+        print(f"{path:<38}{ledger[path]:>7}{cells}{sum(counts.values()):>7}")
+
+    judged = sum(1 for _, _, basis in rows if basis.startswith("judged"))
+    whole_file = sum(1 for _, _, basis in rows if basis.startswith("judged (whole file)"))
+    detectors: Dict[str, int] = {}
+    for _, bucket, basis in rows:
+        if bucket == "not-a-claim" and basis.startswith("derived: "):
+            name = basis[len("derived: ") :]
+            detectors[name] = detectors.get(name, 0) + 1
+    columned = sum(1 for _, _, basis in rows if "metric column" in basis)
+    print(
+        f"\njudged {judged} of {len(rows)} "
+        f"({whole_file} of them under one whole-file entry, {judged - whole_file} one at a time)"
+        f" | derived {len(rows) - judged} of {len(rows)}"
+    )
+    if detectors:
+        print(
+            "not-a-claim by detector: "
+            + ", ".join(f"{name} {count}" for name, count in sorted(detectors.items()))
+        )
+    print(
+        f"{columned} number(s) no arming rule reaches sit in a table cell under a metric\n"
+        "  column heading. A published table names its metric once and then writes bare\n"
+        "  numbers, which is a shape neither proximity nor the unit rule can see. Arming on\n"
+        "  the heading would move these onto the deferred ledger, so it is a ratchet-raising\n"
+        "  commit and is not done here."
+    )
+    stale = stale_judgements(project, claims)
+    if stale:
+        print(f"\n{len(stale)} judgement(s) name a number that is no longer there:")
+        for key in stale:
+            print(f"  {key}")
+    print(
+        "\nHow to read this. `gate-able` means a measurement with that value exists, NOT\n"
+        "that it is the right one -- value matching cannot tell a figure from a\n"
+        "coincidence, which is why the deferred ledger exists at all. `not-a-claim` is\n"
+        "derived from the token's shape and has a known false-positive mode: a real count\n"
+        "that happens to be year-shaped. Nothing in this report moves any ratchet."
+    )
+
+
 def counts_by_file(project: Project, claims: Sequence[Claim], backing: str) -> Dict[str, int]:
     """How many claims with ``backing`` each scanned file currently carries.
 
@@ -1541,6 +2143,187 @@ def baseline_problems(project: Project, claims: Sequence[Claim]) -> List[str]:
     return problems
 
 
+# ---------------------------------------------------------------------------
+# The burn-down trajectory
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class LedgerRound:
+    """One round's position on the two ledgers, and how it got there.
+
+    Attributes:
+        label: What the round is called. Unique, and never rewritten.
+        deferred: ``sum(DEFERRED_BASELINE.values())`` as the round left it.
+        value_matched: ``sum(VALUE_MATCHED_BASELINE.values())`` likewise.
+        by_citation: Numbers that became ``{{claim:<run-id>.<field>}}``.
+        by_deletion: Numbers removed from the prose entirely.
+        by_fencing: Numbers moved inside a code span or fenced block.
+            **Counted apart from the other two because it is not adjudication.**
+            D-052 records that fencing silences the gate completely, so a
+            deferred count that falls by fencing is a burn-down of the
+            measurement rather than of the debt. Keeping it in its own column is
+            what stops the trajectory from reading as progress it did not make.
+        by_other: Anything else, which must be explained in ``note``.
+        note: Free text. Required when ``by_other`` is non-zero.
+        waiver: Why this round is allowed to miss :data:`MIGRATION_QUOTA`.
+            Empty means it did not miss it.
+    """
+
+    label: str
+    deferred: int
+    value_matched: int
+    by_citation: int = 0
+    by_deletion: int = 0
+    by_fencing: int = 0
+    by_other: int = 0
+    note: str = ""
+    waiver: str = ""
+
+
+#: How far the deferred ledger must fall in a round that appends a row.
+#:
+#: Sized from the classification rather than picked: ``--classify`` puts most of
+#: the ledger's ``gate-able`` population inside ``docs/DECISIONS.md``, which no
+#: workstream may edit -- a recorder writes that file. The reachable population
+#: is everything else, and it is small. A quota a round cannot reach is a quota
+#: that will be waived every time, which is a rubber stamp with extra steps.
+#:
+#: It is deliberately far below what the round that installed it achieved. A
+#: quota is a floor on a system, not a target for one workstream, and setting it
+#: at this round's number would guarantee the first waiver.
+MIGRATION_QUOTA = 12
+
+#: Where the two ledgers have been, newest **last**.
+#:
+#: This exists because an honest ledger with no trajectory is a backlog with
+#: better manners. The rows are checked, not decorative
+#: (:func:`trajectory_problems`): the last row must equal the live baselines, the
+#: deferred column may never rise, the four ``by_*`` columns must add up to the
+#: fall they claim, and a round that moves less than :data:`MIGRATION_QUOTA` must
+#: write down why. Lowering a baseline without appending a row turns the gate
+#: red, which is the coupling that makes the trajectory a fact about the tree
+#: rather than a note about it.
+LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
+    LedgerRound(
+        label="M2-P2 (D-052, register opened)",
+        deferred=316,
+        value_matched=71,
+        note="the counts the day the unit rule was turned on; no migration, this is the origin",
+    ),
+    LedgerRound(
+        label="M2-P3 X4 (first burn-down)",
+        deferred=262,
+        value_matched=64,
+        by_citation=52,
+        by_deletion=2,
+        note=(
+            "50 of the 52 are docs/EVALUATION.md's two miss taxonomies, the preset recall "
+            "table, the budget experiment and the import caveat, migrated to run-id "
+            "citations; 2 are docs/notes/scoring-objective.md's generation figures. Both "
+            "deletions are the same row in two documents -- a third party's F1 figure that "
+            "was really a precision figure. The value ledger fell 7 in the same pass, all "
+            "by citation. NO number was fenced."
+        ),
+    ),
+)
+
+
+def trajectory_problems(
+    trajectory: Sequence[LedgerRound],
+    *,
+    deferred_total: int,
+    value_total: int,
+    quota: int = MIGRATION_QUOTA,
+) -> List[str]:
+    """Where the recorded trajectory disagrees with the tree or with itself.
+
+    Args:
+        trajectory: The rounds, oldest first.
+        deferred_total: ``sum(DEFERRED_BASELINE.values())``.
+        value_total: ``sum(VALUE_MATCHED_BASELINE.values())``.
+        quota: The per-round floor on how far the deferred ledger must fall.
+
+    Returns:
+        One message per disagreement, empty when the trajectory is sound.
+
+    The comparison is against the **baselines**, not against a live scan. That
+    is what confines this check to source edits: only the commit that lowers a
+    ratchet can break it, and that commit is exactly the migration this is meant
+    to record. A scan-count comparison would instead redden on any edit anywhere
+    in the tree, including edits by workstreams that never touched a ledger.
+    """
+    problems: List[str] = []
+    if not trajectory:
+        return ["  LEDGER_TRAJECTORY is empty. The ledgers may not move without a recorded round."]
+
+    labels = [entry.label for entry in trajectory]
+    duplicates = sorted({label for label in labels if labels.count(label) > 1})
+    for label in duplicates:
+        problems.append(f"  LEDGER_TRAJECTORY has two rounds labelled {label!r}. Labels are ids.")
+
+    for previous, entry in zip(trajectory, trajectory[1:]):
+        fall = previous.deferred - entry.deferred
+        where = f"  LEDGER_TRAJECTORY[{entry.label!r}]\n    "
+        if fall < 0:
+            problems.append(
+                where + f"deferred rose from {previous.deferred} to {entry.deferred}. "
+                "The register may not grow."
+            )
+            continue
+        accounted = entry.by_citation + entry.by_deletion + entry.by_fencing + entry.by_other
+        if accounted != fall:
+            problems.append(
+                where + f"the deferred ledger fell by {fall} and the round accounts for "
+                f"{accounted} (citation {entry.by_citation}, deletion {entry.by_deletion}, "
+                f"fencing {entry.by_fencing}, other {entry.by_other}). "
+                "Say where every migrated number went."
+            )
+        if entry.by_other and not entry.note:
+            problems.append(where + f"by_other={entry.by_other} with no note saying what it was.")
+        if fall < quota and not entry.waiver:
+            problems.append(
+                where + f"moved {fall} against a quota of {quota}, and records no waiver. "
+                "Either migrate more or write down why this round could not."
+            )
+
+    last = trajectory[-1]
+    if last.deferred != deferred_total:
+        problems.append(
+            f"  LEDGER_TRAJECTORY[{last.label!r}]\n"
+            f"    says the deferred ledger stands at {last.deferred}; "
+            f"DEFERRED_BASELINE sums to {deferred_total}.\n"
+            "    A ratchet that moves without a recorded round is a burn-down nobody can audit.\n"
+            "    Append a LedgerRound in the same commit that lowers the baseline."
+        )
+    if last.value_matched != value_total:
+        problems.append(
+            f"  LEDGER_TRAJECTORY[{last.label!r}]\n"
+            f"    says the value-matched ledger stands at {last.value_matched}; "
+            f"VALUE_MATCHED_BASELINE sums to {value_total}.\n"
+            "    Append a LedgerRound in the same commit that lowers the baseline."
+        )
+    return problems
+
+
+def trajectory_line(trajectory: Sequence[LedgerRound]) -> str:
+    """The one-line summary printed under the two ratchet lines."""
+    if not trajectory:
+        return "ledger trajectory: no rounds recorded"
+    last = trajectory[-1]
+    if len(trajectory) == 1:
+        return (
+            f"ledger trajectory: 1 round | {last.label} | deferred {last.deferred}, "
+            f"value-matched {last.value_matched} | quota {MIGRATION_QUOTA} per round"
+        )
+    fall = trajectory[-2].deferred - last.deferred
+    return (
+        f"ledger trajectory: {len(trajectory)} rounds | {last.label} moved {fall} "
+        f"(citation {last.by_citation}, deletion {last.by_deletion}, "
+        f"fencing {last.by_fencing}, other {last.by_other}) | "
+        f"deferred {last.deferred}, value-matched {last.value_matched} | "
+        f"quota {MIGRATION_QUOTA} per round"
+    )
+
+
 def _unused_allowlist(allowlist: Dict[str, str], claims: Sequence[Claim]) -> List[str]:
     """Allowlist entries no claim needs any more."""
     used = {claim.text for claim in claims if claim.backing == "allowlist"}
@@ -1582,6 +2365,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--residue",
         action="store_true",
         help="list every number the gate surfaced but did not verify",
+    )
+    parser.add_argument(
+        "--classify",
+        action="store_true",
+        help="bucket every unverified number, per bucket and per file",
     )
     parser.add_argument(
         "--update-baseline",
@@ -1662,6 +2450,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         report_residue(project, index, claims)
         return 0
 
+    if args.classify:
+        report_classification(project, index, claims)
+        return 0
+
     if args.update_baseline:
         print("# Paste into tools/check_claims.py, replacing both blocks.")
         for name, backing in (
@@ -1671,8 +2463,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             counts = counts_by_file(project, claims, backing)
             print(f"# {sum(counts.values())} {backing} claim(s) across {len(counts)} file(s).")
             print(f"{name}: Dict[str, int] = {{")
-            for path in sorted(counts):
-                print(f'    "{path}": {counts[path]},')
+            for file_key in sorted(counts):
+                print(f'    "{file_key}": {counts[file_key]},')
             print("}")
         return 0
 
@@ -1696,6 +2488,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             f" of {sum(project.deferred_baseline.values())} budgeted across "
             f"{len(project.deferred_baseline)} file(s); this register may not grow"
         )
+        # The trajectory is checked against the *baselines*, so it can only
+        # break in the commit that edits one. See trajectory_problems.
+        ratchet += trajectory_problems(
+            LEDGER_TRAJECTORY,
+            deferred_total=sum(project.deferred_baseline.values()),
+            value_total=sum(project.value_baseline.values()),
+        )
+        print(trajectory_line(LEDGER_TRAJECTORY))
 
     stale = _unused_allowlist(allowlist, claims)
     if stale:
@@ -1711,7 +2511,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     sys.stdout.flush()
     if ratchet:
-        print(f"\n{len(ratchet)} file(s) break the value-matched ratchet:\n", file=sys.stderr)
+        # "file(s)" was accurate while every problem was per-file. The
+        # trajectory check reports on LEDGER_TRAJECTORY itself, which is not a
+        # scanned file, so the heading says what it actually counts.
+        print(f"\n{len(ratchet)} ratchet problem(s):\n", file=sys.stderr)
         for problem in ratchet:
             print(problem, file=sys.stderr)
         print(

@@ -46,6 +46,16 @@ one of those needs a human (or a model standing in for one), and this project
 has neither. Nothing below is a quality number and nothing below should be
 quoted as one.
 
+**ACCURACY — for ``align`` only, on the part of the task a gold can reach.**
+This arm was added a round later than the two above and it exists because the
+sentence they were used to justify — *the fifth subsystem cannot carry an
+accuracy number* — is false for one of the two operations. It is true for
+``synthesize``: a target word with no source phrase has no correct expansion,
+so accuracy there is not unmeasured but **undefined**, and no amount of
+annotation would define it. It is false for ``align``, which is handed a real
+pair and asked *which word gave which letter* — a question with a right answer
+whenever the constraint admits only one. See :func:`measure_accuracy`.
+
 The tautology this file is written to avoid
 -------------------------------------------
 **A measurement that scores a generator against its own objective is a
@@ -112,20 +122,77 @@ No held-out budget is spent. SDU-21 AD ``test.json``, SDU-22 legal
 ``train.json`` and SDU-22 scientific ``train.json`` are untouched; ``diction.json``
 is the candidate inventory, not a split.
 
+Three golds, and what each of them costs
+----------------------------------------
+The accuracy arm is built on a ladder of three golds, and the ladder is the
+design rather than an implementation detail. Each rung adjudicates more of the
+corpus and assumes more to do it, so each is reported separately and the reader
+is told which rung a figure came off.
+
+1. **The uniqueness gold — no judgement at all.** When the componentwise
+   earliest and componentwise latest complete alignments read out the same
+   words, *every* complete alignment reads out those words, so the pair has one
+   answer and nobody had to choose it. That is the gold, and
+   ``exact_match_pct`` is the share of those pairs the top alignment gets
+   exactly right. It covers roughly half the corpus and its complement is
+   published beside it.
+2. **The initialism convention — one named assumption.** Among the pairs rung 1
+   cannot decide, some admit exactly one reading in which every letter is the
+   *initial* of a distinct word. Treating that as the answer is an assumption,
+   and it is a weak gold on purpose: word-initial mappings are what the
+   aligner's own objective rewards, so agreement here is partly a restatement
+   of the objective. It is reported as ``initialism_conditional_accuracy_pct``,
+   never as the accuracy, and its agreement count and its **conflict** count
+   are both published so a reader can see which direction it moved.
+3. **No gold.** Undecidable, and admitting no single all-initials reading
+   either. ``unadjudicable_n`` counts it. That is the residue an accuracy
+   number cannot reach, and it is the honest size of the judge-shaped hole —
+   smaller than the raw underdetermined share, because most underdetermined
+   pairs are underdetermined only in ways no reader would hesitate over.
+
+What was rejected, and why, so it is not re-proposed
+----------------------------------------------------
+* **A hand-written reference set.** Scoring against a few dozen alignments
+  written here is scoring against this project's opinion. Refused for the same
+  reason ``tools/build_gold_corpus.py``'s pilot was refused registration: a
+  single annotator adjudicating the system they wrote is not a gold.
+* **A model judge.** Needs a network, and the reopening condition this project
+  set for itself requires the judge's agreement against humans to be measured
+  *before* any figure it produces is quoted. Neither is available offline.
+* **A fluency or plausibility proxy** — character-model score, word frequency,
+  perplexity. Every one of them scores the expansion with a second model and
+  calls the result quality. That is an invented number wearing a metric's coat.
+* **Round-tripping synthesis against the corpus** — asking whether
+  ``synthesize("AML")`` returns *acute myeloid leukaemia*. It is well defined
+  and it would read ``0.00`` on every row, because the arm draws from a general
+  English lexicon with no domain and no source phrase. A number that is zero by
+  construction measures the harness, not the subsystem.
+* **Ranking the true expansion against distractors.** Well defined, gold is
+  real, no judge needed — and the figure is a function of the distractor policy
+  chosen here, which nothing outside this file constrains. Rejected as a
+  headline for that reason; it remains the most defensible thing left if this
+  arm is ever pushed further.
+
 The trap next door
 ------------------
 ``bench/results.json`` already holds ``generation.med1250.dictionary_backronym``
 and it is **not** a backronym measurement. It is forward generation —
 long form in, acronym out, ranked against the human's choice — run under a
 preset that happens to be named ``DICTIONARY_BACKRONYM``. Nothing in it calls
-``align`` or ``synthesize``. It must never be quoted as this subsystem's number.
+``align`` or ``synthesize``. It must never be quoted as this subsystem's number,
+and it must never be quoted as the accuracy figure this file now publishes,
+which is ``backronym.<corpus>.accuracy.<subset>.exact_match_pct``. That scoping
+has been checked twice and was very nearly "corrected" into counting once, so
+it is repeated in the report preamble, in ``docs/EVALUATION.md``, in
+``docs/DEFINITION-OF-DONE.md`` criterion 2, and in the saved entry itself.
 
 Usage::
 
-    python bench/run_backronym.py                   # both arms, both corpora
-    python bench/run_backronym.py --save            # record into bench/results.json
-    python bench/run_backronym.py --examples        # show underdetermined readings
-    python bench/run_backronym.py --corpus med1250  # one corpus
+    python bench/run_backronym.py                     # every arm, both corpora
+    python bench/run_backronym.py --arm accuracy      # one arm
+    python bench/run_backronym.py --arm accuracy --save
+    python bench/run_backronym.py --examples          # show readings and misses
+    python bench/run_backronym.py --corpus med1250    # one corpus
 """
 
 from __future__ import annotations
@@ -172,6 +239,12 @@ SOURCE_DESCRIPTION = {
     "sdu21_ad": "SDU@AAAI-21 AD diction.json (acronym -> legal expansions)",
 }
 
+#: The arms this runner can run, and the run-id suffix each writes. They are
+#: selectable because ``--save`` writes only the arms that ran: re-running one
+#: arm must not restamp another's recorded numbers, which is how a figure a
+#: document cites changes without anybody deciding it should.
+ARMS = ("alignment", "accuracy", "synthesis")
+
 #: Subsets every arm is decomposed over. ``with_digit`` exists because a target
 #: letter that is a digit is the single largest failure mode in both arms and
 #: pooling it into ``all`` hides that behind an average -- operating rule 5.
@@ -181,6 +254,11 @@ SUBSETS = ("all", "alphabetic", "with_digit")
 #: expansions a target admits. Sized off nothing in particular: it is a
 #: descriptive count, not a threshold anything depends on.
 SYNTHESIS_ALTERNATIVES = 25
+
+#: How many accuracy misses the report retains. A miss is a pair whose answer
+#: is unique and whose returned alignment is not it, so it is evidence rather
+#: than illustration and is printed without ``--examples`` being asked for.
+_MISS_CAP = 20
 
 #: Alignments per pair pushed through the constraint verifier. The verifier is a
 #: guard rather than a metric, so it is run over more than the top candidate:
@@ -343,6 +421,58 @@ def infeasibility_cause(letters: str, tokens: Sequence[Token]) -> str:
     if missing:
         return "character_absent"
     return "out_of_order"
+
+
+def unique_initial_reading(letters: str, tokens: Sequence[Token]) -> Optional[Tuple[int, ...]]:
+    """The one all-initials reading of ``letters`` over ``tokens``, when exactly one exists.
+
+    An *all-initials reading* maps every target letter to offset ``0`` of a
+    distinct eligible token, in strictly increasing token order — the reading
+    the word "initialism" names. It is always a legal complete alignment, so
+    when one exists the pair is feasible.
+
+    This is rung 2 of the gold ladder in the module docstring, and it is
+    deliberately answered as *exactly one or nothing*: two all-initials
+    readings put the pair back where it started. The count is capped at two
+    because nothing here needs to know whether there are three or thirty.
+
+    Args:
+        letters: Canonical target letters.
+        tokens: The full token sequence for the source phrase.
+
+    Returns:
+        One token index per letter when exactly one all-initials reading
+        exists, otherwise ``None``.
+    """
+    width = len(letters)
+    if not width:
+        return None
+    ways = [0] * (width + 1)
+    ways[0] = 1
+    for token in tokens:
+        if not token.is_eligible or not token.text:
+            continue
+        head = token.text[0].lower()
+        for position in range(width - 1, -1, -1):
+            if ways[position] and letters[position].lower() == head:
+                ways[position + 1] = min(2, ways[position + 1] + ways[position])
+    if ways[width] != 1:
+        return None
+
+    # Exactly one reading exists, so the greedy earliest one is that reading.
+    chosen: List[int] = []
+    cursor = 0
+    for letter in letters:
+        while cursor < len(tokens):
+            token = tokens[cursor]
+            if token.is_eligible and token.text and token.text[0].lower() == letter.lower():
+                break
+            cursor += 1
+        if cursor >= len(tokens):  # pragma: no cover - contradicts ways[width] == 1
+            return None
+        chosen.append(cursor)
+        cursor += 1
+    return tuple(chosen)
 
 
 def longest_embeddable(letters: str, stream: Sequence[StreamPosition]) -> int:
@@ -562,6 +692,94 @@ class SynthesisTally:
         }
 
 
+@dataclass
+class AccuracyTally:
+    """Counters for one subset of the accuracy arm.
+
+    Every field here is a count. The rates are derived in :meth:`entry` and
+    each one is written beside the denominator it was taken over, because the
+    single most misleading thing this arm could publish is
+    ``exact_match_pct`` without ``decidable_n`` next to it.
+    """
+
+    pairs: int = 0
+    infeasible: int = 0
+    feasible: int = 0
+    decidable: int = 0
+    exact_match: int = 0
+    returned_incomplete: int = 0
+    returned_other_words: int = 0
+    returned_nothing: int = 0
+    position_unique: int = 0
+    position_unique_exact: int = 0
+    undecidable: int = 0
+    convention_applicable: int = 0
+    convention_agreement: int = 0
+    convention_conflict: int = 0
+    convention_cross_check: int = 0
+    convention_cross_check_conflict: int = 0
+
+    @property
+    def unadjudicable(self) -> int:
+        """Feasible pairs no rung of the gold ladder reaches."""
+        return self.undecidable - self.convention_applicable
+
+    def entry(self) -> Dict[str, object]:
+        """The ``bench/results.json`` record for this subset."""
+        tightened = self.exact_match + self.undecidable - self.convention_conflict
+        conditional_denominator = self.decidable + self.convention_applicable
+        return {
+            "pairs": self.pairs,
+            "infeasible_n": self.infeasible,
+            "feasible_n": self.feasible,
+            # -- rung 1: the gold that needs no judgement -------------------
+            "decidable_n": self.decidable,
+            "decidable_pct_of_pairs": _percentage(self.decidable, self.pairs),
+            "decidable_pct_of_feasible": _percentage(self.decidable, self.feasible),
+            "exact_match_n": self.exact_match,
+            "exact_match_pct": _percentage(self.exact_match, self.decidable),
+            "returned_incomplete_n": self.returned_incomplete,
+            "returned_other_words_n": self.returned_other_words,
+            "returned_nothing_n": self.returned_nothing,
+            "position_unique_n": self.position_unique,
+            "position_unique_exact_n": self.position_unique_exact,
+            "position_unique_exact_pct": _percentage(
+                self.position_unique_exact, self.position_unique
+            ),
+            # -- what rung 1 leaves, expressed as an accuracy interval ------
+            "undecidable_n": self.undecidable,
+            "accuracy_lower_pct": _percentage(self.exact_match, self.feasible),
+            "accuracy_upper_pct": _percentage(tightened, self.feasible),
+            "accuracy_upper_untightened_pct": _percentage(
+                self.exact_match + self.undecidable, self.feasible
+            ),
+            "accuracy_interval_width_pct": round(
+                _percentage(tightened, self.feasible)
+                - _percentage(self.exact_match, self.feasible),
+                2,
+            ),
+            # -- rung 2: one named assumption, reported apart ---------------
+            "convention_applicable_n": self.convention_applicable,
+            "convention_agreement_n": self.convention_agreement,
+            "convention_conflict_n": self.convention_conflict,
+            "convention_agreement_pct": _percentage(
+                self.convention_agreement, self.convention_applicable
+            ),
+            "convention_cross_check_n": self.convention_cross_check,
+            "convention_cross_check_conflict_n": self.convention_cross_check_conflict,
+            "initialism_conditional_accuracy_n": self.exact_match + self.convention_agreement,
+            "initialism_conditional_accuracy_pct": _percentage(
+                self.exact_match + self.convention_agreement, conditional_denominator
+            ),
+            "initialism_conditional_coverage_pct_of_pairs": _percentage(
+                conditional_denominator, self.pairs
+            ),
+            # -- rung 3: no gold at all -------------------------------------
+            "unadjudicable_n": self.unadjudicable,
+            "unadjudicable_pct_of_feasible": _percentage(self.unadjudicable, self.feasible),
+        }
+
+
 def _subsets_for(letters: str) -> Tuple[str, ...]:
     """Which subsets a target belongs to: always ``all``, plus one of the other two."""
     return ("all", "with_digit" if any(c.isdigit() for c in letters) else "alphabetic")
@@ -727,6 +945,227 @@ def measure_alignment(
                 f"{short_form!r} <- {long_form!r}: returned {returned:.3f}, "
                 f"complete path scores {complete_score:.3f}"
             )
+
+    report.elapsed_seconds = time.perf_counter() - started
+    return report
+
+
+@dataclass
+class AccuracyReport:
+    """One corpus's accuracy arm, decomposed."""
+
+    corpus: str
+    split_role: str
+    source: str
+    tallies: Dict[str, AccuracyTally]
+    elapsed_seconds: float = 0.0
+    misses: List[Tuple[str, str, str, str]] = field(default_factory=list)
+    conflicts: List[Tuple[str, str, str, str]] = field(default_factory=list)
+    unsound: List[str] = field(default_factory=list)
+
+    def entry(self) -> Dict[str, object]:
+        """The full ``bench/results.json`` record, subsets nested by name."""
+        record: Dict[str, object] = {
+            "corpus": self.corpus,
+            "split_role": self.split_role,
+            "input_source": self.source,
+            "gold_supplies": (
+                "the pair only; the gold alignment is derived from the constraint's own "
+                "uniqueness, not from an annotator"
+            ),
+            "measures": "acronymkit.backronym.BackronymGenerator.align, top candidate",
+            "not_this_number": (
+                "generation.med1250.dictionary_backronym is forward generation under a "
+                "backronym-flavoured preset and is NOT this subsystem's accuracy figure"
+            ),
+            "elapsed_seconds": round(self.elapsed_seconds, 4),
+        }
+        for name in SUBSETS:
+            record[name] = self.tallies[name].entry()
+        return record
+
+
+def measure_accuracy(
+    pairs: Sequence[Pair],
+    *,
+    corpus: str,
+    source: str,
+    config: Config,
+    examples: int = 0,
+) -> AccuracyReport:
+    """Score ``align`` against a gold nobody had to judge.
+
+    The gold is the constraint's own uniqueness. When the componentwise
+    earliest and componentwise latest complete alignments read out the same
+    words, every complete alignment reads out those words, so the pair has a
+    single answer that no annotator, convention or opinion selected. Those
+    pairs are ``decidable`` and ``exact_match_pct`` is the accuracy over them.
+
+    Three things keep that from being a restatement of ``complete_pct``, which
+    the alignment arm already publishes:
+
+    * The comparison is against a **gold object**, letter by letter, on the
+      words read out — not against the arithmetic of ``coverage``. A complete
+      alignment naming different words is a miss, and
+      ``returned_other_words_n`` counts it separately from a miss that returned
+      an incomplete alignment.
+    * The denominator is the decidable subset rather than the corpus, and
+      ``decidable_pct_of_pairs`` says how much of the corpus that is.
+    * The pairs it scores **wrong** are pairs the alignment arm scores as the
+      objective's own preference. Both readings are of the same rows; this one
+      asks whether the answer is right and that one asks whether the search
+      worked, and they disagree. See ``docs/EVALUATION.md``.
+
+    Two guards run alongside, and both are reported with their firing counts:
+
+    ``returned_other_words_n``
+        Word-level determinacy is a *sufficient* test only if no intermediate
+        complete alignment names words the two extremes do not, and that is
+        **not merely a theoretical gap**. The shipped aligner returns the
+        intermediate reading on a constructible pair::
+
+            'AA' <- "alpha acid alpha"
+              earliest reading   alpha alpha      (a at offsets 0 and 4)
+              latest reading     alpha alpha      (the second 'alpha')
+              align returns      alpha acid       -- two word initials, and it
+                                                     scores higher than either
+
+        So the word-level gold is sound *empirically* rather than by
+        construction, and the counter is what establishes that: it compares
+        every decidable pair, not only the misses. The provably sound gold is
+        the ``position_unique`` subset, where the earliest and latest readings
+        agree on ``(token, offset)`` for every letter and the complete
+        alignment is therefore literally unique. Both accuracies are published,
+        and the point of publishing both is that the choice between them does
+        not move the figure.
+    ``convention_cross_check_conflict_n``
+        On a decidable pair that also admits exactly one all-initials reading,
+        the two golds must agree, because the all-initials reading is itself a
+        complete alignment. A disagreement means word-level determinacy has
+        failed on that pair. It is not a vacuous counter — ``'AB'`` over
+        ``"abbey bacon abbey"`` fires it, with the unique complete reading
+        ``abbey abbey`` against the unique all-initials reading
+        ``abbey bacon`` — and it fires zero times on both real corpora.
+
+    Args:
+        pairs: Real ``(short form, long form)`` pairs. The pair is the input;
+            the gold is derived from it and not read out of it.
+        corpus: ``bench/splits.toml`` corpus name, used for the run id.
+        source: Human-readable description of which file supplied the pairs.
+        config: Engine configuration; supplies the tokeniser and the weights.
+        examples: How many misses and conflicts to retain for the report.
+
+    Returns:
+        The decomposed report.
+    """
+    tokenizer = Tokenizer(config)
+    generator = BackronymGenerator(config, Scorer(config))
+    tallies = {name: AccuracyTally() for name in SUBSETS}
+    report = AccuracyReport(
+        corpus=corpus,
+        split_role=corpora.label_for(corpus),
+        source=source,
+        tallies=tallies,
+    )
+
+    started = time.perf_counter()
+    for short_form, long_form in pairs:
+        letters = canonical_letters(short_form)
+        if not letters:
+            continue
+        buckets = [tallies[name] for name in _subsets_for(letters)]
+        for bucket in buckets:
+            bucket.pairs += 1
+
+        tokens = tokenizer.tokenize(long_form)
+        stream = character_stream(tokens)
+        earliest = earliest_fit(letters, stream)
+        if earliest is None:
+            for bucket in buckets:
+                bucket.infeasible += 1
+            continue
+        latest = latest_fit(letters, stream)
+        assert latest is not None  # feasible one way is feasible the other
+        for bucket in buckets:
+            bucket.feasible += 1
+
+        # The facade calls align with the default limit, so this does too: the
+        # figure is about what a caller of generate_backronym receives.
+        candidates = generator.align(short_form, tokens)
+        top = candidates[0] if candidates else None
+        returned = tuple(top.expansion) if top is not None else ()
+        complete = top is not None and top.coverage == 1.0
+
+        gold = tuple(tokens[position].text for position, _ in earliest)
+        latest_words = tuple(tokens[position].text for position, _ in latest)
+        convention = unique_initial_reading(letters, tokens)
+        convention_words = (
+            tuple(tokens[index].text for index in convention) if convention is not None else None
+        )
+
+        if gold == latest_words:
+            for bucket in buckets:
+                bucket.decidable += 1
+                if earliest == latest:
+                    bucket.position_unique += 1
+            if returned == gold:
+                for bucket in buckets:
+                    bucket.exact_match += 1
+                    if earliest == latest:
+                        bucket.position_unique_exact += 1
+            else:
+                for bucket in buckets:
+                    if top is None:
+                        bucket.returned_nothing += 1
+                    elif complete:
+                        bucket.returned_other_words += 1
+                    else:
+                        bucket.returned_incomplete += 1
+                # Misses are the evidence, not an illustration, so they are
+                # retained whether or not --examples was asked for.
+                if len(report.misses) < _MISS_CAP:
+                    report.misses.append(
+                        (
+                            short_form,
+                            long_form,
+                            " ".join(gold),
+                            top.expansion_text if top is not None else "<nothing returned>",
+                        )
+                    )
+            if convention_words is not None:
+                for bucket in buckets:
+                    bucket.convention_cross_check += 1
+                if convention_words != gold:
+                    for bucket in buckets:
+                        bucket.convention_cross_check_conflict += 1
+                    report.unsound.append(
+                        f"{short_form!r} <- {long_form!r}: unique complete reading "
+                        f"{' '.join(gold)!r} but unique all-initials reading "
+                        f"{' '.join(convention_words)!r}"
+                    )
+            continue
+
+        for bucket in buckets:
+            bucket.undecidable += 1
+        if convention_words is None:
+            continue
+        for bucket in buckets:
+            bucket.convention_applicable += 1
+        if returned == convention_words:
+            for bucket in buckets:
+                bucket.convention_agreement += 1
+        else:
+            for bucket in buckets:
+                bucket.convention_conflict += 1
+            if len(report.conflicts) < examples:
+                report.conflicts.append(
+                    (
+                        short_form,
+                        long_form,
+                        " ".join(convention_words),
+                        top.expansion_text if top is not None else "<nothing returned>",
+                    )
+                )
 
     report.elapsed_seconds = time.perf_counter() - started
     return report
@@ -1001,6 +1440,85 @@ def render_guards(reports: Sequence[AlignmentReport]) -> str:
     return "\n".join(lines)
 
 
+def render_accuracy(reports: Sequence[AccuracyReport]) -> str:
+    """The accuracy table, with the share of the corpus it adjudicates beside it."""
+    header = (
+        f"{'corpus / subset':<26} {'pairs':>7} {'decidable':>10} {'of corpus%':>11} "
+        f"{'ACCURACY%':>10} {'lower%':>8} {'upper%':>8} {'width':>7}"
+    )
+    lines = [header, "-" * len(header)]
+    for report in reports:
+        for name in SUBSETS:
+            tally = report.tallies[name]
+            label = f"{report.corpus} / {name}"
+            if not tally.pairs:
+                lines.append(f"{label:<26} {'0':>7}   (no rows in this subset)")
+                continue
+            if not tally.decidable:
+                lines.append(
+                    f"{label:<26} {tally.pairs:>7,} {0:>10}   "
+                    "(no decidable pair; NOTHING is adjudicated on this row)"
+                )
+                continue
+            row = tally.entry()
+            lines.append(
+                f"{label:<26} {tally.pairs:>7,} {tally.decidable:>10,} "
+                f"{row['decidable_pct_of_pairs']:>11.2f} {row['exact_match_pct']:>10.2f} "
+                f"{row['accuracy_lower_pct']:>8.2f} {row['accuracy_upper_pct']:>8.2f} "
+                f"{row['accuracy_interval_width_pct']:>7.2f}"
+            )
+    worst: Optional[Tuple[str, float]] = None
+    for report in reports:
+        for name in SUBSETS:
+            tally = report.tallies[name]
+            if not tally.decidable:
+                continue
+            value = float(tally.entry()["exact_match_pct"])  # type: ignore[arg-type]
+            if worst is None or value < worst[1]:
+                worst = (f"{report.corpus} / {name}", value)
+    if worst is not None:
+        lines += ["", f"worst ACCURACY% row: {worst[0]} at {worst[1]:.2f}"]
+    lines += [
+        "",
+        "ACCURACY% is over DECIDABLE pairs only -- the ones the constraint answers by itself.",
+        "lower%/upper% are the bound over every FEASIBLE pair: lower counts each undecidable",
+        "pair wrong, upper counts it right unless the initialism convention says otherwise.",
+        "The width is the part of the task no gold in this project settles.",
+        "",
+        "THE LADDER -- how much each rung adjudicates, and what it assumes",
+    ]
+    ladder_header = (
+        f"  {'corpus':<12} {'decidable':>10} {'+convention':>12} {'conv agree':>11} "
+        f"{'conv conflict':>14} {'no gold':>9} {'infeasible':>11}"
+    )
+    lines += [ladder_header, "  " + "-" * (len(ladder_header) - 2)]
+    for report in reports:
+        tally = report.tallies["all"]
+        lines.append(
+            f"  {report.corpus:<12} {tally.decidable:>10,} {tally.convention_applicable:>12,} "
+            f"{tally.convention_agreement:>11,} {tally.convention_conflict:>14,} "
+            f"{tally.unadjudicable:>9,} {tally.infeasible:>11,}"
+        )
+    lines += ["", "GUARDS on the gold itself, with firing counts"]
+    for report in reports:
+        tally = report.tallies["all"]
+        lines.append(
+            f"  {report.corpus:<12} returned a complete alignment naming other words: "
+            f"{tally.returned_other_words} over {tally.decidable:,} decidable pair(s) "
+            "-- every one is compared, not only the misses"
+        )
+        lines.append(
+            f"  {'':<12} sound-gold cross-read (positions unique, not just words): "
+            f"{tally.position_unique_exact:,} of {tally.position_unique:,}"
+        )
+        lines.append(
+            f"  {'':<12} two golds disagree on a decidable pair: "
+            f"{tally.convention_cross_check_conflict} over {tally.convention_cross_check:,} "
+            "pair(s) where both apply"
+        )
+    return "\n".join(lines)
+
+
 def render_synthesis(reports: Sequence[SynthesisReport]) -> str:
     """The synthesis table, worst row included."""
     header = (
@@ -1050,21 +1568,81 @@ def render_preamble(config: Config) -> str:
     """What the numbers below are, stated before they are shown."""
     return "\n".join(
         [
-            "BACKRONYM SUBSYSTEM -- properties and coverage, NOT accuracy",
+            "BACKRONYM SUBSYSTEM -- properties, coverage, and one accuracy number that",
+            "reaches about half of one of the two operations",
             "=" * 88,
             f"environment : {environment()}",
             f"preset      : {config.scoring_strategy.value}",
             "",
             "No corpus in this project holds a gold backronym. Both inputs below supply real",
             "(short form, long form) pairs; NEITHER annotator was asked to judge an alignment or",
-            "an invented phrase. So nothing here is an accuracy figure, and semantic coherence --",
-            "is this a GOOD backronym -- is not measured, because measuring it needs a judge this",
-            "project does not have. See docs/EVALUATION.md.",
+            "an invented phrase. So semantic coherence -- is this a GOOD backronym -- is not",
+            "measured anywhere below, because measuring it needs a judge this project does not",
+            "have.",
+            "",
+            "align  CAN be scored for accuracy, on the pairs where the constraint admits exactly",
+            "       one reading: that answer was chosen by nobody. The ACCURACY arm does it, and",
+            "       prints the share of the corpus it reaches beside every figure.",
+            "synthesize CANNOT, ever. A target word with no source phrase has no correct",
+            "       expansion, so accuracy there is undefined rather than unmeasured.",
             "",
             "generation.med1250.dictionary_backronym in bench/results.json is FORWARD GENERATION",
-            "under a backronym-flavoured preset. It is not this subsystem's number.",
+            "under a backronym-flavoured preset. Nothing in it calls align or synthesize. It is",
+            "not this subsystem's number and it is not the accuracy figure printed below.",
+            "See docs/EVALUATION.md.",
         ]
     )
+
+
+def _flatten(node: object, prefix: str = "") -> Dict[str, object]:
+    """``{dotted path: leaf}`` for a saved entry, so two of them can be diffed."""
+    if isinstance(node, dict):
+        flat: Dict[str, object] = {}
+        for key, value in node.items():
+            flat.update(_flatten(value, f"{prefix}.{key}" if prefix else str(key)))
+        return flat
+    return {prefix: node}
+
+
+def overwrite_preview(entries: Dict[str, object], path: Path) -> List[str]:
+    """Every field ``--save`` is about to change, old value beside new.
+
+    ``docs/DECISIONS.md`` D-054 lists the absence of this as one of the ways
+    that record fails: ``--save`` replaced four entries with no preview, while
+    ``bench/run_micro.py`` had been required to print every field it overwrites.
+    A first write costs nothing to preview; a re-run after a library change is
+    where a silently replaced number that a document cites goes wrong.
+
+    Args:
+        entries: What is about to be written, keyed by run id.
+        path: The results file.
+
+    Returns:
+        Report lines. Empty means nothing already recorded is being changed.
+    """
+    if not path.is_file():
+        return [f"  NEW FILE  {path.name}"]
+    existing = json.loads(path.read_text(encoding="utf-8")).get("runs", {})
+    lines: List[str] = []
+    for run_id, entry in sorted(entries.items()):
+        if run_id not in existing:
+            lines.append(f"  NEW  {run_id}")
+            continue
+        before, after = _flatten(existing[run_id]), _flatten(entry)
+        changed = [key for key in sorted(after) if key in before and before[key] != after[key]]
+        added = [key for key in sorted(after) if key not in before]
+        removed = [key for key in sorted(before) if key not in after]
+        if not (changed or added or removed):
+            lines.append(f"  UNCHANGED  {run_id}")
+            continue
+        lines.append(f"  OVERWRITES  {run_id}")
+        for key in changed:
+            lines.append(f"      {key}: {before[key]!r} -> {after[key]!r}")
+        for key in added:
+            lines.append(f"      {key}: (absent) -> {after[key]!r}")
+        for key in removed:
+            lines.append(f"      {key}: {before[key]!r} -> (deleted)")
+    return lines
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -1078,49 +1656,83 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         choices=SOURCES,
         help="repeatable; defaults to every source",
     )
+    parser.add_argument(
+        "--arm",
+        action="append",
+        choices=ARMS,
+        help="repeatable; defaults to every arm. --save writes only the arms that ran, "
+        "so a re-run of one arm cannot restamp another arm's recorded figures",
+    )
     parser.add_argument("--examples", action="store_true", help="show sample readings")
     parser.add_argument("--save", action="store_true", help="record into bench/results.json")
     args = parser.parse_args(argv)
 
     config = Config()
     sources = args.corpus or list(SOURCES)
+    arms = args.arm or list(ARMS)
     keep = 6 if args.examples else 0
 
     alignment: List[AlignmentReport] = []
+    accuracy: List[AccuracyReport] = []
     synthesis: List[SynthesisReport] = []
     for corpus in sources:
         pairs = load_pairs(corpus)
         description = SOURCE_DESCRIPTION[corpus]
-        alignment.append(
-            measure_alignment(
-                pairs, corpus=corpus, source=description, config=config, examples=keep
+        if "alignment" in arms:
+            alignment.append(
+                measure_alignment(
+                    pairs, corpus=corpus, source=description, config=config, examples=keep
+                )
             )
-        )
-        synthesis.append(
-            measure_synthesis(
-                distinct_targets(pairs),
-                corpus=corpus,
-                source=description,
-                config=config,
-                examples=keep,
+        if "accuracy" in arms:
+            accuracy.append(
+                measure_accuracy(
+                    pairs, corpus=corpus, source=description, config=config, examples=keep
+                )
             )
-        )
+        if "synthesis" in arms:
+            synthesis.append(
+                measure_synthesis(
+                    distinct_targets(pairs),
+                    corpus=corpus,
+                    source=description,
+                    config=config,
+                    examples=keep,
+                )
+            )
 
     print(render_preamble(config))
-    for report in alignment:
-        print(f"\ninput: {report.corpus} -- {report.source} [{report.split_role}]")
-    print("\nALIGNMENT (align): a fixed target onto a real expansion")
-    print(render_alignment(alignment))
-    print()
-    print(render_guards(alignment))
-    print("\nSYNTHESIS (synthesize): a target with no source phrase, from the shipped lexicon")
-    print(render_synthesis(synthesis))
+    for corpus in sources:
+        print(f"\ninput: {corpus} -- {SOURCE_DESCRIPTION[corpus]} [{corpora.label_for(corpus)}]")
+    if alignment:
+        print("\nALIGNMENT (align): a fixed target onto a real expansion")
+        print(render_alignment(alignment))
+        print()
+        print(render_guards(alignment))
+    if accuracy:
+        print("\nACCURACY (align): scored against the reading the constraint settles by itself")
+        print(render_accuracy(accuracy))
+    if synthesis:
+        print("\nSYNTHESIS (synthesize): a target with no source phrase, from the shipped lexicon")
+        print(render_synthesis(synthesis))
 
     for report in alignment:
         for line in report.violations:
             print(f"\nCONSTRAINT VIOLATION [{report.corpus}] {line}")
         for line in report.shortfalls:
             print(f"\nSEARCH SHORTFALL [{report.corpus}] {line}")
+    for accuracy_report in accuracy:
+        for line in accuracy_report.unsound:
+            print(f"\nGOLD UNSOUND [{accuracy_report.corpus}] {line}")
+        if accuracy_report.misses:
+            print(
+                f"\nACCURACY MISSES [{accuracy_report.corpus}] -- the reading is unique and this "
+                "is not it"
+            )
+            for short_form, long_form, gold, got in accuracy_report.misses:
+                print(f"  {short_form!r} <- {long_form!r}")
+                print(f"      the only reading : {gold}")
+                print(f"      returned         : {got}")
 
     if args.examples:
         print(
@@ -1134,16 +1746,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 print(f"      latest reading  : {second}")
         print("\nSYNTHESISED EXPANSIONS -- unjudged, and shown so the reader can judge them")
         print("-" * 88)
-        for report in synthesis:
-            for target, text in report.examples:
-                print(f"  [{report.corpus}] {target!r} -> {text!r}")
+        for synthesised in synthesis:
+            for target, text in synthesised.examples:
+                print(f"  [{synthesised.corpus}] {target!r} -> {text!r}")
 
     if args.save:
         entries: Dict[str, object] = {}
         for report in alignment:
             entries[f"backronym.{report.corpus}.alignment"] = report.entry()
-        for report in synthesis:
-            entries[f"backronym.{report.corpus}.synthesis"] = report.entry()
+        for scored in accuracy:
+            entries[f"backronym.{scored.corpus}.accuracy"] = scored.entry()
+        for synthesised in synthesis:
+            entries[f"backronym.{synthesised.corpus}.synthesis"] = synthesised.entry()
+        print("\nWHAT --save IS ABOUT TO WRITE")
+        for line in overwrite_preview(entries, REPO_ROOT / "bench" / "results.json") or [
+            "  (nothing)"
+        ]:
+            print(line)
         path = save_results(entries)
         print(f"\nsaved {len(entries)} run(s) to {path.relative_to(REPO_ROOT)}")
     return 0

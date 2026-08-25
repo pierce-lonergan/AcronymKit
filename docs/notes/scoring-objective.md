@@ -126,9 +126,9 @@ the trade it is: it returns `QUA` for "Quality Assurance", and that is correct
 behaviour for a preset named after pronounceability.
 
 The generation evaluation independently confirms the presets are doing what the
-labels say. Over 546 initialism-bucket pairs from MED1250, `recall@1` is 75.5 %
-for `STRICT_INITIALISM` and 10.3 % for `MAX_PRONOUNCEABLE` — but `recall@25`
-converges to 89.7 % and 89.2 %. They re-rank a shared candidate pool; they do not
+labels say. Over 546<!--claim:generation.med1250.coverage.ceiling.initialism_n--> initialism-bucket pairs from MED1250, `recall@1` is
+75.5<!--claim:generation.med1250.strict_initialism.initialism_recall_at_1:.1f--> % for `STRICT_INITIALISM` and 10.3<!--claim:generation.med1250.max_pronounceable.initialism_recall_at_1:.1f--> % for `MAX_PRONOUNCEABLE` — but
+`recall@25` converges to 89.7<!--claim:generation.med1250.strict_initialism.initialism_recall_at_25:.1f--> % and 89.2<!--claim:generation.med1250.max_pronounceable.initialism_recall_at_25:.1f--> %. They re-rank a shared candidate pool; they do not
 search differently.
 
 ---

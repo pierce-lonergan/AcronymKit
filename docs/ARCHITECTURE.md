@@ -8,7 +8,7 @@ The open-source acronym ecosystem is split into four tiers that do not talk to e
 |---|---|---|---|
 | Naive string utilities | `acronymcreator`, countless gists | Sub-millisecond, no dependencies | No tokenisation grammar, no phonetics, no semantics |
 | Corpus matchers | ACRONYM (Cook, 2019) | Finds candidates that spell real words | Offline batch, static corpus, no library bindings |
-| Rule-based extractors | Schwartz & Hearst (2003) in scispaCy, Blackstone | F₁ > 96 % on inline definitions, cheap | Strictly extractive; needs the definition present in the span |
+| Rule-based extractors | Schwartz & Hearst (2003) in scispaCy, Blackstone | Few false positives on inline definitions, cheap | Strictly extractive; needs the definition present in the span |
 | Neural disambiguators | AcroBERT, SDU/SciAD/GLADIS models | Resolves standalone acronyms from context | GPU-bound, slow cold start, research codebases |
 
 Nothing spans them. A production system that needs to *generate* an acronym, *extract* the ones already

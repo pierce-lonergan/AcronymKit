@@ -33,6 +33,34 @@ What the validator enforces, and why each rule is here
     for -- which has now happened three times in this repository (SDU-21 AD,
     SDU-21 AI, and GLADIS in the August 2026 audit).
 
+``role``, and why widening :data:`ROLES` is a decision
+    :data:`ROLES` was ``("tuning", "held_out")`` for the whole life of this file,
+    and D-056 refused to register a corpus rather than file it under either --
+    ``held_out`` would have made a self-adjudicated set headline-eligible,
+    ``tuning`` would have asserted a fitting that never happened. The refusal was
+    right; leaving it standing because nobody extended a five-line tuple was not
+    a second decision, it was the absence of one.
+
+    ``single_annotator_reference`` is that decision taken. It is not a synonym
+    and it does not merely relabel: it carries three enforced properties, and a
+    role with no enforced property is only a spelling of whichever role the
+    reader assumes.
+
+    * It is in :data:`NEVER_HEADLINE_ROLES`, so :meth:`Manifest.headline_capable`
+      excludes it for **every** task, unconditionally, and :func:`validate`
+      refuses a ``[policy] headline_requires`` that names it.
+    * :data:`ROLE_REQUIRED_FIELDS` makes ``adjudicators`` and ``pooling_recipe``
+      mandatory on it. Recording *who decided* and *how the candidates they
+      decided on were proposed* is the entire reason the role exists, because
+      those two facts are why the artifact is not a gold standard.
+    * :data:`ROLE_LABEL` gives it its own label, so a figure from it can never
+      print "held out" in a runner header.
+
+    :data:`ROLES` carries the opposing argument -- that ``role = "tuning"``
+    was honest enough, on :attr:`Corpus.is_tuning`'s own definition -- stated
+    fairly and then answered, because it is the reading a future round will
+    arrive at independently.
+
 ``task``, and why widening :data:`TASKS` is a decision
     ``task`` is a closed vocabulary because ``bench/corpora.py`` returns a
     **different type per task**, and a corpus filed under the wrong one is how a
@@ -143,7 +171,85 @@ SPLITS_PATH = REPO_ROOT / "bench" / "splits.toml"
 
 #: Roles the policy recognises. A typo silently exempts a corpus from the
 #: headline rule, so the vocabulary is closed rather than free text.
-ROLES = ("tuning", "held_out")
+#:
+#: ``single_annotator_reference`` was added for the Federal Register reference
+#: set (D-056), and the widening is a decision rather than a convenience. Read
+#: :data:`NEVER_HEADLINE_ROLES` and :data:`ROLE_REQUIRED_FIELDS` before adding a
+#: fourth: a role that carries no enforced property is a synonym for whichever
+#: existing role the reader assumes, and the enforcement is the whole reason a
+#: third token beats re-using a second.
+#:
+#: **The opposing reading, stated fairly, because it is a good one.**
+#: :attr:`Corpus.is_tuning` documents itself as *"whether every figure from this
+#: corpus is a tuning figure"* -- a statement about FIGURES, not about fitting.
+#: On that reading ``role = "tuning"`` was available for the reference set on the
+#: day it was built: nothing was fitted to it, but every figure off it would
+#: indeed have to be labelled a tuning figure, which is exactly what the label
+#: is for, and no enum change was needed at all.
+#:
+#: The answer is that the reading is right about the label and wrong about the
+#: field, and the difference is what the file is consulted FOR. ``role`` is read
+#: by :meth:`Manifest.headline_capable`, by :meth:`Corpus.require_role`, by
+#: ``bench/corpora.py`` and by every runner header; ``tuning`` is the token those
+#: readers use to mean *the system has seen this*, which is a claim about
+#: provenance, and it is false here -- the corpus was adjudicated by the author
+#: of the extractor that proposed most of its pool, which is a *different* and
+#: strictly worse defect than having been fitted to. Filing it ``tuning`` would
+#: have made the two indistinguishable in the one file whose job is to keep them
+#: apart, and would have carried no obligation to record the adjudicator at all.
+#: The three properties below are the concrete difference, and none of them is
+#: reachable from ``tuning``: a role that can never be the headline role however
+#: ``[policy]`` is edited, a mandatory adjudicator list, and a mandatory pooling
+#: recipe. A reader who still prefers ``tuning`` is asking for a correct label
+#: with no enforcement behind it, which is the arrangement this repository has
+#: already paid for eleven times over in prose citations nothing parsed.
+ROLES = ("tuning", "held_out", "single_annotator_reference")
+
+#: Roles that may **never** back a headline number, whatever ``[policy]`` says.
+#:
+#: This is belt and braces on purpose, and the braces are the point.
+#: :meth:`Manifest.headline_capable` already filters on
+#: ``[policy] headline_requires``, so while that reads ``"held_out"`` a
+#: ``single_annotator_reference`` corpus is excluded *by arithmetic*. That is an
+#: accident of one line of configuration: a one-word edit to ``[policy]`` would
+#: make a self-adjudicated corpus the eligible source for every headline in the
+#: project, and nothing would have failed. So the exclusion is stated as a
+#: property of the role, enforced in two places that cannot both be edited by
+#: accident -- :func:`validate` refuses a ``[policy] headline_requires`` naming
+#: one of these, and :meth:`Manifest.headline_capable` filters them out
+#: unconditionally even if the validator were bypassed.
+#:
+#: D-056's whole argument is that filing this corpus ``held_out`` is "one word
+#: away at all times". A role whose ineligibility depends on a *different* line
+#: staying put is one word away as well, just a quieter one.
+NEVER_HEADLINE_ROLES = ("single_annotator_reference",)
+
+#: Fields a corpus must declare **because of the role it claims**, beyond
+#: :data:`REQUIRED_FIELDS`.
+#:
+#: A role that adds no obligation is a synonym. ``single_annotator_reference``
+#: exists to say *who decided* and *how the candidates it decided on were
+#: proposed*, because those two facts are the entire reason the artifact is not a
+#: gold standard -- and both were carried only inside the frozen JSON envelope,
+#: where the governance file could not see them. Recording them here means the
+#: manifest states the weakness rather than pointing at a file that states it.
+ROLE_REQUIRED_FIELDS: Dict[str, Tuple[str, ...]] = {
+    "single_annotator_reference": ("adjudicators", "pooling_recipe"),
+}
+
+#: The label a figure from a corpus in each role must carry.
+#:
+#: A mapping and not an ``if``. :meth:`Corpus.label` used to read
+#: ``"tuning split" if self.is_tuning else "held out"``, which is correct for two
+#: roles and silently mislabels every later one: the day ``ROLES`` grew, a
+#: single-annotator reference set would have started describing itself as "held
+#: out" in every runner header, which is the exact overclaim the role was added
+#: to prevent. A missing key here is a validation problem, not a default.
+ROLE_LABEL = {
+    "tuning": "tuning split",
+    "held_out": "held out",
+    "single_annotator_reference": "single-annotator reference",
+}
 
 #: Tasks a corpus can be scored on. Also closed, for the same reason and one
 #: more: ``bench/corpora.py`` returns a *different type* per task, and a corpus
@@ -313,7 +419,7 @@ def _load_toml(path: Path) -> Dict[str, Any]:
         import tomllib as _toml
     else:  # pragma: no cover - 3.9/3.10 path
         try:
-            import tomli as _toml  # type: ignore[no-redef]
+            import tomli as _toml
         except ImportError as error:
             raise SplitsError(
                 "no TOML parser available: tomllib is 3.11+ and tomli is not installed. "
@@ -461,6 +567,17 @@ class Corpus:
             name is optimistic about it on purpose-built corpora.
         shortform_recall_ceiling_basis: How the figure was derived, and what
             kind of limit it is. Required whenever the figure is present.
+        adjudicators: Who decided the labels, by name. Required on the roles
+            :data:`ROLE_REQUIRED_FIELDS` names, and empty elsewhere for corpora
+            this project did not annotate. An unattributed corpus is one nobody
+            can weigh, and it is the field a later reader needs to know whether
+            the annotator and the system share an author.
+        pooling_recipe: How the candidates the adjudicator ruled on were
+            proposed. Required on the same roles. A single-annotator set is
+            exactly as good as the pool it was drawn from -- a pool of one
+            algorithm's output adjudicated by that algorithm's author is a
+            different artifact from an exhaustive read, and only this field
+            distinguishes them.
         note: The entry's prose, carried through verbatim.
         reservations: Arms of this corpus that are spoken for, typed. See
             :class:`Reservation`, and :meth:`require_unreserved` for what they
@@ -469,6 +586,12 @@ class Corpus:
             ``reservations`` array -- an entry that is not a table, or an array
             that is not one. Carried rather than raised so :func:`validate`
             reports them beside everything else.
+        field_defects: Structural problems found while parsing a modelled
+            scalar or list field -- today, an ``adjudicators`` that is not an
+            array of names. Carried for the same reason
+            ``reservation_defects`` is: a malformed field that coerces to its
+            falsy default reports as *missing*, which sends the reader looking
+            for an absent line rather than at the wrong one in front of them.
         extra: Any key this reader does not model, so an unrecognised field is
             preserved rather than silently dropped.
     """
@@ -486,20 +609,64 @@ class Corpus:
     domain: str = ""
     shortform_recall_ceiling_pct: Optional[float] = None
     shortform_recall_ceiling_basis: str = ""
+    adjudicators: Tuple[str, ...] = ()
+    pooling_recipe: str = ""
     note: str = ""
     reservations: Tuple[Reservation, ...] = ()
     reservation_defects: Tuple[str, ...] = ()
+    field_defects: Tuple[str, ...] = ()
     extra: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def is_tuning(self) -> bool:
-        """Whether every figure from this corpus is a tuning figure."""
+        """Whether every figure from this corpus is a tuning figure.
+
+        **Read this as a statement about figures and not about fitting**, which
+        is what it says and what it has always said. It is true of a corpus
+        something was tuned on, and it is *also* the honest label for a corpus
+        nothing was fitted to but which can no longer adjudicate anything -- so
+        it does not, on its own, distinguish those two. :data:`ROLES` records the
+        argument that follows from that, and why a third role was worth more than
+        re-using this one.
+        """
         return self.role == "tuning"
 
     @property
     def is_held_out(self) -> bool:
-        """Whether this corpus may back a headline number."""
+        """Whether this corpus carries the literal ``held_out`` role.
+
+        This used to say "whether this corpus may back a headline number", which
+        was a shorthand for one policy and one role and was never the question:
+        eligibility also turns on the task, on contamination, and on
+        ``[policy] headline_requires`` naming this role at all.
+        :meth:`Manifest.headline_capable` is the answer to *may it back a
+        headline about X*, and :attr:`may_back_a_headline` is the answer to *can
+        any edit to* ``[policy]`` *make it eligible*.
+        """
         return self.role == "held_out"
+
+    @property
+    def adjudicator_count(self) -> int:
+        """How many people decided. One is a reference set; two may be a gold standard.
+
+        The mirror of ``bench.corpora.ReferenceSet.adjudicator_count``, on the
+        governance side. Two is *necessary and not sufficient*: their agreement
+        has to be computed and published before anything is promoted, which is
+        why this is a count and not a verdict.
+        """
+        return len(self.adjudicators)
+
+    @property
+    def may_back_a_headline(self) -> bool:
+        """Whether this corpus's role permits it to back a headline number at all.
+
+        Role-only, and deliberately narrower than
+        :meth:`Manifest.headline_capable`: it says nothing about the task, the
+        contamination flag or ``[policy]``. It is the question "could a one-word
+        edit to ``[policy]`` make this eligible?", and for a role in
+        :data:`NEVER_HEADLINE_ROLES` the answer must be no on its own.
+        """
+        return self.role not in NEVER_HEADLINE_ROLES
 
     def require_role(self, expected: str) -> None:
         """Assert the declared role, so a runner cannot mislabel its own output.
@@ -541,11 +708,23 @@ class Corpus:
     def label(self) -> str:
         """The label any figure from this corpus must carry.
 
+        Driven by :data:`ROLE_LABEL` rather than by a two-branch conditional.
+        The conditional read ``"tuning split" if is_tuning else "held out"``,
+        which is not a bug while ``ROLES`` has two members and is a silent
+        mislabel the moment it has three: a single-annotator reference set would
+        have printed "held out" in every runner header, which is precisely the
+        standing the role exists to deny it.
+
         Returns:
-            ``"tuning split"`` or ``"held out"``, plus ``", contaminated"`` when
-            the entry says so.
+            The role's label, plus the adjudicator count on a role that requires
+            one, plus ``", contaminated"`` when the entry says so. An
+            unrecognised role renders as ``"role=<x>, UNRECOGNISED"`` rather than
+            as any real standing -- :func:`validate` reports it, and a label is
+            not the place to guess.
         """
-        base = "tuning split" if self.is_tuning else "held out"
+        base = ROLE_LABEL.get(self.role) or f"role={self.role!r}, UNRECOGNISED"
+        if self.role in ROLE_REQUIRED_FIELDS and self.adjudicators:
+            base = f"{base}, {self.adjudicator_count} adjudicator(s)"
         return f"{base}, contaminated" if self.contaminated else base
 
     def reservation(self, arm: str) -> Optional[Reservation]:
@@ -816,6 +995,18 @@ class Manifest:
         caller who most needs to be asked what their headline is about is
         exactly the caller who would have omitted the argument.
 
+        **The role filter is applied twice, and the second one is not
+        redundant.** ``[policy] headline_requires`` decides which role is
+        eligible, and that is one editable line: setting it to a role in
+        :data:`NEVER_HEADLINE_ROLES` would make a self-adjudicated corpus the
+        source for every headline in the project. :func:`validate` refuses that
+        edit, and this filter refuses to act on it even if the validator never
+        ran -- so the exclusion holds under a bad ``[policy]``, a bypassed gate,
+        or a caller that loaded the manifest and never validated it. D-056's
+        finding was that the wrong filing is "one word away at all times"; an
+        exclusion that depends on a *different* word staying put is one word away
+        too.
+
         Args:
             task: One of :data:`TASKS`. What the headline number is a claim
                 *about*.
@@ -836,7 +1027,7 @@ class Manifest:
         return tuple(
             corpus
             for corpus in self.with_role(self.policy.headline_requires)
-            if not corpus.contaminated and corpus.name in wanted
+            if corpus.may_back_a_headline and not corpus.contaminated and corpus.name in wanted
         )
 
 
@@ -878,10 +1069,39 @@ _MODELLED = frozenset(
         "domain",
         "shortform_recall_ceiling_pct",
         "shortform_recall_ceiling_basis",
+        "adjudicators",
+        "pooling_recipe",
         "note",
         "reservations",
     }
 )
+
+
+def _names_from(name: str, spec: Mapping[str, Any]) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+    """``(adjudicators, structural defects)`` for one corpus table.
+
+    An array of names, and nothing else is accepted. A bare string is the
+    tempting shorthand and it is refused rather than wrapped: ``adjudicators =
+    "a, b"`` reads to a human as two people and would count as one, which is the
+    single number this field exists to make checkable.
+    """
+    raw = spec.get("adjudicators")
+    if raw is None:
+        return (), ()
+    if not isinstance(raw, list):
+        return (), (
+            f'[corpora.{name}] adjudicators must be an array of names (adjudicators = ["..."]), '
+            f"not {type(raw).__name__}. A bare string counts as one adjudicator however many "
+            "people it names, and the count is what this field is read for.",
+        )
+    defects = [
+        f"adjudicators[{index}] is not a name ({type(item).__name__})"
+        for index, item in enumerate(raw)
+        if not isinstance(item, str) or not item.strip()
+    ]
+    return tuple(
+        str(item).strip() for item in raw if isinstance(item, str) and item.strip()
+    ), tuple(f"[corpora.{name}] {defect}" for defect in defects)
 
 
 def _text(spec: Mapping[str, Any], key: str) -> str:
@@ -944,6 +1164,7 @@ def _corpus_from(name: str, spec: Mapping[str, Any]) -> Corpus:
     """
     ceiling = spec.get("shortform_recall_ceiling_pct")
     reservations, reservation_defects = _reservations_from(name, spec)
+    adjudicators, field_defects = _names_from(name, spec)
     return Corpus(
         name=name,
         role=str(spec.get("role", "") or ""),
@@ -962,9 +1183,12 @@ def _corpus_from(name: str, spec: Mapping[str, Any]) -> Corpus:
             else None
         ),
         shortform_recall_ceiling_basis=str(spec.get("shortform_recall_ceiling_basis", "") or ""),
+        adjudicators=adjudicators,
+        pooling_recipe=str(spec.get("pooling_recipe", "") or ""),
         note=str(spec.get("note", "") or ""),
         reservations=reservations,
         reservation_defects=reservation_defects,
+        field_defects=field_defects,
         extra={key: value for key, value in spec.items() if key not in _MODELLED},
     )
 
@@ -1170,6 +1394,15 @@ def validate(manifest: Manifest, *, today: Optional[_datetime.date] = None) -> L
             f"[policy] headline_requires={manifest.policy.headline_requires!r} "
             f"is not one of {list(ROLES)}"
         )
+    elif manifest.policy.headline_requires in NEVER_HEADLINE_ROLES:
+        problems.append(
+            f"[policy] headline_requires={manifest.policy.headline_requires!r} names a role "
+            f"in NEVER_HEADLINE_ROLES. That role exists to say a corpus adjudicated by one "
+            "person -- who authored the system it would score -- may not back a headline "
+            "number, and making it the headline role inverts the only property it carries. "
+            "This is the one-word edit D-056 says is available at all times; it is refused "
+            "here, and Manifest.headline_capable refuses to act on it besides."
+        )
 
     for name in manifest.names:
         corpus = manifest.corpora[name]
@@ -1183,6 +1416,19 @@ def validate(manifest: Manifest, *, today: Optional[_datetime.date] = None) -> L
             problems.append(f"{where} role={corpus.role!r} is not one of {list(ROLES)}")
         if corpus.task and corpus.task not in TASKS:
             problems.append(f"{where} task={corpus.task!r} is not one of {list(TASKS)}")
+
+        problems.extend(corpus.field_defects)
+
+        for required in ROLE_REQUIRED_FIELDS.get(corpus.role, ()):
+            if getattr(corpus, required):
+                continue
+            problems.append(
+                f"{where} is role={corpus.role!r} and declares no {required}. That role is "
+                f"the statement that this corpus records WHO decided and HOW the candidates "
+                f"they decided on were proposed; a {corpus.role!r} entry missing {required} "
+                "asserts the weakness without recording it, which is the shape a "
+                "contamination flag with no reason already refuses one level up."
+            )
 
         if corpus.licence_url:
             problem = _licence_url_problem(corpus.licence_url)
@@ -1261,16 +1507,34 @@ def notes(manifest: Manifest, *, today: Optional[_datetime.date] = None) -> List
                 f"[corpora.{name}] licence last read {age} days ago "
                 f"({corpus.licence_read_on.isoformat()}); worth re-reading"
             )
+    for name in manifest.names:
+        corpus = manifest.corpora[name]
+        if corpus.role not in NEVER_HEADLINE_ROLES:
+            continue
+        out.append(
+            f"[corpora.{name}] role={corpus.role!r}: {corpus.adjudicator_count} adjudicator(s), "
+            f"NEVER headline-capable for any task. It raises the {corpus.task!r} declared count "
+            "without moving the gap, and a declared count read as coverage is how a filled slot "
+            "comes to look like an answered question"
+        )
     for task in TASKS:
         declared = [corpus for corpus in manifest.corpora.values() if corpus.task == task]
         if not declared:
             continue
         if not manifest.headline_capable(task):
+            # The eligible-role count is printed beside the declared count on
+            # purpose. "2 declared, none eligible" reads as a near miss; it is
+            # not one when the second entry holds a role that can never qualify,
+            # and a per-task advisory that cannot say so is the pooled advisory's
+            # defect at one level down.
+            in_role = sum(
+                1 for corpus in declared if corpus.role == manifest.policy.headline_requires
+            )
             out.append(
                 f"no uncontaminated corpus carries role="
                 f"{manifest.policy.headline_requires!r} for task={task!r} "
-                f"({len(declared)} declared, none eligible), so no {task} number in this "
-                "project currently satisfies the headline rule"
+                f"({len(declared)} declared, {in_role} in that role, none eligible), so no "
+                f"{task} number in this project currently satisfies the headline rule"
             )
     return out
 
@@ -1289,6 +1553,10 @@ def as_dict(manifest: Manifest) -> Dict[str, Any]:
         "headline_capable": {
             task: [corpus.name for corpus in manifest.headline_capable(task)] for task in TASKS
         },
+        # Published so a consumer of the JSON view can see that the empty lists
+        # above are empty for two different reasons -- nothing in the headline
+        # role, and something that could never be in it however [policy] reads.
+        "never_headline_roles": list(NEVER_HEADLINE_ROLES),
         "gold_unit": dict(TASK_GOLD_UNIT),
         # Flat as well as per corpus, because "what may this round not touch?"
         # is a question about the manifest and not about any one entry, and it
@@ -1320,6 +1588,9 @@ def as_dict(manifest: Manifest) -> Dict[str, Any]:
                 "domain": corpus.domain,
                 "vendorable": corpus.vendorable,
                 "shortform_recall_ceiling_pct": corpus.shortform_recall_ceiling_pct,
+                "adjudicators": list(corpus.adjudicators),
+                "pooling_recipe": corpus.pooling_recipe,
+                "may_back_a_headline": corpus.may_back_a_headline,
                 "label": corpus.label(),
                 "reserved_arms": [entry.arm for entry in corpus.reservations],
             }
@@ -1348,14 +1619,41 @@ def _render_reservations(manifest: Manifest) -> str:
     return "\n".join(lines)
 
 
+#: Width of the ROLE column in ``--list``, derived rather than written down.
+#:
+#: The TASK column next to it was a hard-coded ``24`` with a comment saying it is
+#: ``24`` because ``identifier_segmentation`` is 23 characters -- a format spec
+#: narrower than its widest value does not truncate, it overflows and shears
+#: every column to its right. That comment records the bug and the constant
+#: repeats it: widening ``ROLES`` with ``single_annotator_reference`` (26 with
+#: the contamination star) against a ``9``-wide ROLE column sheared the table on
+#: the very commit that added the role, and registering
+#: ``federal_register_rules_2024q1`` sheared it again on the ``22``-wide CORPUS
+#: column in the same commit. **Two instances of one bug in one change is the
+#: argument for deriving all three widths rather than bumping two numbers**, so
+#: :func:`_render_table` now measures its own contents and the next widening
+#: cannot shear anything.
+_ROLE_WIDTH = max(len(role) for role in ROLES) + 1
+
+#: Floors for the derived columns, so a manifest of short names still renders as
+#: the table people are used to reading rather than collapsing to its contents.
+_COLUMN_FLOORS = {"corpus": 22, "task": 24}
+
+
 def _render_table(manifest: Manifest) -> str:
     """The manifest as a table a person can read at a glance."""
-    # The TASK column is 24 wide, not 16, because "identifier_segmentation" is
-    # 23 characters: a format spec narrower than its widest value does not
-    # truncate, it overflows and shears every column to its right.
+    corpus_width = max([_COLUMN_FLOORS["corpus"], *(len(name) for name in manifest.names)])
+    task_width = max(
+        [
+            _COLUMN_FLOORS["task"],
+            *(len(manifest.corpora[name].task) for name in manifest.names),
+        ]
+    )
     lines = [
-        f"{'CORPUS':22} {'ROLE':9} {'TASK':24} {'READ':11} {'CEILING':>8}  LICENCE",
-        f"{'-' * 22} {'-' * 9} {'-' * 24} {'-' * 11} {'-' * 8}  {'-' * 40}",
+        f"{'CORPUS':{corpus_width}} {'ROLE':{_ROLE_WIDTH}} {'TASK':{task_width}} "
+        f"{'READ':11} {'CEILING':>8}  LICENCE",
+        f"{'-' * corpus_width} {'-' * _ROLE_WIDTH} {'-' * task_width} "
+        f"{'-' * 11} {'-' * 8}  {'-' * 40}",
     ]
     for name in manifest.names:
         corpus = manifest.corpora[name]
@@ -1371,7 +1669,8 @@ def _render_table(manifest: Manifest) -> str:
         )
         role = corpus.role + ("*" if corpus.contaminated else "")
         lines.append(
-            f"{name:22} {role:9} {corpus.task:24} {read:11} {ceiling:>8}  {corpus.licence}"
+            f"{name:{corpus_width}} {role:{_ROLE_WIDTH}} {corpus.task:{task_width}} "
+            f"{read:11} {ceiling:>8}  {corpus.licence}"
         )
     lines.append("")
     lines.append(

@@ -183,7 +183,7 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -593,7 +593,7 @@ def evaluate(arm: Arm) -> Dict[str, object]:
         tally = by_words.setdefault(bucket, [0, 0])
         tally[0] += 1
         tally[1] += int(predicted == gold)
-        sample = {
+        sample: Dict[str, Any] = {
             "exact": predicted == gold,
             "hits": hits,
             "spurious": len(spurious),
@@ -791,7 +791,7 @@ def fetch_sec_tags(quarter: str, *, refresh: bool = False) -> Dict[str, object]:
     url = SEC_URL_TEMPLATE.format(quarter=quarter)
     try:
         handle = RangedHTTPFile(url, {"User-Agent": SEC_USER_AGENT})
-        archive = zipfile.ZipFile(handle)  # type: ignore[arg-type]
+        archive = zipfile.ZipFile(handle)
         raw = archive.read("tag.txt").decode("utf-8", "replace")
     except (urllib.error.URLError, OSError, zipfile.BadZipFile) as error:
         raise SystemExit(

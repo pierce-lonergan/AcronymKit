@@ -1352,7 +1352,11 @@ def write_ledger() -> Path:
         "",
     ]
 
-    LEDGER_PATH.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    # ``Path.write_text`` grew ``newline`` in 3.10 and ``requires-python`` is
+    # ``>=3.9``, so the obvious spelling raises TypeError on the floor this
+    # package claims to support. ``Path.open`` has carried it all along.
+    with LEDGER_PATH.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write("\n".join(lines))
     return LEDGER_PATH
 
 

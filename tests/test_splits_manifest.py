@@ -179,7 +179,14 @@ def manifest() -> object:
 
 
 def _write(tmp_path: Path, body: str) -> Path:
-    """A throwaway manifest, so a negative test never edits the real file."""
+    """A throwaway manifest, so a negative test never edits the real file.
+
+    The directory is created rather than assumed, so a test that needs a
+    *second* manifest -- a mutation and its control, loaded in one test -- can
+    ask for ``tmp_path / "control"`` without the write failing for a reason that
+    has nothing to do with what it checks.
+    """
+    tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "splits.toml"
     path.write_text(body, encoding="utf-8")
     return path
@@ -277,6 +284,44 @@ def _no_spend_leaks() -> object:
     for ledger, before in saved:
         ledger.clear()
         ledger.update(before)
+
+
+#: A valid ``single_annotator_reference`` entry, so a mutation of it fails for
+#: the reason under test rather than for a second reason nobody noticed. It is
+#: built from ``_MINIMAL`` rather than written out, so a new *universally*
+#: required field breaks this fixture in the same commit as every other.
+_SINGLE_ANNOTATOR_FIELDS = (
+    'adjudicators = ["a. person (author of the pooled extractor)"]',
+    'pooling_recipe = "one parenthesis scanner plus an all-caps proposer"',
+)
+
+#: The contamination half, kept separate and switchable. **This is not tidiness.**
+#: ``headline_capable`` excludes a corpus for three independent reasons -- wrong
+#: task, contaminated, never-headline role -- and a fixture that trips two of
+#: them cannot show which one is doing the work. Deleting the role filter from
+#: ``headline_capable`` left the whole suite green precisely because the fixture
+#: was contaminated as well, so the exclusion under test was being demonstrated
+#: by a different rule. The mutation found it; the split is the fix.
+_CONTAMINATION_FIELDS = (
+    "contaminated = true",
+    'contamination_reason = "the adjudicator authored a pooled system"',
+)
+
+
+def _single_annotator(*, drop: Optional[str] = None, contaminated: bool = True) -> str:
+    """``_MINIMAL`` re-roled to ``single_annotator_reference``, optionally missing a field.
+
+    Args:
+        drop: A role-required field to leave out, which is how "a corpus that
+            claims the role without recording who decided" is written.
+        contaminated: Whether to carry the contamination flag. Pass ``False``
+            when the test is about the *role* excluding a corpus from a headline,
+            so that the contamination rule cannot excuse it first.
+    """
+    body = _mutated("role", '"single_annotator_reference"')
+    fields = _SINGLE_ANNOTATOR_FIELDS + (_CONTAMINATION_FIELDS if contaminated else ())
+    extra = [line for line in fields if drop is None or not line.startswith(drop + " =")]
+    return body + "\n".join(extra) + "\n"
 
 
 def _mutated(field: str, value: Optional[str]) -> str:
@@ -441,6 +486,102 @@ class TestTheRealManifest:
         assert "task='extraction'" in reported
         assert "task='disambiguation'" in reported
 
+    def test_the_federal_register_reference_set_is_declared_at_the_third_role(
+        self, manifest: object
+    ) -> None:
+        """D-056 refused to write this entry because ``ROLES`` could not say what it is.
+
+        The refusal was right and its permanence was never argued -- it stood
+        because a five-line tuple had not been extended. The tuple is extended;
+        this is the entry.
+        """
+        corpus = manifest.corpus("federal_register_rules_2024q1")
+        assert corpus.role == "single_annotator_reference"
+        assert corpus.task == "extraction"
+        assert corpus.vendorable is False
+        assert corpus.contaminated is True
+        assert corpus.contamination_reason.strip()
+        assert splits._licence_url_problem(corpus.licence_url) is None
+
+    def test_it_names_its_adjudicator_and_how_the_pool_was_proposed(self, manifest: object) -> None:
+        """The two facts the role exists to require, on the real file.
+
+        They are the reason the artifact is not a gold standard, and until this
+        entry existed they lived only inside a frozen JSON envelope in a
+        git-ignored directory -- somewhere the governance file could not see
+        them.
+        """
+        corpus = manifest.corpus("federal_register_rules_2024q1")
+        assert corpus.adjudicator_count == 1
+        assert "author of acronymkit" in corpus.adjudicators[0]
+        assert corpus.pooling_recipe.strip()
+        assert "Schwartz & Hearst" in corpus.pooling_recipe, (
+            "the recipe must say the pooled systems are one algorithm, which is "
+            "the finding that makes their agreement not corroboration"
+        )
+        assert "unproposed_parenthetical" in corpus.pooling_recipe
+
+    def test_it_is_headline_capable_for_no_task_at_all(self, manifest: object) -> None:
+        """Asserted, not inferred from ``[policy] headline_requires`` happening to differ.
+
+        The brief for this registration was explicit that accidental exclusion
+        is not exclusion. The corpus is checked out of **every** task's headline
+        list, and the role property that puts it there is checked separately, so
+        the two cannot both be satisfied by one editable line.
+        """
+        corpus = manifest.corpus("federal_register_rules_2024q1")
+        assert corpus.may_back_a_headline is False
+        assert corpus.role in splits.NEVER_HEADLINE_ROLES
+        for task in splits.TASKS:
+            eligible = {entry.name for entry in manifest.headline_capable(task)}
+            assert "federal_register_rules_2024q1" not in eligible, task
+
+    def test_registering_it_did_not_move_the_extraction_gap(self, manifest: object) -> None:
+        """The number that would look like progress, and is not.
+
+        Registering an extraction corpus raises the *declared* count for
+        ``extraction`` while leaving the headline slot exactly as empty as it
+        was. A per-task advisory that printed only the declared count would read
+        as a near miss, so it prints the count in the headline role beside it,
+        and that count is zero.
+        """
+        reported = " ".join(splits.notes(manifest))
+        assert "task='extraction'" in reported
+        assert "0 in that role" in reported
+        assert manifest.headline_capable("extraction") == ()
+        assert "NEVER headline-capable" in reported
+
+    def test_the_entry_records_the_premises_that_died(self, manifest: object) -> None:
+        """A corpus entry documenting why it is weak is worth more than one saying it exists.
+
+        Three premises this corpus was funded on were refuted by measurement,
+        and an entry that carried only the licence and the role would leave the
+        next round to rediscover them. The figures themselves are un-gated and
+        sit in fenced blocks; what is asserted here is that the *findings* are
+        written down, because a fenced number nobody explains is indistinguishable
+        from a hidden one.
+        """
+        note = manifest.corpus("federal_register_rules_2024q1").note
+        assert "PREMISE 1, REFUTED" in note
+        assert "PREMISE 2, REFUTED" in note
+        assert "SF--LF" in note and "SF = LF" in note, (
+            "the legend syntax is the operative half of premise 1: the shipped "
+            "reader sees none of these legends"
+        )
+        assert "UN-GATED" in note and "run id" in note, (
+            "every figure in this entry is un-gated and the entry must say so"
+        )
+        assert "mirror" in note, "the reproduction property is the strong half"
+        assert "NOT re-derivable from this repository" in note, (
+            "three rows of the proposer table need two external packages the shipped "
+            "pipeline never drives; an entry that repeated them as though checked would "
+            "be laundering a transcription into a measurement"
+        )
+        assert "CASE-FOLDED" in note and "EXACT-CASE" in note, (
+            "the two rows that DO re-derive only match under case-folded edge identity, "
+            "and no record said which identity was used"
+        )
+
     @needs_corpora
     def test_every_registry_key_declares_the_task_its_registry_is_for(self) -> None:
         """``TASKS`` is closed *because* ``bench/corpora.py`` returns a type per task.
@@ -555,7 +696,20 @@ class TestTheRealManifest:
 
         assert reserved[("sdu21_ad", "test")].decided_in == "D-043"
         assert reserved[("sdu22_ae_legal", "train")].decided_in == "D-047"
-        assert reserved[("sdu22_ae_legal", "train")].state == "allocated"
+        # SPENT since the legend workstream took the read D-047 allocated. This
+        # assertion read ``"allocated"`` until then, and updating it is the
+        # whole cost of the arm having been used: a reservation is a state
+        # machine and ``spent`` is a terminal state, not a missing one. The
+        # ledger line is what makes the spend arguable afterwards -- an arm
+        # marked spent with nothing to point at is a contamination with no
+        # evidence, which the validator refuses one level up.
+        assert reserved[("sdu22_ae_legal", "train")].state == "spent"
+        assert reserved[("sdu22_ae_legal", "train")].spent_in.strip(), (
+            "the legal train arm is spent and names nothing that spent it"
+        )
+        assert not reserved[("sdu22_ae_legal", "train")].allocated_to, (
+            "a spent arm may not still name what it was allocated to"
+        )
         # UNALLOCATED is a state D-047 chose, not the absence of one: assigning
         # this split a use today would mean inventing one.
         assert reserved[("sdu22_ae_scientific", "train")].state == "unallocated"
@@ -586,14 +740,25 @@ class TestTheRealManifest:
 
         Nothing is opened here: the refusal is on the declaration and fires
         before any path is resolved.
+
+        ``sdu22_ae_legal:train`` is deliberately **not** in the list any more.
+        It was spent under D-047, and a spent arm refuses nothing -- the cost
+        has been paid and the corpus entry is where the contamination is
+        recorded. Asserting a refusal there would pin the guard to a state the
+        manifest has left, which is the failure mode this file exists to make
+        expensive. It is asserted the other way instead, below.
         """
         for name, arm in (
             ("sdu21_ad", "test"),
-            ("sdu22_ae_legal", "train"),
             ("sdu22_ae_scientific", "train"),
         ):
             with pytest.raises(splits.SplitsError, match="RESERVED"):
                 manifest.corpus(name).require_unreserved(arm)
+        # The spent arm: it is still a declared reservation, and it no longer
+        # refuses. Both halves matter -- the entry has to survive being spent so
+        # the record of what was paid survives with it.
+        assert manifest.corpus("sdu22_ae_legal").reservation("train") is not None
+        manifest.corpus("sdu22_ae_legal").require_unreserved("train")
         # The control: the arms beside them are free, and the guard is silent.
         manifest.corpus("sdu22_ae_legal").require_unreserved("dev")
         manifest.corpus("sdu21_ad").require_unreserved("train")
@@ -615,17 +780,28 @@ class TestTheRealManifest:
     def test_the_reader_that_would_spend_the_allocated_arm_is_wired(self) -> None:
         """The guard is LIVE, not merely available, and this is the difference.
 
-        ``data/sdu22_ae_legal_train.json`` is already fetched, so before this
-        round a single ``read_sdu22_ae(domain="legal", split="train")`` mined the
-        last unmined arm of the corpus and printed nothing. The refusal fires
-        inside ``_sdu22_ae_source`` *before* the path is resolved, which is why
-        this test can assert it without opening the file.
+        ``data/sdu22_ae_legal_train.json`` is already fetched, so before the
+        reservation existed a single ``read_sdu22_ae(domain="legal",
+        split="train")`` mined the last unmined arm of the corpus and printed
+        nothing. The refusal fires inside ``_sdu22_ae_source`` *before* the path
+        is resolved, which is why this test can assert it without opening the
+        file.
+
+        **The legal arm has since been spent (D-047), so it is the control here
+        rather than the case.** That is the interesting direction: the guard has
+        to stop refusing when the manifest says the cost was paid, or the next
+        workstream routes around it, and a guard people route around is worse
+        than no guard. The scientific arm is still unallocated and still
+        refuses, so the live half is asserted on that one.
         """
         with pytest.raises(SystemExit, match="RESERVED"):
-            corpora._sdu22_ae_source(None, "legal", "train")
-        with pytest.raises(SystemExit, match="RESERVED"):
             corpora._sdu22_ae_source(None, "scientific", "train")
-        # Control: the dev arms carry no reservation and are not refused by it.
+        # The spent arm resolves, and the dev arms beside it -- which never
+        # carried a reservation -- resolve for a different reason. Both are
+        # filename assertions so this passes with the corpus absent too.
+        assert _unreserved_filename(
+            lambda: corpora._sdu22_ae_source(None, "legal", "train")
+        ).endswith("legal_train.json")
         assert _unreserved_filename(
             lambda: corpora._sdu22_ae_source(None, "legal", "dev")
         ).endswith("legal_dev.json")
@@ -842,6 +1018,136 @@ class TestTheValidatorCatchesWhatItClaimsTo:
         assert [corpus.name for corpus in manifest.headline_capable("identifier_segmentation")] == [
             "example"
         ]
+
+    # -- the third role, and the one property it exists to enforce -------------
+
+    def test_a_single_annotator_reference_corpus_passes_when_it_declares_both_fields(
+        self, tmp_path: Path
+    ) -> None:
+        """The control. Without it the four mutations below could pass for the wrong reason."""
+        manifest = splits.load(_write(tmp_path, _single_annotator()))
+        assert splits.validate(manifest) == []
+        assert manifest.corpus("example").adjudicator_count == 1
+
+    @pytest.mark.parametrize("field", ["adjudicators", "pooling_recipe"])
+    def test_the_role_required_fields_are_required(self, tmp_path: Path, field: str) -> None:
+        """A role that adds no obligation is a synonym for whichever role the reader assumes."""
+        problems = splits.validate(splits.load(_write(tmp_path, _single_annotator(drop=field))))
+        assert any(field in problem for problem in problems), problems
+
+    def test_an_empty_adjudicator_list_is_not_an_adjudicator(self, tmp_path: Path) -> None:
+        """``adjudicators = []`` reads as present and records nobody."""
+        body = _single_annotator().replace(
+            'adjudicators = ["a. person (author of the pooled extractor)"]', "adjudicators = []"
+        )
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("adjudicators" in problem for problem in problems), problems
+
+    def test_a_bare_string_of_names_is_refused_rather_than_counted_as_one(
+        self, tmp_path: Path
+    ) -> None:
+        """``adjudicators = "a, b"`` reads as two people to a human and counts as one.
+
+        The count is the single thing this field is read for -- one adjudicator
+        is a reference set and two *may* be a gold standard -- so the shorthand
+        is refused instead of wrapped.
+        """
+        body = _single_annotator().replace(
+            'adjudicators = ["a. person (author of the pooled extractor)"]',
+            'adjudicators = "a. person, b. person"',
+        )
+        manifest = splits.load(_write(tmp_path, body))
+        problems = splits.validate(manifest)
+        assert any("array of names" in problem for problem in problems), problems
+        assert manifest.corpus("example").adjudicator_count == 0, (
+            "the malformed value must not silently coerce to one adjudicator"
+        )
+
+    def test_the_never_headline_role_may_not_be_made_the_headline_role(
+        self, tmp_path: Path
+    ) -> None:
+        """**The test that fails if someone later makes this role headline-capable.**
+
+        Two independent guards, mutated together, because the corpus this role
+        was added for is a self-adjudicated set whose wrong filing is one word
+        away at all times (D-056). The mutation is that one word: ``[policy]
+        headline_requires`` pointed at the role itself.
+
+        The first assertion is that :func:`validate` refuses the edit. The second
+        is the one that matters, and it is deliberately not the same check:
+        ``headline_capable`` must return the corpus **not at all**, for **every**
+        task, even under the bad policy the validator just rejected -- because a
+        rule enforced only by a gate is a rule that holds only while the gate is
+        run.
+
+        **The fixture is deliberately UNCONTAMINATED**, and the first draft was
+        not. ``headline_capable`` excludes a corpus for three independent
+        reasons; a contaminated fixture trips two of them, and the assertions
+        below then pass with the role filter deleted -- which is exactly what
+        happened when the filter was mutated out. Every other exclusion is
+        switched off here so the one under test is the only one left.
+
+        The control underneath is the other half: the same fixture with
+        ``role = "held_out"`` and the same ``[policy]`` *is* headline-capable, so
+        the empty result above is a property of the role and not of the fixture.
+        """
+        body = _single_annotator(contaminated=False).replace(
+            'headline_requires = "held_out"',
+            'headline_requires = "single_annotator_reference"',
+        )
+        manifest = splits.load(_write(tmp_path, body))
+
+        problems = splits.validate(manifest)
+        assert any("NEVER_HEADLINE_ROLES" in problem for problem in problems), problems
+        assert not any("contaminated" in problem for problem in problems), (
+            "the fixture is contaminated, so the exclusion below is not the role's"
+        )
+
+        assert manifest.policy.headline_requires == "single_annotator_reference", (
+            "the mutation did not take; this test proves nothing"
+        )
+        assert [corpus.name for corpus in manifest.with_role("single_annotator_reference")] == [
+            "example"
+        ], "the corpus is not in the mutated headline role; this test proves nothing"
+        assert manifest.corpus("example").contaminated is False
+        assert manifest.corpus("example").task == "extraction"
+        for task in splits.TASKS:
+            assert manifest.headline_capable(task) == (), task
+
+        control = splits.load(
+            _write(
+                tmp_path / "control",
+                _single_annotator(contaminated=False).replace(
+                    'role = "single_annotator_reference"', 'role = "held_out"'
+                ),
+            )
+        )
+        assert [corpus.name for corpus in control.headline_capable("extraction")] == ["example"], (
+            "the control is not headline-capable either, so the exclusion above "
+            "is a property of the fixture rather than of the role"
+        )
+
+    def test_every_never_headline_role_is_a_role(self) -> None:
+        """An exclusion naming a role that does not exist excludes nothing."""
+        assert splits.NEVER_HEADLINE_ROLES, "the exclusion list is empty; nothing is excluded"
+        assert set(splits.NEVER_HEADLINE_ROLES) <= set(splits.ROLES)
+        assert set(splits.ROLE_REQUIRED_FIELDS) <= set(splits.ROLES)
+        assert set(splits.ROLE_LABEL) == set(splits.ROLES), (
+            "a role with no label renders as UNRECOGNISED; give it one or drop it"
+        )
+
+    def test_a_role_label_is_never_borrowed_from_another_role(self, tmp_path: Path) -> None:
+        """``label()`` was ``"tuning split" if is_tuning else "held out"``.
+
+        Correct for two roles and a silent overclaim for the third: a
+        single-annotator reference set would have printed "held out" in every
+        runner header, which is the standing the role exists to deny it.
+        """
+        manifest = splits.load(_write(tmp_path, _single_annotator()))
+        label = manifest.corpus("example").label()
+        assert "held out" not in label, label
+        assert "single-annotator reference" in label
+        assert "1 adjudicator(s)" in label
 
     def test_headline_capable_refuses_a_task_nobody_declared(self, tmp_path: Path) -> None:
         """A typo must raise, not return ``()``.

@@ -630,12 +630,12 @@ def requirements_text(
     for name in sorted(by_name):
         if name == root.name:
             continue
-        versions = by_name[name]
-        for version in sorted(versions):
+        served = by_name[name]
+        for version in sorted(served):
             marker = ""
-            if only is None and len(versions) > 1:
+            if only is None and len(served) > 1:
                 marker = " or ".join(
-                    f'python_version == "{value}"' for value in sorted(versions[version])
+                    f'python_version == "{value}"' for value in sorted(served[version])
                 )
             lines += render(f"{name}=={version}", wheels[(name, version)], marker)
     return "\n".join(lines) + "\n"

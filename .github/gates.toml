@@ -1,0 +1,1262 @@
+# The gate register: every check that can fail CI, and the evidence that it can.
+#
+# ---------------------------------------------------------------------------
+# WHY THIS FILE EXISTS
+# ---------------------------------------------------------------------------
+# Four defects shipped in one round and every one was the same shape: a check
+# that could not fail in the environment where it ran (D-058).
+#
+#   * the claims gate could not fail in a checkout holding every file it scans;
+#   * the suite could not fail on a machine holding `data/` and `tools/`;
+#   * mypy could not fail against a `click` predating `match`;
+#   * `tests/test_splits_manifest.py` had NEVER ONCE RUN in the extracted tree,
+#     hiding a whole module behind a green `build` job.
+#
+# None of the four was found by a gate. All four were found by the one
+# environment that differed, which was CI. That is R11:
+#
+#     A gate must be DEMONSTRATED CAPABLE OF FAILING in the environment where it
+#     runs. Not locally. Not in principle. In situ, by mutation, with the
+#     failure captured.
+#
+# This file is where that demonstration is recorded, per gate, with a date.
+#
+# ---------------------------------------------------------------------------
+# HOW TO READ IT, AND WHAT READS IT
+# ---------------------------------------------------------------------------
+# `tools/gates.py` parses this file into typed objects and validates it; the
+# `lint` job runs `python tools/gates.py --check`; `tests/test_gate_manifest.py`
+# drives the same validator and mutation-tests it.
+# `.github/workflows/gate-mutation.yml` runs the declared mutations on a
+# schedule and uploads the captured failures.
+#
+# The rule that keeps this file honest is not any rule about its own contents.
+# It is that **every job in every workflow must appear here** -- with gates, or
+# with a `no_gates_reason` -- so a job added tomorrow reddens `--check` until
+# somebody says what it checks. Without that, this is a paragraph that was true
+# once, which is the state `bench/splits.toml` was in for months while eleven
+# places cited it and nothing parsed it.
+#
+# `holds` and `lacks` are repo-relative path GLOBS, not prose, because
+# `tools/gates.py --assert-environment <env>` checks them. An environment
+# description nothing checks is the premise every gate silently rests on, and
+# D-058 is three defects that came from exactly that premise being wrong.
+#
+# ---------------------------------------------------------------------------
+# WHAT `mutation.kind` MEANS, AND WHY MOST OF THEM ARE REFUSALS
+# ---------------------------------------------------------------------------
+#   automated  an edit declared below. `tools/gates.py --mutate <gate>` applies
+#              it, runs the gate's OWN command, requires a non-zero exit, puts
+#              the tree back, and requires a zero exit again. Both halves are
+#              needed: without the restore, a gate failing for an unrelated
+#              reason reads as a successful demonstration.
+#   inline     the gate's implementation is a heredoc inside a workflow file.
+#              There is no command to invoke, so a harness could only run a
+#              COPY of it -- and D-018 settled that a copy may not stand in for
+#              the thing. The fix is to extract the heredoc into a script the
+#              way `tools/splits.py` was extracted; that is named, costed and
+#              not done.
+#   control    the step IS a positive control: it exists to prove its
+#              neighbours can fail.
+#   manual     mutable, but only in an environment this harness cannot create
+#              (a release, a privileged network namespace).
+#   none       no mutation proposed, and the reason says why.
+#
+# R14: a refusal ships with a disposition. Every non-automated entry carries a
+# `reason`, and `--check` prints the counts whether they flatter or not.
+#
+# ---------------------------------------------------------------------------
+# THE STATE ON THE DAY THIS WAS WRITTEN, STATED BEFORE ANYONE HAS TO ASK
+# ---------------------------------------------------------------------------
+# ZERO gates carry in-situ evidence. Not one. The mutations below were run on a
+# developer machine, which is precisely the evidence R11 says does not count,
+# and the summary line of `--check` prints that count on every CI run so it
+# cannot be quietly read past. The first scheduled run of
+# `.github/workflows/gate-mutation.yml` is what changes it, and every
+# `verified_in_situ_on` here is empty until a run id can be written beside it.
+
+[manifest]
+schema_version = 1
+
+# WHERE THE REGRESS STOPS, AND WHY THERE.
+#
+# A manifest of mutation artifacts is itself a check, and it will rot the same
+# way everything else here rotted -- by passing where it cannot fail. So it has
+# its own mutation one level up: `gates.gate_manifest` below appends an
+# unregistered job to `ci.yml` and requires `--check` to refuse it, and
+# `tests/test_gate_manifest.py` mutation-tests the validator the way
+# `tests/test_splits_manifest.py` mutation-tests the splits validator.
+#
+# One level up from THAT, the regress stops by judgement, and here is the
+# judgement. `gate-mutation.yml` runs its own two synthetic controls on every
+# scheduled run: `control.always_red` must be demonstrated and
+# `control.always_green` must come back INERT. If the harness has rotted into a
+# no-op, the second control does not come back INERT and the job goes red. That
+# failure is visible to a human reading a red CI run in the Actions tab, and
+# THAT is where this stops -- at the first level where the alarm reaches a
+# person rather than another check.
+#
+# What that leaves open, said rather than implied: a scheduled workflow that
+# stops running entirely raises nothing. GitHub disables `schedule` triggers
+# after 60 days of repository inactivity, and no check in this repository would
+# notice. `--check` prints the age of the newest in-situ verification as a NOTE
+# on every CI run, which is a nudge and not a gate, for the reason
+# `tools/splits.py` gives about its own staleness window: a gate that turns red
+# with the passage of time fires on an unrelated commit. The regress is not
+# closed. It is stopped, deliberately, one step above the last automated check.
+stops_at = """
+At the two synthetic controls inside .github/workflows/gate-mutation.yml. A
+harness that has rotted into a no-op fails `control.always_green`, which reddens
+the scheduled run, which a human sees in the Actions tab. A scheduled workflow
+that stops running at all is NOT detected by anything here; --check reports the
+age of the newest in-situ verification as a note, and a note is not a gate.
+"""
+
+
+# ===========================================================================
+# ENVIRONMENTS
+# ===========================================================================
+# Each one is a place a gate runs, described by what it HOLDS and what it LACKS
+# -- as globs, so `tools/gates.py --assert-environment <name>` can check them.
+
+[environments.lint]
+workflow = "ci.yml"
+job = "lint"
+runs_on = "ubuntu-latest"
+holds = ["src/acronymkit/__init__.py", "tools/*.py", "bench/splits.toml", "bench/results.json"]
+lacks = ["data/MED1250_labeled", "data/plod_cw_dev.conll"]
+note = """
+A checkout with the dev extra installed. Every scan target of every gate here
+is present by construction, which is the property that made the claims gate
+unable to fail in this environment while failing in the sdist (D-058, fourth
+instance). The `lacks` entries are the fetched corpora: a runner never has
+them, a developer machine usually does, and that difference is cause one of the
+same record.
+"""
+
+[environments.resources]
+workflow = "ci.yml"
+job = "resources"
+runs_on = "ubuntu-latest"
+holds = ["src/acronymkit/resources/lexicon_en.txt", "schemas/*.json", "tools/validate_resources.py"]
+lacks = ["data/scowl-2020.12.07.tar.gz"]
+note = """
+The base package installed, no dev extra. Resources are checked against their
+sources, which are not fetched here -- so this job checks committed artifacts
+against each other and never against upstream.
+"""
+
+[environments.test]
+workflow = "ci.yml"
+job = "test"
+runs_on = "ubuntu-latest, windows-latest, macos-latest x 3.9-3.13"
+holds = ["tests/conftest.py", "bench/corpora.py", "bench/splits.toml", "tools/splits.py"]
+lacks = ["data/MED1250_labeled", "data/sdu22_ae_legal_dev.json", "data/plod_cw_dev.conll"]
+note = """
+Fifteen matrix cells. The load-bearing property is the `lacks` list: `data/` is
+fetched and never committed, so every cell of this job is already a
+suite-with-the-corpora-absent run. That is why D-058's cause one -- three
+controls asserting on a resolved corpus path -- was green on the author's
+machine and red on every runner.
+"""
+
+[environments.zero_dependency]
+workflow = "ci.yml"
+job = "zero-dependency"
+runs_on = "ubuntu-latest"
+holds = ["src/acronymkit/__init__.py"]
+lacks = []
+note = "Base package only. No click, spaCy, NLTK or onnxruntime is installed."
+
+[environments.air_gap]
+workflow = "ci.yml"
+job = "air-gap"
+runs_on = "ubuntu-latest"
+holds = ["tests/airgap_socket_guard.py"]
+lacks = []
+note = """
+A privileged runner: `sudo unshare -n` builds a network namespace with no
+route. THIS IS THE ONE JOB IN THE REPOSITORY THAT ALREADY SATISFIED R11 BEFORE
+R11 WAS WRITTEN. It opens with a positive control proving the namespace really
+has no route, and carries a second proving the socket guard really blocks --
+because, in its own words, a renamed patch target yields a green suite that
+checks nothing, which is worse than no gate because it reads as evidence. The
+pattern existed here for months and was never generalised to any other job.
+"""
+
+[environments.import_time]
+workflow = "ci.yml"
+job = "import-time"
+runs_on = "ubuntu-latest"
+holds = ["src/acronymkit/__init__.py"]
+lacks = []
+note = """
+A non-editable install of the base package. Not editable on purpose: an
+editable install adds a path finder of its own and what is measured is what a
+user installs.
+"""
+
+[environments.installed_suite]
+workflow = "ci.yml"
+job = "installed-suite"
+runs_on = "ubuntu-latest"
+holds = ["tests/conftest.py", "pyproject.toml"]
+lacks = []
+note = """
+The run directory holds `tests/` and `pyproject.toml` FROM THE ARTIFACT and
+nothing else: no `src/`, no `bench/`, no `tools/`, no `data/`, no `MANIFEST.in`.
+The `holds`/`lacks` globs above are checked against the CHECKOUT, not against
+that run directory, so they say almost nothing about this environment -- which
+is itself worth writing down, and is the reason
+`gates.installed_suite.expected_non_passing` is not automated below.
+"""
+
+[environments.build]
+workflow = "ci.yml"
+job = "build"
+runs_on = "ubuntu-latest"
+holds = ["MANIFEST.in", "pyproject.toml", "bench/results.json", "bench/splits.toml", "data/LICENSES.md"]
+lacks = []
+note = """
+A checkout that builds an sdist and a wheel, then extracts the sdist and runs
+the suite inside it. The extracted tree is the environment that catches the
+most historical breakages -- four of five, measured, see [[defect_coverage]] --
+because it EXECUTES the import rather than matching a pattern.
+"""
+
+[environments.codeql]
+workflow = "codeql.yml"
+job = "analyze"
+runs_on = "ubuntu-latest"
+no_gates_reason = """
+A third-party analysis whose findings this repository does not define and whose
+failure modes it cannot mutate: the rule set is GitHub's, it changes without a
+commit here, and a synthetic vulnerability planted to prove it fires would be
+committed source claiming to be a probe. Declared so the job is not invisible;
+not gated, and this is the disposition rather than an omission.
+"""
+
+[environments.scorecard]
+workflow = "scorecard.yml"
+job = "analysis"
+runs_on = "ubuntu-latest"
+no_gates_reason = """
+OSSF Scorecard publishes a score; it does not fail this repository's builds on
+a threshold. Nothing here can go red, so there is no gate to demonstrate.
+"""
+
+[environments.publish_build]
+workflow = "publish.yml"
+job = "build"
+runs_on = "ubuntu-latest"
+note = """
+Runs only on a release or an explicit dispatch. Its gates are real and its
+mutations are `manual` for one reason: producing the environment means cutting
+a release, and a scheduled harness that cut releases to test itself would be a
+worse failure than the one it prevents.
+"""
+
+[environments.publish_testpypi]
+workflow = "publish.yml"
+job = "publish-testpypi"
+runs_on = "ubuntu-latest"
+no_gates_reason = """
+An upload step. Its only failure mode is the index rejecting the artifact,
+which is not a property of this tree and cannot be mutated without uploading a
+deliberately broken distribution to a public index.
+"""
+
+[environments.publish_pypi]
+workflow = "publish.yml"
+job = "publish-pypi"
+runs_on = "ubuntu-latest"
+no_gates_reason = "Same as publish-testpypi: an upload, against the real index."
+
+[environments.publish_attest]
+workflow = "publish.yml"
+job = "attest"
+runs_on = "ubuntu-latest"
+no_gates_reason = """
+Generates build provenance through a GitHub-provided action. The attestation is
+produced by the platform, not by this tree; there is nothing here to mutate.
+"""
+
+[environments.publish_release_assets]
+workflow = "publish.yml"
+job = "release-assets"
+runs_on = "ubuntu-latest"
+no_gates_reason = "Uploads files to the release page. It asserts nothing about the tree."
+
+[environments.mutation_harness]
+workflow = "gate-mutation.yml"
+job = "lint-gates"
+runs_on = "ubuntu-latest"
+holds = [".github/gates.toml", "tools/gates.py"]
+lacks = ["data/MED1250_labeled"]
+note = """
+The harness's own environment. It mirrors `ci.yml`'s `lint` job so the
+mutations it runs there are run where those gates run.
+"""
+
+[environments.mutation_controls]
+workflow = "gate-mutation.yml"
+job = "controls"
+runs_on = "ubuntu-latest"
+holds = [".github/gates.toml"]
+lacks = []
+note = """
+Two synthetic gates and nothing else. This is where the regress stops: see
+[manifest].stops_at.
+"""
+
+[environments.mutation_test]
+workflow = "gate-mutation.yml"
+job = "test-gates"
+runs_on = "ubuntu-latest"
+holds = ["tests/conftest.py"]
+lacks = ["data/MED1250_labeled"]
+note = """
+Mirrors `ci.yml`'s `test` job on one cell rather than fifteen. One cell is
+enough for the mutations declared here, all of which turn on the absence of
+`data/` rather than on the interpreter version.
+"""
+
+[environments.mutation_resources]
+workflow = "gate-mutation.yml"
+job = "resource-gates"
+runs_on = "ubuntu-latest"
+no_gates_reason = """
+A mutation runner for `environments.resources`, whose gates are registered
+there. It carries no gate of its own: its correctness is held by the `controls`
+job, and giving it one would be a second register entry for the same two
+mutations.
+"""
+
+[environments.mutation_report]
+workflow = "gate-mutation.yml"
+job = "report"
+runs_on = "ubuntu-latest"
+no_gates_reason = """
+Prints `tools/gates.py --list` after every other job has run, so the in-situ
+count sits at the bottom of the run whatever the jobs above did. It asserts
+nothing, so there is nothing to demonstrate. It exists because a count nobody
+prints is a count nobody reads.
+"""
+
+[environments.mutation_packaging]
+workflow = "gate-mutation.yml"
+job = "packaging-gates"
+runs_on = "ubuntu-latest"
+holds = ["MANIFEST.in"]
+lacks = []
+note = """
+Mirrors `ci.yml`'s `build` job far enough to reintroduce the five historical
+breakages against a real sdist. The gate commands here run inside the extracted
+tree, so this job is the only place the packaging mutations mean anything.
+"""
+
+
+# ===========================================================================
+# GATES -- ci.yml : lint
+# ===========================================================================
+
+[gates.ruff]
+environment = "lint"
+step = "Ruff"
+command = "python -m ruff check src tests tools bench"
+defect_class = "static_analysis"
+detects = """
+Lint violations across src, tests, tools and bench. `bench` was outside the
+check for months while holding every benchmark runner -- the only writers of
+bench/results.json, the file every published claim is verified against.
+"""
+[gates.ruff.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "lint/ruff.log"
+verified_locally_on = 2026-08-24
+note = """
+An unused import is the cheapest thing ruff must catch. The probe is a NEW file
+rather than an edit to an existing one, so a botched restore leaves an
+unreferenced file rather than a corrupted tool.
+"""
+edits = [
+  { file = "tools/_gate_probe_ruff.py", create = "import os\n" },
+]
+
+[gates.ruff_format]
+environment = "lint"
+step = "Ruff format check"
+command = "python -m ruff format --check src tests tools bench"
+defect_class = "static_analysis"
+detects = "Formatting drift in src, tests, tools and bench."
+blind_to = """
+Everything ruff's formatter does not normalise. It is a formatter, not a style
+review, and this gate has never been the thing that catches a bad change.
+"""
+[gates.ruff_format.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "lint/ruff-format.log"
+verified_locally_on = 2026-08-24
+note = """
+Single quotes are a formatting-only difference: the selected lint rules say
+nothing about quote style, so this probe separates the format gate from the
+lint gate rather than tripping both.
+"""
+edits = [
+  { file = "tools/_gate_probe_format.py", create = "X = 'a'\n" },
+]
+
+[gates.mypy]
+environment = "lint"
+step = "Mypy"
+command = "python -m mypy"
+defect_class = "static_analysis"
+detects = """
+Type errors in src/acronymkit, tools and bench, checked at the 3.9 floor that
+`requires-python` declares. The floor is the load-bearing half: five
+`Path.write_text(newline=...)` calls -- 3.10+ only -- passed ruff, passed mypy
+at a 3.10 setting, passed the suite on 3.13, and failed only on the 3.9 cells
+of the matrix (D-058, cause two).
+"""
+blind_to = """
+`click` is `follow_imports = "skip"`, so calls into it are unchecked. At the
+3.9 floor mypy follows imports into third-party SOURCE, and current click uses
+`match` -- a hard stop that kills the whole run on a dependency's syntax. That
+did not reproduce locally because the resolved click there was 8.1.8.
+"""
+[gates.mypy.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "lint/mypy.log"
+verified_locally_on = 2026-08-24
+note = """
+THIS IS THE DEFECT THAT SHIPPED, NOT A SYNTHETIC ONE. `Path.write_text` grew
+its `newline` parameter in 3.10. The probe fails only while
+`python_version = "3.9"` is really in force, so it demonstrates the gate AND
+the setting the gate depends on -- which is the part that had silently changed.
+"""
+edits = [
+  { file = "tools/_gate_probe_mypy.py", create = "from pathlib import Path\n\n\ndef probe(path: Path) -> None:\n    path.write_text(\"x\", newline=\"\\n\")\n" },
+]
+
+[gates.splits_manifest]
+environment = "lint"
+step = "The train/test manifest parses, and every corpus cites its licence"
+command = "python tools/splits.py --check"
+defect_class = "claim_backing"
+detects = """
+An invalid, incomplete or dishonest `bench/splits.toml`: a missing role, task
+or licence; a licence cited from a badge rather than from terms; a future read
+date; a ceiling with no basis; a contaminated corpus claiming the headline
+role; a malformed reservation.
+"""
+[gates.splits_manifest.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "lint/splits.log"
+verified_locally_on = 2026-08-24
+note = """
+Operating rule 4 in one edit: a badge URL in place of licence terms. This
+project has recorded a corpus as more permissive than it is three times, and
+every correction came from a person opening the actual terms.
+"""
+edits = [
+  { file = "bench/splits.toml", find = "https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md", replace = "https://img.shields.io/badge/license-public--domain-green.svg" },
+]
+
+[gates.claims]
+environment = "lint"
+step = "Every performance claim is backed by a measurement"
+command = "python tools/check_claims.py"
+defect_class = "claim_backing"
+detects = """
+A published number with no measurement behind it, plus two ratchets that may
+not grow: value-matched claims and the deferred ledger.
+"""
+blind_to = """
+Numbers no arming rule reaches -- 1,475 of them on the current tree, which the
+tool prints on every run. And, structurally, the shape D-058 named: in a
+CHECKOUT every scan target is present by construction, so the absent-target
+branch of this gate cannot fire here. It fired in the sdist, and only there.
+See gates.claims_in_sdist.
+"""
+[gates.claims.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "lint/claims.log"
+verified_locally_on = 2026-08-24
+note = """
+The probe appends an uncited figure to docs/GATES.md, which is inside
+`SCAN_GLOBS` and absent from both baselines -- so it is allowed zero and the
+gate fails hard rather than adding to a ledger.
+"""
+edits = [
+  { file = "docs/GATES.md", append = "\n<!-- gate mutation probe, reverted by tools/gates.py -->\nProbe: F1 of 99.97 % on nothing at all.\n" },
+]
+
+[gates.gate_manifest]
+environment = "lint"
+step = "Every CI gate is registered, and says whether it has ever failed on purpose"
+command = "python tools/gates.py --check"
+defect_class = "environment_drift"
+detects = """
+A job nobody registered; a gate pointing at a renamed step; a mutation with no
+edits or a refusal with no reason; a defect-coverage row naming a gate that
+does not exist; two gates writing one artifact path.
+"""
+[gates.gate_manifest.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "lint/gate-manifest.log"
+verified_locally_on = 2026-08-24
+note = """
+This is the level-1 mutation described in [manifest].stops_at, and the edit is
+chosen to hit the ONE rule that checks this file against the tree rather than
+against itself: a new job appears in ci.yml and the register has to refuse it.
+Every other rule here could rot together and still agree with itself.
+"""
+edits = [
+  { file = ".github/workflows/ci.yml", append = "\n  unregistered-probe:\n    name: A job the register has never heard of\n    runs-on: ubuntu-latest\n    steps:\n      - name: Probe\n        run: \"true\"\n" },
+]
+
+
+# ===========================================================================
+# GATES -- ci.yml : resources
+# ===========================================================================
+
+[gates.resource_formats]
+environment = "resources"
+step = "Validate resource file formats"
+command = "python tools/validate_resources.py --require"
+defect_class = "artifact_contents"
+detects = "A bundled resource that is malformed, empty, or absent."
+[gates.resource_formats.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "resources/formats.log"
+verified_locally_on = 2026-08-24
+edits = [
+  { file = "src/acronymkit/resources/stopwords_fr.json", delete = true },
+]
+
+[gates.ngram_matches_lexicon]
+environment = "resources"
+step = "Assert committed n-gram models match the lexicons"
+command = "python tools/build_ngram_model.py --check"
+defect_class = "artifact_contents"
+detects = "A committed n-gram model that no longer derives from the committed lexicon."
+[gates.ngram_matches_lexicon.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "resources/ngram.log"
+verified_locally_on = 2026-08-24
+edits = [
+  { file = "src/acronymkit/resources/lexicon_en.txt", append = "zzzzqqqqxxxx\n" },
+]
+
+[gates.schema_copies_match]
+environment = "resources"
+step = "Assert the bundled schema copy matches the canonical one"
+defect_class = "artifact_contents"
+detects = """
+Divergence between schemas/acronym-engine-result.schema.json and the copy
+bundled into the wheel. Two copies of one contract is how a shipped validator
+comes to accept what the documented schema rejects.
+"""
+[gates.schema_copies_match.mutation]
+kind = "inline"
+reason = """
+The gate is a heredoc inside ci.yml with no command a runner can invoke, so
+this harness could only run a COPY of it -- and D-018 settled that a pattern
+describing the bug cannot be used to test for the bug. Extracting it into
+`tools/` the way `tools/splits.py` was extracted is the fix; it is six lines of
+Python and it is not done, because moving a working gate is a change to a check
+and belongs in a commit that says so.
+"""
+
+
+# ===========================================================================
+# GATES -- ci.yml : test
+# ===========================================================================
+
+[gates.suite]
+environment = "test"
+step = "Test"
+command = "python -m pytest"
+defect_class = "behaviour"
+detects = "Everything 4,734 tests assert, across fifteen matrix cells."
+blind_to = """
+Anything that needs a fetched corpus, which is the whole of `data/`. Also, on
+the author's machine, anything that needs `data/` to be ABSENT -- which is how
+three controls asserting on a resolved corpus path went green locally and red
+on every runner.
+"""
+[gates.suite.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "test/suite.log"
+note = """
+THE MOST IMPORTANT MUTATION IN THIS FILE, AND THE ONE THAT IS EXPECTED TO COME
+BACK `INERT` LOCALLY. It restores D-058's cause one exactly: a control asserting
+on the path `_sdu22_ae_source` returns, instead of on the filename both
+outcomes name. On a runner `data/` is absent, the call raises `SystemExit`
+before returning anything, and the suite fails. On a developer machine with
+`data/` fetched it passes, so this harness reports INERT there -- correctly.
+The disagreement between the two runs is the demonstration, not a defect in the
+probe. `verified_locally_on` is deliberately UNSET: a laptop run of this one is
+not a verification and recording it as one would be the exact confusion R11
+exists to end.
+
+MEASURED BOTH WAYS ON 2026-08-24, on one clean export of HEAD, by moving `data/`
+aside between two runs of `pytest tests/test_splits_manifest.py`:
+
+    data/ present  (a developer machine)   88 passed
+    data/ absent   (a CI runner)           1 failed, 87 passed
+      FAILED TestTheRealManifest::test_the_reader_that_would_spend_the_allocated_arm_is_wired
+
+Same tree, same suite, same defect, opposite verdicts. That is the whole of R11
+in one table, and it is the prediction `test-gates` exists to check in situ.
+"""
+edits = [
+  { file = "tests/test_splits_manifest.py", find = "assert _unreserved_filename(\n            lambda: corpora._sdu22_ae_source(None, \"legal\", \"dev\")\n        ).endswith(\"legal_dev.json\")", replace = "assert corpora._sdu22_ae_source(None, \"legal\", \"dev\").name.endswith(\"legal_dev.json\")" },
+]
+
+[gates.test_environment_control]
+environment = "test"
+step = "This runner is the environment the register says it is"
+command = "python tools/gates.py --assert-environment test"
+defect_class = "positive_control"
+detects = """
+That this runner really holds what `environments.test` says it holds and really
+lacks what it says it lacks. Fifteen matrix cells are a corpora-absent run of
+the suite ONLY while `data/` is genuinely empty here; a cached or vendored
+`data/` would turn every gate that depends on that absence into a tautology,
+silently, and nothing else in this repository would notice.
+
+This is `air-gap`'s "Prove the network namespace really has no route" applied
+to a second environment. That job has carried a positive control since it was
+written and no other job in this repository has one.
+"""
+blind_to = """
+Four of the fifteen matrix cells, and the reason is banal and worth writing
+down anyway: `tools/gates.py` needs a TOML parser, `tomllib` is 3.11+, `tomli`
+is not a declared dev dependency, so the step is skipped on 3.9 and 3.10 --
+ubuntu/windows/macos 3.9 and ubuntu 3.10. A control that does not run in a
+third of its environment is a control with a third-sized hole. One line in
+pyproject.toml's dev extra closes it and pyproject.toml was not this
+workstream's file.
+"""
+[gates.test_environment_control.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "test/environment-control.log"
+note = """
+Deleting a declared `holds` path must make the control refuse. Not verified
+locally, and it cannot be: on a developer machine with the corpora fetched this
+control ALREADY fails, so the harness would report UNRESTORED rather than
+demonstrated. That asymmetry is the control doing its job.
+"""
+edits = [
+  { file = "bench/splits.toml", delete = true },
+]
+
+
+# ===========================================================================
+# GATES -- ci.yml : zero-dependency, air-gap, import-time
+# ===========================================================================
+
+[gates.tier_zero_purity]
+environment = "zero_dependency"
+step = "Import and run without click, spaCy, NLTK or onnxruntime present"
+defect_class = "behaviour"
+detects = """
+Tier 0 pulling an optional dependency into sys.modules, and Tier 0 failing to
+generate or extract at all with no extras installed.
+"""
+[gates.tier_zero_purity.mutation]
+kind = "inline"
+reason = """
+A heredoc in ci.yml; see gates.schema_copies_match. The mutation is obvious and
+cheap once the probe is a script -- an eager `import click` in
+`src/acronymkit/__init__.py` -- and it cannot be run against the gate as it
+stands without copying the gate.
+"""
+
+[gates.airgap_namespace_control]
+environment = "air_gap"
+step = "Prove the network namespace really has no route"
+defect_class = "positive_control"
+detects = """
+A runner where `unshare` silently did nothing, which would turn every later
+step of this job into a tautology that passes. The same connection must succeed
+outside the namespace and fail inside it.
+"""
+[gates.airgap_namespace_control.mutation]
+kind = "control"
+reason = """
+This step IS the positive control, and it is the prior art for this whole
+register: it was written to stop the job's own evidence being vacuous. Mutating
+a control is a different task from mutating a gate and is not attempted here.
+"""
+
+[gates.airgap_socket_guard_control]
+environment = "air_gap"
+step = "Show that the socket guard actually blocks"
+command = "python tests/airgap_socket_guard.py"
+defect_class = "positive_control"
+detects = """
+A socket guard whose patch targets have been renamed, which yields a green
+suite that checks nothing -- worse than no gate, because it reads as evidence.
+The step runs the guard's own probes, including a real connect() to RFC 5737
+TEST-NET-1, and prints which primitives refused.
+"""
+[gates.airgap_socket_guard_control.mutation]
+kind = "control"
+reason = """
+The same disposition as the namespace control above: this step exists to
+demonstrate that its neighbour can fail. It is the second of the two positive
+controls this repository already had.
+"""
+
+[gates.airgap_offline_install]
+environment = "air_gap"
+step = "Install with no index and no route"
+defect_class = "supply_chain"
+detects = """
+A dependency that quietly needs a package index, or a cache under HOME, to
+install. HOME points at a path that does not exist so "it just caches to
+~/.cache on first use" fails loudly instead of succeeding quietly.
+"""
+[gates.airgap_offline_install.mutation]
+kind = "manual"
+reason = """
+Reproducing this needs `sudo unshare -n` and a staged wheelhouse. The harness
+runs unprivileged and does not build one. A mutation would be adding a
+dependency that requires an index -- a real change to the dependency set, not
+an edit a probe may make and revert.
+"""
+
+[gates.airgap_suite_under_guard]
+environment = "air_gap"
+step = "Run the full test suite with every socket primitive patched to raise"
+defect_class = "behaviour"
+detects = """
+Any socket touched during collection, import or a test -- which is when a
+phone-home would actually fire, and is why `-p` loads the guard before conftest.
+"""
+[gates.airgap_suite_under_guard.mutation]
+kind = "manual"
+reason = """
+The gate has a command, but only inside the namespace-and-wheelhouse
+environment the two steps above construct. Running it anywhere else tests the
+guard rather than the job. Its positive control already runs on every CI run,
+which is more than any other gate here can say.
+"""
+
+[gates.airgap_public_api_probe]
+environment = "air_gap"
+step = "Exercise the whole public API with no route to anywhere"
+defect_class = "behaviour"
+detects = """
+Any public entry point -- generation, extraction, disambiguation, backronyms,
+batch, async, schema load, capabilities(), every CLI subcommand -- that
+silently degrades or fails with no route to anywhere.
+"""
+[gates.airgap_public_api_probe.mutation]
+kind = "inline"
+reason = """
+A 150-line heredoc written into $RUNNER_TEMP inside the job. Same disposition
+as the other inline gates, with the additional note that this one is large
+enough that extracting it is a real piece of work rather than a tidy-up.
+"""
+
+[gates.import_ceiling]
+environment = "import_time"
+step = "Measure cold import in a subprocess and enforce the ceiling"
+defect_class = "budget"
+detects = """
+`import acronymkit` binding anything eagerly -- the structural half, which
+cannot be flaky -- and a cold import over 30 ms, which separates ~2 ms from
+the ~130 ms a re-eager Pydantic DTO layer measures.
+"""
+blind_to = """
+It is deliberately NOT a certification of the measured figure. D-013's
+2.3/128.1/196.0 triple is bench/run_micro.py's job and is gated there.
+"""
+[gates.import_ceiling.mutation]
+kind = "inline"
+reason = """
+A heredoc in ci.yml. The mutation that matters is one line -- an eager
+`import pydantic` at module scope in `src/acronymkit/__init__.py`, which the
+structural half must reject -- and it is blocked on the same extraction as
+gates.schema_copies_match and gates.tier_zero_purity. Three gates, one fix.
+"""
+
+
+# ===========================================================================
+# GATES -- ci.yml : installed-suite
+# ===========================================================================
+
+[gates.installed_import_resolves]
+environment = "installed_suite"
+step = "The import must resolve to site-packages, not to a tree"
+defect_class = "environment_drift"
+detects = """
+A source tree that has got into the run directory, or a conftest that has found
+a new way to put one on sys.path. Every claim the installed-suite job makes
+rests on this, and without it the job would go on passing while testing a
+checkout -- which is the state `build`'s sdist step has been in all along.
+"""
+[gates.installed_import_resolves.mutation]
+kind = "inline"
+reason = """
+A heredoc in the job. Note that this step is itself a positive control for its
+neighbour, so the repository has three of those and not two -- the register
+found the third by enumeration, which is the argument for enumerating.
+"""
+
+[gates.installed_expected_non_passing]
+environment = "installed_suite"
+step = "Run the full suite against the installed package"
+defect_class = "artifact_contents"
+detects = """
+A test that passes in a checkout and fails against the installed distribution,
+and -- in the other direction -- a name on EXPECTED_NON_PASSING that has started
+passing. Plus a pass floor, so the job cannot go green after something quietly
+stops the suite collecting.
+"""
+blind_to = """
+MEASURED, NOT ASSUMED: two of the five historical breakages, re-measured
+2026-08-24 against this tree (see [[defect_coverage]]). It misses `a` and `b`
+because the run directory holds no `bench/` or `data/` for their absence to be
+noticed in, and it misses `e` -- and the REASON `e` is missed has changed since
+D-050 recorded it. It used to be the file-keyed EXPECTED_NON_PASSING entry.
+Both file-keyed entries were deleted in a62f99a and replaced with narrow
+module-level skips, and `e` is still missed, because the skip fires at
+tests/test_splits_manifest.py:133 before the load at line 143. The blind spot
+moved from a list of names in ci.yml into a skip condition in the test file. It
+did not shrink.
+"""
+[gates.installed_expected_non_passing.mutation]
+kind = "manual"
+reason = """
+The gate is a five-step sequence -- build an sdist, install it, lay out a run
+directory from the artifact, assert the import resolves to site-packages, then
+run the suite and parse the log -- not a command. `gate-mutation.yml` reproduces
+that sequence in its `packaging-gates` job, and a reproduction is not the gate:
+the two can drift and nothing would say so. Recorded as manual rather than
+automated for that reason, and the drift risk is the honest cost of covering it
+at all.
+"""
+
+
+# ===========================================================================
+# GATES -- ci.yml : build
+# ===========================================================================
+
+[gates.twine_metadata]
+environment = "build"
+step = "Check metadata"
+defect_class = "supply_chain"
+detects = "Distribution metadata PyPI would reject -- which is how the first publish failed."
+[gates.twine_metadata.mutation]
+kind = "manual"
+reason = """
+`twine check dist/*` needs a built distribution, so the gate's command is not
+runnable against a checkout. It is cheap to mutate inside `packaging-gates` and
+is not done: the five historical breakages were the budget for that job.
+"""
+
+[gates.wheel_budget]
+environment = "build"
+step = "Enforce the wheel size budget"
+defect_class = "budget"
+detects = """
+A wheel over 786,432 B. The change it exists to reject is an LRABR-derived
+expansion dictionary, measured at 402.7 KB gzipped for the tightest useful
+shape, which would reach ~894 KB on today's wheel.
+"""
+[gates.wheel_budget.mutation]
+kind = "inline"
+reason = """
+A heredoc, and one whose comment block has gone stale twice already -- which is
+why the figures it used to quote are now computed and printed on every run
+instead of written down. The gate is in better shape than its mutation
+coverage.
+"""
+
+[gates.wheel_resources]
+environment = "build"
+step = "Verify bundled resources are present in the wheel"
+defect_class = "artifact_contents"
+detects = "A required resource missing from the built wheel."
+blind_to = """
+Everything not on its hand-written `required = [...]` list, which is the wrong
+shape and is documented as such in ci.yml. Deleting
+`resources/pseudo_precision_en.json` from an installed distribution passes this
+gate and fails `installed-suite` with 15 failures.
+"""
+[gates.wheel_resources.mutation]
+kind = "inline"
+reason = "A heredoc; see gates.schema_copies_match."
+
+[gates.installed_wheel_smoke]
+environment = "build"
+step = "Verify the installed wheel works without a source checkout"
+defect_class = "behaviour"
+detects = """
+A wheel that installs and then cannot generate, or whose `load_schema()`
+resolves to the checkout copy rather than the bundled resource.
+"""
+[gates.installed_wheel_smoke.mutation]
+kind = "inline"
+reason = "A heredoc; see gates.schema_copies_match."
+
+# ONE STEP, THREE GATES, AND SPLITTING THEM IS A FINDING RATHER THAN TIDINESS.
+# "Verify the sdist ships the files its own test suite reads" runs a list of
+# `test -f` lines AND a whole pytest run inside the extracted tree. Those two
+# mechanisms have DIFFERENT coverage of the five historical breakages -- 2 of 5
+# and 4 of 5 -- and registering the step as one gate would have published a
+# single number that is true of neither. The register's unit is the assertion,
+# not the YAML step.
+
+[gates.sdist_file_list]
+environment = "build"
+step = "Verify the sdist ships the files its own test suite reads"
+defect_class = "artifact_contents"
+detects = """
+Five named files missing from the sdist, by name: conftest.py, the schema,
+bench/results.json, data/LICENSES.md and the air-gap guard. `data/LICENSES.md`
+is held by one of these lines and by nothing else in the repository -- measured,
+not assumed.
+"""
+blind_to = """
+A list of names is the wrong shape and ci.yml says so beside it. It catches
+2 of the 5 historical breakages: the two that are literally on the list.
+"""
+[gates.sdist_file_list.mutation]
+kind = "manual"
+reason = """
+Needs a built and extracted sdist. `gate-mutation.yml`'s `packaging-gates` job
+reproduces the sequence and runs all five historical breakages through it; the
+same reproduction-is-not-the-gate caveat applies as for
+gates.installed_expected_non_passing.
+"""
+
+[gates.sdist_extracted_tree_suite]
+environment = "build"
+step = "Verify the sdist ships the files its own test suite reads"
+defect_class = "artifact_contents"
+detects = """
+THE GATE THAT CATCHES THE MOST, AND THE REASON IS WHY THE AST GUARD WAS RETIRED
+AGAINST IT: it runs the artifact's own suite inside the extracted tree, so it
+EXECUTES the import rather than matching a pattern, and no spelling hides from
+it. Four of the five historical breakages, measured 2026-08-24.
+"""
+blind_to = """
+`b` -- nothing in the suite reads data/LICENSES.md, so the file can vanish and
+this run stays green. And the whole thing rests on `bench/*.py` staying out of
+the sdist: that absence is what makes the unguarded module-level import raise.
+If a future commit ships the runners, this stops seeing the class entirely, and
+the only net left is a job blind in two files. Shipping `bench/*.py` is a change
+to a check, not just to a manifest.
+"""
+[gates.sdist_extracted_tree_suite.mutation]
+kind = "manual"
+reason = "Same as gates.sdist_file_list: it needs a built and extracted sdist."
+
+[gates.claims_in_sdist]
+environment = "build"
+step = "Verify the sdist ships the files its own test suite reads"
+defect_class = "claim_backing"
+detects = """
+The claims gate reading a scan target the distribution does not ship. This is a
+SECOND gate on the same step, and it is listed separately because it is the one
+that actually fired: D-052 added bench/splits.toml to SCAN_GLOBS, MANIFEST.in
+did not ship it, and the distribution carried a checker that could not pass --
+green in a checkout by construction, red only here. Fourth instance of the same
+shape.
+"""
+[gates.claims_in_sdist.mutation]
+kind = "manual"
+reason = """
+Same as gates.sdist_file_list: it needs a real sdist. Reproduced as case `a` in
+`packaging-gates`, where deleting the MANIFEST.in line for bench/results.json
+makes the extracted-tree run fail on
+tests/test_check_claims.py::TestThisRepository::test_the_checkout_is_green --
+measured 2026-08-24.
+"""
+
+
+# ===========================================================================
+# GATES -- publish.yml
+# ===========================================================================
+
+[gates.release_version_guard]
+environment = "publish_build"
+step = "Assert the packaged version is releasable"
+defect_class = "supply_chain"
+detects = "A release whose packaged version does not match the tag, or is not releasable."
+[gates.release_version_guard.mutation]
+kind = "manual"
+reason = """
+The environment is a release. A scheduled harness that cut releases to
+demonstrate its gates would be a worse failure than the one it prevents. The
+guard has failed in anger once -- 48baa86, "the version guard skipped the route
+the release actually took" -- so it is not undemonstrated, it is
+undemonstrated-on-a-schedule.
+"""
+
+[gates.sbom_describes_this_distribution]
+environment = "publish_build"
+step = "Check that both SBOMs actually describe this distribution"
+defect_class = "supply_chain"
+detects = "An SBOM generated against something other than the artifact being released."
+[gates.sbom_describes_this_distribution.mutation]
+kind = "manual"
+reason = "Release-only environment; same disposition as gates.release_version_guard."
+
+[gates.offline_bundle]
+environment = "publish_build"
+step = "Build one offline install bundle per platform"
+defect_class = "supply_chain"
+detects = "A platform for which no complete offline install bundle can be assembled."
+[gates.offline_bundle.mutation]
+kind = "manual"
+reason = "Release-only environment; needs an index while building. Same disposition."
+
+[gates.release_checksums]
+environment = "publish_build"
+step = "Collect everything the release page will carry, and check-sum it"
+defect_class = "supply_chain"
+detects = "A release asset that is not check-summed, or a checksum over the wrong file."
+[gates.release_checksums.mutation]
+kind = "manual"
+reason = "Release-only environment; same disposition as gates.release_version_guard."
+
+
+# ===========================================================================
+# GATES -- gate-mutation.yml : the harness's own controls
+# ===========================================================================
+# THE REGRESS STOPS HERE. See [manifest].stops_at.
+
+[gates.control_always_red]
+environment = "mutation_controls"
+step = "Positive control - a mutation that must be demonstrated"
+command = "python tools/gates.py --check --path .github/gates.toml"
+defect_class = "positive_control"
+detects = """
+That this harness can still tell a failure from a pass. The edit makes
+`--check` red by giving a gate an unknown key; if the harness reports anything
+but `demonstrated`, its detector is broken and every other row it printed is
+worthless.
+"""
+[gates.control_always_red.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "controls/always-red.log"
+verified_locally_on = 2026-08-24
+edits = [
+  { file = ".github/gates.toml", find = "artifact = \"controls/always-green.log\"", replace = "artifact = \"controls/always-green.log\"\nthis_key_is_never_allowed = true" },
+]
+
+[gates.control_always_green]
+environment = "mutation_controls"
+step = "Negative control - a mutation that must NOT be demonstrated"
+command = "python tools/gates.py --check --path .github/gates.toml"
+defect_class = "positive_control"
+detects = """
+A harness that has rotted into reporting `demonstrated` for everything. The
+edit is a comment: it changes a byte and cannot change an outcome, so this gate
+MUST come back `INERT`. `expect = "pass"` is what says so, and the harness
+fails the run if the gate goes red instead.
+
+This is the one row in the file whose red is good news.
+"""
+[gates.control_always_green.mutation]
+kind = "automated"
+expect = "pass"
+artifact = "controls/always-green.log"
+verified_locally_on = 2026-08-24
+edits = [
+  { file = ".github/gates.toml", append = "\n# a comment appended by the negative control, and reverted\n" },
+]
+
+
+# ===========================================================================
+# GATES -- gate-mutation.yml : the harness's own jobs
+# ===========================================================================
+
+[gates.harness_lint_environment]
+environment = "mutation_harness"
+step = "Mutate every automated gate of ci.yml's lint job, in that environment"
+command = "python tools/gates.py --assert-environment lint"
+defect_class = "positive_control"
+detects = """
+That the harness job really is the `lint` environment before it claims to have
+demonstrated anything there. A mutation run in the wrong place proves nothing
+about the gate it names, and that is the whole content of R11.
+"""
+[gates.harness_lint_environment.mutation]
+kind = "automated"
+expect = "fail"
+artifact = "harness/lint-environment.log"
+note = """
+Not verified locally, and it cannot be: on a developer machine with `data/`
+fetched this assertion already fails, which is the correct answer and makes the
+harness report UNRESTORED rather than demonstrated.
+"""
+edits = [
+  { file = "bench/results.json", delete = true },
+]
+
+[gates.harness_packaging]
+environment = "mutation_packaging"
+step = "Reintroduce each historical breakage against a real sdist"
+defect_class = "artifact_contents"
+detects = """
+The five historical packaging breakages, reintroduced one at a time against a
+real sdist and run through both the extracted-tree suite and the installed
+run-directory suite. The coverage table this produces is [[defect_coverage]]
+below.
+"""
+[gates.harness_packaging.mutation]
+kind = "manual"
+reason = """
+This job IS a mutation runner; mutating it is the level-two step the regress
+stops before. Its correctness is held by the two synthetic controls in the
+`controls` job and by the fact that a wrong answer here changes a published
+coverage table that a reader can re-derive with the commands in docs/GATES.md.
+"""
+
+[gates.harness_test_environment]
+environment = "mutation_test"
+step = "Mutate ci.yml's test job on one cell"
+defect_class = "environment_drift"
+detects = """
+That `gates.suite`'s mutation -- D-058's cause one, restored -- really does turn
+the suite red where `data/` is absent. This is the gate whose whole point is
+that it behaves differently here and on a developer machine.
+"""
+[gates.harness_test_environment.mutation]
+kind = "manual"
+reason = """
+Mutating the mutation of a gate is the second level of the regress and is not
+attempted. What holds this row is that its outcome is checked against a
+prediction written down in advance: `gates.suite` is expected `demonstrated`
+here and `INERT` locally, and a run where both agree is the finding.
+"""
+
+
+# ===========================================================================
+# DEFECT COVERAGE -- how many known defects each gate actually catches
+# ===========================================================================
+# The shape of record every gate should carry, and the reason this table is
+# here rather than a sentence: D-050 retired an AST guard on the premise that
+# `installed-suite` subsumed it by construction, and the premise was false on
+# that record's own printed table. Coverage is counted, against real reverted
+# defects, or it is a story.
+#
+# EVERY ROW BELOW WAS RE-MEASURED FOR THIS REGISTER RATHER THAN COPIED. Each
+# breakage was reintroduced one at a time on a clean `git archive HEAD` export,
+# a real sdist was built from it, and both environments were run through their
+# literal command sequences. The 2-of-5 and 4-of-5 totals D-050 recorded
+# reproduce exactly. One REASON did not, and it is written into row `e`.
+#
+# Re-measurement conditions, stated because they are the same ones D-050 had
+# and the same limitation applies: 2026-08-24, commit a62f99a, Windows,
+# CPython 3.13, `Scripts/python.exe` for `bin/python`. Ubuntu under GitHub's
+# `bash -e` is unexecuted, exactly as it was for D-040 and D-050.
+
+[[defect_coverage]]
+id = "a"
+summary = "bench/results.json left out of the sdist, so the shipped claims gate could not pass"
+fixed_in = "9d6bb21"
+caught_by = ["sdist_file_list", "sdist_extracted_tree_suite", "claims_in_sdist"]
+missed_by = ["installed_expected_non_passing"]
+measured_on = 2026-08-24
+measured_in = "a62f99a, Windows, CPython 3.13"
+note = """
+The `test -f` line names it directly. The extracted-tree suite ALSO fails, on
+tests/test_check_claims.py::TestThisRepository::test_the_checkout_is_green --
+so the artifact carries its own detection and does not depend on the file list.
+`installed-suite` cannot see it: the run directory holds no `bench/` for the
+absence to be noticed in.
+"""
+
+[[defect_coverage]]
+id = "b"
+summary = "data/LICENSES.md left out of the sdist, so README and SECURITY link to nothing"
+fixed_in = "ade807f"
+caught_by = ["sdist_file_list"]
+missed_by = ["sdist_extracted_tree_suite", "installed_expected_non_passing"]
+measured_on = 2026-08-24
+measured_in = "a62f99a, Windows, CPython 3.13"
+note = """
+Caught by the `test -f` line and by NOTHING ELSE, re-confirmed here: the
+extracted-tree suite passes with the file gone, because no test reads it. That
+line is the entire net. Deleting it as tidy-up removes the only check on a file
+two shipped documents cite as evidence.
+"""
+
+[[defect_coverage]]
+id = "c"
+summary = "tests/fixtures/*.json left out of the sdist, so the artifact's own suite could not start"
+fixed_in = "ed05317"
+caught_by = ["sdist_extracted_tree_suite", "installed_expected_non_passing"]
+missed_by = ["sdist_file_list"]
+measured_on = 2026-08-24
+measured_in = "a62f99a, Windows, CPython 3.13"
+note = """
+The one breakage both environments catch. installed-suite went from 4,339
+passed to 3,748 passed with 38 failures and 5 errors -- it is not subtle there.
+"""
+
+[[defect_coverage]]
+id = "d"
+summary = "tests/test_governed_gold.py loads bench/run_governed_gold.py at module level, unguarded"
+fixed_in = "b9bf728"
+caught_by = ["sdist_extracted_tree_suite", "installed_expected_non_passing"]
+missed_by = ["sdist_file_list"]
+measured_on = 2026-08-24
+measured_in = "a62f99a, Windows, CPython 3.13"
+note = """
+A `pytest.mark.skipif` cannot save a module body that already ran: the mark is
+consulted at collection and the body runs at import, which is earlier.
+"""
+
+[[defect_coverage]]
+id = "e"
+summary = "tests/test_splits_manifest.py loads bench/corpora.py at module level, unguarded"
+fixed_in = "da8b222"
+caught_by = ["sdist_extracted_tree_suite"]
+missed_by = ["sdist_file_list", "installed_expected_non_passing"]
+measured_on = 2026-08-24
+measured_in = "a62f99a, Windows, CPython 3.13"
+note = """
+THE ROW WHOSE REASON CHANGED, AND THE REASON IS THE FINDING.
+
+D-050 measured `installed-suite` missing this and attributed it to the
+file-keyed EXPECTED_NON_PASSING entry: while a FILE sits on that list the job
+cannot see a second defect anywhere in it. D-058 deleted both file-keyed
+entries and replaced them with narrow module-level skips, and its own closing
+note reads as though the blind spot went with them.
+
+It did not. Re-measured here, `e` is STILL missed, and the log says why:
+
+    SKIPPED [1] tests/test_splits_manifest.py:133: tools/ is not part of an
+    installed distribution; these tests belong to a checkout
+
+The skip fires at line 133. The unguarded load is at line 143. The module never
+reaches it. The blind spot moved from a list of names in ci.yml into a skip
+condition in the test file -- same shape, one absorbing condition upstream of
+the defect -- and the counts are identical to a clean run in both cases, which
+is exactly what made the original instance hard to see.
+
+That is not an argument against the narrow skips: they are strictly better than
+the file-keyed entries, because any OTHER error in the file now reaches the
+job. It is an argument against reading "the list shrank" as "the coverage
+grew". It did not grow. It is 2 of 5 before and 2 of 5 after.
+"""

@@ -54,6 +54,12 @@ Six measurements, each independently selectable:
     declared tuning split, so it cannot answer whether a fix generalises; this
     can, for PLOD.
 
+    **All three shipped profiles, and until this round only one.** This mode ran
+    ``high_precision`` alone while ``EXTRACTION_PROFILES`` ships three, so every
+    figure it produced was a statement about a third of the configuration
+    surface wearing the name of the whole. It was not a wrong number; it was a
+    table whose scope had to be read off the source. See ``span_variants``.
+
     Every table prints the corpus's structure above its scores, because a
     neutral result only means something on a corpus capable of showing the
     phenomenon (R9.5) and a recall figure only means something beside its
@@ -80,6 +86,18 @@ Six measurements, each independently selectable:
     carry a census of the separators that open a *number*, because "the
     equation risk lives in scientific text" is a premise and the census is what
     makes it checkable. SDU-22 AE dev is TUNING and contaminated.
+
+``--spend-legal-train``
+    **This one spends a reserved corpus arm and cannot be undone.** SDU-22 legal
+    ``train.json`` is 3,564 unread samples reserved in ``bench/splits.toml`` and
+    allocated by D-047 to one question: what ``legend_syntax`` costs on an arm
+    that was not mined to invent it. The mode declares the spend through
+    ``bench.corpora.declare_spend`` -- the reader refuses before any path
+    resolves otherwise -- then publishes, in one invocation and over all three
+    shipped profiles, the legend cost, the gate funnel, the miss decomposition
+    D-047 makes a condition of the spend, and the full ``_VARIANTS`` table so
+    the ``two_word`` row experiment nine needs is saved for free. It prints the
+    firing count last, and says in those words if it fired zero times.
 
 ``--relaxations``
     A rejected relaxation, recorded because it loses: treating a digit in the
@@ -389,7 +407,7 @@ def _install(
     :func:`_extractor_init_legend_on` for why that one is different.
     """
     extractor_module._trim_span = trim_span_balanced if balanced_trim else trim_span_unbalanced
-    AbbreviationExtractor._pair_for_region = (
+    AbbreviationExtractor._pair_for_region = (  # type: ignore[method-assign]
         pair_for_region_two_word if two_word else _ORIGINAL_PAIR_FOR_REGION
     )
     extractor_module.is_valid_long_form = (
@@ -403,7 +421,7 @@ def _install(
 def _restore() -> None:
     """Put the shipped extractor back, so nothing downstream inherits a patch."""
     extractor_module._trim_span = _ORIGINAL_TRIM
-    AbbreviationExtractor._pair_for_region = _ORIGINAL_PAIR_FOR_REGION
+    AbbreviationExtractor._pair_for_region = _ORIGINAL_PAIR_FOR_REGION  # type: ignore[method-assign]
     extractor_module.is_valid_long_form = _ORIGINAL_IS_VALID_LONG_FORM
     AbbreviationExtractor.__init__ = _ORIGINAL_EXTRACTOR_INIT  # type: ignore[method-assign]
 
@@ -917,7 +935,7 @@ def legend_exposure(
         One ``results.json`` record.
     """
     _restore()
-    extractor = AbbreviationExtractor(Config(**settings), legend_syntax=True)  # type: ignore[arg-type]
+    extractor = AbbreviationExtractor(Config(**settings), legend_syntax=True)
     counts: Counter = Counter()
     emitted: list[tuple[str, str, str]] = []
     gold_after_separator = 0
@@ -1022,7 +1040,7 @@ def _engine_pairs(text: str, settings: dict) -> list:
     """Whatever the engine currently installed reports for ``text``."""
     from acronymkit import AcronymEngine
 
-    return AcronymEngine(Config(**settings)).extract_definitions(text)  # type: ignore[arg-type]
+    return AcronymEngine(Config(**settings)).extract_definitions(text)
 
 
 def _engine_spans(text: str, settings: dict) -> dict[str, tuple[frozenset, ...]]:
@@ -1491,6 +1509,143 @@ def legend_cost(
     }
 
 
+#: How far back from a missed gold long form the audit looked for a separator.
+#: Thirty characters, because that is the window the August 2026 audit used to
+#: produce the ``{'=': 127, ':': 4}`` decomposition that ranked this proposal in
+#: the first place, and a decomposition published against a *different* window
+#: is not the comparison D-047 asked for. The narrow reading -- the separator
+#: immediately before the span -- is reported in the same record rather than
+#: instead of it, because the wide window is what motivated the rule and the
+#: narrow one is what the rule can actually reach.
+_MISS_WINDOW = 30
+
+#: The four buckets, in the order they are tested. Not exclusive by luck: a
+#: window holding both ``=`` and ``:`` is an ``=``, because the legend rule
+#: reads the ``=``.
+_MISS_BUCKETS = (
+    "after_equals_within_window",
+    "after_colon_within_window",
+    "after_open_bracket_within_window",
+    "no_separator_or_bracket_in_window",
+)
+
+
+def sdu22_miss_decomposition(documents: Sequence, *, corpus: str, split: str, profile: str) -> dict:
+    """Every gold long form the shipped default misses, decomposed by what precedes it.
+
+    **This is the half of D-047's spend trigger that is not a score.** The
+    allocation is conditional on publishing the miss decomposition beside the
+    precision delta, for the reason the manifest gives: whoever owns the read
+    owns the decomposition, and the decomposition is what mines the arm. Doing
+    it here means the arm is mined once, in the open, by the run that declared
+    the spend -- rather than incidentally, by whoever opens the file next.
+
+    Four buckets over the ``_MISS_WINDOW`` characters before each missed gold
+    long-form span, and they are ordered, not exclusive-by-luck: a window
+    holding an ``=`` is counted as ``=`` even if it also holds a colon, because
+    the legend rule reads the ``=``.
+
+    The last column is the one that ties the decomposition to the flag:
+    how many of the missed spans the rule **recovers exactly** when it is turned
+    on. A miss sitting after a separator that the rule still cannot reach is a
+    different fact from one it reaches, and a bucket count alone conflates them.
+
+    Args:
+        documents: A char-span corpus.
+        corpus: Corpus name for the record.
+        split: Split label, including its role.
+        profile: Key into :data:`_PROFILES`.
+
+    Returns:
+        One ``results.json`` record.
+    """
+    settings = _PROFILES[profile]
+    _install(balanced_trim=True, two_word=False, function_word=False, legend=False)
+    #: ``document index -> [(span, bucket), ...]`` for the spans the default misses.
+    missed_by_index: dict[int, list[tuple[tuple[int, int], str]]] = {}
+    gold_total = 0
+    missed_count = 0
+    immediate = 0
+    for position, document in enumerate(documents):
+        text = document.text
+        predicted = set(_engine_spans(text, settings)["long_form"])
+        for span in document.long_form_spans:
+            gold_total += 1
+            if _char_span_set(span) in predicted:
+                continue
+            missed_count += 1
+            window = text[max(0, span[0] - _MISS_WINDOW) : span[0]]
+            if "=" in window:
+                bucket = "after_equals_within_window"
+            elif ":" in window:
+                bucket = "after_colon_within_window"
+            elif any(character in window for character in "([{"):
+                bucket = "after_open_bracket_within_window"
+            else:
+                bucket = "no_separator_or_bracket_in_window"
+            missed_by_index.setdefault(position, []).append((span, bucket))
+            probe = span[0] - 1
+            while probe >= 0 and text[probe].isspace():
+                probe -= 1
+            immediate += probe >= 0 and text[probe] == "="
+
+    _install(balanced_trim=True, two_word=False, function_word=False, legend=True)
+    recovered = 0
+    recovered_by_bucket: Counter = Counter()
+    for position, rows in missed_by_index.items():
+        predicted = set(_engine_spans(documents[position].text, settings)["long_form"])
+        for span, bucket in rows:
+            if _char_span_set(span) in predicted:
+                recovered += 1
+                recovered_by_bucket[bucket] += 1
+    _restore()
+
+    buckets = Counter(bucket for rows in missed_by_index.values() for _span, bucket in rows)
+    print(f"\nmiss decomposition on {corpus} [{split}], profile {profile}")
+    print(
+        f"  gold long-form spans {gold_total}, missed by the shipped default {missed_count} "
+        f"({missed_count / gold_total * 100:.2f}%)"
+        if gold_total
+        else "  no gold long forms"
+    )
+    print(f"  {'bucket':<38} {'missed':>8} {'recovered by legend':>21}")
+    print("  " + "-" * 68)
+    for bucket in _MISS_BUCKETS:
+        print(f"  {bucket:<38} {buckets[bucket]:>8} {recovered_by_bucket[bucket]:>21}")
+    print(
+        f"  immediately after a separator (the narrow reading): {immediate}; "
+        f"the rule recovers {recovered} of {missed_count} misses in total"
+    )
+    return {
+        "corpus": corpus,
+        "split": split,
+        "profile": profile,
+        "profile_settings": {key: settings[key] for key in sorted(settings)},
+        "documents": len(documents),
+        "comparator": "balanced_trim",
+        "miss_window_characters": _MISS_WINDOW,
+        "gold_long_form_spans": gold_total,
+        "gold_long_form_spans_missed": missed_count,
+        "gold_long_form_spans_missed_pct": (
+            round(missed_count / gold_total * 100, 2) if gold_total else 0.0
+        ),
+        # Every bucket is written, including the empty ones: a key that appears
+        # only when its count is non-zero is a key no document can cite, and a
+        # zero that has to be inferred from an absent field is the shape R12
+        # exists to refuse.
+        **{f"missed_{bucket}": buckets[bucket] for bucket in _MISS_BUCKETS},
+        **{
+            f"missed_{bucket}_recovered_by_legend": recovered_by_bucket[bucket]
+            for bucket in _MISS_BUCKETS
+        },
+        "missed_immediately_after_a_separator": immediate,
+        "misses_recovered_by_legend": recovered,
+        "misses_recovered_by_legend_pct": (
+            round(recovered / missed_count * 100, 2) if missed_count else 0.0
+        ),
+    }
+
+
 def legend_firing(documents: Sequence, *, corpus: str, split: str) -> dict:
     """How many pairs the legend rule emits on a PAIR corpus, per profile.
 
@@ -1565,12 +1720,27 @@ def legend_firing(documents: Sequence, *, corpus: str, split: str) -> dict:
     return record
 
 
-def span_variants(profile: str = "high_precision") -> dict:
+def span_variants(profiles: Sequence[str] = tuple(_PROFILES)) -> dict:
     """Score every variant on PLOD and SDU@AAAI-22 AE, decomposed by corpus.
 
-    One profile, because the axis under test here is the fix rather than the
-    admission gate, and ``high_precision`` is what ``Config()`` gives a caller
-    who chooses nothing. The MED1250 table above sweeps all three.
+    **Every shipped profile, and it did not always.** Until this round this
+    function took one profile and defaulted it to ``high_precision``, on the
+    argument that "the axis under test here is the fix rather than the admission
+    gate". That argument was never measured, and when it was it did not hold:
+    the same rule, on the same split, moves short-form exact precision
+    ``-0.34`` under ``high_precision`` and ``-2.01`` under ``biomedical``, so a
+    table covering one profile is a claim about the other two that nobody made.
+    Three profiles ship out of ``EXTRACTION_PROFILES``; three are swept. A
+    runner that sweeps less than the shipped configuration surface is the defect
+    class this docstring exists to keep named.
+
+    ``function_word_exposure`` below is deliberately **not** swept and is the
+    one exception. The leading-function-word rule is not a shipped
+    configuration: D-041 refused the whole long-form-keyed filter class, so its
+    exposure count is a measurement of a rejected proposal rather than of
+    something a caller can turn on. Its run id is also cited by D-041 without a
+    profile segment, and renaming a cited id is a worse defect than the one it
+    would fix.
 
     PLOD is scored on ``dev``, ``test`` **and** the pooled corpus, under both
     detokenisation styles, for a reason that decides one of these fixes: the
@@ -1583,12 +1753,12 @@ def span_variants(profile: str = "high_precision") -> dict:
     arbitrary decision inside a number -- and the two disagree here.
 
     Args:
-        profile: Key into :data:`_PROFILES`.
+        profiles: Keys into :data:`_PROFILES`. Defaults to every shipped
+            profile; pass a shorter tuple only to reproduce an older table.
 
     Returns:
         ``{run_id: record}`` for :func:`save_results`.
     """
-    settings = _PROFILES[profile]
     styles = tuple(corpora.DETOKENISE_STYLES)
     recorded: dict = {}
 
@@ -1618,8 +1788,8 @@ def span_variants(profile: str = "high_precision") -> dict:
             f"{statistics['gold_short_form_spans_with_bracket_pct']:>12.2f}% "
             f"{statistics['short_form_spans_bracket_adjacent_pct']:>17.2f}%"
         )
-    for domain, documents in sdu22.items():
-        statistics = sdu22_structure(documents)
+    for domain, sdu22_documents in sdu22.items():
+        statistics = sdu22_structure(sdu22_documents)
         recorded[f"shortform.sdu22_ae_{domain}_dev.corpus"] = {
             "corpus": f"sdu22_ae_{domain}",
             "split": "dev (tuning, contaminated)",
@@ -1641,53 +1811,195 @@ def span_variants(profile: str = "high_precision") -> dict:
     )
 
     header = (
-        f"\n{'corpus / detokenisation':<30} {'variant':<14} {'label':<11} "
+        f"\n{'corpus / detokenisation':<30} {'profile':<15} {'variant':<14} {'label':<11} "
         f"{'exP':>6} {'exR':>6} {'exF1':>6} | {'ovP':>6} {'ovR':>6} {'ovF1':>6}"
     )
     print(header)
     print("-" * (len(header) - 1))
-    for name, balanced, two_word, function_word, legend in _VARIANTS:
-        _install(
-            balanced_trim=balanced,
-            two_word=two_word,
-            function_word=function_word,
-            legend=legend,
-        )
-        rows: list[tuple[str, str, dict, int, dict]] = []
-        for split, documents in plod.items():
-            for style in styles:
+    for profile in profiles:
+        settings = _PROFILES[profile]
+        for name, balanced, two_word, function_word, legend in _VARIANTS:
+            _install(
+                balanced_trim=balanced,
+                two_word=two_word,
+                function_word=function_word,
+                legend=legend,
+            )
+            rows: list[tuple[str, str, dict, int, dict]] = []
+            for split, documents in plod.items():
+                for style in styles:
+                    rows.append(
+                        (
+                            f"plod_cw_{split}",
+                            f"shortform.plod_{split}.{style}.{profile}.{name}",
+                            _score_token_spans(documents, settings, style),
+                            len(documents),
+                            {
+                                "split": f"{split} (held_out, span detection)",
+                                "detokenisation": style,
+                                "scorer": "PLOD token-index spans, per label",
+                            },
+                        )
+                    )
+            for domain, sdu22_documents in sdu22.items():
                 rows.append(
                     (
-                        f"plod_cw_{split}",
-                        f"shortform.plod_{split}.{style}.{profile}.{name}",
-                        _score_token_spans(documents, settings, style),
-                        len(documents),
+                        f"sdu22_ae_{domain}_dev",
+                        f"shortform.sdu22_ae_{domain}_dev.{profile}.{name}",
+                        _score_char_spans(sdu22_documents, settings),
+                        len(sdu22_documents),
                         {
-                            "split": f"{split} (held_out, span detection)",
-                            "detokenisation": style,
-                            "scorer": "PLOD token-index spans, per label",
+                            "split": "dev (tuning, contaminated)",
+                            "scorer": "SDU-22 AE phrase-level char spans, per label",
                         },
                     )
                 )
-        for domain, documents in sdu22.items():
-            rows.append(
-                (
-                    f"sdu22_ae_{domain}_dev",
-                    f"shortform.sdu22_ae_{domain}_dev.{profile}.{name}",
-                    _score_char_spans(documents, settings),
-                    len(documents),
-                    {
-                        "split": "dev (tuning, contaminated)",
-                        "scorer": "SDU-22 AE phrase-level char spans, per label",
-                    },
+            for corpus_name, run_id, scores, count, extra in rows:
+                recorded[run_id] = run_spans.entry(
+                    scores,
+                    corpus=corpus_name,
+                    system="acronymkit",
+                    profile=profile,
+                    profile_settings={key: settings[key] for key in sorted(settings)},
+                    variant=name,
+                    comparator=_COMPARATOR[name],
+                    balanced_trim=balanced,
+                    two_word_short_form=two_word,
+                    reject_leading_function_word=function_word,
+                    legend_syntax=legend,
+                    span_source="native offsets",
+                    documents=count,
+                    **extra,
                 )
+                label_for_row = f"{corpus_name}/{extra.get('detokenisation', 'char')}"
+                for index, label in enumerate(_SPAN_LABELS):
+                    exact = scores[f"{label}.exact"]
+                    overlap = scores[f"{label}.overlap"]
+                    print(
+                        f"{label_for_row if index == 0 else '':<30} "
+                        f"{profile if index == 0 else '':<15} "
+                        f"{name if index == 0 else '':<14} {label:<11} "
+                        f"{exact.precision * 100:6.2f} {exact.recall * 100:6.2f} "
+                        f"{exact.f1 * 100:6.2f} | "
+                        f"{overlap.precision * 100:6.2f} {overlap.recall * 100:6.2f} "
+                        f"{overlap.f1 * 100:6.2f}"
+                    )
+    _restore()
+    for domain, sdu22_documents in sdu22.items():
+        recorded[f"shortform.sdu22_ae_{domain}_dev.function_word_exposure"] = (
+            sdu22_function_word_exposure(sdu22_documents, domain, _PROFILES["high_precision"])
+        )
+    return recorded
+
+
+# ---------------------------------------------------------------------------
+# 3c. the one read D-047 allocates, and the only thing that may spend it
+# ---------------------------------------------------------------------------
+# READ bench/splits.toml [[corpora.sdu22_ae_legal.reservations]] BEFORE THIS
+# FUNCTION. SDU-22 legal ``train.json`` is 3,564 samples nobody has read. It is
+# the last unmined arm this corpus has -- both English test splits carry zero
+# labels, so there is no blind arm here and never was -- and D-047 allocated it
+# to exactly one question: what ``legend_syntax`` costs on an arm that was not
+# mined to invent it.
+#
+# THREE THINGS ARE CONDITIONS OF THE SPEND, not decorations on it:
+#
+#   1. The spend is DECLARED, through ``bench.corpora.declare_spend``, before
+#      any path resolves. The reader refuses otherwise, and the refusal names
+#      the record. A sanity check, a re-run, or a second look is not this spend.
+#   2. The ``two_word`` row is SAVED. Experiment nine (D-032) lost the
+#      allocation and stays held, but ``_VARIANTS`` scores it in the same
+#      invocation for zero extra reads, and D-047 makes saving it a condition
+#      rather than a courtesy: once the arm is mined it is the only way that
+#      question is ever answered.
+#   3. The MISS DECOMPOSITION is published beside the delta. Whoever owns the
+#      read owns the decomposition, and the decomposition is what mines the arm.
+#
+# AND WHAT THE SPEND CANNOT BUY, because this is the half D-047 says gets lost:
+# it cannot license flipping the default -- a within-corpus tuning arm is not
+# the uncontaminated structurally-capable corpus D-039 asked for -- and it
+# cannot say anything about the equation surface, because legal dev has 0 of 138
+# separators opening a number and train is the same text. Anyone reporting "the
+# equation risk is measured" from this run has repeated D-045's finding one
+# corpus over.
+def legal_train_spend(profiles: Sequence[str] = tuple(_PROFILES)) -> dict:
+    """Spend SDU-22 legal ``train.json`` on the legend flag's cost, once.
+
+    Args:
+        profiles: Keys into :data:`_PROFILES`. Every shipped profile by default,
+            because the defect this run also exists to close is a runner that
+            covers less than the configuration surface the library ships.
+
+    Returns:
+        ``{run_id: record}`` for :func:`save_results`.
+    """
+    corpora.declare_spend(
+        "sdu22_ae_legal",
+        "train",
+        decision="D-047",
+        purpose=(
+            "legend_syntax's precision cost on the last unmined arm, with the two_word "
+            "row and the miss decomposition saved in the same invocation"
+        ),
+    )
+    documents = corpora.read_sdu22_ae(domain="legal", split="train")
+    label = "train (tuning, MINED BY THIS RUN -- D-047)"
+    recorded: dict = {}
+
+    statistics = sdu22_structure(documents)
+    recorded["shortform.sdu22_ae_legal_train.corpus"] = {
+        "corpus": "sdu22_ae_legal",
+        "split": label,
+        **statistics,
+    }
+    print(f"\ncorpus structure -- sdu22_ae_legal train, {len(documents)} samples")
+    for key in sorted(statistics):
+        print(f"  {key:<44} {statistics[key]}")
+    ceiling = statistics["ceiling_pct"]
+
+    for profile in profiles:
+        recorded[f"shortform.sdu22_ae_legal_train.{profile}.legend_cost"] = legend_cost(
+            documents,
+            corpus="sdu22_ae_legal",
+            split=label,
+            profile=profile,
+            ceiling_pct=ceiling,
+        )
+        recorded[f"shortform.sdu22_ae_legal_train.{profile}.legend_exposure"] = legend_exposure(
+            documents,
+            corpus="sdu22_ae_legal",
+            split=label,
+            settings=_PROFILES[profile],
+        )
+        recorded[f"shortform.sdu22_ae_legal_train.{profile}.miss_decomposition"] = (
+            sdu22_miss_decomposition(
+                documents, corpus="sdu22_ae_legal", split=label, profile=profile
             )
-        for corpus_name, run_id, scores, count, extra in rows:
-            recorded[run_id] = run_spans.entry(
+        )
+
+    header = (
+        f"\n{'profile':<15} {'variant':<14} {'label':<11} "
+        f"{'exP':>6} {'exR':>6} {'exF1':>6} | {'ovP':>6} {'ovR':>6} {'ovF1':>6}"
+    )
+    print(header)
+    print("-" * (len(header) - 1))
+    for profile in profiles:
+        settings = _PROFILES[profile]
+        for name, balanced, two_word, function_word, legend in _VARIANTS:
+            _install(
+                balanced_trim=balanced,
+                two_word=two_word,
+                function_word=function_word,
+                legend=legend,
+            )
+            scores = _score_char_spans(documents, settings)
+            recorded[f"shortform.sdu22_ae_legal_train.{profile}.{name}"] = run_spans.entry(
                 scores,
-                corpus=corpus_name,
+                corpus="sdu22_ae_legal",
                 system="acronymkit",
+                split=label,
                 profile=profile,
+                profile_settings={key: settings[key] for key in sorted(settings)},
                 variant=name,
                 comparator=_COMPARATOR[name],
                 balanced_trim=balanced,
@@ -1695,25 +2007,37 @@ def span_variants(profile: str = "high_precision") -> dict:
                 reject_leading_function_word=function_word,
                 legend_syntax=legend,
                 span_source="native offsets",
-                documents=count,
-                **extra,
+                scorer="SDU-22 AE phrase-level char spans, per label",
+                documents=len(documents),
+                short_form_recall_ceiling_pct=ceiling,
             )
-            label_for_row = f"{corpus_name}/{extra.get('detokenisation', 'char')}"
-            for index, label in enumerate(_SPAN_LABELS):
-                exact = scores[f"{label}.exact"]
-                overlap = scores[f"{label}.overlap"]
+            for index, span_label in enumerate(_SPAN_LABELS):
+                exact = scores[f"{span_label}.exact"]
+                overlap = scores[f"{span_label}.overlap"]
                 print(
-                    f"{label_for_row if index == 0 else '':<30} "
-                    f"{name if index == 0 else '':<14} {label:<11} "
+                    f"{profile if index == 0 else '':<15} "
+                    f"{name if index == 0 else '':<14} {span_label:<11} "
                     f"{exact.precision * 100:6.2f} {exact.recall * 100:6.2f} "
                     f"{exact.f1 * 100:6.2f} | "
                     f"{overlap.precision * 100:6.2f} {overlap.recall * 100:6.2f} "
                     f"{overlap.f1 * 100:6.2f}"
                 )
     _restore()
-    for domain, documents in sdu22.items():
-        recorded[f"shortform.sdu22_ae_{domain}_dev.function_word_exposure"] = (
-            sdu22_function_word_exposure(documents, domain, settings)
+
+    fired = sum(
+        record["legend_pairs_emitted"]
+        for key, record in recorded.items()
+        if key.endswith(".legend_cost")
+    )
+    print(
+        f"\nFIRING COUNT ACROSS EVERY PROFILE: {fired} legend pairs emitted on "
+        f"{len(documents)} documents."
+    )
+    if not fired:
+        print(
+            "  ZERO. THIS RUN FIRED ZERO TIMES AND THEREFORE MEASURED NOTHING. Do not\n"
+            "  publish any delta from it: bit-identical output on a corpus where the rule\n"
+            "  never runs is a fact about the corpus, which is D-046's whole content."
         )
     return recorded
 
@@ -2014,6 +2338,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="what legend_syntax costs where it fires, and how often it fires where it does not",
     )
+    parser.add_argument(
+        "--spend-legal-train",
+        action="store_true",
+        help=(
+            "SPENDS THE RESERVED SDU-22 legal train arm under D-047. Read "
+            "bench/splits.toml first; this is not a re-run and not a sanity check"
+        ),
+    )
     parser.add_argument("--relaxations", action="store_true")
     parser.add_argument("--gates", type=Path, help="directory holding Lf1chSf and SingTermFreq.dat")
     parser.add_argument(
@@ -2033,22 +2365,24 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         or args.legend_cost
         or bool(args.gates)
     )
-    if not (med1250_wanted or args.spans):
+    if not (med1250_wanted or args.spans or args.spend_legal_train):
         parser.error(
             "choose at least one of --attribute, --ceiling, --variants, --spans, "
-            "--legend, --legend-cost, --relaxations, --gates"
+            "--legend, --legend-cost, --relaxations, --gates, --spend-legal-train"
         )
 
     recorded: dict = {}
+    if args.spend_legal_train:
+        recorded.update(legal_train_spend())
     if args.spans:
         recorded.update(span_variants())
     if args.legend_cost:
         for domain in ("legal", "scientific"):
-            documents = corpora.read_sdu22_ae(domain=domain, split="dev")
-            ceiling = corpora.sdu22_ae_recall_ceiling(documents)["ceiling_pct"]
+            sdu22_documents = corpora.read_sdu22_ae(domain=domain, split="dev")
+            ceiling = corpora.sdu22_ae_recall_ceiling(sdu22_documents)["ceiling_pct"]
             for profile in _PROFILES:
                 recorded[f"shortform.sdu22_ae_{domain}_dev.{profile}.legend_cost"] = legend_cost(
-                    documents,
+                    sdu22_documents,
                     corpus=f"sdu22_ae_{domain}",
                     split="dev (tuning, contaminated)",
                     profile=profile,
@@ -2077,32 +2411,48 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.variants:
         recorded.update(variants(documents))
     if args.legend:
-        recorded["shortform.med1250_all.legend_exposure"] = legend_exposure(
-            documents,
-            corpus="med1250",
-            split="all (tuning)",
-            settings=_PROFILES["high_precision"],
-        )
-        recorded["shortform.med1250_all.legend_exposure_biomedical"] = legend_exposure(
-            documents,
-            corpus="med1250",
-            split="all (tuning)",
-            settings=_PROFILES["biomedical"],
-        )
-        for domain in ("legal", "scientific"):
-            recorded[f"shortform.sdu22_ae_{domain}_dev.legend_exposure"] = legend_exposure(
-                corpora.read_sdu22_ae(domain=domain, split="dev"),
-                corpus=f"sdu22_ae_{domain}",
-                split="dev (tuning, contaminated)",
-                settings=_PROFILES["high_precision"],
+        # THE ID SHAPE HERE IS UGLY ON PURPOSE. A bare ``...legend_exposure``
+        # means ``high_precision`` and the other two carry a suffix, which is
+        # not the shape a fresh family would get -- ``shortform.
+        # sdu22_ae_legal_train.<profile>.legend_exposure`` is. The bare ids are
+        # cited by run id in docs/EVALUATION.md and docs/DECISIONS.md, and
+        # renaming a cited id to tidy a naming scheme breaks every citation for
+        # nothing. ``med1250`` already carried the ``_biomedical`` suffix, so
+        # the convention is extended rather than invented.
+        #
+        # THE GAP THIS CLOSES. Every corpus below was measured at
+        # ``high_precision`` alone -- ``med1250`` excepted -- while three
+        # profiles ship. On the one held-out corpus in this repository that
+        # omission hid a sign change: the legend rule improves PLOD short-form
+        # exact precision under ``high_precision`` and costs it under
+        # ``biomedical``.
+        for profile, suffix in (
+            ("high_precision", ""),
+            ("general", "_general"),
+            ("biomedical", "_biomedical"),
+        ):
+            recorded[f"shortform.med1250_all.legend_exposure{suffix}"] = legend_exposure(
+                documents,
+                corpus="med1250",
+                split="all (tuning)",
+                settings=_PROFILES[profile],
             )
-        for split in ("dev", "test", "all"):
-            recorded[f"shortform.plod_{split}.legend_exposure"] = legend_exposure(
-                corpora.read_plod_cw(split=split),
-                corpus=f"plod_cw_{split}",
-                split=f"{split} (held_out, span detection)",
-                settings=_PROFILES["high_precision"],
-            )
+            for domain in ("legal", "scientific"):
+                recorded[f"shortform.sdu22_ae_{domain}_dev.legend_exposure{suffix}"] = (
+                    legend_exposure(
+                        corpora.read_sdu22_ae(domain=domain, split="dev"),
+                        corpus=f"sdu22_ae_{domain}",
+                        split="dev (tuning, contaminated)",
+                        settings=_PROFILES[profile],
+                    )
+                )
+            for split in ("dev", "test", "all"):
+                recorded[f"shortform.plod_{split}.legend_exposure{suffix}"] = legend_exposure(
+                    corpora.read_plod_cw(split=split),
+                    corpus=f"plod_cw_{split}",
+                    split=f"{split} (held_out, span detection)",
+                    settings=_PROFILES[profile],
+                )
     if args.relaxations:
         recorded.update(relaxations(documents))
     if args.gates:

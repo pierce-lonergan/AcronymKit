@@ -38,6 +38,23 @@ What is pinned here:
   ``TestCoverageMayNotWeakenAVerdict`` pins the case that forced the rule: a
   keyword-armed number matching no measurement still fails hard, even in a file
   the value ledger never named.
+* **The burn-down has a rate, and the rate is checked.** ``TestLedgerTrajectory``
+  drives ``trajectory_problems`` through all four of its rules, in both
+  directions, on synthetic trajectories -- and then asserts the *recorded* one
+  agrees with the live baselines, which is what makes a future migration that
+  forgets to append a round fail in CI rather than only under someone's eye.
+* **The classification says which verdicts it derived and which a person
+  assigned.** ``TestDetectors`` pins where each structural rule must *decline*
+  -- a date part that is also a count, a dotted number with no version context,
+  and above all a unit-armed number, which no detector may reach at all.
+  ``TestClassifyDebt`` pins that an unarmed number can never be called
+  ``gate-able``, which is D-052's refusal to value-match the residue, restated
+  where it would be easiest to lose.
+* **A judgement is anchored to a sentence, not to a line.** The first draft
+  keyed on ``<path>:<line>:<number>`` and an entry went stale inside one
+  session, because a workstream inserted seven lines above it in a file nobody
+  had touched. Two tests pin the replacement: a judgement survives its sentence
+  moving, and is reported stale when its sentence is gone.
 
 Every fixture is a synthetic project under ``tmp_path``, so nothing here
 depends on today's contents of ``bench/results.json`` -- except the one test
@@ -1037,3 +1054,359 @@ class TestThisRepository:
                 f"{needed.relative_to(REPO_ROOT).as_posix()} is not in MANIFEST.in, so the "
                 "sdist ships claims the shipped checker cannot back"
             )
+
+
+# --------------------------------------------------------------------------
+# The burn-down: classification and the trajectory
+# --------------------------------------------------------------------------
+def _claim(
+    tmp_path: Path,
+    line: str,
+    *,
+    number: str,
+    arming: str = "",
+    backing: str = "unexamined",
+    name: str = "docs/NOTE.md",
+) -> object:
+    """One classified-shaped claim, built without going through a scan."""
+    return check_claims.Claim(
+        path=tmp_path / name,
+        line_number=1,
+        text=number,
+        line=line,
+        backing=backing,
+        arming=arming,
+    )
+
+
+def _judging(monkeypatch: pytest.MonkeyPatch, anchor: str) -> None:
+    """Install one synthetic judgement over ``docs/NOTE.md``'s ``83.85``.
+
+    ``monkeypatch`` rather than assign-and-restore because the module under
+    test is loaded by path and is therefore a bare ``ModuleType``: mypy allows
+    reading an attribute off one and refuses to let a test write to it, so the
+    assign-and-restore form typed clean only while ``tests/`` sat outside the
+    checker's ``files``. That is the shape D-058 is about.
+    """
+    monkeypatch.setattr(
+        check_claims,
+        "DEBT_JUDGEMENTS",
+        (
+            check_claims.Judgement(
+                path="docs/NOTE.md",
+                number="83.85",
+                anchor=anchor,
+                bucket="stale",
+                reason="the split it was measured on is gone",
+            ),
+        ),
+    )
+
+
+class TestDetectors:
+    """The structural rules that say a number is not a claim.
+
+    Each of these is a *derived* verdict on the residue, so each one can be
+    wrong about a real figure. The tests that matter here are the ones pinning
+    where a detector must decline.
+    """
+
+    def test_a_date_part_is_not_a_claim(self, tmp_path: Path) -> None:
+        claim = _claim(tmp_path, "Verified 2026-08-23 against the pinned commit.", number="08")
+        assert check_claims.detector_for(claim) == "iso-date-fragment"
+
+    def test_a_date_detector_declines_when_the_number_is_also_a_count(self, tmp_path: Path) -> None:
+        # `23` is a day here and a count on the same line. Answering "any
+        # occurrence is a date part" would relabel the count, so the rule is
+        # "every occurrence", and when they disagree the detector declines.
+        claim = _claim(tmp_path, "Verified 2026-08-23 across 23 portals.", number="23")
+        assert check_claims.detector_for(claim) == ""
+
+    def test_a_year_is_not_a_claim(self, tmp_path: Path) -> None:
+        claim = _claim(tmp_path, "The August 2026 audit reported it.", number="2026")
+        assert check_claims.detector_for(claim) == "year-shaped"
+
+    def test_an_interpreter_version_is_not_a_claim(self, tmp_path: Path) -> None:
+        claim = _claim(tmp_path, "The floor is Python 3.9 and the ceiling 3.13.", number="3.9")
+        assert check_claims.detector_for(claim) == "version-number"
+
+    def test_a_dotted_number_with_no_version_context_is_not_a_version(self, tmp_path: Path) -> None:
+        claim = _claim(tmp_path, "The gap is 3.9 points on this split.", number="3.9")
+        assert check_claims.detector_for(claim) == ""
+
+    def test_a_list_marker_is_not_a_claim(self, tmp_path: Path) -> None:
+        claim = _claim(tmp_path, "2. The presets differ enormously at rank 1.", number="2")
+        assert check_claims.detector_for(claim) == "section-or-list-ordinal"
+
+    def test_a_sentence_that_opens_with_a_count_is_not_a_list_item(self, tmp_path: Path) -> None:
+        # A real defect, found by sampling the detector's own output rather
+        # than by reasoning about it. The first draft made the `.` after a list
+        # number optional, so `26 to 39 symbols that never appear ...` was read
+        # as list item 26 and a real count was labelled not-a-claim. Twenty
+        # numbers were wrong that way.
+        claim = _claim(tmp_path, "26 to 39 symbols never appear in a candidate.", number="26")
+        assert check_claims.detector_for(claim) == ""
+
+    def test_a_byte_size_is_not_a_claim(self, tmp_path: Path) -> None:
+        claim = _claim(tmp_path, "The bundle is 205,920 B on disk.", number="205,920")
+        assert check_claims.detector_for(claim) == "byte-size"
+
+    def test_no_detector_may_reach_a_unit_armed_number(self, tmp_path: Path) -> None:
+        # The load-bearing guard. `2026 %` is nonsense, but the principle is
+        # not: a number carrying a metric unit is a metric by its own shape,
+        # and a year-shaped rule that could reach one would be the classifier
+        # arguing a measured figure off the ledger.
+        claim = _claim(tmp_path, "It moved 2026 % in a year.", number="2026", arming="unit")
+        assert check_claims.detector_for(claim) == ""
+
+
+class TestClassifyDebt:
+    """Which bucket an unverified number lands in, and on what basis."""
+
+    def test_an_armed_number_with_a_measurement_is_gate_able(
+        self, tmp_path: Path, index: dict
+    ) -> None:
+        project = check_claims.Project.at(tmp_path)
+        claim = _claim(
+            tmp_path, "F1 was 83.85 here.", number="83.85", arming="keyword", backing="deferred"
+        )
+        bucket, basis = check_claims.classify_debt(claim, index, project)
+        assert bucket == "gate-able"
+        assert basis.startswith("derived:")
+
+    def test_an_armed_number_with_no_measurement_is_blocked(
+        self, tmp_path: Path, index: dict
+    ) -> None:
+        project = check_claims.Project.at(tmp_path)
+        claim = _claim(
+            tmp_path, "F1 was 11.11 here.", number="11.11", arming="keyword", backing="deferred"
+        )
+        assert check_claims.classify_debt(claim, index, project)[0] == "blocked"
+
+    def test_an_unarmed_number_is_never_gate_able(self, tmp_path: Path, index: dict) -> None:
+        # The rule that keeps D-052's refusal intact. `83.85` equals a
+        # measurement, but no arming rule reaches it, so "cite it" is not the
+        # fix and the classifier does not pretend it is.
+        project = check_claims.Project.at(tmp_path)
+        claim = _claim(tmp_path, "Serial 83.85 was stamped on the case.", number="83.85")
+        assert check_claims.classify_debt(claim, index, project)[0] == "unclassified"
+
+    def test_a_metric_table_column_reaches_a_number_no_arming_rule_does(
+        self, tmp_path: Path, index: dict
+    ) -> None:
+        # The blind spot both arming rules share: a table names its metric once
+        # in the header and then writes bare numbers under it.
+        make_project(
+            tmp_path,
+            {"docs/NOTE.md": "| System | F1 % |\n|---|---:|\n| ours | 83.85 |\n"},
+        )
+        project = check_claims.Project.at(tmp_path)
+        claims = check_claims.collect_claims(project, index, {})
+        rows = check_claims.classified_rows(project, index, claims)
+        buckets = {claim.text: bucket for claim, bucket, _ in rows}
+        assert buckets["83.85"] == "gate-able"
+        basis = {claim.text: basis for claim, _, basis in rows}["83.85"]
+        assert "metric column" in basis
+
+    def test_a_judgement_beats_every_derived_rule(
+        self, tmp_path: Path, index: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        project = check_claims.Project.at(tmp_path)
+        claim = _claim(
+            tmp_path, "F1 was 83.85 here.", number="83.85", arming="keyword", backing="deferred"
+        )
+        _judging(monkeypatch, "F1 was")
+        bucket, basis = check_claims.classify_debt(claim, index, project)
+        assert bucket == "stale"
+        assert basis.startswith("judged:")
+
+    def test_a_judgement_whose_sentence_moved_still_matches(
+        self, tmp_path: Path, index: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Why the anchor is a substring and not a line number. An entry keyed
+        # on a line went stale inside one session because a workstream inserted
+        # seven lines above it in a file nobody had touched.
+        project = check_claims.Project.at(tmp_path)
+        _judging(monkeypatch, "F1 was")
+        moved = check_claims.Claim(
+            path=tmp_path / "docs/NOTE.md",
+            line_number=9999,
+            text="83.85",
+            line="F1 was 83.85 here.",
+            backing="deferred",
+            arming="keyword",
+        )
+        assert check_claims.classify_debt(moved, index, project)[0] == "stale"
+
+    def test_a_judgement_whose_sentence_is_gone_is_reported_stale(
+        self, tmp_path: Path, index: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        make_project(tmp_path, {"docs/NOTE.md": "Exact recall was 76.99 on the split.\n"})
+        project = check_claims.Project.at(tmp_path)
+        claims = check_claims.collect_claims(project, index, {})
+        _judging(monkeypatch, "a sentence nobody ever wrote")
+        assert len(check_claims.stale_judgements(project, claims)) == 1
+
+    def test_a_whole_file_judgement_reaches_only_the_ledger(
+        self, tmp_path: Path, index: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A file-wide verdict is a statement about the figures the gate can
+        # see. Letting it swallow the unexamined residue too would make one
+        # line speak for every digit in the document.
+        project = check_claims.Project.at(tmp_path)
+        deferred = _claim(
+            tmp_path, "F1 was 83.85 here.", number="83.85", arming="unit", backing="deferred"
+        )
+        unexamined = _claim(tmp_path, "Serial 83.85 on the case.", number="83.85")
+        monkeypatch.setitem(
+            check_claims.DEBT_FILE_JUDGEMENTS, "docs/NOTE.md", ("blocked", "no runner saves it")
+        )
+        assert check_claims.classify_debt(deferred, index, project)[0] == "blocked"
+        assert check_claims.classify_debt(unexamined, index, project)[0] == "unclassified"
+
+    def test_every_bucket_carries_a_meaning(self) -> None:
+        assert set(check_claims.DEBT_BUCKETS) == set(check_claims.BUCKET_MEANINGS)
+
+    def test_every_recorded_judgement_names_a_real_bucket(self) -> None:
+        for judgement in check_claims.DEBT_JUDGEMENTS:
+            assert judgement.bucket in check_claims.DEBT_BUCKETS, judgement.key
+            assert judgement.reason, judgement.key
+            assert judgement.anchor, judgement.key
+        for key, (bucket, reason) in check_claims.DEBT_FILE_JUDGEMENTS.items():
+            assert bucket in check_claims.DEBT_BUCKETS, key
+            assert reason, key
+
+    def test_no_recorded_judgement_has_gone_stale(self) -> None:
+        # A judgement is keyed by line number and lines move. This is the check
+        # that says so out loud rather than letting the entry rot silently.
+        project = check_claims.Project.at(check_claims.REPO_ROOT)
+        results = check_claims.load_results(project)
+        real_index = check_claims.build_index(results)
+        claims = check_claims.collect_claims(
+            project, real_index, check_claims.load_allowlist(project)
+        )
+        assert check_claims.stale_judgements(project, claims) == []
+
+    def test_classify_reports_and_changes_nothing(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        make_project(tmp_path, {"docs/NOTE.md": "Exact recall was 76.99 on the split.\n"})
+        assert run(tmp_path, "--classify") == 0
+        out = capsys.readouterr().out
+        assert "gate-able" in out
+        assert "unclassified" in out
+        assert "Nothing in this report moves any ratchet." in out
+
+
+class TestLedgerTrajectory:
+    """The quota, and the four things the gate checks about a recorded round."""
+
+    def _round(self, label: str, deferred: int, **kwargs: object) -> object:
+        return check_claims.LedgerRound(label=label, deferred=deferred, value_matched=0, **kwargs)
+
+    def test_a_sound_trajectory_is_silent(self) -> None:
+        trajectory = (
+            self._round("first", 100),
+            self._round("second", 80, by_citation=20),
+        )
+        assert (
+            check_claims.trajectory_problems(trajectory, deferred_total=80, value_total=0, quota=12)
+            == []
+        )
+
+    def test_lowering_a_baseline_without_a_round_is_reported(self) -> None:
+        # The coupling the whole policy rests on: a ratchet that moves with no
+        # recorded round is a burn-down nobody can audit.
+        trajectory = (self._round("first", 100),)
+        problems = check_claims.trajectory_problems(
+            trajectory, deferred_total=88, value_total=0, quota=12
+        )
+        assert len(problems) == 1
+        assert "Append a LedgerRound" in problems[0]
+
+    def test_a_round_that_does_not_add_up_is_reported(self) -> None:
+        trajectory = (
+            self._round("first", 100),
+            self._round("second", 80, by_citation=5),
+        )
+        problems = check_claims.trajectory_problems(
+            trajectory, deferred_total=80, value_total=0, quota=12
+        )
+        assert len(problems) == 1
+        assert "accounts for 5" in problems[0]
+
+    def test_fencing_counts_toward_the_arithmetic_and_is_reported_apart(self) -> None:
+        # Fencing is a migration of the measurement, not of the debt. It has to
+        # balance the books like anything else, and it has to be visible.
+        trajectory = (
+            self._round("first", 100),
+            self._round("second", 80, by_citation=6, by_fencing=14),
+        )
+        assert (
+            check_claims.trajectory_problems(trajectory, deferred_total=80, value_total=0, quota=12)
+            == []
+        )
+        line = check_claims.trajectory_line(trajectory)
+        assert "fencing 14" in line
+
+    def test_missing_the_quota_without_a_waiver_is_reported(self) -> None:
+        trajectory = (
+            self._round("first", 100),
+            self._round("second", 97, by_citation=3),
+        )
+        problems = check_claims.trajectory_problems(
+            trajectory, deferred_total=97, value_total=0, quota=12
+        )
+        assert len(problems) == 1
+        assert "records no waiver" in problems[0]
+
+    def test_a_waiver_admits_a_short_round(self) -> None:
+        trajectory = (
+            self._round("first", 100),
+            self._round("second", 97, by_citation=3, waiver="the reachable population is empty"),
+        )
+        assert (
+            check_claims.trajectory_problems(trajectory, deferred_total=97, value_total=0, quota=12)
+            == []
+        )
+
+    def test_the_deferred_column_may_not_rise(self) -> None:
+        trajectory = (
+            self._round("first", 80),
+            self._round("second", 100),
+        )
+        problems = check_claims.trajectory_problems(
+            trajectory, deferred_total=100, value_total=0, quota=12
+        )
+        assert any("may not grow" in problem for problem in problems)
+
+    def test_by_other_needs_a_note(self) -> None:
+        trajectory = (
+            self._round("first", 100),
+            self._round("second", 80, by_other=20),
+        )
+        problems = check_claims.trajectory_problems(
+            trajectory, deferred_total=80, value_total=0, quota=12
+        )
+        assert any("no note" in problem for problem in problems)
+
+    def test_an_empty_trajectory_is_refused(self) -> None:
+        problems = check_claims.trajectory_problems((), deferred_total=0, value_total=0)
+        assert len(problems) == 1
+
+    def test_the_recorded_trajectory_matches_the_live_baselines(self) -> None:
+        # The one test here that reads the real checkout: it is what makes a
+        # future migration that forgets to append a round fail in CI rather
+        # than only under someone's eye.
+        assert (
+            check_claims.trajectory_problems(
+                check_claims.LEDGER_TRAJECTORY,
+                deferred_total=sum(check_claims.DEFERRED_BASELINE.values()),
+                value_total=sum(check_claims.VALUE_MATCHED_BASELINE.values()),
+            )
+            == []
+        )
+
+    def test_round_labels_are_unique(self) -> None:
+        labels = [entry.label for entry in check_claims.LEDGER_TRAJECTORY]
+        assert len(labels) == len(set(labels))
