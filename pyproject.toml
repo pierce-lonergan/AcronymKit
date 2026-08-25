@@ -189,3 +189,28 @@ disallow_untyped_defs = true
 no_implicit_optional = true
 ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
+
+# THE REAL REASON THE FLOOR HAD BEEN RAISED TO 3.10, FOUND BY CI RATHER THAN BY
+# READING. At `python_version = "3.9"` mypy follows imports into installed
+# third-party source, and current `click` uses `match` statements:
+#
+#   click/utils.py: error: Pattern matching is only supported in Python 3.10
+#   and greater  [syntax]
+#   Found 1 error in 1 file (errors prevented further checking)
+#
+# It is a hard stop -- "errors prevented further checking" -- so the whole run
+# dies on a dependency's syntax, not on ours. This did not reproduce locally
+# because the resolved `click` there is `8.1.8`, which predates the `match`.
+# Same class as the pinning note above: a floating dependency deciding whether
+# the build passes, and it is why that note is worth reading twice.
+#
+# `follow_imports = "skip"` treats `click` as `Any` rather than parsing it.
+# Verified as the mechanism, not assumed: a scratch dependency with a `match`
+# statement reproduces the exact error at 3.9 and is silenced by this override.
+# The cost is real and small -- calls into `click` are no longer type-checked --
+# and it is the right trade against losing the floor for the whole package.
+# `src/acronymkit/cli.py` imports `click` inside a function, so the surface is
+# one module's optional path.
+[[tool.mypy.overrides]]
+module = ["click", "click.*"]
+follow_imports = "skip"

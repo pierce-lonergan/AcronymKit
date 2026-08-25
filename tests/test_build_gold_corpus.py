@@ -71,6 +71,27 @@ def _load(path: Path, name: str) -> ModuleType:
     return module
 
 
+# A GUARD, NOT A LINE IN `EXPECTED_NON_PASSING`. `tools/` ships in the sdist and
+# is no part of an installed distribution, so under the installed-suite CI job
+# the two loads below raise `FileNotFoundError` and this file fails to COLLECT.
+# The obvious spelling -- `pytest.mark.skipif` -- cannot help: marks run at
+# collection and the module body runs at import, so the exception has already
+# happened. That is the lesson of the fifth historical breakage and it is why
+# this is a module-level skip placed BEFORE the loads rather than a decorator
+# after them.
+#
+# The alternative was adding this file to `EXPECTED_NON_PASSING` in
+# `.github/workflows/ci.yml`, beside the two files that do exactly this. That
+# list's own comment argues against it: an entry is keyed on the FILE, so while
+# a name sits there the job cannot see any second defect in it -- measured, by
+# reintroducing a real breakage into a listed file and getting a run identical
+# to a clean one. The list is something to shrink.
+if not TOOL_PATH.is_file() or not SPLITS_PATH.is_file():  # pragma: no cover - CI job only
+    pytest.skip(
+        "tools/ is not part of an installed distribution; these tests belong to a checkout",
+        allow_module_level=True,
+    )
+
 builder = _load(TOOL_PATH, "_build_gold_corpus_under_test")
 splits = _load(SPLITS_PATH, "_splits_for_gold_corpus_test")
 

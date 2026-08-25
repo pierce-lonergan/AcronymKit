@@ -118,6 +118,23 @@ def _load_corpora() -> ModuleType:
     return module
 
 
+# THE SAME GUARD THE `bench/` LOAD BELOW ALREADY CARRIES, FINALLY APPLIED TO THE
+# `tools/` LOAD ITSELF. `tools/` ships in the sdist and is no part of an
+# installed distribution, so under the installed-suite CI job the next line
+# raises `FileNotFoundError` and this file fails to COLLECT. It has been covered
+# by a file-keyed entry in `EXPECTED_NON_PASSING` in `.github/workflows/ci.yml`,
+# and that list's own comment records what the entry cost: while a FILE sits
+# there the job cannot see a second defect anywhere in it -- measured, by
+# reintroducing a real breakage into a listed file and getting a run identical
+# to a clean one. A skip on one named condition absorbs that condition and
+# nothing else, so any other error here now reaches the job. The entry is
+# deleted in the same commit.
+if not LOADER.is_file():  # pragma: no cover - CI job only
+    pytest.skip(
+        "tools/ is not part of an installed distribution; these tests belong to a checkout",
+        allow_module_level=True,
+    )
+
 splits = _load_tool()
 # Guarded, and the guard has to be here rather than on `pytestmark`: the mark is
 # consulted at COLLECTION and this line runs at IMPORT, which is earlier. The

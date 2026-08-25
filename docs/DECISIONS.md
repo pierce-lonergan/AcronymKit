@@ -94,6 +94,63 @@ the `3.9` floor is modelled for the shipped library and enforced for everything 
 `3.9` cells of the test matrix — which is what caught this, three minutes after it could have been
 caught locally for free.
 
+### Second red round: the real reason for the `3.10` floor was neither the comment's nor mine
+
+Restoring the floor turned `15` of `17` jobs green and reddened `Lint and type-check` in a way that
+had never appeared locally:
+
+```
+click/utils.py:310: error: Pattern matching is only supported in Python 3.10 and greater  [syntax]
+Found 1 error in 1 file (errors prevented further checking)
+```
+
+At `3.9` mypy follows imports into installed third-party *source*, and current `click` uses `match`.
+It is a hard stop — `errors prevented further checking` — so the run dies on a dependency's syntax
+rather than on ours. **It did not reproduce locally because the resolved `click` there is `8.1.8`,
+which predates the `match`.** So the floor override was load-bearing after all, for a third reason:
+not the one its comment gave, and not the typeshed collision I found when I removed it.
+
+This is the same class as the linter-pinning note a few lines above it in `pyproject.toml` — a
+floating dependency deciding whether the build passes — and that note now reads as advice its own
+file did not take.
+
+Fixed with `follow_imports = "skip"` for `click.*`, which keeps the floor for our code and treats
+`click` as `Any`. **Verified against the version CI resolves rather than by analogy**: `click 8.4.2`
+installed to a scratch target and put on `MYPYPATH` reproduces the error at the same line, `310`, and
+the override clears it while the tree stays clean. The cost is that calls into `click` are no longer
+type-checked; `src/acronymkit/cli.py` imports it inside a function, so the surface is one optional
+path in one module.
+
+### `EXPECTED_NON_PASSING` lost both of its file-keyed entries
+
+The installed-suite job also failed, because the new test file executes a `tools/` script at module
+level and `tools/` is no part of an installed distribution. The obvious fix was a third name in
+`EXPECTED_NON_PASSING`. **That list's own comment argues against it**, and it argues from a
+measurement: an entry is keyed on the FILE, so while a name sits there the job cannot see a second
+defect anywhere in it — demonstrated by reintroducing a real breakage into a listed file and getting
+a run identical to a clean one. It closed by calling that *"the argument for shrinking the list, not
+for trusting it"*.
+
+So the list shrank instead. All three files now carry `pytest.skip(..., allow_module_level=True)` on
+the one named condition, placed **before** the load — a decorator cannot help, because marks are
+consulted at collection and a module body runs at import, which is the lesson of the fifth historical
+breakage. A skip on one condition absorbs that condition and nothing else, so any other error in
+those files now reaches the job. Both names are deleted; the remaining entries are node-keyed and do
+not carry the blind spot.
+
+Verified by running the suite with `tools/` and `bench/` both moved aside: `4348` passed, `112`
+skipped, **zero collection errors**, against a floor of `4000`.
+
+### What this incident says about the local gates, stated plainly
+
+Three defects shipped in one round. Every one was invisible locally for the same structural reason —
+**the developer machine differs from the runner in ways nothing in the repository asserts**: it has
+`data/`, it has `tools/`, it resolves an older `click`. Two rounds of CI were the instrument. The
+suite-with-`data/`-moved-aside and suite-with-`tools/`-moved-aside checks used here are ad-hoc shell
+moves, not gates; making either a gate is not done, and until it is, the runner is still the first
+place these are caught.
+
+
 ---
 
 ## D-057 — The definition of done, second sweep: one criterion closes by amendment, one gets worse by being measured, and the flagship gap now has a costed route

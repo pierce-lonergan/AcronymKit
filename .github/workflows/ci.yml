@@ -795,23 +795,30 @@ jobs:
           # already carry, and then deleting the line here. Nothing in this job
           # is ever a reason to change src/.
           EXPECTED_NON_PASSING = {
-              # Both execute a `tools/` script at module level, so the file
-              # fails to COLLECT rather than skipping -- `pytest.mark.skipif`
-              # runs at collection, the module body at import. `tools/` ships in
-              # the sdist but is no part of an installed distribution. 120 tests
-              # between them, exercised by the extracted-tree run in `build`.
-              #
-              # AND WHILE THEY ARE LISTED HERE, THIS JOB CANNOT SEE A SECOND
-              # DEFECT IN EITHER OF THEM. Measured: reintroducing the
+              # THE TWO FILE-KEYED ENTRIES ARE GONE, AND THAT IS THE POINT OF
+              # THIS BLOCK'S HISTORY. `tests/test_check_claims.py` and
+              # `tests/test_splits_manifest.py` sat here because each executes a
+              # `tools/` script at module level, so the file failed to COLLECT
+              # rather than skipping -- `pytest.mark.skipif` runs at collection,
+              # the module body at import. The note that stood here said what
+              # that cost: WHILE A FILE IS LISTED, THIS JOB CANNOT SEE A SECOND
+              # DEFECT ANYWHERE IN IT. Measured, by reintroducing the
               # `bench/corpora.py` module-level load into
               # tests/test_splits_manifest.py -- the fifth historical breakage,
-              # exactly -- produced a run identical to a clean one, because the
-              # file was already going to error and the entry is keyed on the
-              # file. The same defect in a file NOT on this list reds the job
-              # immediately. Two names, two blind spots; that is the argument
-              # for shrinking the list, not for trusting it.
-              "tests/test_check_claims.py",
-              "tests/test_splits_manifest.py",
+              # exactly -- and getting a run identical to a clean one. It closed
+              # by naming that "the argument for shrinking the list".
+              #
+              # Both now carry `pytest.skip(..., allow_module_level=True)` on
+              # the one condition, placed BEFORE the load, so the module skips
+              # instead of erroring and any OTHER error in either file reaches
+              # this job. `tests/test_build_gold_corpus.py` was written with the
+              # same guard rather than added here. Verified locally by running
+              # the suite with `tools/` and `bench/` both moved aside: those
+              # files skip and nothing else changes.
+              #
+              # The remaining entries are node-keyed, not file-keyed, so they do
+              # not carry the blind spot the two deleted names did.
+              #
               # These read the source text of `src/acronymkit/__init__.py` and
               # parse it with `ast`, to check the lazy export table against the
               # TYPE_CHECKING block. An installed package has no source tree to
