@@ -55,6 +55,7 @@ train/test rule because nobody wrote the rule down for it.
 from __future__ import annotations
 
 import functools
+import hashlib
 import importlib.util
 import json
 import re
@@ -186,6 +187,84 @@ def label_for(name: str) -> str:
     if corpus is None:
         return "unlabelled (bench/splits.toml unreadable on this interpreter)"
     return corpus.label()  # type: ignore[attr-defined]
+
+
+def require_unreserved(name: str, arm: str) -> None:
+    """Refuse to open a reserved arm unless this run declared the spend.
+
+    Operating rule 3 made mechanical. ``bench/splits.toml`` reserves individual
+    *arms* of corpora -- SDU-22 legal ``train.json`` is allocated to the legend
+    flag's precision cost (D-047), SDU-22 scientific ``train.json`` is
+    deliberately unallocated, SDU-21 AD ``test.json`` is held for an abstention
+    default (D-043). Every one of those was prose until this round, and both
+    records say the same thing in their own *How it fails*: nothing refused a
+    run against the split, and the guard was that somebody read a note.
+
+    Call this where a reader turns ``(corpus, split)`` into a path. It is a
+    no-op for every arm that carries no reservation.
+
+    Args:
+        name: A reader registry name or a manifest corpus name.
+        arm: The split token about to be opened, e.g. ``"train"``.
+
+    Raises:
+        SystemExit: If the arm is reserved and this process has not called
+            :func:`declare_spend` for it. That is the only door, and it is in
+            this module for the reason that function records.
+            ``SystemExit`` rather than the loader's ``SplitsError`` because that
+            is what every other refusal in this module raises, and a runner
+            should stop with the message rather than a traceback.
+    """
+    corpus = declaration(name)
+    if corpus is None:
+        # 3.9/3.10 with no TOML parser. Loud rather than silent, and open rather
+        # than closed: the manifest is what says which arms are reserved, so a
+        # closed default here would refuse every split of every corpus on those
+        # interpreters to protect two files. The hole is real and is recorded
+        # with the mechanism rather than discovered later.
+        print(
+            f"bench.corpora: WARNING -- cannot check reservations on {name}:{arm}; "
+            "bench/splits.toml is unreadable on this interpreter. A RESERVED ARM WILL "
+            "NOT BE REFUSED ON THIS RUN. Use 3.11+ before spending anything.",
+            file=sys.stderr,
+        )
+        return
+    module = _splits_module()
+    assert module is not None
+    try:
+        corpus.require_unreserved(arm)  # type: ignore[attr-defined]
+    except module.SplitsError as error:
+        raise SystemExit(str(error)) from error
+
+
+def declare_spend(name: str, arm: str, *, decision: str, purpose: str) -> None:
+    """Say, before opening it, that this run is the spend a reservation names.
+
+    **Go through this function and not through ``tools/splits.py`` directly.**
+    The ledger of declared spends is module state, and ``tools/splits.py`` is
+    imported *by path* here under a private module name -- so a runner that
+    imported the loader itself would be writing to a second ledger and would
+    still be refused by the reader. One door, so there is one ledger.
+
+    Args:
+        name: A reader registry name or a manifest corpus name.
+        arm: The split token about to be opened.
+        decision: The record that allocates the arm, e.g. ``"D-047"``.
+        purpose: One line saying what this run buys. It is printed.
+
+    Raises:
+        SystemExit: If the reservation refuses this spend -- an unallocated arm,
+            the wrong record, or an empty purpose.
+    """
+    corpus = declaration(name)
+    if corpus is None:
+        return
+    module = _splits_module()
+    assert module is not None
+    try:
+        corpus.declare_spend(arm, decision=decision, purpose=purpose)  # type: ignore[attr-defined]
+    except module.SplitsError as error:
+        raise SystemExit(str(error)) from error
 
 
 @dataclass(frozen=True)
@@ -395,7 +474,17 @@ class DisambiguationInstance:
 
 
 def _sdu21_ad_source(path: Optional[Path], split: str) -> Path:
-    """Resolve and check the file backing one split."""
+    """Resolve and check the file backing one split.
+
+    The reservation check runs FIRST, before the unknown-split refusal, and the
+    order is the point. ``test`` is not in :data:`_SDU21_AD_FILES` and has no
+    fetch entry, so today it is refused as a typo -- an accident that reads like
+    a guard. Asking the manifest first means the person who adds the missing
+    registry entry gets D-043's reservation, its trigger and its permanent cost,
+    instead of discovering that the accident they removed was the only thing
+    protecting the project's last blind disambiguation arm.
+    """
+    require_unreserved("sdu21_ad", split)
     if split not in _SDU21_AD_FILES:
         raise SystemExit(f"unknown SDU21-AD split {split!r}; known: {sorted(_SDU21_AD_FILES)}")
     filename, key = _SDU21_AD_FILES[split]
@@ -880,7 +969,16 @@ class CharSpanDocument:
 
 
 def _sdu22_ae_source(path: Optional[Path], domain: str, split: str) -> Path:
-    """Resolve and check the file backing one (domain, split)."""
+    """Resolve and check the file backing one (domain, split).
+
+    **Both ``train`` arms are reserved and this is where that is enforced.**
+    Legal train is allocated to the legend flag's precision cost (D-047);
+    scientific train is unallocated and its first spend needs its own record.
+    Both files are already fetched into ``data/``, so before this check a single
+    ``read_sdu22_ae(domain="legal", split="train")`` mined the last unmined arm
+    of this corpus silently. It now raises unless the run declared the spend
+    through :func:`declare_spend`.
+    """
     if domain not in SDU22_AE_DOMAINS:
         raise SystemExit(f"unknown SDU22-AE domain {domain!r}; known: {list(SDU22_AE_DOMAINS)}")
     if split not in SDU22_AE_SPLITS:
@@ -889,6 +987,7 @@ def _sdu22_ae_source(path: Optional[Path], domain: str, split: str) -> Path:
             "test.json exists upstream and carries ZERO labels (446 and 498 samples, "
             "0 labelled), so it is not registered and cannot be read here."
         )
+    require_unreserved(f"sdu22_ae_{domain}", split)
     source = path or (DATA_DIR / f"sdu22_ae_{domain}_{split}.json")
     if not source.is_file():
         raise SystemExit(
@@ -1197,6 +1296,348 @@ def read_governed_gold(name: str, path: Optional[Path] = None) -> SegmentationCo
         source=source.name,
         fetched_on=str(envelope.get("fetched_on") or "unknown"),
         pairs=pairs,
+    )
+
+
+# ---------------------------------------------------------------------------
+# the Federal Register reference set (W10)
+# ---------------------------------------------------------------------------
+#
+# ``headline_capable("extraction")`` returns empty and D-048 established that
+# this is a fact rather than a vocabulary artifact: an extraction gold record
+# asserts an EDGE, span gold asserts unlinked vertices, and neither derives from
+# the other. ``tools/build_gold_corpus.py`` builds the corpus that would close
+# it, out of public-domain Federal Register rules.
+#
+# What lands here is the reader, and it is deliberately **not in any registry**.
+# The corpus it reads is adjudicated by one person, and that person is the author
+# of the extractor it would be used to score. There is no role in
+# ``tools/splits.py`` that says so -- ``ROLES`` is ``("tuning", "held_out")`` --
+# and filing it under either would be a lie in a different direction:
+# ``held_out`` makes it headline-eligible through ``Manifest.headline_capable``,
+# which is exactly what a self-adjudicated set must never be, and ``tuning``
+# claims something was fitted to it when nothing was.
+#
+# So the reader exists, refuses to produce a corpus until the manifest declares
+# one, and the honest role is reported rather than approximated. See
+# :data:`UNREGISTERED_READERS`.
+
+#: Where ``tools/build_gold_corpus.py`` writes its frozen artifact. Inside the
+#: git-ignored ``data/``, like every other fetched evaluation asset.
+FEDERAL_REGISTER_CACHE = DATA_DIR / "federal_register"
+
+#: The ``[corpora.<name>]`` table this reader would draw from. It does not exist
+#: yet, on purpose: ``bench/splits.toml`` is not this workstream's file, and the
+#: entry it needs declares a role the validator would reject today.
+FEDERAL_REGISTER_CORPUS = "federal_register_rules_2024q1"
+
+#: Readers that exist and are deliberately absent from every registry, with the
+#: reason each one is held back.
+#:
+#: This is a set for the same reason :data:`TEXT_ONLY_VIEWS` is a set: the
+#: alternative is a paragraph, and ``tests/test_splits_manifest.py`` cannot
+#: consult a paragraph. An entry here is a promise that the omission is
+#: deliberate and that the manifest gap is the thing blocking it -- so when the
+#: entry lands, the test that reads this constant is what says the exemption is
+#: no longer describing anything.
+UNREGISTERED_READERS = {
+    FEDERAL_REGISTER_CORPUS: (
+        "single-annotator reference set adjudicated by the author of the extractor it "
+        "would score; tools/splits.py ROLES cannot express that, and neither 'tuning' "
+        "nor 'held_out' is true of it"
+    ),
+}
+
+
+@dataclass(frozen=True)
+class ReferenceSet:
+    """An adjudicated pair corpus that is **not** a gold standard, and says so.
+
+    A sixth container, and the separation is about provenance rather than about
+    type: its ``documents`` really are :class:`GoldDocument` objects and a pair
+    scorer could consume them tomorrow. That is precisely why the type exists.
+    :class:`SegmentationCorpus` protects against a consumer of the wrong *shape*;
+    this protects against a consumer of the wrong *standing*, which is the
+    quieter failure -- nothing would crash, a table would simply be published
+    against a corpus one interested party decided the answers to.
+
+    So the documents are reachable only through
+    :meth:`documents_for_scoring`, which states what it is handing over, and
+    :meth:`require_headline_eligible` refuses outright while the adjudicator
+    count is one. ``bench/splits.toml``'s own rule is the authority here: *a gold
+    standard I partly invented cannot adjudicate my own system.*
+
+    Attributes:
+        name: The manifest corpus name this would be declared under.
+        source: The frozen artifact actually read, by name.
+        frozen_on: ISO date the split was frozen. A freeze that happened *after*
+            the tuning it adjudicates is not a freeze, so the date is carried
+            with the corpus rather than in a commit message.
+        adjudicators: Who decided. Empty is refused at read time.
+        artifact_kind: The artifact's own description of itself.
+        domain: What the text is. Federal Register rulemaking is one more
+            domain, not general text, and this string travels with every figure.
+        licence: As read from terms.
+        documents: The adjudicated pairs, per document.
+        provenance: The rest of the envelope -- selection, pins, pooling recipe,
+            stratum populations and the pilot report -- carried through whole so
+            a consumer never has to re-open the artifact to say where it came
+            from.
+    """
+
+    name: str
+    source: str
+    frozen_on: str
+    adjudicators: tuple[str, ...]
+    artifact_kind: str
+    domain: str
+    licence: str
+    documents: tuple[GoldDocument, ...] = field(default_factory=tuple)
+    exhaustive: tuple[str, ...] = field(default_factory=tuple)
+    provenance: dict = field(default_factory=dict)
+
+    @property
+    def adjudicator_count(self) -> int:
+        """How many people decided. One is a reference set; two may be a gold standard."""
+        return len(self.adjudicators)
+
+    @property
+    def is_gold_standard(self) -> bool:
+        """Never true on one adjudicator, and not automatic on two.
+
+        Two adjudicators are *necessary* and not sufficient: their agreement has
+        to be computed and published first. This property answers the necessary
+        half only, which is why :meth:`require_headline_eligible` raises with the
+        remaining condition spelled out rather than returning this value.
+        """
+        return self.adjudicator_count >= 2
+
+    def label(self) -> str:
+        """The label every figure from this corpus must carry."""
+        return (
+            f"{self.artifact_kind}, {self.adjudicator_count} adjudicator(s), "
+            f"frozen {self.frozen_on}, domain: Federal Register rulemaking"
+        )
+
+    def require_headline_eligible(self) -> None:
+        """Refuse to back a headline number.
+
+        Raises:
+            SystemExit: Always, while one person adjudicated. The message names
+                the two things that would have to change, because "not eligible"
+                without them reads as a permanent verdict when it is a list of
+                unmet conditions.
+        """
+        if not self.is_gold_standard:
+            raise SystemExit(
+                f"{self.name} is a {self.artifact_kind} with "
+                f"{self.adjudicator_count} adjudicator(s): "
+                f"{', '.join(self.adjudicators) or 'none recorded'}.\n"
+                "It may not back a headline number. Two things would have to change:\n"
+                "  1. a second, independent adjudicator, not an author of the systems pooled\n"
+                "  2. their agreement computed and published beside the corpus\n"
+                "See bench/splits.toml: a gold standard I partly invented cannot adjudicate "
+                "my own system."
+            )
+        raise SystemExit(  # pragma: no cover - needs two adjudicators
+            f"{self.name} has {self.adjudicator_count} adjudicators but no published "
+            "agreement statistic. Compute and publish it before quoting a headline."
+        )
+
+    def documents_for_scoring(self) -> tuple[GoldDocument, ...]:
+        """The documents this corpus may legitimately be scored against.
+
+        Named at length on purpose. The attribute could simply have been public;
+        a call whose name says "for scoring" is what a reader trips over when
+        they are about to publish the result. It also enforces the two conditions
+        a frozen artifact can silently fail, both of which produce a plausible
+        number rather than an error:
+
+        **Exhaustiveness.** A pilot adjudicates a *sample*, so a document's pair
+        list holds the sampled candidates that adjudicated as definitions and not
+        every definition in the document. Scoring against a partial annotation is
+        wrong in both directions at once -- recall is undefined because the
+        denominator is unknown, and precision is understated because a correct
+        pair that was never sampled counts as a false positive. Only documents
+        the artifact lists as exhaustively annotated are returned.
+
+        **Text.** ``extraction`` gold is a passage plus the pairs annotated in
+        it. A ``GoldDocument`` with an empty ``text`` hands every extractor an
+        empty string, which yields no predictions and scores as total recall
+        failure -- the exact shape of quiet wrongness ``read_plod_cw_text``
+        documents for its own trap.
+
+        Returns:
+            The exhaustively annotated documents, each carrying its text.
+
+        Raises:
+            SystemExit: If no document is exhaustively annotated, or if any
+                returned document has no text.
+        """
+        usable = tuple(document for document in self.documents if document.uid in self.exhaustive)
+        if not usable:
+            raise SystemExit(
+                f"{self.name} has no exhaustively annotated document, so it cannot be "
+                "scored against.\n"
+                f"  {self.provenance.get('scorable_note', '')}\n"
+                "A pilot produces none by construction: adjudicate every pooled candidate "
+                "belonging to a document before that document can carry a metric."
+            )
+        textless = [document.uid for document in usable if not document.text]
+        if textless:
+            raise SystemExit(
+                f"{self.name}: {len(textless)} document(s) carry no text "
+                f"({', '.join(textless[:5])}). extraction gold is a passage plus the pairs "
+                "annotated in it; an empty passage yields no predictions and scores as "
+                "total recall failure.\n"
+                "Run: python tools/build_gold_corpus.py fetch"
+            )
+        return usable
+
+
+def _reference_bodies(envelope: dict, directory: Path) -> dict:
+    """Cached document texts, keyed by document number, verified against the pins.
+
+    The envelope carries the pin table, so this needs no second copy of it. Each
+    cached body is checked against the digest the artifact was frozen with, and a
+    body that fails is dropped rather than returned: a corpus scored against text
+    that has drifted under its pin produces a number nothing would record the
+    cause of.
+
+    The digest is over the normalised text and not over the fetched bytes -- see
+    ``tools/build_gold_corpus.py`` for the measurement that forced that, which is
+    that both hosts rewrite e-mail addresses per response.
+    """
+    bodies: dict = {}
+    for pin in envelope.get("documents") or []:
+        if not isinstance(pin, dict):
+            continue
+        number = str(pin.get("document_number", ""))
+        cached = directory / f"{number}.txt"
+        if not number or not cached.is_file():
+            continue
+        text = cached.read_text(encoding="utf-8")
+        expected = str(pin.get("text_sha256", ""))
+        if expected and hashlib.sha256(text.encode("utf-8")).hexdigest() != expected:
+            continue
+        bodies[number] = text
+    return bodies
+
+
+def parse_reference_set(
+    name: str, source: str, envelope: dict, bodies: Optional[dict] = None
+) -> ReferenceSet:
+    """Build a :class:`ReferenceSet` from a frozen artifact's envelope.
+
+    Split out from :func:`read_federal_register_reference` so the parse is
+    testable without a manifest entry the repository does not yet have. The
+    reader is the half that enforces governance; this is the half that reads
+    JSON, and mixing them would make the governance check untestable or the
+    parse unreachable.
+
+    Args:
+        name: Manifest corpus name.
+        source: File name, for reporting.
+        envelope: The parsed artifact.
+
+    Returns:
+        The reference set.
+
+    Raises:
+        SystemExit: If the envelope is not one of these artifacts, if it records
+            no adjudicator, or if it claims to be a gold standard while carrying
+            fewer than two. The last check is the one that matters: the artifact
+            is written by a tool in this repository, and a field a tool writes is
+            a field a later tool can be told to write differently.
+    """
+    if not isinstance(envelope, dict) or not isinstance(envelope.get("payload"), dict):
+        raise SystemExit(
+            f"{source} is not a build_gold_corpus freeze envelope "
+            '({"adjudicators": [...], "payload": {document: [[short, long], ...]}})'
+        )
+    adjudicators = tuple(str(person) for person in envelope.get("adjudicators") or ())
+    if not adjudicators:
+        raise SystemExit(
+            f"{source} records no adjudicator. Who decided is part of what this artifact "
+            "claims; an unattributed corpus is one nobody can weigh."
+        )
+    if envelope.get("is_gold_standard") and len(adjudicators) < 2:
+        raise SystemExit(
+            f"{source} claims is_gold_standard with {len(adjudicators)} adjudicator(s). "
+            "Refusing to read it: the claim and the evidence in the same file disagree."
+        )
+    supplied = bodies or {}
+    documents = tuple(
+        GoldDocument(
+            uid=str(document),
+            identifier=str(document),
+            text=str(supplied.get(str(document), "")),
+            pairs=tuple(
+                GoldPair(short_form=str(row[0]), long_form=str(row[1]))
+                for row in rows
+                if isinstance(row, list) and len(row) >= 2
+            ),
+        )
+        for document, rows in sorted(envelope["payload"].items())
+    )
+    return ReferenceSet(
+        name=name,
+        source=source,
+        frozen_on=str(envelope.get("frozen_on") or "unknown"),
+        adjudicators=adjudicators,
+        artifact_kind=str(envelope.get("artifact_kind") or "unlabelled artifact"),
+        domain=str(envelope.get("domain") or ""),
+        licence=str(envelope.get("licence") or ""),
+        documents=documents,
+        exhaustive=tuple(
+            str(document) for document in envelope.get("exhaustively_annotated_documents") or ()
+        ),
+        provenance={
+            key: value for key, value in envelope.items() if key not in ("payload", "adjudicators")
+        },
+    )
+
+
+def read_federal_register_reference(path: Optional[Path] = None) -> ReferenceSet:
+    """Load the frozen Federal Register reference set.
+
+    This **will raise today**, and that is the design rather than a gap. The
+    corpus is not declared in ``bench/splits.toml``, :func:`declaration` refuses
+    an undeclared corpus, and the refusal is the manifest doing the job it exists
+    to do: a corpus that is measured but never declared is exempt from the
+    train/test rule by omission.
+
+    The entry it needs cannot be written yet either, and the reason is in
+    :data:`UNREGISTERED_READERS`. That is the finding this reader carries, and it
+    is more useful in the repository than a reader that quietly filed a
+    self-adjudicated corpus as ``held_out`` to make an import work.
+
+    Args:
+        path: An explicit artifact, so the parse can be exercised against a
+            fixture. The declaration check runs either way; passing a path is not
+            a way around it.
+
+    Returns:
+        The reference set.
+
+    Raises:
+        SystemExit: If the corpus is undeclared, if the artifact is missing, or
+            if the envelope fails :func:`parse_reference_set`.
+    """
+    declaration(FEDERAL_REGISTER_CORPUS)
+    source = Path(path) if path is not None else FEDERAL_REGISTER_CACHE / "reference_set.json"
+    if not source.is_file():
+        raise SystemExit(
+            f"missing {source}\n"
+            "Run: python tools/build_gold_corpus.py fetch && "
+            "python tools/build_gold_corpus.py pool --interpreter <python-with-a-baseline>"
+        )
+    envelope = json.loads(source.read_text(encoding="utf-8"))
+    return parse_reference_set(
+        FEDERAL_REGISTER_CORPUS,
+        source.name,
+        envelope,
+        bodies=_reference_bodies(envelope, source.parent / "bodies"),
     )
 
 

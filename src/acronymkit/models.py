@@ -261,7 +261,11 @@ class AcronymPair(_Frozen):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     pattern: str = Field(
         default="long(short)",
-        description="Which parenthetical arrangement matched: 'long(short)' or 'short(long)'.",
+        description=(
+            "Which arrangement matched. 'long(short)' or 'short(long)' for a bracketed "
+            "definition -- the brackets may be (), [] or {} -- and 'short=long' for a "
+            "legend, which only an extractor built with legend_syntax=True ever emits."
+        ),
     )
     sentence: Optional[str] = Field(
         default=None, description="Enclosing sentence, when sentence context was retained."

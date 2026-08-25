@@ -46,14 +46,27 @@ What this file pins, and why each item is here
   per task -- a sentence that lived in two docstrings and was checked by
   nothing, so a corpus declared ``disambiguation`` could have been registered
   in ``SPAN_READERS`` with no complaint.
+* **A reserved arm must be reserved for something, and must refuse a read.**
+  Two arms of two corpora are spoken for, and until this round both
+  reservations were prose. D-043 and D-047 each say the same thing about
+  themselves: *nothing refuses a run against a reserved split; the guard is
+  that somebody reads a note.* That is the shape of the original bug in this
+  file -- eleven prose citations, zero parsers -- one level up. The structure
+  is mutated below exactly the way the licence-URL rule is: a reservation with
+  no trigger, a spend that was never declared, and two reservations
+  contradicting each other must each fail, and the shipped manifest must pass.
 
-Nothing here reaches the network or needs a fetched corpus.
+Nothing here reaches the network or needs a fetched corpus. **Nothing here
+opens a reserved arm either**: every reservation test works on the declaration,
+and the one test that drives the wired reader asserts the refusal, which
+happens before the path is resolved.
 """
 
 from __future__ import annotations
 
 import datetime
 import importlib.util
+import io
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -170,6 +183,66 @@ def _declared_as(source: str) -> tuple[set, set]:
         {left.strip().strip("\"'") for left, _ in rows},
         {right.strip().strip('",').strip("'") for _, right in rows},
     )
+
+
+#: A reservation that passes every rule, so a mutation of it fails for the
+#: reason under test and not for a second reason nobody noticed.
+_CLEAN_RESERVATION = {
+    "arm": '"train"',
+    "state": '"allocated"',
+    "decided_in": '"D-047"',
+    "allocated_to": "'the legend flag precision cost; W8 owns the read'",
+    "spend_trigger": "'W8 elects to publish the cost on an unmined arm'",
+    "lapse_trigger": "'a structurally capable uncontaminated corpus is registered'",
+}
+
+
+def _with_reservation(**overrides: Optional[str]) -> str:
+    """``_MINIMAL`` plus one reservation, with fields overridden or dropped.
+
+    ``None`` removes a field, which is how "a reservation with no trigger" is
+    written -- the case D-043 says makes a reservation not a reservation.
+    """
+    fields = dict(_CLEAN_RESERVATION)
+    fields.update({key: value for key, value in overrides.items() if value is not None})
+    for key, value in overrides.items():
+        if value is None:
+            fields.pop(key, None)
+    body = "\n".join(f"{key} = {value}" for key, value in fields.items())
+    return _MINIMAL + "\n[[corpora.example.reservations]]\n" + body + "\n"
+
+
+def _ledgers() -> list:
+    """Every declared-spend ledger this process holds.
+
+    There is more than one, and that is a real property rather than a test
+    artifact: ``tools/splits.py`` is imported *by path*, so this file's copy and
+    ``bench/corpora.py``'s copy are two module objects with two module-level
+    dicts. ``bench.corpora.declare_spend`` exists so runners only ever touch
+    one of them; the fixture below restores both, because a spend leaking out
+    of a test would let a later test open a reserved arm for real.
+    """
+    found = [splits._DECLARED_SPENDS]
+    if corpora is not None:
+        module = corpora._splits_module()
+        if module is not None and module._DECLARED_SPENDS is not splits._DECLARED_SPENDS:
+            found.append(module._DECLARED_SPENDS)
+    return found
+
+
+@pytest.fixture(autouse=True)
+def _no_spend_leaks() -> object:
+    """A spend declared by one test must not open an arm for the next one.
+
+    The ledger is process-local by design -- see ``tools/splits.py`` on why it
+    is not written back to the manifest -- and process-local state that leaks
+    between tests would make the refusal look flaky rather than wrong.
+    """
+    saved = [(ledger, dict(ledger)) for ledger in _ledgers()]
+    yield
+    for ledger, before in saved:
+        ledger.clear()
+        ledger.update(before)
 
 
 def _mutated(field: str, value: Optional[str]) -> str:
@@ -363,6 +436,26 @@ class TestTheRealManifest:
         for task in splits.TASKS:
             assert splits.TASK_GOLD_UNIT[task].strip(), task
 
+    def test_the_gold_unit_states_the_edge_and_not_only_the_shape(self) -> None:
+        """D-048's owed edit, pinned so it cannot be compressed back out.
+
+        ``extraction`` and ``span_detection`` gold both hold short forms and
+        long forms inside a passage, so on *shape* alone they read as one task
+        under two names. The difference is relational: extraction gold asserts
+        an edge between the two and span gold asserts none. That is why a
+        held-out span corpus cannot back the claim this project leads with, and
+        why two systems differing only in their pairing score identically
+        through the span scorer. Stating the shape and not the edge is what let
+        that argument live in a decision record instead of in the vocabulary.
+        """
+        extraction = splits.TASK_GOLD_UNIT["extraction"]
+        spans = splits.TASK_GOLD_UNIT["span_detection"]
+        assert "EDGE" in extraction, "extraction gold IS an edge; the entry must say so"
+        assert "UNLINKED" in spans, "span gold is two unlinked vertex sets; the entry must say so"
+        # And the wider extension, which is the other half of D-048's table:
+        # span corpora tag every occurrence, defined or not.
+        assert "occurrence" in spans
+
     def test_med1250_is_still_a_tuning_split(self, manifest: object) -> None:
         """Operating rule 2, in the file it lives in."""
         assert manifest.corpus("med1250").is_tuning
@@ -380,6 +473,133 @@ class TestTheRealManifest:
         undeclared = sorted(targets - set(manifest.names))
         assert not undeclared, f"bench/corpora.py reads undeclared corpora: {undeclared}"
         assert keys, "DECLARED_AS keys did not parse"
+
+    def test_the_two_prose_reservations_are_now_structures(self, manifest: object) -> None:
+        """D-043 and D-047 allocated an arm each in prose, and prose refuses nothing.
+
+        Both records say so about themselves. The point of this test is that the
+        allocation is now a *parsed* thing with a state, a record and a trigger,
+        so the next round can be refused by it rather than reminded of it.
+        """
+        reserved = {(entry.corpus, entry.arm): entry for entry in manifest.reserved_arms()}
+        assert ("sdu21_ad", "test") in reserved, "D-043's reservation is not declared"
+        assert ("sdu22_ae_legal", "train") in reserved, "D-047's allocation is not declared"
+        assert ("sdu22_ae_scientific", "train") in reserved, "D-047's non-allocation is not a state"
+
+        assert reserved[("sdu21_ad", "test")].decided_in == "D-043"
+        assert reserved[("sdu22_ae_legal", "train")].decided_in == "D-047"
+        assert reserved[("sdu22_ae_legal", "train")].state == "allocated"
+        # UNALLOCATED is a state D-047 chose, not the absence of one: assigning
+        # this split a use today would mean inventing one.
+        assert reserved[("sdu22_ae_scientific", "train")].state == "unallocated"
+        assert not reserved[("sdu22_ae_scientific", "train")].allocated_to
+
+    def test_every_reserved_arm_names_the_trigger_that_would_fire_it(
+        self, manifest: object
+    ) -> None:
+        """The field the whole structure exists for, on the real file.
+
+        A reservation with no trigger survives each round because nobody
+        happened to want it, which is not the same as being reserved *for*
+        something -- D-043's finding, and the reason it gave AD ``test.json``
+        a use in the first place.
+        """
+        entries = manifest.reserved_arms()
+        assert entries, "no reserved arms declared; this test is checking nothing"
+        for entry in entries:
+            assert entry.spend_trigger.strip(), f"{entry.corpus}:{entry.arm} has no spend_trigger"
+            assert entry.decided_in, f"{entry.corpus}:{entry.arm} names no record"
+            if entry.state == "allocated":
+                assert entry.lapse_trigger.strip(), f"{entry.corpus}:{entry.arm} cannot be released"
+
+    def test_a_reserved_arm_refuses_a_read_that_did_not_declare_a_spend(
+        self, manifest: object
+    ) -> None:
+        """R3, as a refusal rather than as a note somebody has to read.
+
+        Nothing is opened here: the refusal is on the declaration and fires
+        before any path is resolved.
+        """
+        for name, arm in (
+            ("sdu21_ad", "test"),
+            ("sdu22_ae_legal", "train"),
+            ("sdu22_ae_scientific", "train"),
+        ):
+            with pytest.raises(splits.SplitsError, match="RESERVED"):
+                manifest.corpus(name).require_unreserved(arm)
+        # The control: the arms beside them are free, and the guard is silent.
+        manifest.corpus("sdu22_ae_legal").require_unreserved("dev")
+        manifest.corpus("sdu21_ad").require_unreserved("train")
+        manifest.corpus("med1250").require_unreserved("all")
+
+    def test_the_unallocated_arm_refuses_even_a_declared_spend(self, manifest: object) -> None:
+        """ "First-come is refused" is a rule D-047 wrote and could not enforce.
+
+        An unallocated arm cannot be spent by naming the record that declined to
+        allocate it. Its first spend needs its own record, and the manifest has
+        to carry the allocation before a runner can claim it.
+        """
+        with pytest.raises(splits.SplitsError, match="UNALLOCATED"):
+            manifest.corpus("sdu22_ae_scientific").declare_spend(
+                "train", decision="D-047", purpose="a number this round", stream=io.StringIO()
+            )
+
+    def test_the_reader_that_would_spend_the_allocated_arm_is_wired(self) -> None:
+        """The guard is LIVE, not merely available, and this is the difference.
+
+        ``data/sdu22_ae_legal_train.json`` is already fetched, so before this
+        round a single ``read_sdu22_ae(domain="legal", split="train")`` mined the
+        last unmined arm of the corpus and printed nothing. The refusal fires
+        inside ``_sdu22_ae_source`` *before* the path is resolved, which is why
+        this test can assert it without opening the file.
+        """
+        with pytest.raises(SystemExit, match="RESERVED"):
+            corpora._sdu22_ae_source(None, "legal", "train")
+        with pytest.raises(SystemExit, match="RESERVED"):
+            corpora._sdu22_ae_source(None, "scientific", "train")
+        # Control: the dev arms carry no reservation and resolve as before.
+        assert corpora._sdu22_ae_source(None, "legal", "dev").name.endswith("legal_dev.json")
+
+    def test_the_ad_reservation_is_refused_before_the_split_is_called_a_typo(self) -> None:
+        """D-043's arm, and the ordering that makes its reservation live rather than lucky.
+
+        ``test`` is not in the AD registry and has no fetch entry, so it was
+        refused as an unknown split -- an accident that reads like a guard.
+        Asking the manifest first means whoever adds the registry entry meets
+        the reservation instead of removing the only thing in front of the
+        project's last blind disambiguation arm.
+        """
+        with pytest.raises(SystemExit, match="RESERVED"):
+            corpora._sdu21_ad_source(None, "test")
+        # Controls: the unreserved arms are untouched, and a real typo is still
+        # reported as a typo rather than swallowed by the guard.
+        assert corpora._sdu21_ad_source(None, "dev").name.endswith("sdu21_ad_dev.json")
+        with pytest.raises(SystemExit, match="unknown SDU21-AD split"):
+            corpora._sdu21_ad_source(None, "tset")
+
+    def test_the_runner_facing_door_writes_the_ledger_the_reader_reads(self) -> None:
+        """One door, one ledger -- the part most likely to be quietly wrong.
+
+        ``tools/splits.py`` is imported by path, so this file's copy of it and
+        ``bench/corpora.py``'s copy are two module objects with two module-level
+        ledgers. A runner that declared its spend against the wrong one would be
+        refused by the reader anyway and would have no idea why.
+        ``bench.corpora.declare_spend`` is the single door that cannot go wrong.
+
+        This resolves a path and does not read the file; ``_no_spend_leaks``
+        puts the ledger back so no later test inherits an open arm.
+        """
+        corpora.declare_spend(
+            "sdu22_ae_legal",
+            "train",
+            decision="D-047",
+            purpose="legend precision cost on an unmined arm, two_word row saved beside it",
+        )
+        resolved = corpora._sdu22_ae_source(None, "legal", "train")
+        assert resolved.name.endswith("legal_train.json")
+        # And the declaration is arm-scoped: it opens one arm of one corpus.
+        with pytest.raises(SystemExit, match="RESERVED"):
+            corpora._sdu22_ae_source(None, "scientific", "train")
 
     def test_every_registry_key_in_bench_is_one_the_manifest_can_answer_for(self) -> None:
         """No reader may be registered under a name ``label_for`` cannot resolve.
@@ -558,6 +778,143 @@ class TestTheValidatorCatchesWhatItClaimsTo:
         with pytest.raises(splits.SplitsError, match="is not one of"):
             manifest.headline_capable("identifier_segmenation")
 
+    # -- reservations, mutated the way the licence-URL rule is -----------------
+
+    def test_a_clean_reservation_passes(self, tmp_path: Path) -> None:
+        """The control. Without it every mutation below could pass for the wrong reason."""
+        manifest = splits.load(_write(tmp_path, _with_reservation()))
+        assert splits.validate(manifest) == []
+        assert [entry.arm for entry in manifest.reserved_arms()] == ["train"]
+
+    def test_a_reservation_with_no_trigger_is_reported(self, tmp_path: Path) -> None:
+        """The headline case, and the one D-043 is a whole record about.
+
+        An arm reserved with no firing condition is not reserved *for* anything.
+        It survives each round because nobody happened to want it, and then
+        attracts a proposal it cannot serve -- which is exactly what happened to
+        AD ``test.json`` before D-043 gave it a trigger.
+        """
+        body = _with_reservation(spend_trigger=None)
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("spend_trigger" in problem for problem in problems), problems
+
+    def test_an_allocation_with_no_way_to_lapse_is_reported(self, tmp_path: Path) -> None:
+        """Permanent by omission is not the same as permanent by decision.
+
+        D-047 wrote a lapse trigger because priority must not transfer by
+        default -- and must not be immovable either.
+        """
+        body = _with_reservation(lapse_trigger=None)
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("lapse_trigger" in problem for problem in problems), problems
+
+    def test_two_reservations_on_one_arm_are_reported(self, tmp_path: Path) -> None:
+        """The collision D-043 found and D-047 had to resolve by hand.
+
+        One unread split, two live claims, and whichever runner touches it first
+        decides. Written as two structures it is a contradiction the file can
+        refuse before anybody runs anything.
+        """
+        body = _with_reservation() + (
+            "\n[[corpora.example.reservations]]\n"
+            'arm = "train"\n'
+            'state = "allocated"\n'
+            'decided_in = "D-032"\n'
+            "allocated_to = 'experiment nine, the two-word bracketed short form'\n"
+            "spend_trigger = 'experiment nine is reopened'\n"
+            "lapse_trigger = 'experiment nine is closed for good'\n"
+        )
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("CONTRADICT" in problem for problem in problems), problems
+
+    def test_an_unallocated_arm_that_names_an_allocation_is_reported(self, tmp_path: Path) -> None:
+        """The other contradiction shape: a state at odds with its own fields."""
+        body = _with_reservation(state='"unallocated"', lapse_trigger=None)
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("Contradiction" in problem for problem in problems), problems
+
+    def test_a_lapse_trigger_on_something_that_is_not_an_allocation_is_reported(
+        self, tmp_path: Path
+    ) -> None:
+        body = _with_reservation(state='"unallocated"', allocated_to=None)
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("only an allocation can lapse" in problem for problem in problems), problems
+
+    def test_one_event_as_both_triggers_is_reported(self, tmp_path: Path) -> None:
+        """An allocation that lapses on the event that fires it cannot be acted on."""
+        body = _with_reservation(
+            spend_trigger="'the legend workstream publishes a cost'",
+            lapse_trigger="'the legend workstream publishes a cost'",
+        )
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("same event" in problem for problem in problems), problems
+
+    def test_a_spent_arm_must_say_what_spent_it(self, tmp_path: Path) -> None:
+        """A spend nobody can point at is a contamination with no evidence."""
+        body = _with_reservation(state='"spent"', allocated_to=None, lapse_trigger=None)
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("spent_in" in problem for problem in problems), problems
+
+    def test_an_unknown_reservation_key_is_refused(self, tmp_path: Path) -> None:
+        """A misspelt trigger key would drop the trigger silently.
+
+        The corpus table preserves unknown keys in ``extra``; a reservation
+        refuses them, and the asymmetry is the whole difference between a field
+        that is decoration and a field that is load-bearing. ``train_allocation``
+        itself was such a key -- valid TOML the loader neither validated nor
+        rendered.
+        """
+        body = _with_reservation() + "laps_trigger = 'a typo that eats the trigger'\n"
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("unrecognised key" in problem for problem in problems), problems
+
+    def test_an_arm_written_as_a_filename_is_refused(self, tmp_path: Path) -> None:
+        """The guard is a literal match, so the reserved string must be the runner's.
+
+        Reserving ``"train.json"`` while every reader passes ``split="train"``
+        is a guard that can never fire -- a reservation that validates, renders,
+        and refuses nothing, which is the failure being fixed wearing the new
+        schema.
+        """
+        body = _with_reservation(arm='"train.json"')
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("split token" in problem for problem in problems), problems
+
+    @pytest.mark.parametrize("value", ['"held"', '"D047"', "None"])
+    def test_a_reservation_with_no_usable_record_is_reported(
+        self, tmp_path: Path, value: str
+    ) -> None:
+        """ "Reserved" with no record behind it cannot be argued down or re-designated."""
+        body = _with_reservation(decided_in=None if value == "None" else value)
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("decided_in" in problem for problem in problems), problems
+
+    def test_an_unknown_reservation_state_is_reported(self, tmp_path: Path) -> None:
+        body = _with_reservation(state='"pencilled_in"')
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("state" in problem for problem in problems), problems
+
+    def test_a_reservation_written_as_prose_again_is_reported(self, tmp_path: Path) -> None:
+        """The regression that matters: the old ``train_allocation`` shape, renamed.
+
+        A structural defect is reported beside the other findings rather than
+        raised over them, so one malformed entry does not suppress the report
+        that would have listed the other nine.
+        """
+        body = _MINIMAL + '\nreservations = "ALLOCATED. 3,564 unread samples, one read."\n'
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("array of tables" in problem for problem in problems), problems
+
+    def test_a_reservations_element_that_is_not_a_table_is_reported(self, tmp_path: Path) -> None:
+        body = _MINIMAL + '\nreservations = ["train"]\n'
+        problems = splits.validate(splits.load(_write(tmp_path, body)))
+        assert any("is not a table" in problem for problem in problems), problems
+
+    def test_the_cli_exits_non_zero_on_a_contradictory_reservation(self, tmp_path: Path) -> None:
+        """The CI contract: a malformed reservation reds the build like any other rule."""
+        body = _with_reservation(spend_trigger=None)
+        assert splits.main(["--check", "--path", str(_write(tmp_path, body))]) == 1
+
     def test_the_cli_exits_non_zero_on_an_invalid_manifest(self, tmp_path: Path) -> None:
         """The CI step's contract: an invalid manifest reds the build."""
         path = _write(tmp_path, _mutated("licence_url", None))
@@ -602,6 +959,82 @@ class TestTheAccessor:
                 assert corpus.is_held_out and not corpus.contaminated
                 assert corpus.task == task
 
+    def test_declaring_the_spend_is_what_opens_a_reserved_arm(self, tmp_path: Path) -> None:
+        """The handshake, end to end: refused, declared, permitted.
+
+        The declaration is process-local on purpose -- a runner that could mark
+        its own arm spent in ``bench/splits.toml`` would be spending it with no
+        commit and no review.
+        """
+        manifest = splits.load(_write(tmp_path, _with_reservation()))
+        corpus = manifest.corpus("example")
+        with pytest.raises(splits.SplitsError, match="RESERVED"):
+            corpus.require_unreserved("train")
+
+        log = io.StringIO()
+        spent = corpus.declare_spend(
+            "train",
+            decision="D-047",
+            purpose="legend precision cost, with the two_word row saved beside it",
+            stream=log,
+        )
+        assert spent is not None and spent.arm == "train"
+        assert "SPENDING A RESERVED ARM" in log.getvalue()
+        assert "two_word" in log.getvalue(), "the purpose must reach the run log"
+        corpus.require_unreserved("train")
+        assert splits.declared_spends()[("example", "train")].startswith("legend precision")
+
+    def test_a_spend_must_name_the_record_that_allocated_the_arm(self, tmp_path: Path) -> None:
+        """Spending under another record is a RE-ALLOCATION, not an argument.
+
+        D-047's own words: priority does not transfer by default. A runner that
+        could name any record would be re-allocating the arm at run time,
+        which is the collision the allocation was written to settle.
+        """
+        corpus = splits.load(_write(tmp_path, _with_reservation())).corpus("example")
+        with pytest.raises(splits.SplitsError, match="RE-ALLOCATION"):
+            corpus.declare_spend(
+                "train", decision="D-032", purpose="experiment nine", stream=io.StringIO()
+            )
+        with pytest.raises(splits.SplitsError, match="purpose"):
+            corpus.declare_spend("train", decision="D-047", purpose="  ", stream=io.StringIO())
+        assert splits.declared_spends() == {}, "a refused spend must not open the arm"
+
+    def test_declaring_a_spend_on_an_unreserved_arm_costs_nothing(self, tmp_path: Path) -> None:
+        """The ergonomic claim, checked rather than argued.
+
+        A reader may call the guard unconditionally without knowing which arms
+        are spoken for. If complying were more expensive than that, runners
+        would route around it -- which is the failure mode the mechanism is
+        designed against, not a hypothetical.
+        """
+        corpus = splits.load(_write(tmp_path, _with_reservation())).corpus("example")
+        log = io.StringIO()
+        assert corpus.declare_spend("dev", decision="D-047", purpose="x", stream=log) is None
+        assert log.getvalue() == ""
+        corpus.require_unreserved("dev")
+
+    def test_a_spent_arm_no_longer_refuses_anything(self, tmp_path: Path) -> None:
+        """The cost has been paid; the corpus entry above is where it is recorded.
+
+        Keeping a spent arm refusing would push the next reader to delete the
+        reservation, which is how the record of what was spent disappears.
+        """
+        body = (
+            _with_reservation(state='"spent"', allocated_to=None, lapse_trigger=None)
+            + "spent_in = 'shortform.sdu22_ae_legal_train.legend_cost'\n"
+        )
+        manifest = splits.load(_write(tmp_path, body))
+        assert splits.validate(manifest) == []
+        manifest.corpus("example").require_unreserved("train")
+
+    def test_the_ledger_cannot_be_opened_by_mutating_the_copy(self, tmp_path: Path) -> None:
+        """``declared_spends()`` hands out a copy; ``declare_spend`` is the only door."""
+        corpus = splits.load(_write(tmp_path, _with_reservation())).corpus("example")
+        splits.declared_spends()[("example", "train")] = "granted by a caller"
+        with pytest.raises(splits.SplitsError, match="RESERVED"):
+            corpus.require_unreserved("train")
+
     def test_notes_never_fail_a_build(self, manifest: object) -> None:
         """Advisories are advisories: a gate that reds with the passage of time
         fires on an unrelated commit, which is the gate people learn to ignore."""
@@ -614,6 +1047,15 @@ class TestTheAccessor:
         import json
 
         json.dumps(splits.as_dict(manifest))
+
+    def test_as_dict_reports_the_reserved_arms(self, manifest: object) -> None:
+        """ "What may this round not touch?" is now one question against one file."""
+        rendered = splits.as_dict(manifest)
+        reserved = {(row["corpus"], row["arm"]) for row in rendered["reserved_arms"]}
+        assert ("sdu22_ae_legal", "train") in reserved
+        assert ("sdu21_ad", "test") in reserved
+        assert rendered["corpora"]["sdu22_ae_scientific"]["reserved_arms"] == ["train"]
+        assert rendered["corpora"]["plod"]["reserved_arms"] == []
 
     def test_as_dict_reports_headline_capability_per_task(self, manifest: object) -> None:
         """The JSON view offers no pooled list, because a pooled list was the hole."""

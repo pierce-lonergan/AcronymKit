@@ -240,22 +240,39 @@ nds.with_custom({"KYC": "Know Your Customer"}).resolve("KYC", strict).source.val
 > explanation attached; `GovernedDictionary.resolve` is where the refusal is legible. That is a gap
 > in the DTO surface rather than a decision, and it is recorded here so it is not mistaken for one.
 
-### Overlays loaded from JSON need one line of construction
+### An overlay loaded from JSON needs no construction step
 
-A `GovernedEntry` written into a JSON file parses as a `dict`, and a `dict` is not a
-`GovernedEntry`. The overlay index treats any non-`GovernedEntry` value as a long form and stringifies
-it, so a JSON-loaded overlay silently produces an expansion whose long form is the repr of a
-dictionary. Convert first:
+A `GovernedEntry` written into a JSON file parses back as a `dict`, and a `dict` is not a
+`GovernedEntry`. `with_custom` takes it anyway: an overlay value may be a string, a `GovernedEntry`,
+or a mapping that describes one, and the third is built into an entry rather than stringified. Keys
+beginning with `_` are skipped, so a `_comment` field survives the round trip through a file that has
+no comment syntax.
 
 ```python
-def layer(mapping):
-    return {
-        token: value if isinstance(value, str) else GovernedEntry(**value)
-        for token, value in mapping.items()
-    }
+import json
 
-catalog = nds.with_custom(layer(json.loads(path.read_text(encoding="utf-8"))["layers"]["house"]))
+# exactly what Path("house_overlay.json").read_text(encoding="utf-8") would hand you
+payload = json.loads("""
+{"layers": {"house": {
+    "_comment": "house overlay, reviewed 2026-08",
+    "KYC": {"canonical": "Know Your Customer", "kind": "approved_abbrev",
+            "entry_id": "HOUSE-1", "confidence": 0.8},
+    "WLT": "Wallet Account"}}}
+""")
+
+catalog = nds.with_custom(payload["layers"]["house"])
+expand_token("KYC", catalog).long     # 'Know Your Customer'   source 'custom', entry_id 'HOUSE-1'
+expand_token("WLT", catalog).long     # 'Wallet Account'       source 'custom', entry_id None
 ```
+
+**A malformed mapping raises rather than quietly becoming text**, which is the whole reason the
+branch exists. `{"BAD": {"kind": "approved_abbrev"}}` raises `LexiconError` naming the token and the
+missing field — *Custom overlay entry 'BAD' is not a valid governed entry: canonical: Field required*
+— because falling through to the string branch would hand back an "expansion" that was the repr of a
+dict, reported as known with full confidence. That is the one outcome this package exists to prevent,
+and it is worth knowing that **this page told you to convert the dicts yourself until this round**:
+the workaround was written against an implementation that no longer behaves that way, and a reader
+who still has it in their pipeline can delete it.
 
 ## The verbs
 
@@ -612,11 +629,17 @@ in every caller's repository.
 ```python
 from acronymkit.governed.loaders import load_bundle
 
-nds = load_bundle("tests/fixtures/governed")
-len(nds.entries)                                 # 68
-len(nds.approved_abbreviations)                  # 51
-nds.term_id_for("Customer Account Open Date")    # 'TRM-400001'
+bundle = load_bundle("tests/fixtures/governed")
+len(bundle.entries)                                # 68
+len(bundle.approved_abbreviations)                 # 51
+bundle.term_id_for("Customer Account Open Date")   # 'TRM-400001'
 ```
+
+**Deliberately not called `nds`.** That is a different, larger catalog — the 68 rows above against
+this page's 14 — and binding it to `nds` would silently re-point every example after this one,
+including the audit below, whose unknown-token list and finding counts would then differ from what is
+printed beside them. This is the only block on the page that builds a second
+vocabulary, and until this round it did bind it to `nds`.
 
 | Function | Reads |
 |---|---|
@@ -910,6 +933,14 @@ package. None of the five reaches the top-level `acronymkit`, which carries only
 integration needs. A port has to reproduce the separator set and the ordinal suffixes exactly; the
 rest of the splitter's implementation is not contract, and
 [docs/notes/governed-json-contract.md](notes/governed-json-contract.md) says which is which.
+
+**One divergence to know about before porting.** That contract note's character-class table still
+classifies `[` and `]` as separators unconditionally and carries no `value[x]` row, so a port built
+from it reports an empty `unaccounted` where this implementation reports `('[', ']')`. **This section
+is the correct reading**, re-derived above against the shipped tokenizer; the note is the half that is
+behind. The positional rule is wire-visible, D-034 in [docs/DECISIONS.md](DECISIONS.md) is its design
+record, and applying it to the contract note is an open follow-up that is deliberately not being done
+as a patch.
 
 ## Policies
 
@@ -1278,14 +1309,24 @@ it does not contain, and nothing about a table that was not in the export. Neith
 backlog mean a complete catalog — it means the corpus exercised no token the catalog is silent about.
 The audit is a measurement of a schema against a standard, not of a standard.
 
-### No figure belongs next to this
+### No figure belongs next to the lookup, and one now belongs beside the cut
 
-Governed mode is exact by construction. That is a tautology, not a result, and this project puts no
-percentage anywhere near it: a lookup table returns what is in the lookup table. A reader who takes
-"perfect accuracy on in-dictionary tokens" for a measurement has been misled about what was
-measured, which is nothing — no corpus was scored, no baseline was run, and there is no experiment
-the figure could have come from. The claim is written as an invariant, tested as an invariant, and
-carries no number.
+Two things are easy to run together here, and only one of them is measurable at all.
+
+**The lookup is exact by construction, which is a tautology rather than a result.** This project puts
+no percentage anywhere near it: a lookup table returns what is in the lookup table. A reader who
+takes "perfect accuracy on in-dictionary tokens" for a measurement has been misled about what was
+measured, which is nothing — no baseline was run, and there is no experiment the figure could have
+come from. The claim is written as an invariant, tested as an invariant, and carries no number.
+
+**Where the cut falls is not a tautology, and it is now scored.** Every verb on this page has to
+decide where one token ends and the next begins *before* any lookup happens, and that decision can
+disagree with a human who segmented the same name. Two corpora of publisher-written captions — SEC
+XBRL taxonomies and Socrata column labels — adjudicate it, and
+[docs/EVALUATION.md](EVALUATION.md#the-governed-subsystem-its-first-accuracy-figures) carries the
+table. Read its flatcase row and its headline row together or not at all: on a name carrying no
+boundary mark there is nothing to cut on, the splitter refuses to invent one, and the flatcase row is
+what that refusal costs. It is the price of the paragraph above, quoted in the same table.
 
 The contrast with the rest of the library is the point, and *that* part is measured.
 `acronymkit`'s contextual disambiguator scores 41.65<!--claim:disambiguation.sdu21.acronymkit.accuracy--> %
@@ -1296,9 +1337,12 @@ apply, because there is no distribution to have a majority in: there is a standa
 it is the only defensible answer. Lookup is not merely better than a model here. It is the answer the
 question has.
 
-Nothing on this page is a benchmark result. `NamingPolicy.frequency_baseline()` is a contrast arm on
-fixture tokens chosen to make two rules disagree, and the corpus counts quoted under
-[the invariants](#the-four-invariants) describe that fixture corpus and nothing else.
+Nothing on **this page** is a benchmark result, and that is a statement about where the numbers live
+rather than about whether any exist. `NamingPolicy.frequency_baseline()` is a contrast arm on fixture
+tokens chosen to make two rules disagree, and the corpus counts quoted under
+[the invariants](#the-four-invariants) describe that fixture corpus and nothing else. The cut-placement
+figures are in `docs/EVALUATION.md`, gated through `bench/run_governed_gold.py --save`, and cited by
+run id wherever they are quoted.
 
 ## See also
 

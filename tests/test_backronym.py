@@ -18,16 +18,20 @@ Two independent capabilities are covered:
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import sys
 import time
 from functools import cache
+from pathlib import Path
+from types import ModuleType
 from typing import Optional, Sequence
 
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from acronymkit.backronym import BackronymGenerator
+from acronymkit.backronym import BackronymGenerator, _target_letters
 from acronymkit.config import Config
 from acronymkit.engine import AcronymEngine
 from acronymkit.enums import MappingKind
@@ -37,6 +41,11 @@ from acronymkit.phonetics import CharNGramModel
 from acronymkit.scoring import Scorer
 from acronymkit.tokenizer import Tokenizer
 from conftest import timing_budget
+
+#: Repository root, for locating ``bench/run_backronym.py``. The runner is
+#: not importable as a module and is not shipped in the sdist; see
+#: :func:`_load_runner` at the foot of this file.
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ---------------------------------------------------------------------------
 # Pipeline helpers
@@ -844,3 +853,401 @@ def test_property_synthesis_invariants(target: str, vocabulary: list[str]) -> No
         assert candidate.expansion_text == " ".join(word for word in candidate.expansion if word)
         mapped = len(target) - len(candidate.unmapped_letters)
         assert candidate.coverage == pytest.approx(mapped / len(target))
+
+
+# ---------------------------------------------------------------------------
+# bench/run_backronym.py — the oracle that adjudicates the shipped aligner
+# ---------------------------------------------------------------------------
+#
+# Why this section is in this file rather than a new one
+# -----------------------------------------------------
+# ``bench/run_backronym.py`` produces the only external figures the backronym
+# subsystem has, and ``docs/EVALUATION.md`` now carries them behind claim
+# citations. Every one of them rests on an *oracle* — a two-pointer subsequence
+# test and a constraint verifier that deliberately share no code with the search
+# they judge. Sharing no code is what makes them worth running and also what
+# makes them capable of being wrong on their own, so they are pinned here, in
+# the file that already owns the behaviour they describe.
+#
+# The load-bearing test in this section is
+# ``test_the_verifier_rejects_every_single_mutation``. A verifier that only ever
+# returns "clean" measures nothing, and ``validity_pct`` reads 100.00 in the
+# published table — so the question that matters is not whether it passes on
+# real data but whether it *can* fail. Each mutation below breaks exactly one
+# clause of the constraint and each must be caught.
+
+RUNNER = REPO_ROOT / "bench" / "run_backronym.py"
+
+
+def _load_runner() -> Optional[ModuleType]:
+    """Import the runner by path, or ``None`` when it is not in this checkout.
+
+    ``bench/`` is a directory of scripts and not a package; importing it as one
+    for a test's convenience would change the shape of the thing under test.
+    Same mechanism as ``tests/test_governed_gold.py``.
+
+    The sdist ships ``tests/`` and deliberately does not ship ``bench/*.py``, so
+    this returns ``None`` every time CI runs the suite inside the built sdist.
+    A ``pytestmark`` alone would not be enough: marks are evaluated at
+    collection and a module-level import runs earlier than that.
+    """
+    if not RUNNER.is_file():  # pragma: no cover - not a source checkout
+        return None
+    spec = importlib.util.spec_from_file_location("_backronym_runner_under_test", RUNNER)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # Registered before execution: ``@dataclass`` resolves its annotations
+    # through ``sys.modules[cls.__module__]`` while the class body still runs.
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+runner = _load_runner()
+
+bench_runner = pytest.mark.skipif(runner is None, reason="bench/ is not in this checkout")
+
+
+def _tokens(phrase: str) -> list[Token]:
+    """Tokenize with stock configuration, the way the runner does."""
+    tokenizer, _ = pipeline(Config())
+    return tokenizer.tokenize(phrase)
+
+
+# -- the canonical form the oracle duplicates -------------------------------
+@bench_runner
+@pytest.mark.parametrize(
+    "raw", ["PDF", "pdf", "Wi-Fi", "p.d.f.", "T3", "1,25-(OH)2D3", "", "---", "log P"]
+)
+def test_the_oracle_canonicalises_targets_exactly_as_the_library_does(raw: str) -> None:
+    """The runner reimplements ``_target_letters`` on purpose; pin the agreement.
+
+    The duplication is deliberate — an oracle must not import the private
+    helper of the thing it adjudicates — which makes it a place two definitions
+    can drift apart silently. This is the check that stops that.
+    """
+    assert runner.canonical_letters(raw) == _target_letters(raw)
+
+
+# -- the character stream ---------------------------------------------------
+@bench_runner
+def test_the_stream_holds_only_eligible_tokens_in_constraint_order() -> None:
+    tokens = _tokens("part of speech")
+    stream = runner.character_stream(tokens)
+    assert [token.text for token in tokens if not token.is_eligible] == ["of"]
+    assert {position for position, _, _ in stream} == {0, 2}
+    assert stream == sorted(stream, key=lambda entry: (entry[0], entry[1]))
+    assert "".join(character for _, _, character in stream) == "partspeech"
+
+
+# -- feasibility ------------------------------------------------------------
+@bench_runner
+@pytest.mark.parametrize(
+    ("target", "phrase", "feasible"),
+    [
+        ("PDF", "Portable Document Format", True),
+        ("PD", "Portable Document Format", True),
+        # Sub-word matching: E then X out of "Exchange" is legal because the
+        # offsets strictly increase inside one token.
+        ("NEXUS", "Network Exchange Unified Security", True),
+        # ...and "beta" cannot spell AB, because its only "b" precedes its
+        # only "a" and the constraint is strict increase, not any assignment.
+        ("AB", "beta", False),
+        ("ZZZ", "Portable Document Format", False),
+        # "of" is a stop word, so its "o" is not in the stream at all.
+        ("POS", "part of speech", False),
+        ("PS", "part of speech", True),
+    ],
+)
+def test_the_oracle_decides_feasibility(target: str, phrase: str, feasible: bool) -> None:
+    letters = runner.canonical_letters(target)
+    stream = runner.character_stream(_tokens(phrase))
+    assert (runner.earliest_fit(letters, stream) is not None) is feasible
+    assert (runner.latest_fit(letters, stream) is not None) is feasible
+
+
+@bench_runner
+@pytest.mark.parametrize(
+    ("target", "phrase"),
+    [
+        ("PDF", "Portable Document Format"),
+        ("TAI", "timed artificial insemination"),
+        ("NEXUS", "Network Exchange Unified Security"),
+        ("GA", "general anesthesia"),
+    ],
+)
+def test_earliest_never_lands_after_latest(target: str, phrase: str) -> None:
+    """The two fits bracket the feasible set, so one bounds the other.
+
+    That is the entire justification for calling a pair *underdetermined* when
+    they disagree: they are the componentwise minimum and maximum over every
+    complete alignment, so they agree on a letter exactly when every alignment
+    does.
+    """
+    letters = runner.canonical_letters(target)
+    stream = runner.character_stream(_tokens(phrase))
+    earliest, latest = runner.earliest_fit(letters, stream), runner.latest_fit(letters, stream)
+    assert earliest is not None and latest is not None
+    for first, second in zip(earliest, latest):
+        assert first <= second
+
+
+@bench_runner
+@pytest.mark.parametrize(
+    ("target", "phrase", "underdetermined"),
+    [
+        # One P, one D, one F in eligible positions: forced.
+        ("PDF", "Portable Document Format", False),
+        # "general anesthesia" spells GA twice over: "general general" and
+        # "general anesthesia" both satisfy the constraint.
+        ("GA", "general anesthesia", True),
+        ("TAI", "timed artificial insemination", True),
+    ],
+)
+def test_underdetermination_is_the_two_fits_disagreeing(
+    target: str, phrase: str, underdetermined: bool
+) -> None:
+    letters = runner.canonical_letters(target)
+    tokens = _tokens(phrase)
+    stream = runner.character_stream(tokens)
+    earliest, latest = runner.earliest_fit(letters, stream), runner.latest_fit(letters, stream)
+    assert earliest is not None and latest is not None
+    first = tuple(tokens[position].text for position, _ in earliest)
+    second = tuple(tokens[position].text for position, _ in latest)
+    assert (first != second) is underdetermined
+
+
+@bench_runner
+@pytest.mark.parametrize(
+    ("target", "phrase", "reachable"),
+    [
+        ("PDF", "Portable Document Format", 3),
+        ("PDFZ", "Portable Document Format", 3),
+        ("ZZZ", "Portable Document Format", 0),
+        ("ZPDF", "Portable Document Format", 3),
+    ],
+)
+def test_the_letter_ceiling_is_the_longest_embeddable_subsequence(
+    target: str, phrase: str, reachable: int
+) -> None:
+    letters = runner.canonical_letters(target)
+    stream = runner.character_stream(_tokens(phrase))
+    assert runner.longest_embeddable(letters, stream) == reachable
+
+
+# -- the constraint verifier, and whether it can fail -----------------------
+@bench_runner
+def test_the_verifier_passes_a_real_alignment() -> None:
+    tokens, candidates = align("PDF", "Portable Document Format", limit=1)
+    assert runner.constraint_violations("PDF", tokens, candidates[0]) == []
+
+
+@bench_runner
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "token_order",
+        "offset_not_increasing",
+        "letter_not_there",
+        "word_disagrees_with_token",
+        "coverage_arithmetic",
+        "unmapped_but_donates",
+        "target_word",
+    ],
+)
+def test_the_verifier_rejects_every_single_mutation(mutation: str) -> None:
+    """A verifier that cannot fail is not a verifier.
+
+    ``validity_pct`` reads 100.00 on both published corpora, and that figure is
+    worth nothing unless each clause it checks is capable of firing. Every
+    mutation below breaks exactly one clause of one otherwise-valid payload.
+    """
+    tokens = _tokens("Portable Document Format")
+    _, candidates = align("PDF", "Portable Document Format", limit=1)
+    payload = candidates[0].model_dump()
+
+    if mutation == "token_order":
+        payload["mappings"][2]["token_index"] = 0
+        payload["mappings"][2]["char_offset"] = 0
+        payload["expansion"][2] = tokens[0].text
+    elif mutation == "offset_not_increasing":
+        payload["mappings"][1]["token_index"] = 0
+        payload["mappings"][1]["char_offset"] = 0
+        payload["expansion"][1] = tokens[0].text
+    elif mutation == "letter_not_there":
+        payload["mappings"][0]["char_offset"] = 1
+    elif mutation == "word_disagrees_with_token":
+        payload["expansion"][0] = "Something Else"
+    elif mutation == "coverage_arithmetic":
+        payload["coverage"] = 0.5
+    elif mutation == "unmapped_but_donates":
+        payload["mappings"][2]["token_index"] = None
+        payload["mappings"][2]["char_offset"] = None
+        payload["coverage"] = 2 / 3
+    elif mutation == "target_word":
+        payload["target_word"] = "PDG"
+
+    mutated = BackronymCandidate.model_validate(payload)
+    assert runner.constraint_violations("PDF", tokens, mutated) != []
+
+
+@bench_runner
+def test_the_verifier_rejects_a_donor_the_configuration_made_ineligible() -> None:
+    """The eligibility clause, mutated on its own.
+
+    It is separate from the table above because it needs a phrase carrying an
+    ineligible token, and swapping the phrase inside a parametrised case would
+    have made three mutations share one fixture and none of them isolated.
+    """
+    tokens = _tokens("part of speech")
+    assert not tokens[1].is_eligible
+    _, candidates = align("PS", "part of speech", limit=1)
+    payload = candidates[0].model_dump()
+    payload["mappings"][1]["token_index"] = 1
+    payload["mappings"][1]["char_offset"] = 1
+    payload["mappings"][1]["character"] = "F"
+    payload["target_word"] = "PF"
+    payload["expansion"][1] = tokens[1].text
+    mutated = BackronymCandidate.model_validate(payload)
+    violations = runner.constraint_violations("PF", tokens, mutated)
+    assert any("ineligible" in line for line in violations)
+
+
+# -- infeasibility attribution ----------------------------------------------
+@bench_runner
+@pytest.mark.parametrize(
+    ("target", "phrase", "cause"),
+    [
+        # "of" is a stop word and "D" is one character: both are ineligible, and
+        # a complete alignment exists over the unfiltered token list.
+        ("POS", "part of speech", "token_ineligible"),
+        ("VITD", "vitamin D", "token_ineligible"),
+        ("T3", "triiodothyronine", "digit_absent"),
+        ("DPH", "phenytoin", "character_absent"),
+        # Every character present, wrong order: "FasL" holds the F, A, S and L
+        # and every I, C and D that follows sits inside "domain", out of order.
+        ("FasL ICD", "intracellular FasL domain", "out_of_order"),
+    ],
+)
+def test_infeasibility_is_attributed_under_committed_precedence(
+    target: str, phrase: str, cause: str
+) -> None:
+    letters = runner.canonical_letters(target)
+    tokens = _tokens(phrase)
+    assert runner.earliest_fit(letters, runner.character_stream(tokens)) is None
+    assert runner.infeasibility_cause(letters, tokens) == cause
+
+
+@bench_runner
+def test_eligibility_is_ranked_above_absence_and_the_order_is_visible() -> None:
+    """Precedence is committed, not incidental.
+
+    The same pair reads as *feasible* the moment eligibility is ignored, which
+    is precisely what makes it a filter effect rather than missing data — and
+    it is why ``token_ineligible`` is tested first rather than last.
+    """
+    letters = runner.canonical_letters("POS")
+    tokens = _tokens("part of speech")
+    assert runner.infeasibility_cause(letters, tokens) == "token_ineligible"
+    unfiltered = [
+        (position, offset, character.lower())
+        for position, token in enumerate(tokens)
+        for offset, character in enumerate(token.text)
+    ]
+    assert runner.earliest_fit(letters, unfiltered) is not None
+
+
+# -- rates over an empty denominator ----------------------------------------
+@bench_runner
+def test_a_rate_over_nothing_is_zero_and_its_denominator_travels_with_it() -> None:
+    """A zero-denominator rate is written, and so is the count it came from.
+
+    The SDU-21 digit row exists at all only because the empty subset is
+    reported rather than dropped, and reporting it as ``0.00 %`` without the
+    ``0`` beside it would read as a measured failure.
+    """
+    assert runner._percentage(0, 0) == 0.0
+    assert runner._percentage(1, 4) == 25.0
+    empty = runner.AlignmentTally().entry()
+    assert empty["feasible_pct"] == 0.0
+    assert empty["pairs"] == 0
+
+
+# -- the arms, end to end on a hand-built corpus ----------------------------
+@bench_runner
+def test_the_alignment_arm_holds_its_invariants_on_a_hand_built_corpus() -> None:
+    """Every bound the published table asserts, asserted here on known input.
+
+    ``feasible`` bounds ``complete``; the letter ceiling bounds letter
+    coverage; the cause counts partition the infeasible pairs. Those are the
+    three relationships a reader of the table is entitled to rely on, and
+    nothing in the runner enforces them structurally.
+    """
+    pairs = [
+        ("PDF", "Portable Document Format"),
+        ("GA", "general anesthesia"),
+        ("T3", "triiodothyronine"),
+        ("POS", "part of speech"),
+        ("DPH", "phenytoin"),
+    ]
+    report = runner.measure_alignment(
+        pairs, corpus="med1250", source="hand-built", config=Config(), examples=4
+    )
+    row = report.tallies["all"]
+    assert row.pairs == 5
+    assert row.complete <= row.feasible <= row.pairs
+    assert row.letters_mapped <= row.letters_reachable <= row.letters
+    assert sum(row.causes.values()) == row.pairs - row.feasible
+    assert row.violating == 0
+    assert row.oracle_contradictions == 0
+    assert row.causes["digit_absent"] == 1
+    assert row.causes["token_ineligible"] == 1
+    assert row.causes["character_absent"] == 1
+    assert row.underdetermined == 1  # "general anesthesia"
+    assert report.tallies["with_digit"].pairs == 1
+    assert report.tallies["alphabetic"].pairs == 4
+    assert report.entry()["corpus"] == "med1250"
+    assert report.entry()["split_role"]
+
+
+@bench_runner
+def test_the_synthesis_arm_reports_coverage_against_the_vocabulary_it_was_given() -> None:
+    """Coverage is a property of *a* word list, so the word list is a parameter.
+
+    It also pins the difference between ``produced`` and ``complete``, which is
+    why both columns exist. ``RAM`` is served completely; ``R1`` is produced
+    with the digit left unmapped; ``QED`` is not produced at all, because no
+    letter of it has a word. Three targets, two produced, one complete — and a
+    single ``complete_pct`` would have shown two of those three states as the
+    same failure.
+    """
+    report = runner.measure_synthesis(
+        ["RAM", "QED", "R1"],
+        corpus="med1250",
+        source="hand-built",
+        config=Config(),
+        vocabulary=SMALL_VOCABULARY,
+    )
+    row = report.tallies["all"]
+    assert row.targets == 3
+    assert row.produced == 2  # QED yields nothing at all
+    assert row.complete == 1  # RAM only
+    assert row.wrong_initial == 0
+    assert row.words > 0
+    assert dict(report.unservable) == {"1": 1}
+    assert row.entry()["produced_pct"] == pytest.approx(66.67)
+    assert report.tallies["with_digit"].targets == 1
+    assert report.tallies["with_digit"].complete == 0
+
+
+@bench_runner
+def test_every_saved_run_id_names_a_corpus_the_manifest_declares() -> None:
+    """A run id is where a figure's corpus is recorded, so it must resolve.
+
+    ``bench/splits.toml`` is only load-bearing if the name in the run id is the
+    name the manifest declares. A runner that invented its own spelling would
+    produce figures exempt from the split rule by typography.
+    """
+    for source in runner.SOURCES:
+        assert source in runner.SOURCE_DESCRIPTION
+        assert runner.corpora.declaration(source) is not None

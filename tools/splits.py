@@ -68,6 +68,32 @@ What the validator enforces, and why each rule is here
     three answers. A badge URL is therefore not an acceptable citation, and this
     validator refuses one rather than trusting the author to remember.
 
+``reservations``, and why a reservation in prose is not a reservation
+    Two arms of two corpora are spoken for: SDU-21 AD ``test.json`` (D-043) and
+    SDU-22 legal ``train.json`` (D-047). Both allocations were written as prose
+    -- in a decision record and, for the second, in a manifest note -- and both
+    records say the same thing about themselves in their *How it fails*
+    sections: **nothing refuses a run against a reserved split; the guard is
+    that somebody reads a note.** That is the shape this repository has already
+    paid for: eleven places cited ``bench/splits.toml`` in prose and none of
+    them parsed it, and the file had been invalid TOML for months.
+
+    A reservation is therefore a validated table, not a paragraph. Each one
+    names the ``arm``, its ``state``, the record that decided it, what it is
+    ``allocated_to``, the ``spend_trigger`` that would fire it and the
+    ``lapse_trigger`` that would reverse it. :func:`validate` refuses a
+    reservation with no trigger, a state that contradicts its own fields, two
+    reservations claiming one arm, and an unrecognised key -- the last because
+    a misspelt ``laps_trigger`` would drop the trigger silently, which is the
+    prose reservation again wearing a schema.
+
+    The second half is the accessor. :meth:`Corpus.require_unreserved` refuses
+    by default and :meth:`Corpus.declare_spend` is the only way past it, so a
+    runner that opens a reserved arm has to say so, in the record's own name,
+    with a purpose that lands in the run log. See :meth:`Corpus.declare_spend`
+    for the ergonomics argument, which is the part that decides whether the
+    guard is used or routed around.
+
 ``shortform_recall_ceiling_pct``
     Optional, and **required to travel with its basis** -- which is the whole
     point of the pair. Where a corpus annotates every acronym *occurrence* while
@@ -105,6 +131,7 @@ from __future__ import annotations
 import argparse
 import datetime as _datetime
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -139,14 +166,28 @@ TASKS = ("extraction", "span_detection", "disambiguation", "identifier_segmentat
 #: integer cut positions in the character stream they share. There is no
 #: passage, no offsets into prose, no annotator and no candidate set, which is
 #: why it cannot be read by a pair reader or a span reader even by accident.
+#:
+#: **The shape of a record is not the whole contract, and the half that was
+#: implicit here is the load-bearing one.** ``extraction`` and
+#: ``span_detection`` both hold short forms and long forms inside a passage, so
+#: on shape alone they read as the same task under two names. They are not:
+#: extraction gold asserts an *edge* between the two, span gold asserts none
+#: (D-048). Each entry below now says so, because the difference is what decides
+#: whether a held-out span corpus can back the claim this project leads with,
+#: and the answer is no.
 TASK_GOLD_UNIT = {
     "extraction": (
-        "a passage, plus the short-form/long-form pairs a human annotated in it "
+        "a passage, plus the short-form/long-form pairs a human annotated in it; "
+        "each record asserts an EDGE -- that this short form and this long form "
+        "stand in a definition relation -- and the edge is the whole of the gold, "
+        "so a system emitting both surfaces and pairing them wrongly is wrong "
         "(bench.corpora.GoldDocument)"
     ),
     "span_detection": (
         "a passage, plus the index ranges tagged short form or long form; the "
-        "annotation never says which belongs to which "
+        "annotation never says which belongs to which, so the gold is two UNLINKED "
+        "vertex sets carrying no edge at all, over a wider extension -- every "
+        "occurrence is tagged, defined or not "
         "(bench.corpora.SpanDocument, bench.corpora.CharSpanDocument)"
     ),
     "disambiguation": (
@@ -187,6 +228,74 @@ BADGE_PATH_FRAGMENTS = ("/badge", "/license.svg", "/licence.svg")
 #: refused for the entry-point purity gate.
 STALE_AFTER_DAYS = 730
 
+#: States a reservation can be in. Closed for the same reason :data:`ROLES` is:
+#: a typo would make a reserved arm look like an unreserved one, which is the
+#: precise failure the structure exists to end.
+#:
+#: ``allocated``    spoken for, by a named question, with both triggers written.
+#: ``unallocated``  deliberately reserved *for nothing yet*. D-047 keeps SDU-22
+#:                  scientific ``train.json`` in this state on purpose: assigning
+#:                  it a use today would mean inventing one, which is the failure
+#:                  D-043 corrected. It is a state, not a drift, and it still
+#:                  refuses a spend.
+#: ``spent``        the arm has been read. It no longer refuses anything -- the
+#:                  cost has been paid and the corpus entry above is where the
+#:                  contamination is recorded.
+RESERVATION_STATES = ("allocated", "unallocated", "spent")
+
+#: Every key a ``[[corpora.<name>.reservations]]`` table may carry. Unknown keys
+#: are **refused**, unlike on a corpus table where they are preserved in
+#: :attr:`Corpus.extra`, and the asymmetry is the point: an unrecognised corpus
+#: key costs nothing, while a misspelt ``laps_trigger`` would silently drop the
+#: one field this whole structure exists to require. A reservation with a
+#: quietly missing trigger is the prose reservation again, wearing a schema.
+RESERVATION_FIELDS = (
+    "arm",
+    "state",
+    "decided_in",
+    "allocated_to",
+    "spend_trigger",
+    "lapse_trigger",
+    "not_a_trigger",
+    "spent_in",
+    "file",
+    "note",
+)
+
+#: A decision-record id. ``decided_in`` is required on every reservation
+#: because "reserved" with no record behind it is exactly how AD ``test.json``
+#: spent six rounds reserved *for* nothing in particular: each round it survived
+#: because nobody happened to want it, which is not the same as being reserved
+#: for something (D-043).
+_DECISION_RE = re.compile(r"^D-\d{3}$")
+
+#: An arm name is the split token a **runner already holds** -- ``"train"``,
+#: ``"test"`` -- and never the upstream filename. A guard is only reachable if
+#: the string the manifest reserves is the string the caller has in a variable;
+#: reserving ``"train.json"`` while every reader passes ``split="train"`` is a
+#: guard that can never fire. The upstream path goes in ``file``, for the human.
+_ARM_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+#: Spends declared in **this process**, ``(corpus, arm) -> purpose``. Written
+#: only by :meth:`Corpus.declare_spend`, read only by
+#: :meth:`Corpus.require_unreserved`.
+#:
+#: Process-local and in-memory on purpose. The alternative -- having
+#: ``declare_spend`` rewrite ``bench/splits.toml`` -- would let a runner mark
+#: its own arm spent with no commit, no review and no record, which is a worse
+#: hole than the one being closed. Recording the spend stays a manifest edit
+#: that a person makes beside the number.
+_DECLARED_SPENDS: Dict[Tuple[str, str], str] = {}
+
+
+def declared_spends() -> Dict[Tuple[str, str], str]:
+    """Every spend declared in this process, as ``(corpus, arm) -> purpose``.
+
+    A copy, so a caller cannot grant itself a spend by mutating the ledger --
+    :meth:`Corpus.declare_spend` is the only door.
+    """
+    return dict(_DECLARED_SPENDS)
+
 
 class SplitsError(Exception):
     """The manifest could not be read, or names something that does not exist."""
@@ -217,6 +326,107 @@ def _load_toml(path: Path) -> Dict[str, Any]:
         raise SplitsError(f"{path} does not exist") from error
     except Exception as error:  # tomllib.TOMLDecodeError, and anything it wraps
         raise SplitsError(f"{path} is not valid TOML: {error}") from error
+
+
+def _first_line(text: str) -> str:
+    """The first non-empty line of a block, for a message that must stay short.
+
+    A refusal that reprints three paragraphs of allocation prose is a refusal
+    people learn to scroll past. The message carries the first line of each
+    field and names the manifest entry and the record for the rest.
+    """
+    for line in text.strip().splitlines():
+        if line.strip():
+            stripped = line.strip()
+            return stripped if len(stripped) <= 96 else stripped[:93] + "..."
+    return ""
+
+
+@dataclass(frozen=True)
+class Reservation:
+    """One arm of one corpus, spoken for -- as a structure rather than a note.
+
+    Attributes:
+        corpus: The corpus whose arm this is.
+        arm: The split token a runner passes, e.g. ``"train"``. Matched
+            literally by :meth:`Corpus.require_unreserved`, which is why it must
+            be the runner's spelling and not the upstream filename.
+        state: One of :data:`RESERVATION_STATES`.
+        decided_in: The decision record that put the arm in this state, e.g.
+            ``"D-047"``. Required, and checked against a pattern: a reservation
+            with no record behind it cannot be argued down, re-designated or
+            audited, and is indistinguishable from an arm nobody happened to
+            want.
+        allocated_to: The question the arm is allocated to answer, and who owns
+            the read. Required when ``state`` is ``"allocated"`` and refused
+            otherwise.
+        spend_trigger: The event that would fire the spend. **This is the field
+            the whole structure is for.** A reservation without one is not a
+            reservation: it survives each round because nobody had a reason to
+            spend it, which is the drift D-043 was written to stop.
+        lapse_trigger: The event that reverses the allocation and releases the
+            arm. Required on an allocation, refused on anything else -- only an
+            allocation can lapse.
+        not_a_trigger: Events that look like the trigger and are not. Optional,
+            and worth writing: both existing reservations attracted a proposal
+            that could not serve them.
+        spent_in: What spent it -- a run id, or a record. Required when
+            ``state`` is ``"spent"``.
+        file: The upstream path, for a human. Never matched against.
+        note: The reservation's prose, carried through verbatim.
+        unknown_keys: Keys the manifest carried that this reader does not model.
+            Reported as a validation failure rather than preserved: see
+            :data:`RESERVATION_FIELDS`.
+    """
+
+    corpus: str
+    arm: str
+    state: str
+    decided_in: str = ""
+    allocated_to: str = ""
+    spend_trigger: str = ""
+    lapse_trigger: str = ""
+    not_a_trigger: str = ""
+    spent_in: str = ""
+    file: str = ""
+    note: str = ""
+    unknown_keys: Tuple[str, ...] = ()
+
+    @property
+    def is_spent(self) -> bool:
+        """Whether the arm has already been read, and so guards nothing further."""
+        return self.state == "spent"
+
+    def refusal(self) -> str:
+        """Why a run may not open this arm, and the one call that would change that."""
+        where = f"[corpora.{self.corpus}] reservations, arm={self.arm!r}"
+        lines = [
+            f"{self.corpus} arm {self.arm!r} is RESERVED in bench/splits.toml and this run "
+            "has not declared a spend.",
+            f"  state          {self.state}",
+            f"  decided in     {self.decided_in or '(none)'}",
+        ]
+        if self.allocated_to:
+            lines.append(f"  allocated to   {_first_line(self.allocated_to)}")
+        if self.spend_trigger:
+            lines.append(f"  spends when    {_first_line(self.spend_trigger)}")
+        if self.lapse_trigger:
+            lines.append(f"  lapses when    {_first_line(self.lapse_trigger)}")
+        if self.not_a_trigger:
+            lines.append(f"  NOT a trigger  {_first_line(self.not_a_trigger)}")
+        lines.extend(
+            [
+                f"  read in full   {where}, and docs/DECISIONS.md {self.decided_in}",
+                "",
+                "If this run is the spend that reservation names, say so before opening it:",
+                f"    bench.corpora.declare_spend({self.corpus!r}, {self.arm!r},",
+                f"        decision={self.decided_in!r},",
+                '        purpose="one line, and it lands in the run log")',
+                "A sanity check, a second look, or a re-run after a tokenizer change is not "
+                "that spend; it is what the reservation refuses.",
+            ]
+        )
+        return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -252,6 +462,13 @@ class Corpus:
         shortform_recall_ceiling_basis: How the figure was derived, and what
             kind of limit it is. Required whenever the figure is present.
         note: The entry's prose, carried through verbatim.
+        reservations: Arms of this corpus that are spoken for, typed. See
+            :class:`Reservation`, and :meth:`require_unreserved` for what they
+            do rather than what they say.
+        reservation_defects: Structural problems found while parsing the
+            ``reservations`` array -- an entry that is not a table, or an array
+            that is not one. Carried rather than raised so :func:`validate`
+            reports them beside everything else.
         extra: Any key this reader does not model, so an unrecognised field is
             preserved rather than silently dropped.
     """
@@ -270,6 +487,8 @@ class Corpus:
     shortform_recall_ceiling_pct: Optional[float] = None
     shortform_recall_ceiling_basis: str = ""
     note: str = ""
+    reservations: Tuple[Reservation, ...] = ()
+    reservation_defects: Tuple[str, ...] = ()
     extra: Mapping[str, Any] = field(default_factory=dict)
 
     @property
@@ -329,6 +548,157 @@ class Corpus:
         base = "tuning split" if self.is_tuning else "held out"
         return f"{base}, contaminated" if self.contaminated else base
 
+    def reservation(self, arm: str) -> Optional[Reservation]:
+        """The reservation on ``arm``, or ``None`` when the arm is free.
+
+        Args:
+            arm: The split token, exactly as a runner spells it.
+        """
+        for entry in self.reservations:
+            if entry.arm == arm:
+                return entry
+        return None
+
+    def require_unreserved(self, arm: str) -> None:
+        """Refuse to let this run open ``arm`` unless a spend was declared for it.
+
+        **This is the mechanism D-043 and D-047 both say they lack.** Both
+        records allocate an arm in prose and both say the same thing in their
+        own *How it fails*: nothing refuses a run against a reserved split, and
+        the guard is that somebody reads a note. This is the refusal.
+
+        Call it at the point a reader turns ``(corpus, split)`` into a path --
+        one line, unconditional. It is a no-op for every arm that carries no
+        reservation, which is all but two arms in this repository, so a reader
+        does not have to know which corpora are spoken for.
+
+        Args:
+            arm: The split token about to be opened.
+
+        Raises:
+            SplitsError: If ``arm`` is reserved and unspent and this process has
+                not declared a spend for it through :meth:`declare_spend`. The
+                message carries the state, the record, both triggers and the
+                literal call that would permit the read.
+        """
+        entry = self.reservation(arm)
+        if entry is None or entry.is_spent:
+            return
+        if (self.name, arm) in _DECLARED_SPENDS:
+            return
+        raise SplitsError(entry.refusal())
+
+    def declare_spend(
+        self, arm: str, *, decision: str, purpose: str, stream: Any = None
+    ) -> Optional[Reservation]:
+        """Say, before opening it, that this run is the spend a reservation names.
+
+        The runner that owns the read calls this once, at the top of its
+        ``main``; every subsequent :meth:`require_unreserved` for that
+        ``(corpus, arm)`` in the same process then passes. Nothing else opens
+        the door.
+
+        **The ergonomics, argued rather than assumed, because a guard people
+        route around is worse than no guard.** Three properties do the work:
+
+        * *One call, and it is free when there is nothing to declare.* On an
+          unreserved arm this returns ``None`` and does nothing, so a runner may
+          call it unconditionally without first knowing what is reserved. The
+          cost of complying is one line; the cost of bypassing is reimplementing
+          a reader.
+        * *No flag, no environment variable, no config.* A ``--force`` is a
+          thing people type without reading and an environment variable does not
+          appear in a run log. A keyword argument naming a decision record is
+          read by whoever wrote it and by whoever reviews the diff.
+        * *It asks for what the caller already knows and nothing else.* The
+          record id and one line of purpose. It does not ask the runner to
+          restate the trigger, copy the allocation prose, or thread a token
+          through its call graph -- duplication is what D-045 warns goes stale.
+
+        **One door, because there is more than one ledger.** This module is
+        imported *by path* by ``bench/corpora.py`` and again by
+        ``tests/test_splits_manifest.py``, so those are two module objects with
+        two :data:`_DECLARED_SPENDS` dicts. A runner that imported the loader
+        itself, declared a spend, and then went through ``bench.corpora`` would
+        be refused by a ledger it never wrote to. Runners call
+        ``bench.corpora.declare_spend``, which is the door the reader consults.
+
+        What it deliberately does **not** do is edit ``bench/splits.toml``. A
+        runner that could mark its own arm spent would be spending it with no
+        commit and no review. Recording the spend stays a manifest edit
+        (``state = "spent"``, ``spent_in = "<run id>"``) made beside the number,
+        which is the same pairing R1 requires of a claim and its baseline.
+
+        Args:
+            arm: The split token about to be opened.
+            decision: The record that allocates the arm, e.g. ``"D-047"``. It
+                must be the reservation's own ``decided_in``: spending under a
+                different record is a *re-allocation*, and a re-allocation is a
+                manifest edit plus a record, never a runner argument.
+            purpose: One line saying what this run buys. Non-empty, and printed,
+                so the spend is visible in the log rather than inferred later
+                from a file's mtime.
+            stream: Where the banner goes. Defaults to :data:`sys.stderr`;
+                injectable so a test does not have to capture the process's.
+
+        Returns:
+            The :class:`Reservation` that was spent, or ``None`` when ``arm``
+            carries no reservation at all.
+
+        Raises:
+            SplitsError: If the arm is ``unallocated`` (its first spend needs
+                its own record -- first-come is refused), if ``decision`` is not
+                the record that allocated it, or if ``purpose`` is empty.
+        """
+        out = sys.stderr if stream is None else stream
+        entry = self.reservation(arm)
+        if entry is None:
+            return None
+        if entry.is_spent:
+            print(
+                f"note: {self.name} arm {arm!r} was already spent ({entry.spent_in or 'unrecorded'}). "
+                "It is mined and adjudicates nothing blind; label the figure accordingly.",
+                file=out,
+            )
+            return entry
+        if not purpose.strip():
+            raise SplitsError(
+                f"{self.name} arm {arm!r}: a spend needs a purpose. One line, and it goes in "
+                "the run log -- 'what this run buys' is the thing nobody can reconstruct "
+                "afterwards from the fact that a file was read."
+            )
+        if entry.state == "unallocated":
+            raise SplitsError(
+                f"{self.name} arm {arm!r} is UNALLOCATED and first-come is refused "
+                f"({entry.decided_in} says so). Its first spend needs its own decision record, "
+                'and the manifest must then carry a reservation with state = "allocated" '
+                "naming it. Write the record, edit bench/splits.toml, then run.\n"
+                f"  reserved because: {_first_line(entry.spend_trigger)}"
+            )
+        if decision.strip() != entry.decided_in:
+            raise SplitsError(
+                f"{self.name} arm {arm!r} is allocated by {entry.decided_in} and this run names "
+                f"{decision!r}. Spending an arm under a different record is a RE-ALLOCATION, not "
+                "an argument: amend the reservation in bench/splits.toml and say why in a record, "
+                "in the same commit as the number. Priority does not transfer by default."
+            )
+        _DECLARED_SPENDS[(self.name, arm)] = purpose.strip()
+        print(
+            "\n".join(
+                [
+                    "SPENDING A RESERVED ARM",
+                    f"  corpus       {self.name}",
+                    f"  arm          {arm}" + (f"  ({entry.file})" if entry.file else ""),
+                    f"  allocated by {entry.decided_in} to: {_first_line(entry.allocated_to)}",
+                    f"  purpose      {purpose.strip()}",
+                    "  After this run the arm is MINED. Record it in the same commit as the",
+                    '  number: state = "spent", spent_in = "<run id>" on the reservation.',
+                ]
+            ),
+            file=out,
+        )
+        return entry
+
 
 @dataclass(frozen=True)
 class Policy:
@@ -374,6 +744,40 @@ class Manifest:
                 "A corpus that is measured but not declared is exempt from the "
                 "train/test rule by omission; add an entry rather than skipping it."
             ) from None
+
+    def reserved_arms(self) -> Tuple[Reservation, ...]:
+        """Every reserved arm in the manifest, in corpus then declaration order.
+
+        The list a person wants when asking "what may this round not touch?",
+        which until now could only be answered by reading two decision records
+        and a manifest note.
+
+        Named for what it returns rather than ``reservations``, which is the
+        *attribute* on :class:`Corpus`. A caller who wrote ``manifest.
+        reservations`` without the parentheses would get a bound method --
+        truthy, iterable of nothing useful, and silent.
+        """
+        out: List[Reservation] = []
+        for name in self.names:
+            out.extend(self.corpora[name].reservations)
+        return tuple(out)
+
+    def require_unreserved(self, name: str, arm: str) -> None:
+        """:meth:`Corpus.require_unreserved`, for a caller holding only names.
+
+        Raises:
+            SplitsError: If ``name`` is undeclared, or ``arm`` is reserved and
+                unspent with no declared spend.
+        """
+        self.corpus(name).require_unreserved(arm)
+
+    def declare_spend(
+        self, name: str, arm: str, *, decision: str, purpose: str, stream: Any = None
+    ) -> Optional[Reservation]:
+        """:meth:`Corpus.declare_spend`, for a caller holding only names."""
+        return self.corpus(name).declare_spend(
+            arm, decision=decision, purpose=purpose, stream=stream
+        )
 
     def with_role(self, role: str) -> Tuple[Corpus, ...]:
         """Every corpus carrying ``role``, sorted by name."""
@@ -475,8 +879,60 @@ _MODELLED = frozenset(
         "shortform_recall_ceiling_pct",
         "shortform_recall_ceiling_basis",
         "note",
+        "reservations",
     }
 )
+
+
+def _text(spec: Mapping[str, Any], key: str) -> str:
+    """One reservation field as stripped text, whatever TOML made of it."""
+    value = spec.get(key, "")
+    return str(value).strip() if value is not None else ""
+
+
+def _reservation_from(corpus_name: str, spec: Mapping[str, Any]) -> Reservation:
+    """Build one :class:`Reservation`, coercing nothing away.
+
+    Unrecognised keys are *recorded*, not dropped and not merged into anything:
+    :func:`validate` reports them. See :data:`RESERVATION_FIELDS` for why this
+    differs from the corpus table's permissive ``extra``.
+    """
+    return Reservation(
+        corpus=corpus_name,
+        arm=_text(spec, "arm"),
+        state=_text(spec, "state"),
+        decided_in=_text(spec, "decided_in"),
+        allocated_to=_text(spec, "allocated_to"),
+        spend_trigger=_text(spec, "spend_trigger"),
+        lapse_trigger=_text(spec, "lapse_trigger"),
+        not_a_trigger=_text(spec, "not_a_trigger"),
+        spent_in=_text(spec, "spent_in"),
+        file=_text(spec, "file"),
+        note=_text(spec, "note"),
+        unknown_keys=tuple(sorted(key for key in spec if key not in RESERVATION_FIELDS)),
+    )
+
+
+def _reservations_from(
+    name: str, spec: Mapping[str, Any]
+) -> Tuple[Tuple[Reservation, ...], Tuple[str, ...]]:
+    """``(reservations, structural defects)`` for one corpus table."""
+    raw = spec.get("reservations")
+    if raw is None:
+        return (), ()
+    if not isinstance(raw, list):
+        return (), (
+            f"reservations must be an array of tables ([[corpora.{name}.reservations]]), "
+            f"not {type(raw).__name__}",
+        )
+    entries: List[Reservation] = []
+    defects: List[str] = []
+    for index, item in enumerate(raw):
+        if isinstance(item, dict):
+            entries.append(_reservation_from(name, item))
+        else:
+            defects.append(f"reservations[{index}] is not a table")
+    return tuple(entries), tuple(defects)
 
 
 def _corpus_from(name: str, spec: Mapping[str, Any]) -> Corpus:
@@ -487,6 +943,7 @@ def _corpus_from(name: str, spec: Mapping[str, Any]) -> Corpus:
     reports for one malformed file is how a check ends up with two behaviours.
     """
     ceiling = spec.get("shortform_recall_ceiling_pct")
+    reservations, reservation_defects = _reservations_from(name, spec)
     return Corpus(
         name=name,
         role=str(spec.get("role", "") or ""),
@@ -506,6 +963,8 @@ def _corpus_from(name: str, spec: Mapping[str, Any]) -> Corpus:
         ),
         shortform_recall_ceiling_basis=str(spec.get("shortform_recall_ceiling_basis", "") or ""),
         note=str(spec.get("note", "") or ""),
+        reservations=reservations,
+        reservation_defects=reservation_defects,
         extra={key: value for key, value in spec.items() if key not in _MODELLED},
     )
 
@@ -580,6 +1039,116 @@ def _is_absent(corpus: Corpus, declared: str) -> bool:
     if declared == "licence_read_on":
         return corpus.licence_read_on == _datetime.date.min
     return not getattr(corpus, declared)
+
+
+def _reservation_problems(corpus: Corpus) -> List[str]:
+    """Every way this corpus's reservations fail to be reservations.
+
+    The rules, and the failure each one is named after:
+
+    * **No trigger.** A reservation whose firing condition is unwritten is
+      reserved *for* nothing: it survives round after round because nobody
+      happened to want it, and then attracts a proposal it cannot serve. That is
+      D-043's finding about AD ``test.json``, in the sentence that gave the
+      reservation a trigger in the first place.
+    * **A state contradicting its own fields.** ``unallocated`` with an
+      ``allocated_to``; a lapse trigger on something that is not an allocation;
+      a spent arm with nothing recorded as having spent it. Each reads as
+      governance and means nothing.
+    * **Two reservations on one arm.** This is the exact collision D-043 found
+      and D-047 resolved -- one unread split claimed by two live questions,
+      where whichever runner touches it first decides. Written as two structures
+      it is a contradiction the file can refuse.
+    * **The same event as both triggers.** An allocation that lapses on the
+      event that fires it is unfalsifiable.
+    * **An unrecognised key.** See :data:`RESERVATION_FIELDS`.
+    """
+    where = f"[corpora.{corpus.name}]"
+    problems = [f"{where} {defect}" for defect in corpus.reservation_defects]
+    seen: Dict[str, int] = {}
+
+    for index, entry in enumerate(corpus.reservations):
+        at = f"{where} reservations[{index}]"
+
+        if entry.unknown_keys:
+            problems.append(
+                f"{at} carries unrecognised key(s): {', '.join(entry.unknown_keys)}. A "
+                f"reservation may hold only {list(RESERVATION_FIELDS)} -- a misspelt trigger "
+                "key would drop the trigger silently, which is the prose reservation again "
+                "wearing a schema."
+            )
+
+        if not entry.arm:
+            problems.append(f"{at} declares no arm; a reservation over nothing guards nothing")
+        elif not _ARM_RE.match(entry.arm):
+            problems.append(
+                f"{at} arm={entry.arm!r} is not a split token. Use the string a RUNNER passes "
+                "('train'), and put the upstream filename in `file`: the guard is a literal "
+                "match, so reserving a filename nobody passes is a guard that cannot fire."
+            )
+        elif entry.arm in seen:
+            problems.append(
+                f"{at} and reservations[{seen[entry.arm]}] both reserve arm={entry.arm!r}. Two "
+                "reservations on one arm CONTRADICT: whichever runner touches it first decides, "
+                "which is the collision D-043 found and D-047 had to resolve by hand. Allocate "
+                "it once, and name the loser in the winning entry."
+            )
+        else:
+            seen[entry.arm] = index
+
+        if entry.state not in RESERVATION_STATES:
+            problems.append(f"{at} state={entry.state!r} is not one of {list(RESERVATION_STATES)}")
+        if not _DECISION_RE.match(entry.decided_in):
+            problems.append(
+                f"{at} decided_in={entry.decided_in!r} is not a decision record id (D-nnn). A "
+                "reservation with no record behind it cannot be argued down or re-designated, "
+                "and is indistinguishable from an arm nobody has wanted yet."
+            )
+
+        if entry.state in ("allocated", "unallocated") and not entry.spend_trigger:
+            problems.append(
+                f"{at} has no spend_trigger. THIS IS THE FIELD THE STRUCTURE EXISTS FOR: without "
+                "it the arm is not reserved for anything, it is merely unspent, and each round "
+                "it survives because nobody happened to want it."
+            )
+
+        if entry.state == "allocated":
+            if not entry.allocated_to:
+                problems.append(
+                    f"{at} is state='allocated' with no allocated_to. Allocated to what?"
+                )
+            if not entry.lapse_trigger:
+                problems.append(
+                    f"{at} is state='allocated' with no lapse_trigger. An allocation with no way "
+                    "to be released is permanent by omission; D-047 wrote one because priority "
+                    "must not transfer by default, and must not be immovable either."
+                )
+        else:
+            if entry.allocated_to:
+                problems.append(
+                    f"{at} is state={entry.state!r} and names allocated_to. Contradiction: only "
+                    "an allocation is allocated to something."
+                )
+            if entry.lapse_trigger:
+                problems.append(
+                    f"{at} is state={entry.state!r} and names a lapse_trigger. Contradiction: "
+                    "only an allocation can lapse."
+                )
+
+        if entry.state == "spent" and not entry.spent_in:
+            problems.append(
+                f"{at} is state='spent' with no spent_in. A spend nobody can point at is a "
+                "contamination with no evidence, which is the shape contamination_reason "
+                "already refuses one level up."
+            )
+
+        if entry.spend_trigger and entry.spend_trigger == entry.lapse_trigger:
+            problems.append(
+                f"{at} gives the same event as spend_trigger and lapse_trigger. An allocation "
+                "that lapses on the event that fires it cannot be acted on either way."
+            )
+
+    return problems
 
 
 def validate(manifest: Manifest, *, today: Optional[_datetime.date] = None) -> List[str]:
@@ -659,6 +1228,8 @@ def validate(manifest: Manifest, *, today: Optional[_datetime.date] = None) -> L
                     "conservative extra; it is a number that would be quoted beside a "
                     "recall figure measuring something else."
                 )
+
+        problems.extend(_reservation_problems(corpus))
     return problems
 
 
@@ -719,6 +1290,24 @@ def as_dict(manifest: Manifest) -> Dict[str, Any]:
             task: [corpus.name for corpus in manifest.headline_capable(task)] for task in TASKS
         },
         "gold_unit": dict(TASK_GOLD_UNIT),
+        # Flat as well as per corpus, because "what may this round not touch?"
+        # is a question about the manifest and not about any one entry, and it
+        # was previously answerable only by reading two decision records.
+        "reserved_arms": [
+            {
+                "corpus": entry.corpus,
+                "arm": entry.arm,
+                "state": entry.state,
+                "decided_in": entry.decided_in,
+                "allocated_to": entry.allocated_to,
+                "spend_trigger": entry.spend_trigger,
+                "lapse_trigger": entry.lapse_trigger,
+                "not_a_trigger": entry.not_a_trigger,
+                "spent_in": entry.spent_in,
+                "file": entry.file,
+            }
+            for entry in manifest.reserved_arms()
+        ],
         "corpora": {
             name: {
                 "role": corpus.role,
@@ -732,10 +1321,31 @@ def as_dict(manifest: Manifest) -> Dict[str, Any]:
                 "vendorable": corpus.vendorable,
                 "shortform_recall_ceiling_pct": corpus.shortform_recall_ceiling_pct,
                 "label": corpus.label(),
+                "reserved_arms": [entry.arm for entry in corpus.reservations],
             }
             for name, corpus in ((n, manifest.corpora[n]) for n in manifest.names)
         },
     }
+
+
+def _render_reservations(manifest: Manifest) -> str:
+    """The reserved arms, as a block ``--check`` and ``--list`` both print.
+
+    Printed on every run for the same reason the per-task headline gap is: the
+    person about to spend an arm is not reading a decision record, they are
+    running a benchmark, and this is the surface in front of them.
+    """
+    entries = manifest.reserved_arms()
+    if not entries:
+        return "reserved arms: none declared"
+    lines = [f"{len(entries)} reserved arm(s) -- no runner may open one without declaring a spend:"]
+    for entry in entries:
+        head = f"  {entry.corpus}:{entry.arm}"
+        lines.append(f"{head:38} {entry.state:12} {entry.decided_in}")
+        detail = entry.allocated_to or entry.spend_trigger
+        if detail:
+            lines.append(f"{'':38} {_first_line(detail)}")
+    return "\n".join(lines)
 
 
 def _render_table(manifest: Manifest) -> str:
@@ -767,6 +1377,8 @@ def _render_table(manifest: Manifest) -> str:
     lines.append(
         "* contaminated: the corpus has been read closely enough that it adjudicates nothing blind."
     )
+    lines.append("")
+    lines.append(_render_reservations(manifest))
     return "\n".join(lines)
 
 
@@ -804,9 +1416,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     problems = validate(manifest)
-    print(f"{args.path}: {len(manifest.corpora)} corpora, {len(problems)} problem(s)")
+    print(
+        f"{args.path}: {len(manifest.corpora)} corpora, "
+        f"{len(manifest.reserved_arms())} reserved arm(s), {len(problems)} problem(s)"
+    )
     for note in notes(manifest):
         print(f"  note: {note}")
+    print(_render_reservations(manifest))
     if not problems:
         print(
             "splits manifest OK: every corpus declares a role, a task, and a licence read "
@@ -817,9 +1433,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     for problem in problems:
         print(f"  {problem}", file=sys.stderr)
     print(
-        "\nbench/splits.toml is the file operating rules 2 and 4 rest on. Every corpus must\n"
+        "\nbench/splits.toml is the file operating rules 2, 3 and 4 rest on. Every corpus must\n"
         "declare role, task, licence, licence_url and licence_read_on -- the last two because\n"
-        "a licence string on its own records a conclusion and destroys the evidence for it.",
+        "a licence string on its own records a conclusion and destroys the evidence for it.\n"
+        "Every reserved arm must declare a state, the record that decided it and the trigger\n"
+        "that would fire it, because a reservation with no trigger is reserved for nothing.",
         file=sys.stderr,
     )
     return 1

@@ -594,6 +594,11 @@ python tools/fetch_data.py --verify      # re-check every checksum
   co-process client, the wire format by hand, and the real output. No CI job builds it
 - [Contributing](CONTRIBUTING.md) — the invariants that are easy to break by accident
 - [Technical note: using a ranking function as a generation objective](docs/notes/scoring-objective.md)
+- [Technical note: should `extract()` report an abbreviation whose expansion it does not
+  know?](docs/notes/w11-emission-model.md) — the emission-model question scoped and costed. Nothing
+  is decided and no behaviour changed; read it before asking for the feature, because a one-line
+  all-caps rule already beats this library's short-form score on the one held-out corpus that can
+  see it, so "we can emit unpaired abbreviations" would not by itself be an improvement
 - [Evaluation](docs/EVALUATION.md) — every measured number, with the losing comparison beside each
   one: governed cut placement and its flatcase rows, extraction against four other systems,
   generation recall@k, disambiguation against a trivial baseline, and the abstention curve scored

@@ -112,6 +112,15 @@ previously waved through.
 
 ### Changed
 
+- **`AcronymPair.pattern` now describes all three of its values, and the text is visible in your
+  generated schema.** The field description said "Which parenthetical arrangement matched:
+  'long(short)' or 'short(long)'". Two words of that were wrong and one value was missing: the
+  brackets may be `()`, `[]` or `{}`, so `[CNS]` yields `long(short)` and "parenthetical" was never
+  accurate; and an extractor built with `legend_syntax=True` also emits `short=long`. **No behaviour
+  changed and no value changed** — only the description, which travels into `model_json_schema()` and
+  into anything generated from it. Nothing constrains the field to an enum, so a consumer switching on
+  it should handle the third value. `docs/DECISIONS.md` D-055.
+
 - **`is_fully_known` is stricter about square brackets, and a pipeline gating on it will newly flag
   names it used to pass.** A bracket is treated as quoting — silently discarded — only where it is
   actually positioned as quoting: an unnested matched pair, opening where a name could open and
@@ -197,6 +206,27 @@ previously waved through.
   not optional decoration; it is the whole feature. On the documented default path the engine has two
   candidates to choose between on one instance in 6,189 of the measured split, so it performs no
   selection at all, and the facade has no abstention gate.
+- **If you followed `docs/GOVERNED_NAMING.md`'s advice about JSON overlays, you can delete that
+  code.** The page told you that an overlay loaded from JSON needs a line of construction before
+  `with_custom()` will take it, or the entry stringifies into the repr of a dictionary. That has not
+  been true for some time: a plain mapping is accepted directly, keys beginning with an underscore are
+  skipped, and a malformed entry raises `LexiconError` naming the field that is missing. The section
+  is rewritten and the snippet is now executable. **A stale workaround is worse than a missing one** —
+  you write it, it works, and nothing tells you it is dead code.
+- **Both bundled-resource tables are correct again, and they now say who to believe.**
+  `docs/OFFLINE.md` and `docs/SUPPORT_MATRIX.md` list all eight shipped resources, with byte counts
+  and digests read out of `capabilities()`, and `SUPPORT_MATRIX` gained a provenance column it never
+  had. Both tables now state that if they disagree with `acronymkit doctor`, `doctor` is right. The
+  byte and digest columns are written in code spans because they are properties of shipped files
+  rather than measurements of the library.
+- **The backronym subsystem now has a published evaluation section, and it opens with what it does
+  not claim.** `docs/EVALUATION.md` carries constraint-satisfaction, coverage, infeasibility-cause and
+  underdetermination figures for alignment and synthesis, produced by `bench/run_backronym.py` against
+  an oracle that shares no code with the search. **None of it is an accuracy number and none of it is
+  evidence that this library writes good backronyms** — the same run prints `'ABC' -> 'aah baa cab'`,
+  which scores full marks on every property the project can check and is unusable. If you are choosing
+  between libraries on backronym quality, this section is the honest statement that nobody here has
+  measured that. `docs/DECISIONS.md` D-054.
 
 ### Notes
 
@@ -280,10 +310,43 @@ previously waved through.
   rule already beats this library's short-form score on the one held-out corpus that can see it, so
   "we can emit unpaired abbreviations" would not by itself be an improvement. `docs/DECISIONS.md`
   D-049.
-- **Two documentation tables are wrong about the bundled resources**, and one of them invites a
-  reviewer to compare their installation against it. `docs/OFFLINE.md` §7 and `docs/SUPPORT_MATRIX.md`
-  each list seven files; the library ships and reports eight. Trust `acronymkit doctor` over the
-  tables until they are fixed.
+- ~~**Two documentation tables are wrong about the bundled resources.**~~ **Fixed this round** — both
+  tables list all eight and now name `acronymkit doctor` as the authority if they ever disagree again.
+  The note is retired in place rather than deleted, because the mechanism that produced it is not
+  fixed: nothing in CI compares either table to `bundled_resources()`, so the ninth resource will drift
+  exactly the same way.
+- **The claims gate now reports what it cannot check, and the number is large.** `tools/check_claims.py`
+  used to print a total over the numbers it had armed, and that total read as a total over the
+  document. It now scans `CHANGELOG.md` and `bench/splits.toml` as well, arms a number written
+  immediately before a metric unit even with no keyword nearby, and prints two further counts beside
+  the first: figures on a **deferred ledger** the gate has surfaced but not adjudicated, and figures
+  no arming rule reaches at all. Run `python tools/check_claims.py --residue` for the list with file,
+  line and whether any measurement equals each one. **Nothing was migrated and nothing was hidden** —
+  the point of the change is that the debt is now counted. One figure it surfaced: a microsecond
+  before-figure in a release note further up this file matches no measurement in `bench/results.json`
+  at any precision. `docs/DECISIONS.md` D-052.
+- **Reserved corpus arms now refuse a read instead of asking nicely.** Two decision records had each
+  set aside a corpus split for one named question, and each said in its own words that a note in a
+  decision record is not a mechanism. `bench/splits.toml` now declares reservations as validated
+  tables — the arm, its state, the record that decided it, the event that would spend it and the event
+  that would release it — and `bench/corpora.py` raises rather than opening a reserved split unless
+  the caller first declares a spend naming the record and the purpose. Contributor-facing only; no
+  published number moved. `docs/DECISIONS.md` D-053.
+- **An adjudicated pair corpus was built, piloted, and deliberately left unregistered.** A new
+  pipeline fetches, pools, samples and freezes a corpus of definition *edges* over Federal Register
+  rules — the first instrument here that produces the shape this project's flagship claim is made in.
+  The pilot's verdicts are that the substrate does not carry the agency-authored legends the plan was
+  costed on, that every available extractor to pool with is a descendant of the same algorithm, and
+  that the sample is too small to distinguish a nearly complete pool from one missing as much as it
+  holds. **No corpus was registered, no figure was published and no run id was created.** The artifact
+  is a single-annotator reference set adjudicated by the author of the extractor that proposed most of
+  its pool, and `tools/splits.py` has no role that says so — filing it as held out would have made it
+  headline-eligible, which is the one standing it must never have. `docs/DECISIONS.md` D-056.
+- **One definition-of-done criterion was closed by making it smaller, and it says so.** "Every shipped
+  subsystem carries an accuracy number" now reads "four of five do; the fifth carries properties and
+  cannot carry accuracy, because scoring a backronym needs a judge this project does not have". If you
+  were relying on that criterion as written, read `docs/DEFINITION-OF-DONE.md` — the narrowing is in
+  the verdict column, not in a footnote. `docs/DECISIONS.md` D-054, D-057.
 
 ## [0.3.0] — 2026-08-11
 

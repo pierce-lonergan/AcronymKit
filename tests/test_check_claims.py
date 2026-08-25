@@ -26,10 +26,26 @@ What is pinned here:
   used to be flagged; each is excluded by a structural rule rather than by a
   special case for a character, so the next identifier of that shape is
   excluded too.
+* **Nothing is dropped silently.** A prose number no arming rule reaches is
+  recorded as ``unexamined``, counted, and listed -- and never value-matched,
+  because a number nobody looked at must not acquire a "backed" label from a
+  coincidence. ``TestArming`` and ``TestUnexamined``.
+* **Both ratchets, both directions.** ``TestRatchets`` drives
+  ``baseline_problems`` on a project with the baselines armed, which
+  ``Project.at`` does only for the real checkout. That left R1's mechanism
+  reachable only where it is green by construction, so it had no test at all.
+* **A widened gate may not soften a verdict it had already reached.**
+  ``TestCoverageMayNotWeakenAVerdict`` pins the case that forced the rule: a
+  keyword-armed number matching no measurement still fails hard, even in a file
+  the value ledger never named.
 
 Every fixture is a synthetic project under ``tmp_path``, so nothing here
 depends on today's contents of ``bench/results.json`` -- except the one test
-that deliberately does, which asserts the real checkout is green.
+that deliberately does, which asserts the real checkout is green. The fixtures
+are checked for *absence* of a metric keyword where a test is about the unit
+rule: several first drafts armed on a keyword nobody noticed was there
+(``throughput``, ``docs/s``), which would have made the test pass for the wrong
+reason.
 """
 
 from __future__ import annotations
@@ -622,6 +638,329 @@ class TestRender:
         out = capsys.readouterr().out
         assert "cited 2" in out
         assert "value-matched 0" in out
+
+
+# --------------------------------------------------------------------------
+# Arming: which rule picks a number up, and what happens to the ones no rule does
+# --------------------------------------------------------------------------
+class TestArming:
+    """The two arming rules, and the failure the second one exists for."""
+
+    def test_a_keyword_arms_a_nearby_number(self) -> None:
+        line = "exact precision was 92.32 on this split"
+        offset = line.index("92.32")
+        keywords = check_claims.keyword_positions(line)
+        assert check_claims.arming_of(line, offset, "92.32", keywords) == "keyword"
+
+    @pytest.mark.parametrize(
+        ("line", "number"),
+        [
+            # The live case. F-subscript-one is U+2081, so this line carries no
+            # keyword at all -- widening _PROXIMITY to any value never arms it.
+            ("Rule-based extractors reach F₁ > 96 % on inline definitions", "96"),
+            ("`expand_identifier` fell to 10.70 µs on the schema arm", "10.70"),
+            ("the harness sustained 4,219 rows/s", "4,219"),
+            ("the corpus ran at 96,532 identifiers/second", "96,532"),
+            ("attributed at 92.32% by the original authors", "92.32"),
+        ],
+    )
+    def test_a_unit_arms_a_number_with_no_keyword_anywhere(self, line: str, number: str) -> None:
+        assert check_claims.keyword_positions(line) == [], "fixture must carry no keyword"
+        offset = line.index(number)
+        assert check_claims.arming_of(line, offset, number, []) == "unit"
+
+    @pytest.mark.parametrize(
+        ("line", "number"),
+        [
+            # A unit is a unit only when it is the next thing on the line.
+            ("published in 2003 by Schwartz & Hearst", "2003"),
+            ("the top 25 candidates are considered", "25"),
+            ("SCOWL size cut 60, giving 76,879 entries", "76,879"),
+            # `s` inside a longer word is not seconds, and a path is not a rate.
+            ("we ship 12 useful presets", "12"),
+            ("all 44 tools/scripts are runnable", "44"),
+            ("that is 30 milliseconds of headroom", "30"),
+        ],
+    )
+    def test_ordinary_prose_numbers_arm_nothing(self, line: str, number: str) -> None:
+        offset = line.index(number)
+        keywords = check_claims.keyword_positions(line)
+        assert check_claims.arming_of(line, offset, number, keywords) == ""
+
+    def test_proximity_wins_a_tie_with_the_unit_rule(self) -> None:
+        # Load-bearing: it is what keeps VALUE_MATCHED_BASELINE at exactly the
+        # count it was pinned at. If the unit rule could steal a number the
+        # keyword rule already had, turning it on would have moved the old
+        # ledger, which R1 ratchets shut.
+        line = "precision 92.32%"
+        offset = line.index("92.32")
+        keywords = check_claims.keyword_positions(line)
+        assert check_claims.arming_of(line, offset, "92.32", keywords) == "keyword"
+
+    def test_an_unarmed_number_is_recorded_rather_than_dropped(self, tmp_path: Path) -> None:
+        # The defect this whole section exists for. The scanner used to discard
+        # these where it found them, so a figure out of a keyword's reach was
+        # counted in no total and named in no report.
+        make_project(tmp_path, {"docs/NOTE.md": "The corpus was published in 2003.\n"})
+        found = list(check_claims.iter_prose_numbers(tmp_path / "docs" / "NOTE.md"))
+        assert [(number, arming) for _, number, _, arming in found] == [("2003", "")]
+
+    def test_scan_file_still_yields_only_armed_numbers(self, tmp_path: Path) -> None:
+        # The old entry point keeps its old meaning: "claims the gate checks".
+        make_project(
+            tmp_path,
+            {"docs/NOTE.md": "Exact recall was 76.99 on the split.\n\nPublished in 2003.\n"},
+        )
+        found = [number for _, number, _ in check_claims.scan_file(tmp_path / "docs" / "NOTE.md")]
+        assert found == ["76.99"]
+
+
+class TestUnexamined:
+    """The residue: counted, reported, and never value-matched."""
+
+    def test_an_unarmed_number_never_fails_the_build(self, tmp_path: Path) -> None:
+        make_project(tmp_path, {"docs/NOTE.md": "ACRONYM (Cook, 2019) spells real words.\n"})
+        assert run(tmp_path) == 0
+
+    def test_the_residue_is_counted_in_the_summary(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        make_project(tmp_path, {"docs/NOTE.md": "ACRONYM (Cook, 2019) spells real words.\n"})
+        assert run(tmp_path) == 0
+        out = capsys.readouterr().out
+        assert "unexamined 1" in out
+        assert "not checked: 1 prose number(s)" in out
+
+    def test_an_unexamined_number_is_not_value_matched(self, tmp_path: Path) -> None:
+        # 83.85 is a real measurement, so the fallback would happily "back" it.
+        # Out of a keyword's reach and carrying no unit it is not a claim at
+        # all, and calling it backed is how the residue would have been
+        # laundered: 1,144 of this repository's would have matched something,
+        # 792 of them AMBIGUOUSLY.
+        make_project(tmp_path, {"docs/NOTE.md": "Serial number 83.85 on the chassis.\n"})
+        project = check_claims.Project.at(tmp_path)
+        index = check_claims.build_index(RESULTS)
+        claims = check_claims.collect_claims(project, index, {})
+        assert [(claim.text, claim.backing) for claim in claims] == [("83.85", "unexamined")]
+
+    def test_the_residue_report_names_the_file_and_line(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        make_project(
+            tmp_path,
+            {"docs/NOTE.md": "Serial 83.85 here.\nThe rerun sat at 11.11 % of it.\n"},
+        )
+        assert run(tmp_path, "--residue") == 0
+        out = capsys.readouterr().out
+        assert "docs/NOTE.md  (1 deferred, 1 unexamined)" in out
+        assert ":2  11.11  NO MEASUREMENT MATCHES" in out
+
+    def test_residue_does_not_fail_the_build(self, tmp_path: Path) -> None:
+        make_project(tmp_path, {"docs/NOTE.md": "Serial 83.85 here.\n"})
+        assert run(tmp_path, "--residue") == 0
+
+
+class TestDeferredLedger:
+    """The second ratchet, and the one property it must never have."""
+
+    def test_a_unit_armed_uncited_number_is_deferred_not_value_matched(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        # 83.85 equals exact_f1. On the value path it would read as backed and
+        # spend a slot in the ledger R1 pins shut; it is a number nobody has
+        # adjudicated, so it goes on the register that only shrinks.
+        make_project(tmp_path, {"docs/NOTE.md": "The run sat at 83.85 % throughout.\n"})
+        assert run(tmp_path) == 0
+        out = capsys.readouterr().out
+        assert "value-matched 0" in out
+        assert "deferred 1" in out
+
+    def test_the_deferred_report_separates_matched_from_unmatched(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        make_project(
+            tmp_path,
+            {"docs/NOTE.md": "First 83.85 % and then 11.11 % on the rerun.\n"},
+        )
+        run(tmp_path, "--residue")
+        out = capsys.readouterr().out
+        assert "of those, 1 match no measurement at all" in out
+
+    def test_a_cited_number_never_reaches_the_deferred_ledger(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        make_project(
+            tmp_path,
+            {"docs/NOTE.md": "Sat at {{claim:extraction.med1250.acronymkit.exact_f1}} %.\n"},
+        )
+        assert run(tmp_path) == 0
+        out = capsys.readouterr().out
+        assert "cited 1" in out
+        assert "deferred 0" in out
+
+    def test_update_baseline_prints_both_registers(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        make_project(
+            tmp_path,
+            {"docs/NOTE.md": "Exact recall was 76.99.\n\nThe rerun sat at 83.85 % after.\n"},
+        )
+        assert run(tmp_path, "--update-baseline") == 0
+        out = capsys.readouterr().out
+        assert "VALUE_MATCHED_BASELINE" in out
+        assert "DEFERRED_BASELINE" in out
+        assert '"docs/NOTE.md": 1,' in out
+
+
+def _ratcheted(root: Path, *, value: dict, deferred: dict) -> object:
+    """A project with both ratchets armed, which ``Project.at`` only does here.
+
+    The baselines are facts about the real checkout, so ``at()`` leaves them off
+    for any other root. That is right, and it left the mechanism R1 rests on
+    with no test of its own -- reachable only by running the tool against the
+    repository, where it is green by construction and therefore proves nothing.
+    """
+    return check_claims.Project(
+        root=root.resolve(),
+        results_path=root / "bench" / "results.json",
+        allowlist_path=root / "tools" / "claims_allowlist.txt",
+        value_baseline=value,
+        deferred_baseline=deferred,
+    )
+
+
+class TestRatchets:
+    """Both registers, both directions. Neither had a test before."""
+
+    def _claims(self, root: Path, project: object) -> list:
+        index = check_claims.build_index(RESULTS)
+        return check_claims.collect_claims(project, index, {})
+
+    def test_an_uncited_number_over_budget_is_reported(self, tmp_path: Path) -> None:
+        make_project(tmp_path, {"docs/NOTE.md": "Exact recall was 76.99 on the split.\n"})
+        project = _ratcheted(tmp_path, value={}, deferred={})
+        problems = check_claims.baseline_problems(project, self._claims(tmp_path, project))
+        assert len(problems) == 1
+        assert "1 value-matched claim(s), baseline 0" in problems[0]
+
+    def test_a_migration_that_leaves_the_baseline_alone_is_reported(self, tmp_path: Path) -> None:
+        # The slack a ratchet must not have: migrate one claim, leave the
+        # number, and the freed slot is open for the next uncited figure.
+        make_project(tmp_path, {"docs/NOTE.md": "Exact recall was 76.99 on the split.\n"})
+        project = _ratcheted(tmp_path, value={"docs/NOTE.md": 2}, deferred={})
+        problems = check_claims.baseline_problems(project, self._claims(tmp_path, project))
+        assert len(problems) == 1
+        assert "lower the baseline" in problems[0]
+
+    def test_an_exact_match_is_silent(self, tmp_path: Path) -> None:
+        make_project(tmp_path, {"docs/NOTE.md": "Exact recall was 76.99 on the split.\n"})
+        project = _ratcheted(tmp_path, value={"docs/NOTE.md": 1}, deferred={})
+        assert check_claims.baseline_problems(project, self._claims(tmp_path, project)) == []
+
+    def test_the_deferred_register_may_not_grow(self, tmp_path: Path) -> None:
+        make_project(tmp_path, {"docs/NOTE.md": "The rerun sat at 83.85 % after.\n"})
+        project = _ratcheted(tmp_path, value={}, deferred={})
+        problems = check_claims.baseline_problems(project, self._claims(tmp_path, project))
+        assert len(problems) == 1
+        assert "deferred ledger is a debt register" in problems[0]
+
+    def test_the_deferred_register_must_shrink_in_the_same_commit(self, tmp_path: Path) -> None:
+        make_project(tmp_path, {"docs/NOTE.md": "The rerun sat at 83.85 % after.\n"})
+        project = _ratcheted(tmp_path, value={}, deferred={"docs/NOTE.md": 4})
+        problems = check_claims.baseline_problems(project, self._claims(tmp_path, project))
+        assert len(problems) == 1
+        assert "lower DEFERRED_BASELINE" in problems[0]
+
+    def test_the_two_registers_are_counted_separately(self, tmp_path: Path) -> None:
+        # A file may sit at budget on one and over on the other, and the
+        # message must name which. Folding them would let a unit-armed figure
+        # spend a slot in the ledger R1 pins shut.
+        make_project(
+            tmp_path,
+            {"docs/NOTE.md": "Exact recall was 76.99.\n\nThe rerun sat at 83.85 % after.\n"},
+        )
+        project = _ratcheted(tmp_path, value={"docs/NOTE.md": 1}, deferred={})
+        problems = check_claims.baseline_problems(project, self._claims(tmp_path, project))
+        assert len(problems) == 1
+        assert "deferred" in problems[0]
+
+    def test_a_file_with_no_entry_admits_nothing(self, tmp_path: Path) -> None:
+        # What makes a document added to SCAN_GLOBS tomorrow cite from its
+        # first line, on both registers.
+        make_project(tmp_path, {"docs/NEW.md": "The rerun sat at 83.85 % after.\n"})
+        project = _ratcheted(tmp_path, value={}, deferred={"docs/OTHER.md": 3})
+        problems = check_claims.baseline_problems(project, self._claims(tmp_path, project))
+        assert len(problems) == 2
+        assert any("docs/NEW.md" in problem for problem in problems)
+        assert any("docs/OTHER.md" in problem for problem in problems)
+
+
+class TestCoverageMayNotWeakenAVerdict:
+    """The rule that keeps a widened gate from softening an existing failure."""
+
+    def test_a_keyword_armed_unmeasured_number_still_fails_hard(self, tmp_path: Path) -> None:
+        # The live case that forced this: `34,096` landed in docs/OFFLINE.md
+        # while this change was being written. It is keyword-armed, it matches
+        # no measurement, and the unmodified gate fails on it. An earlier draft
+        # routed every number in a file outside VALUE_MATCHED_BASELINE onto the
+        # deferred ledger, which would have turned that red into a ledger row.
+        make_project(tmp_path, {"docs/OFFLINE.md": "| `pseudo_precision_en.json` | 34,096 |\n"})
+        assert run(tmp_path) == 1
+
+    def test_only_the_named_newly_scanned_files_are_grandfathered(self) -> None:
+        # The grandfather set is a closed list of documents the gate could not
+        # previously see, not a category. It only shrinks.
+        assert frozenset({"CHANGELOG.md", "bench/splits.toml"}) == (
+            check_claims._COVERAGE_GRANDFATHER
+        )
+
+
+class TestScanCoverage:
+    """Which files the gate reads, and saying so when one is not there."""
+
+    @pytest.mark.parametrize("name", ["CHANGELOG.md", "bench/splits.toml"])
+    def test_the_previously_unscanned_documents_are_scanned(self, name: str) -> None:
+        assert name in check_claims.SCAN_GLOBS
+
+    def test_a_changelog_number_is_seen(self, tmp_path: Path) -> None:
+        make_project(tmp_path, {"CHANGELOG.md": "Extraction F1 was 89.87 in this release.\n"})
+        assert run(tmp_path) == 1
+
+    def test_a_manifest_figure_is_seen(self, tmp_path: Path) -> None:
+        # bench/splits.toml publishes recall ceilings as bare assignments. TOML
+        # has no fenced blocks, so the figure is prose and the gate reads it.
+        make_project(tmp_path, {"bench/splits.toml": "shortform_recall_ceiling_pct = 89.87\n"})
+        found = [
+            number for _, number, _ in check_claims.scan_file(tmp_path / "bench" / "splits.toml")
+        ]
+        assert found == ["89.87"]
+
+    def test_an_absent_literal_target_is_named(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        # bench/splits.toml is outside MANIFEST.in, so inside an sdist the scan
+        # set is one file smaller. That is tolerable and it may not be silent.
+        make_project(tmp_path, {"docs/NOTE.md": "nothing here\n"})
+        run(tmp_path)
+        out = capsys.readouterr().out
+        assert "scan target(s) absent" in out
+        assert "bench/splits.toml" in out
+
+    def test_a_wildcard_matching_nothing_is_not_an_absent_target(self, tmp_path: Path) -> None:
+        # An empty docs/ directory is not a file the gate was told to read.
+        make_project(tmp_path, {"README.md": "x\n", "CHANGELOG.md": "x\n"})
+        (tmp_path / "bench" / "splits.toml").write_text("x = 1\n", encoding="utf-8")
+        assert check_claims.absent_targets(check_claims.Project.at(tmp_path)) == []
+
+    def test_toml_keeps_the_brace_form_when_rendered(self, tmp_path: Path) -> None:
+        # An HTML comment in a TOML file is not TOML. The comment form is
+        # Markdown's, not "anything that is not Python".
+        source = "ceiling = 0.0  # {{claim:extraction.med1250.acronymkit.exact_f1}}\n"
+        make_project(tmp_path, {"bench/splits.toml": source})
+        assert run(tmp_path, "--render") == 0
+        rendered = (tmp_path / "bench" / "splits.toml").read_text(encoding="utf-8")
+        assert "<!--claim:" not in rendered
+        assert "{{claim:extraction.med1250.acronymkit.exact_f1=83.85}}" in rendered
 
 
 # --------------------------------------------------------------------------

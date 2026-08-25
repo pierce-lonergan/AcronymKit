@@ -96,8 +96,11 @@ in the matrix is *available* at Tier 0.
 ## Languages
 
 Four languages are supported, and they are not equally supported. `acronymkit.capabilities()`
-reports exactly seven bundled resources, and the split below is read off that list rather than
-described:
+reports exactly eight bundled resources, and the split below is read off that list rather than
+described. Seven of the eight appear in it; the eighth, `pseudo_precision_en.json`, is English-only
+too but belongs to the extraction half rather than the generation half — it is the strategy
+reliability prior read by `acronymkit._pseudo_precision`, a private module that `AcronymEngine` does
+not consult — so listing it in a table about `Lambda(A)` and `Phi(A)` would misdescribe it.
 
 | Language | Stop words | Word list (`Lambda(A)`) | Character model (`Phi(A)`) | Tier 1 tagger | Measured example |
 |---|---|---|---|---|---|
@@ -131,20 +134,27 @@ confident wrong answers a caller cannot detect.
 
 ## Bundled resources, as the report lists them
 
-`acronymkit.capabilities()["resources"]` on this tree: seven files, and these are all of them.
+`acronymkit.capabilities()["resources"]` on this tree: eight files, in the order
+`bundled_resources()` lists them, and these are all of them. Three are derived from something else
+and five are hand-authored here, which is the distinction a reviewer asking "where did this data come
+from" is after.
 
-| Resource | Bytes |
-|---|---:|
-| `acronym-engine-result.schema.json` | 6,408 |
-| `lexicon_en.txt` | 730,496 |
-| `ngram_en.json` | 14,357 |
-| `stopwords_de.json` | 8,089 |
-| `stopwords_en.json` | 6,650 |
-| `stopwords_es.json` | 5,884 |
-| `stopwords_fr.json` | 5,255 |
+| Resource | Bytes | Provenance |
+|---|---:|---|
+| `acronym-engine-result.schema.json` | `6,408` | Authored here. Byte-identical to `schemas/acronym-engine-result.schema.json`; CI fails if the two diverge |
+| `lexicon_en.txt` | `730,496` | Derived from SCOWL by `tools/build_lexicons.py`; SCOWL's notice is reproduced in the file header |
+| `ngram_en.json` | `14,357` | Derived from `lexicon_en.txt` by `tools/build_ngram_model.py`; CI re-trains and fails on drift |
+| `pseudo_precision_en.json` | `34,096` | Derived from the raw text of MED1250's development half by `tools/build_reliability_table.py`; public-domain source, no source text reproduced, `--check` rebuilds and fails on drift |
+| `stopwords_de.json` | `8,089` | Hand-authored here; format validated by `tools/validate_resources.py` |
+| `stopwords_en.json` | `6,650` | As above |
+| `stopwords_es.json` | `5,884` | As above |
+| `stopwords_fr.json` | `5,255` | As above |
 
 SHA-256 for each is in the same report under `resources.digests`, and in
-[OFFLINE.md section 7](OFFLINE.md#7-every-bundled-resource) with provenance and licence per file.
+[OFFLINE.md section 7](OFFLINE.md#7-every-bundled-resource) with the licence and the full provenance
+per file. `doctor` prints the same eight; if this table and that report ever disagree, the report is
+right — nothing generates this table, and until this round it listed seven.
+
 A wheel built from this tree while writing this page was 404,651 B over 41 entries, tagged
 `py3-none-any` with `Root-Is-Purelib: true` and no compiled extension. The tag and the absence of
 native code are properties of the package; the byte count is a property of the tree on the day, and

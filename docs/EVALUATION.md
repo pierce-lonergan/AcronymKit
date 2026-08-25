@@ -11,6 +11,7 @@ python bench/run_extraction.py --save                     # our row
 python bench/run_generation.py --all-presets --save       # generation recall@k
 python bench/run_micro.py --save                          # latency and cold import
 python bench/run_governed_gold.py --save                  # governed cut placement
+python bench/run_backronym.py --save                      # backronym properties and coverage
 
 # competitor rows (pyab3p and scispacy need Python <3.13)
 python bench/run_extraction.py --save     --system acronymkit --system abbreviations     --system abbreviation_extractor --system pyab3p     --interpreter /path/to/python3.12
@@ -907,6 +908,212 @@ contaminated MED1250 and both SDU@AAAI-22 dev splits. It happened here in the sa
 measurement, on this page, and it should be weighed against any `contaminated = false` entry for
 these two corpora rather than assumed away.
 
+## The backronym subsystem: properties and coverage, and no accuracy number
+
+`BackronymGenerator` is the fifth subsystem in `docs/ARCHITECTURE.md`'s map, two public methods on
+the facade, two CLI commands and a README section with worked output, and until now it carried no
+external number of any kind. `docs/DEFINITION-OF-DONE.md` criterion 2 — *every shipped subsystem
+carries an accuracy number* — has been open on exactly that.
+
+**It is now scored, and it does not get an accuracy number.** The criterion is scoped instead, and
+the reason is a fact about the task rather than a shortage of effort. This section states what was
+measured, what could not be, and why the second list is not going to shrink.
+
+### Why there is no accuracy number, stated before the numbers
+
+Forward generation has a gold standard because a corpus of real pairs records **what a human chose**:
+feed the long form in, ask whether the annotator's short form comes back. Backronym synthesis is
+handed a target word and asked to *invent* a phrase. There is no correct answer to return, no
+annotator has been asked to judge an invented phrase, and no backronym gold has been published.
+Building one here would mean writing the standard this library is then scored against.
+
+So the candidate metrics split in two, and the split is the whole content of this section:
+
+| | What it asks | Can it be checked? |
+|---|---|---|
+| **Property** | Does every word start with the required letter, in order? Is the letter really there? Can the constraint be satisfied at all? Can the lexicon serve every letter? | **Yes.** A verifier that shares no code with the search recomputes it from the input. |
+| **Quality** | Is the phrase meaningful? Apt for the domain? Would a person pick this reading over that one? | **No.** Every one needs a judge — a human, or a model standing in for one — and this project has neither. |
+
+Everything below is a property. **None of it is evidence that this library writes good backronyms**,
+and the synthesis table ends with the demonstration of why the two must not be confused.
+
+### Where the inputs come from, and what they are not
+
+Two corpora supply the **input distribution and nothing else**. MED1250's annotators marked
+abbreviation *definitions* in MEDLINE abstracts; SDU@AAAI-21 AD's `diction.json` lists the shared
+task's legal expansions per acronym. Both are real (short form, long form) pairs. **Neither
+annotator was ever asked to judge an alignment**, so neither file contains a gold answer for this
+task, and no figure below is scored against one.
+
+Both are `role = "tuning"`, `contaminated = true`, and every run id carries the label. That label is
+weaker than usual here for a reason worth saying rather than hiding: these are *properties, not
+fitted decisions*, so no held-out split would make them more trustworthy — nothing below was tuned
+on anything. What the label still buys is a reader who does not mistake the input distribution for a
+blind one. No held-out budget is spent; `diction.json` is the candidate inventory, not a split.
+
+**`generation.med1250.dictionary_backronym` is not this subsystem's number and must never be quoted
+as one.** It is forward generation — long form in, acronym out — under a preset that happens to be
+named `DICTIONARY_BACKRONYM`. Nothing in it calls `align` or `synthesize`.
+
+### Alignment: the ceiling is in the table, not under it
+
+**Feasible %** is the share of pairs for which the alignment constraint admits a complete alignment
+*at all*, decided by a two-pointer subsequence test with no weights and no library code. It bounds
+every other column, so it is printed beside them.
+
+| Corpus / subset | Pairs | feasible % | complete % | of feasible % | letters % | letter ceiling % | underdetermined % |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| MED1250, all | 1,221<!--claim:backronym.med1250.alignment.all.pairs:,--> | 87.63<!--claim:backronym.med1250.alignment.all.feasible_pct:.2f--> | **86.49<!--claim:backronym.med1250.alignment.all.complete_pct:.2f-->** | 98.69<!--claim:backronym.med1250.alignment.all.complete_of_feasible_pct:.2f--> | 94.81<!--claim:backronym.med1250.alignment.all.letter_coverage_pct:.2f--> | 95.38<!--claim:backronym.med1250.alignment.all.letter_ceiling_pct:.2f--> | 37.29<!--claim:backronym.med1250.alignment.all.underdetermined_pct:.2f--> |
+| MED1250, alphabetic | 1,102<!--claim:backronym.med1250.alignment.alphabetic.pairs:,--> | 91.02<!--claim:backronym.med1250.alignment.alphabetic.feasible_pct:.2f--> | 89.75<!--claim:backronym.med1250.alignment.alphabetic.complete_pct:.2f--> | 98.60<!--claim:backronym.med1250.alignment.alphabetic.complete_of_feasible_pct:.2f--> | 96.15<!--claim:backronym.med1250.alignment.alphabetic.letter_coverage_pct:.2f--> | 96.73<!--claim:backronym.med1250.alignment.alphabetic.letter_ceiling_pct:.2f--> | 38.19<!--claim:backronym.med1250.alignment.alphabetic.underdetermined_pct:.2f--> |
+| MED1250, **with a digit** | 119<!--claim:backronym.med1250.alignment.with_digit.pairs:,--> | **56.30<!--claim:backronym.med1250.alignment.with_digit.feasible_pct:.2f-->** | **56.30<!--claim:backronym.med1250.alignment.with_digit.complete_pct:.2f-->** | 100.00<!--claim:backronym.med1250.alignment.with_digit.complete_of_feasible_pct:.2f--> | 85.38<!--claim:backronym.med1250.alignment.with_digit.letter_coverage_pct:.2f--> | 85.96<!--claim:backronym.med1250.alignment.with_digit.letter_ceiling_pct:.2f--> | 23.88<!--claim:backronym.med1250.alignment.with_digit.underdetermined_pct:.2f--> |
+| SDU@AAAI-21 AD, all | 2,308<!--claim:backronym.sdu21_ad.alignment.all.pairs:,--> | 97.96<!--claim:backronym.sdu21_ad.alignment.all.feasible_pct:.2f--> | **97.96<!--claim:backronym.sdu21_ad.alignment.all.complete_pct:.2f-->** | 100.00<!--claim:backronym.sdu21_ad.alignment.all.complete_of_feasible_pct:.2f--> | 99.19<!--claim:backronym.sdu21_ad.alignment.all.letter_coverage_pct:.2f--> | 99.19<!--claim:backronym.sdu21_ad.alignment.all.letter_ceiling_pct:.2f--> | 42.50<!--claim:backronym.sdu21_ad.alignment.all.underdetermined_pct:.2f--> |
+| SDU@AAAI-21 AD, **with a digit** | 0<!--claim:backronym.sdu21_ad.alignment.with_digit.pairs:,--> | — | — | — | — | — | — |
+
+The worst row is **MED1250 / with a digit** and it is in the table rather than in a footnote:
+56.30<!--claim:backronym.med1250.alignment.with_digit.complete_pct:.2f--> % against a pooled
+86.49<!--claim:backronym.med1250.alignment.all.complete_pct:.2f--> %, over
+119<!--claim:backronym.med1250.alignment.with_digit.pairs:,--> pairs. The SDU-21 digit row is empty
+and that is a *counted* zero — `diction.json` contains
+0<!--claim:backronym.sdu21_ad.alignment.with_digit.pairs:,--> targets carrying a digit, so that
+corpus is structurally incapable of showing this failure and cannot be cited against it.
+
+**`of feasible %` is not an achievement score, and reading it as one would be the tautology this
+measurement is built to avoid.** Coverage is not the aligner's objective: leaving a letter unmapped
+costs `unmapped_penalty`, and stepping over a critical token costs `delta`, which ships four times
+larger — so the objective sometimes *prefers* an incomplete alignment. Every feasible-but-incomplete
+pair is therefore re-scored against the oracle's complete path using the library's own `Scorer`, and
+all 14<!--claim:backronym.med1250.alignment.all.incomplete_feasible_n:,--> of them on MED1250 come
+back as the objective's own preference, with
+0<!--claim:backronym.med1250.alignment.all.search_shortfall_n:,--> search shortfalls.
+`bispectral index` / `BIS` is the shape: the complete reading takes `b`, `i`, `s` from inside
+`bispectral` and abandons `index`; the aligner covers both words and drops a letter, and scores
+higher for it.
+
+### Why the ceiling is where it is
+
+Each infeasible pair is attributed to exactly one cause, first match wins, so the counts partition.
+
+| Cause | MED1250 | SDU-21 AD | What it looks like |
+|---|---:|---:|---|
+| Donor token not eligible | 50<!--claim:backronym.med1250.alignment.all.infeasible_by_cause.token_ineligible:,--> | 43<!--claim:backronym.sdu21_ad.alignment.all.infeasible_by_cause.token_ineligible:,--> | `POS` ← *part of speech*; `vitD` ← *vitamin D*. The stop-word and one-character filters removed the word the letter needed. |
+| A digit occurs nowhere | 40<!--claim:backronym.med1250.alignment.all.infeasible_by_cause.digit_absent:,--> | 0<!--claim:backronym.sdu21_ad.alignment.all.infeasible_by_cause.digit_absent:,--> | `T3` ← *triiodothyronine* |
+| A character occurs nowhere | 30<!--claim:backronym.med1250.alignment.all.infeasible_by_cause.character_absent:,--> | 4<!--claim:backronym.sdu21_ad.alignment.all.infeasible_by_cause.character_absent:,--> | `DPH` ← *phenytoin* |
+| Present, but out of order | 31<!--claim:backronym.med1250.alignment.all.infeasible_by_cause.out_of_order:,--> | 0<!--claim:backronym.sdu21_ad.alignment.all.infeasible_by_cause.out_of_order:,--> | `FasL ICD` ← *intracellular FasL domain* |
+
+The largest single cause on **both** corpora is the eligibility filter, not the data. That is a
+measured fact about the interaction between the stop-word policy and the alignment constraint. It is
+recorded here and nothing has been changed in response to it: one change, one measurement.
+
+**A caveat that cuts against the feasibility figures themselves.** MED1250's annotation guide
+excludes from the gold standard both pairs with no matching character (`//!syn`) and pairs whose
+characters match out of order (`//!ord`). So the population these figures are taken over is
+*already filtered toward alignable pairs*, and the feasibility column is a ceiling on a pre-selected
+sample rather than on arbitrary prose. The residue is what survives that filter and fails anyway —
+which is why the cause table above is the informative half.
+
+### The guards, and their firing counts
+
+A guard reported without the number of times it could have fired tests the gate rather than the
+thing — the defect D-046 records. So both are printed with their denominators.
+
+| Guard | MED1250 | SDU-21 AD | Fired over |
+|---|---:|---:|---|
+| Constraint satisfaction — order, offsets, letter really present, donor really eligible, `coverage` arithmetic | 100.00<!--claim:backronym.med1250.alignment.all.validity_pct:.2f--> % | 100.00<!--claim:backronym.sdu21_ad.alignment.all.validity_pct:.2f--> % | 4,815<!--claim:backronym.med1250.alignment.all.alignments_verified:,--> and 10,237<!--claim:backronym.sdu21_ad.alignment.all.alignments_verified:,--> alignments |
+| Oracle agreement — infeasible per the oracle, complete per `align` | 0<!--claim:backronym.med1250.alignment.all.oracle_contradictions_n:,--> contradictions | 0<!--claim:backronym.sdu21_ad.alignment.all.oracle_contradictions_n:,--> contradictions | every pair |
+| Search optimality | 0<!--claim:backronym.med1250.alignment.all.search_shortfall_n:,--> shortfall | **fires zero times** | 14<!--claim:backronym.med1250.alignment.all.incomplete_feasible_n:,--> pairs on MED1250, 0<!--claim:backronym.sdu21_ad.alignment.all.incomplete_feasible_n:,--> on SDU-21 |
+
+**A passing guard is not evidence of a good backronym.** It is evidence that the payload says what
+it means and that the search reaches the states it should. The third guard adjudicates nothing at
+all on SDU-21 AD, and the runner prints that in place of a percentage rather than reporting a
+zero-denominator rate as if it were a measurement.
+
+### The share of the task no property can settle
+
+`TAI` ← *timed artificial insemination* admits *timed artificial artificial* and *artificial
+insemination insemination* and the obvious human reading, and the constraint permits all three. The
+componentwise-earliest and componentwise-latest alignments are the extremes of the feasible set, so
+they differ exactly when more than one distinct reading exists:
+
+| Corpus | Feasible pairs | Pairs with more than one reading | Share |
+|---|---:|---:|---:|
+| MED1250 | 1,070<!--claim:backronym.med1250.alignment.all.feasible_n:,--> | 399<!--claim:backronym.med1250.alignment.all.underdetermined_n:,--> | 37.29<!--claim:backronym.med1250.alignment.all.underdetermined_pct:.2f--> % |
+| SDU-21 AD | 2,261<!--claim:backronym.sdu21_ad.alignment.all.feasible_n:,--> | 961<!--claim:backronym.sdu21_ad.alignment.all.underdetermined_n:,--> | 42.50<!--claim:backronym.sdu21_ad.alignment.all.underdetermined_pct:.2f--> % |
+
+**This is the judge-shaped hole, counted.** On roughly four pairs in ten the constraint does not
+determine the answer, the objective picks one, and no property in this project can say whether it
+picked the reading a person would have. That is the share of the alignment task an accuracy number
+would have had to adjudicate, and it is why one is not offered.
+
+**Both counts are lower bounds, and the direction is stated rather than assumed.** Two alignments are
+compared on the *words* they read out, not on the token indices they use, so a pair whose two extreme
+alignments happen to name the same words is counted as determined even if some intermediate
+alignment names different ones. Comparing indices instead moves the SDU-21 count by one. The
+conservative definition is the published one, because the visible reading is what a caller sees.
+
+### Synthesis: full coverage, and output nobody would ship
+
+Synthesis draws one word per letter from the shipped English lexicon.
+
+| Corpus / subset | Targets | produced % | complete % | letters % | mean word length |
+|---|---:|---:|---:|---:|---:|
+| MED1250, all | 1,010<!--claim:backronym.med1250.synthesis.all.targets:,--> | 100.00<!--claim:backronym.med1250.synthesis.all.produced_pct:.2f--> | **89.70<!--claim:backronym.med1250.synthesis.all.complete_pct:.2f-->** | 96.34<!--claim:backronym.med1250.synthesis.all.letter_coverage_pct:.2f--> | 3.00<!--claim:backronym.med1250.synthesis.all.word_length_mean:.2f--> |
+| MED1250, alphabetic | 906<!--claim:backronym.med1250.synthesis.alphabetic.targets:,--> | 100.00<!--claim:backronym.med1250.synthesis.alphabetic.produced_pct:.2f--> | 100.00<!--claim:backronym.med1250.synthesis.alphabetic.complete_pct:.2f--> | 100.00<!--claim:backronym.med1250.synthesis.alphabetic.letter_coverage_pct:.2f--> | 3.00<!--claim:backronym.med1250.synthesis.alphabetic.word_length_mean:.2f--> |
+| MED1250, **with a digit** | 104<!--claim:backronym.med1250.synthesis.with_digit.targets:,--> | 100.00<!--claim:backronym.med1250.synthesis.with_digit.produced_pct:.2f--> | **0.00<!--claim:backronym.med1250.synthesis.with_digit.complete_pct:.2f-->** | 72.36<!--claim:backronym.med1250.synthesis.with_digit.letter_coverage_pct:.2f--> | 3.00<!--claim:backronym.med1250.synthesis.with_digit.word_length_mean:.2f--> |
+| SDU-21 AD, all | 732<!--claim:backronym.sdu21_ad.synthesis.all.targets:,--> | 100.00<!--claim:backronym.sdu21_ad.synthesis.all.produced_pct:.2f--> | **100.00<!--claim:backronym.sdu21_ad.synthesis.all.complete_pct:.2f-->** | 100.00<!--claim:backronym.sdu21_ad.synthesis.all.letter_coverage_pct:.2f--> | 3.00<!--claim:backronym.sdu21_ad.synthesis.all.word_length_mean:.2f--> |
+
+The worst row is again the digit bucket, at
+0.00<!--claim:backronym.med1250.synthesis.with_digit.complete_pct:.2f--> % over
+104<!--claim:backronym.med1250.synthesis.with_digit.targets:,--> targets, and the decomposition is
+total: **every** unserved character across both corpora is a digit, and no letter of the alphabet
+fails once. So the alphabetic row is a property of the shipped lexicon crossed with the alphabet,
+and the only informative figure in the coverage column is the digit share of real short forms —
+which is a fact about the corpus, not about the generator.
+
+Two further figures are reported and are **near-vacuous by construction**, and they are printed
+anyway because an unchecked guard is not a guard: every emitted word begins with its letter
+(100.00<!--claim:backronym.med1250.synthesis.all.initial_constraint_pct:.2f--> % over
+3,450<!--claim:backronym.med1250.synthesis.all.words_checked:,--> words), and every alternative is
+distinct (100.00<!--claim:backronym.med1250.synthesis.all.distinct_alternatives_pct:.2f--> %). Both
+would fire if the construction broke. Neither is an evaluation.
+
+**And here is why none of that is a quality number.** The mean word length is
+3.00<!--claim:backronym.med1250.synthesis.all.word_length_mean:.2f--> characters on every row of
+the table, because the ranking key prefers 3–12 characters and then shorter before longer, so it
+settles on the alphabetically-first three-letter word for each letter — and the shipped lexicon's
+three-letter band is the obscure tail of a word list graded for *recognisability as a word*, which
+is what D-004 cut it for, not for aptness as an expansion:
+
+```console
+$ python bench/run_backronym.py --examples
+  [sdu21_ad] 'ABC' -> 'aah baa cab'
+  [sdu21_ad] 'ACE' -> 'aah cab ear'
+  [med1250]  '1D'  -> 'dab'
+```
+
+Every letter served, every word a real dictionary word, every initial correct, every alternative
+distinct — and the output is unusable. **That row scores full marks on every property this project
+can check.** No metric here distinguishes it from a good backronym, which is the case for the
+scoping below rather than an argument against the measurement.
+
+### What this does to the definition of done
+
+Criterion 2 read *every shipped subsystem carries an accuracy number*, and it is scoped rather than
+met:
+
+> **Four of five subsystems carry an accuracy number. The fifth — backronym synthesis and alignment
+> — carries constraint-satisfaction, coverage and underdetermination figures, and cannot carry an
+> accuracy number, because scoring a backronym requires a judgement no corpus records and this
+> project has no judge.**
+
+That is a smaller claim than the original and it is one this project can defend. Inventing a number
+would have been worse than the open verdict; so would quoting
+`generation.med1250.dictionary_backronym` as the missing figure, which is the trap sitting next to
+this gap in `bench/results.json`.
+
+**What would reopen it.** A published backronym gold — a phrase, a target word, and a human's
+judgement that the alignment is good — or a judge this project is willing to defend, with its
+agreement against humans measured before any figure it produces is quoted.
+
 ## What is deliberately not claimed
 
 **No comparison to published figures.** Numbers lifted from papers are not comparable to numbers from
@@ -923,13 +1130,24 @@ spaCy model in the hundreds of megabytes; the harness supports it
 text and says little about legal, financial or general-web text. PLOD has now been evaluated (below) — but it turned out **not** to be the
 non-biomedical counterweight it was assumed to be, so the domain gap is still open.
 
-**Backronym alignment has no external evaluation at all**, and the generation presets are pinned
-against a 16-phrase canonical corpus (`tools/tune_presets.py`), which is a regression guard rather
-than an evaluation. This bullet used to read "extraction only", and that stopped being true three
-rounds ago: generation is scored on the MED1250 pairs read backwards, disambiguation on SDU@AAAI-21
-AD, and the governed segmenter on publisher-authored captions. What none of those share is a blind
-split — every one of them is a tuning or undeclared corpus, which is the sentence this bullet should
-have been saying instead.
+**No backronym accuracy number, and there is not going to be one.** The backronym section above now
+reports constraint satisfaction, feasibility, coverage and underdetermination over real pairs, and
+every one of those is a *property* — nothing in this project can say whether a backronym is any
+good, because that needs a judge and no corpus records the judgement. The scoping this forces on
+`docs/DEFINITION-OF-DONE.md` criterion 2 is stated in full there. This bullet previously read
+"backronym alignment has no external evaluation at all", which was true until the run ids
+`backronym.*` existed and is retired rather than deleted, because the *quality* half of it still
+stands.
+
+**The generation presets are pinned against a 16-phrase canonical corpus** (`tools/tune_presets.py`),
+which is a regression guard rather than an evaluation, and the file says so itself.
+
+**No blind split anywhere.** This bullet used to read "extraction only", and that stopped being true
+three rounds ago: generation is scored on the MED1250 pairs read backwards, disambiguation on
+SDU@AAAI-21 AD, the governed segmenter on publisher-authored captions, and the backronym subsystem
+on two tuning corpora that supply inputs and no gold. What none of those share is a blind split —
+every one of them is a tuning or undeclared corpus, which is the sentence this bullet should have
+been saying instead.
 
 ## Adding a corpus
 

@@ -65,11 +65,17 @@ Two further escapes exist, both narrow:
 
 What counts as a claim
 ----------------------
-A free-standing number in **prose**, within :data:`_PROXIMITY` characters of a
-metric keyword used as a word.
+A free-standing number in **prose** that some *arming rule* picks up. Two rules
+arm, and they fail in different directions:
 
-Each of those three conditions removes a class of false positive that this
-check used to raise, and none of them is a special case for a character:
+* **proximity** -- the number sits within :data:`_PROXIMITY` characters of a
+  metric keyword used as a word. This is the original rule.
+* **unit** -- the number is immediately followed by a metric unit (:data:`_UNIT_AFTER_NUMBER`):
+  ``96 %``, ``62.40 µs``, ``4,219 docs/s``. No keyword required.
+
+Either way the number must be free-standing and in prose, and each of those two
+conditions removes a class of false positive this check used to raise, without
+a special case for any character:
 
 * *free-standing* -- the number must be the whole token a reader sees, so the
   ``25`` in ``R@25``, the ``012`` in ``D-012``, the ``1250`` in ``MED1250`` and
@@ -78,15 +84,117 @@ check used to raise, and none of them is a special case for a character:
 * *in prose* -- fenced code blocks, inline code spans and, in Python files,
   everything that is not a comment or a string literal. ``max(0.0, min(1.0,
   precision))`` is code; ``length_penalty = 8.0`` is a default, not a result.
-* *keyword used as a word* -- ``f1`` inside ``Lf1chSf`` and ``precision``
-  inside ``SCORE_PRECISION`` do not make their line a claim about performance.
+
+and a keyword only arms when it stands as a word: ``f1`` inside ``Lf1chSf`` and
+``precision`` inside ``SCORE_PRECISION`` do not make their line a claim about
+performance.
+
+The second rule exists because the first has a failure mode that no tuning of
+:data:`_PROXIMITY` can reach. README carried ``F₁ > 96 %`` and the gate never
+saw it -- not because 96 was too far from a keyword, but because that line has
+*no keyword on it at all*: ``F₁`` is U+2081 SUBSCRIPT ONE, not the ASCII ``f1``
+in :data:`_KEYWORDS`. Proximity is a rule about distance, and the miss was about
+vocabulary. Widening the window from 48 to 480 would not have armed it; a rule
+that reads the number's own shape does.
+
+Nothing is dropped silently
+---------------------------
+A prose number that no rule arms used to be discarded inside the scanner, which
+made it **invisible rather than un-backed**: counted in no total, named in no
+report, and absent from a summary line that read as if it covered the document.
+That is worse than a false positive. A flagged number gets argued about; an
+invisible one is indistinguishable from a document with nothing to check.
+
+So every claim-shaped prose number now becomes a :class:`Claim`, and the ones no
+rule armed carry ``backing="unexamined"``. They never fail the build. They are
+counted in the summary, listed by ``--list``, and reported by ``--residue``.
+
+**Unexamined numbers are deliberately not value-matched.** That is not an
+oversight and it is the load-bearing decision here. Measured on this checkout
+before the change: of the fifteen prose numbers README had that the gate could
+not see, nine equalled some value in ``bench/results.json`` -- and every one of
+the nine was ``AMBIGUOUS`` under :func:`classify`. ``100`` equals 117 distinct
+measurements; ``2`` equals 97. Feeding the residue through value matching would
+have relabelled 1,144 invisible numbers "backed" across the tree -- 792 of them
+AMBIGUOUS on their own report -- most of them
+publication years, parameter defaults and rank cutoffs. That reproduces the
+original defect one level up and makes it harder to see, because an invisible
+number at least does not claim to be backed.
+
+Two ledgers, because widening coverage must not launder into the old one
+------------------------------------------------------------------------
+Widening the gate -- the unit rule, plus ``CHANGELOG.md`` and
+``bench/splits.toml`` entering ``SCAN_GLOBS`` -- surfaced **316 numbers across 11
+files that no run of this tool had ever counted**, and **76 of them match no
+measurement in bench/results.json at all**. Thirty-five are in
+``docs/DECISIONS.md``, thirty-four in ``docs/notes/pydantic-cost.md``
+(``139.60 ms`` and its table), four in ``CHANGELOG.md`` including the ``62.40``
+of a governed-naming latency row that has been in a release note since it was
+written. The summary line said ``unbacked 0`` the whole time, and it was true of
+the armed subset.
+
+Letting the 240 that *do* equal something fall onto the value path would have
+forced :data:`VALUE_MATCHED_BASELINE` from 71 up past 300 -- exactly the move
+that ratchet exists to make expensive, for numbers nobody had adjudicated.
+
+So there are two registers, and **which one a bare uncited number lands on is
+decided by whether the gate could already see it**:
+
+* it could -> :data:`VALUE_MATCHED_BASELINE`, untouched at 71 across 4 files, and
+  a keyword-armed number matching nothing still fails hard exactly as before.
+* it could not -> ``backing="deferred"``, against :data:`DEFERRED_BASELINE`: a
+  second per-file ledger with the same semantics -- exact match in both
+  directions, absent means zero, lower it in the commit that migrates. A file
+  with no entry admits **no** deferred number, so a document added to
+  :data:`SCAN_GLOBS` tomorrow cites from its first line.
+
+Where those figures come from, since this file is the one that adjudicates
+figures: ``316 across 11 files`` is not a quoted number, it is
+:data:`DEFERRED_BASELINE`, and CI re-derives and re-checks it on every run -- if
+it drifts, the build says so. The rest (``76``, ``1,144``, ``792``) are counts of
+one run, and the command that regenerates each is ``--residue``. None of them is
+a measurement of the library, and no runner can ``--save`` a property of the
+documents.
+
+The cost is named rather than hidden: a document at its budget cannot gain a
+figure without citing it. ``docs/DECISIONS.md``'s deferred count rose from 97 to
+115 over the eight commits before this change, so the next round that writes a
+percentage into a D-record will find the gate red and will have to cite it, mark
+it, or record the figure in the baseline as a visible source edit. That friction
+is R1's actual price, and it was previously being paid by a blind spot.
+
+How this fails
+--------------
+**The gate still does not check most numbers, and now says so.** 1,468 remain
+unexamined against 316 on the ledger, so the unit rule reaches about one number
+in six of what proximity misses. "Nothing is dropped silently" is the claim;
+"everything is checked" is not, and the summary prints both counts side by side
+precisely so the second cannot be read into the first.
+
+**316 is a floor on the debt, not a measure of it.** It is the count under
+*this* unit vocabulary. Adding ``KB``, ``MB``, ``bytes`` or a speedup ``x`` to
+:data:`_UNIT_AFTER_NUMBER` would move more of the 1,468 across, and each such
+widening is another ratchet-lowering commit rather than a free win.
+
+**The residue count inherits :func:`iter_claim_numbers`'s idea of a number.**
+117 of the 1,468 are fragments of ISO dates -- ``2026-08-23`` is split by the
+hyphenated-range rule into three "numbers", two of which are a month and a day.
+That rule is shared with the armed path and predates this change, so fixing it
+would move the value ledger too and needs its own measurement.
+
+**The escape hatches are unchanged, and one of them is a habit rather than a
+mechanism.** A figure can be fenced, cited, marked ``measured: <run-id>`` or
+allowlisted. Fencing is what ``docs/notes/`` already does, and it silences the
+gate completely rather than recording anything -- so a deferred count falling
+is not by itself evidence that a figure was adjudicated.
 
 Usage::
 
     python tools/check_claims.py                  # scan and report; the CI gate
     python tools/check_claims.py --list           # show every claim and how it is backed
+    python tools/check_claims.py --residue        # every number surfaced but not verified
     python tools/check_claims.py --migrate        # which run ids could supply each value-matched claim
-    python tools/check_claims.py --update-baseline    # the ratchet block to paste after a migration
+    python tools/check_claims.py --update-baseline    # the ratchet blocks to paste after a migration
     python tools/check_claims.py --render --dry-run   # what --render would rewrite
     python tools/check_claims.py --render         # rewrite {{claim:...}} to current values
 """
@@ -111,12 +219,35 @@ ALLOWLIST_PATH = REPO_ROOT / "tools" / "claims_allowlist.txt"
 
 #: Files scanned for claims. Deliberately not the whole tree: test files are
 #: full of legitimate hard-coded numbers that are assertions, not claims.
+#:
+#: ``CHANGELOG.md`` and ``bench/splits.toml`` were both outside this tuple while
+#: publishing measured figures, which made the scan set a third place the gate
+#: declined to look:
+#:
+#: * ``CHANGELOG.md`` is the most-read document a release has. It quotes the
+#:   import triple, the MED1250 headline and a governed-naming latency table --
+#:   and ``62.40`` in that table matches **no measurement in results.json at
+#:   all**, which is the failure this whole tool exists to raise.
+#: * ``bench/splits.toml`` publishes ``shortform_recall_ceiling_pct`` for two
+#:   corpora and says of itself which of its figures are un-gated. Both ceilings
+#:   do resolve (``shortform.sdu22_ae_legal_dev.corpus.ceiling_pct`` and its
+#:   scientific twin), so the file was right about itself -- but nothing was
+#:   checking, and "right about itself" is the state value matching cannot
+#:   distinguish from luck. A manifest that publishes figures is a document.
+#:
+#: ``bench/splits.toml`` is not in ``MANIFEST.in``, so inside an sdist this
+#: target is absent and the scan set shrinks by one file. That is reported by
+#: name rather than failing, because a checker that cannot pass inside the
+#: artifact is how the sdist broke the first time -- but it is *said out loud*,
+#: which is the only property being defended here.
 SCAN_GLOBS = (
     "README.md",
+    "CHANGELOG.md",
     "docs/*.md",
     "docs/notes/*.md",
     "src/acronymkit/*.py",
     "src/acronymkit/**/*.py",
+    "bench/splits.toml",
 )
 
 #: How many value-matched claims each file may carry. This is the ratchet
@@ -149,8 +280,65 @@ VALUE_MATCHED_BASELINE: Dict[str, int] = {
     "src/acronymkit/enums.py": 2,
 }
 
+#: How many unit-armed numbers each file may leave uncited. The second ratchet,
+#: built exactly like :data:`VALUE_MATCHED_BASELINE` and kept separate from it on
+#: purpose: these are the numbers the *unit* rule surfaced, and folding them into
+#: the value budget would have raised a ratchet R1 pins shut, for figures nobody
+#: had adjudicated yet.
+#:
+#: A file absent from this mapping is allowed **zero**. The counts below are the
+#: state of the tree the day the unit rule was turned on, and they are a debt
+#: register, not a licence: 69 of these 255 match no measurement in
+#: ``bench/results.json`` at all, and ``--residue`` names every one.
+#:
+#: Regenerate after a migration with ``python tools/check_claims.py --update-baseline``.
+#:
+#: Recorded 2026-08-24 against commit 6cc9a01, and verified identical against a
+#: clean ``git archive HEAD`` export -- three other workstreams were editing the
+#: tree while this was written, so the counts were taken twice and only recorded
+#: because both readings agreed.
+DEFERRED_BASELINE: Dict[str, int] = {
+    "CHANGELOG.md": 28,
+    "README.md": 2,
+    "bench/splits.toml": 32,
+    "docs/ARCHITECTURE.md": 1,
+    "docs/DECISIONS.md": 115,
+    "docs/DEFINITION-OF-DONE.md": 1,
+    "docs/EVALUATION.md": 60,
+    "docs/OFFLINE.md": 3,
+    "docs/notes/pydantic-cost.md": 70,
+    "docs/notes/scoring-objective.md": 3,
+    "src/acronymkit/governed/models.py": 1,
+}
+
+#: Documents that were outside :data:`SCAN_GLOBS` until the scan set was widened.
+#: Their keyword-armed uncited numbers go on the deferred ledger rather than
+#: failing the build, because they are figures the gate has never adjudicated
+#: rather than regressions -- one of them, ``CHANGELOG.md``'s ``62.40``, matches
+#: no measurement at all and has been published in a release note the whole time.
+#:
+#: This set only shrinks. Emptying it is what "the scan set widened and the debt
+#: was paid" looks like, and every entry costs a line in :data:`DEFERRED_BASELINE`
+#: that ``--residue`` prints back with the number and its line.
+_COVERAGE_GRANDFATHER = frozenset({"CHANGELOG.md", "bench/splits.toml"})
+
 #: A number is a claim when it sits within this many characters of a keyword.
 _PROXIMITY = 48
+
+#: A metric unit written immediately after a number, which arms it on its own.
+#: This is the rule that reads the number's shape rather than its neighbourhood,
+#: and it is what catches ``F₁ > 96 %`` on a line carrying no ASCII keyword.
+#:
+#: Only whitespace may sit between the number and the unit, which is what keeps
+#: it structural: ``4 tools/scripts`` does not match (``s`` is not at a word
+#: boundary there) and neither does a number followed by ordinary prose.
+_UNIT_AFTER_NUMBER = re.compile(
+    r"^[ \t]*(?:"
+    r"%"  # 92.32 %, 92.32%
+    r"|[µμumn]s\b"  # 62.40 µs / µs / us / ms / ns
+    r"|[A-Za-z]*/(?:s|sec|second)s?\b"  # 4,219 docs/s, 96,532 identifiers/second
+    r")"
+)
 
 #: Keywords that turn a nearby number into a performance or accuracy claim.
 #: Matched as words: a keyword welded into a longer identifier does not count.
@@ -250,22 +438,37 @@ class Project:
             *these documents*. Applying it to a fixture directory would be the
             tool asserting a property of the checkout it lives in against a
             checkout it was handed, which is a different tool.
+        deferred_baseline: The same, for uncited numbers the widened coverage
+            revealed, against :data:`DEFERRED_BASELINE`. Off (``None``) for the
+            same reason and under the same condition, so the ratchets are never
+            half-on.
+        coverage_grandfather: Which documents entered ``SCAN_GLOBS`` with this
+            change, from :data:`_COVERAGE_GRANDFATHER`. Empty for every root but
+            this one, and for the same reason as the baselines: "``CHANGELOG.md``
+            was not being read until now" is a fact about *these* documents. Any
+            other checkout gets the plain rule, so a fixture can still show a
+            changelog figure failing the way it will once the debt is paid.
     """
 
     root: Path
     results_path: Path
     allowlist_path: Path
     value_baseline: Optional[Dict[str, int]] = None
+    deferred_baseline: Optional[Dict[str, int]] = None
+    coverage_grandfather: frozenset = frozenset()
 
     @classmethod
     def at(cls, root: Path) -> Project:
         """Build a project rooted at ``root`` with the conventional layout."""
         root = Path(root).resolve()
+        here = root == REPO_ROOT
         return cls(
             root=root,
             results_path=root / "bench" / "results.json",
             allowlist_path=root / "tools" / "claims_allowlist.txt",
-            value_baseline=dict(VALUE_MATCHED_BASELINE) if root == REPO_ROOT else None,
+            value_baseline=dict(VALUE_MATCHED_BASELINE) if here else None,
+            deferred_baseline=dict(DEFERRED_BASELINE) if here else None,
+            coverage_grandfather=_COVERAGE_GRANDFATHER if here else frozenset(),
         )
 
 
@@ -308,7 +511,15 @@ class Citation:
 
 @dataclass(frozen=True)
 class Claim:
-    """A claim-shaped number found in prose, with how it is backed."""
+    """A claim-shaped number found in prose, with how it is backed.
+
+    Attributes:
+        arming: Which rule picked the number up -- ``"keyword"``, ``"unit"``, or
+            ``""`` for none, which is the ``unexamined`` case. It is carried
+            rather than recomputed because it decides which ratchet the number
+            falls under, and a number that two rules could arm belongs to the
+            older ledger.
+    """
 
     path: Path
     line_number: int
@@ -316,10 +527,17 @@ class Claim:
     line: str
     backing: str
     detail: str = ""
+    arming: str = ""
 
 
 #: The backing kinds a :class:`Claim` can carry, in reporting order.
-BACKINGS = ("marker", "allowlist", "value", "unbacked")
+#:
+#: ``deferred`` and ``unexamined`` are both "the gate has not verified this",
+#: and they are separate because they fail differently. A ``deferred`` number
+#: was armed, is capped by :data:`DEFERRED_BASELINE` and cannot grow. An
+#: ``unexamined`` number was armed by nothing, is uncapped, and is reported
+#: precisely so that "uncapped" is a visible fact rather than a silent one.
+BACKINGS = ("marker", "allowlist", "value", "deferred", "unexamined", "unbacked")
 
 
 # ---------------------------------------------------------------------------
@@ -633,8 +851,38 @@ def iter_claim_numbers(line: str) -> Iterator[Tuple[int, str]]:
             cursor += len(part) + 1
 
 
-def scan_file(path: Path) -> Iterator[Tuple[int, str, str]]:
-    """Yield ``(line_number, number_text, line)`` for every claim in ``path``.
+def arming_of(line: str, offset: int, number: str, keywords: Sequence[int]) -> str:
+    """Which rule arms the number at ``offset``, or ``""`` for none.
+
+    Args:
+        line: The prose-only, citation-masked line the number was found in.
+        offset: Where the number starts in ``line``.
+        number: The number as written.
+        keywords: Keyword offsets from :func:`keyword_positions`, read from the
+            *raw* line so a metric named inside a code span still arms.
+
+    Returns:
+        ``"keyword"``, ``"unit"``, or ``""``.
+
+    Proximity is checked first and wins ties. That ordering is what keeps the
+    value-matched ratchet at exactly the count it was pinned at: every number
+    that armed before this rule existed still arms the same way, so turning the
+    unit rule on could only add to the new ledger and never move the old one.
+    """
+    if any(abs(offset - position) <= _PROXIMITY for position in keywords):
+        return "keyword"
+    if _UNIT_AFTER_NUMBER.match(line[offset + len(number) :]):
+        return "unit"
+    return ""
+
+
+def iter_prose_numbers(path: Path) -> Iterator[Tuple[int, str, str, str]]:
+    """Yield ``(line_number, number_text, line, arming)`` for every prose number.
+
+    *Every* one -- including the numbers no rule arms, which is the difference
+    between this and :func:`scan_file`. The scanner used to drop them where they
+    were found, so a figure out of a keyword's reach was not un-backed but
+    absent: no total counted it and no report named it.
 
     Keywords are read from the raw line and numbers from the prose-only view of
     it, so a metric named in a sentence still arms the check while the numbers
@@ -648,13 +896,24 @@ def scan_file(path: Path) -> Iterator[Tuple[int, str, str]]:
     prose_lines = prose_of(text, path.suffix).splitlines()
     citation_free = [_mask_spans(line, _CITATION_ANY) for line in prose_lines]
     for number, raw in enumerate(raw_lines, start=1):
-        keywords = keyword_positions(raw)
-        if not keywords:
-            continue
         prose = citation_free[number - 1] if number - 1 < len(citation_free) else ""
+        if not prose.strip():
+            continue
+        keywords = keyword_positions(raw)
         for offset, claim in iter_claim_numbers(prose):
-            if any(abs(offset - position) <= _PROXIMITY for position in keywords):
-                yield number, claim, raw.strip()
+            yield number, claim, raw.strip(), arming_of(prose, offset, claim, keywords)
+
+
+def scan_file(path: Path) -> Iterator[Tuple[int, str, str]]:
+    """Yield ``(line_number, number_text, line)`` for every *armed* claim.
+
+    The numbers this drops are not discarded any more: :func:`iter_prose_numbers`
+    yields them with an empty arming, and :func:`collect_claims` records them as
+    ``unexamined``.
+    """
+    for line_number, claim, line, arming in iter_prose_numbers(path):
+        if arming:
+            yield line_number, claim, line
 
 
 def _citations_in_line(line: str, path: Path, line_number: int) -> Iterator[Citation]:
@@ -783,6 +1042,25 @@ def scan_paths(project: Project) -> List[Path]:
     return sorted(set(paths))
 
 
+def absent_targets(project: Project) -> List[str]:
+    """Scan globs naming one literal file that is not there.
+
+    A wildcard matching nothing is a directory that happens to be empty; a
+    literal path matching nothing is a file the gate was told to read and did
+    not. ``bench/splits.toml`` is the live case: it is outside ``MANIFEST.in``,
+    so the checker shipped in an sdist scans one document fewer than the one in
+    a checkout. That is tolerable and it is not allowed to be quiet, which is
+    the same rule the rest of this change is made of.
+    """
+    missing: List[str] = []
+    for pattern in SCAN_GLOBS:
+        if any(character in pattern for character in "*?["):
+            continue
+        if not (project.root / pattern).is_file():
+            missing.append(pattern)
+    return sorted(missing)
+
+
 def _relative(path: Path, project: Project) -> str:
     """``path`` as written in a report."""
     try:
@@ -820,6 +1098,33 @@ def collect_citations(
     return citations, problems
 
 
+def _outside_value_ledger(project: Project, path: Path, arming: str) -> bool:
+    """Whether an uncited bare number belongs to the deferred ledger.
+
+    Two ways in, and both are the same fact -- **the gate's coverage grew, and
+    the value-matched budget must not grow with it**:
+
+    * the *unit* rule armed it, so no keyword did and no earlier run of this
+      tool ever saw it; or
+    * it lives in a file :data:`_COVERAGE_GRANDFATHER` names, which is a file
+      that was outside ``SCAN_GLOBS`` until the scan set was widened.
+
+    What is deliberately **not** here: a keyword-armed number in a document the
+    gate was already reading. Those keep the classification they have always
+    had, including the hard ``unbacked`` failure. A coverage change may reveal
+    verdicts; it may not soften one the gate had already reached, and the live
+    case proved the point -- ``34,096`` was landing in ``docs/OFFLINE.md`` while
+    this was being written, the unmodified gate fails on it, and an earlier draft
+    of this function would have turned that red into a grandfathered ledger row.
+
+    When the ratchet is off (any root but this one) only the unit rule applies,
+    so a keyword-armed number value-matches exactly as it always did.
+    """
+    if arming == "unit":
+        return True
+    return _relative(path, project) in project.coverage_grandfather
+
+
 def collect_claims(
     project: Project,
     index: Dict[str, object],
@@ -834,7 +1139,25 @@ def collect_claims(
     run_ids = set(index)
     claims: List[Claim] = []
     for path in scan_paths(project):
-        for line_number, number, line in scan_file(path):
+        for line_number, number, line, arming in iter_prose_numbers(path):
+            if not arming:
+                # No rule armed it, so the gate has not looked at it. Recorded
+                # rather than dropped, and deliberately *not* value-matched:
+                # the residue is mostly years, defaults and rank cutoffs, and
+                # value matching would hand every round one of them a
+                # "backed" label it cannot have earned.
+                claims.append(
+                    Claim(
+                        path=path,
+                        line_number=line_number,
+                        text=number,
+                        line=line,
+                        backing="unexamined",
+                        detail="no arming rule reaches this number",
+                        arming=arming,
+                    )
+                )
+                continue
             marker = _MARKER.search(line)
             if marker:
                 run_id = marker.group(1)
@@ -853,6 +1176,7 @@ def collect_claims(
                             if known
                             else f"marker names unknown run id {run_id!r}"
                         ),
+                        arming=arming,
                     )
                 )
                 continue
@@ -865,10 +1189,43 @@ def collect_claims(
                         line=line,
                         backing="allowlist",
                         detail=allowlist[number],
+                        arming=arming,
                     )
                 )
                 continue
             backed = _matches_measurement(number, measured)
+            if _outside_value_ledger(project, path, arming):
+                # The value ledger is closed: 71 claims across the 4 files
+                # VALUE_MATCHED_BASELINE names, and R1 allows that number to
+                # move down and never up. So everything widening the gate's
+                # coverage revealed -- a new arming rule, or a document that
+                # was never scanned -- lands here instead of being laundered
+                # into a budget it predates.
+                #
+                # It lands here whether or not some measurement equals it.
+                # "Equals a measurement" is exactly the property that cannot
+                # tell a real figure from a coincidence, and 186 of these do
+                # equal one. Capped by DEFERRED_BASELINE, never fatal on its
+                # own, and named line by line by --residue.
+                claims.append(
+                    Claim(
+                        path=path,
+                        line_number=line_number,
+                        text=number,
+                        line=line,
+                        backing="deferred",
+                        detail=(
+                            f"{arming}-armed, uncited; "
+                            + (
+                                "a measurement has this value"
+                                if backed
+                                else "NO measurement has this value"
+                            )
+                        ),
+                        arming=arming,
+                    )
+                )
+                continue
             claims.append(
                 Claim(
                     path=path,
@@ -877,6 +1234,7 @@ def collect_claims(
                     line=line,
                     backing="value" if backed else "unbacked",
                     detail="matched by value only" if backed else "no measurement has this value",
+                    arming=arming,
                 )
             )
     return claims
@@ -903,7 +1261,11 @@ def render_text(text: str, suffix: str, index: Dict[str, object]) -> str:
         check reports them, so rendering never silently drops one.
     """
     prose = prose_of(text, suffix)
-    markdown = suffix != ".py"
+    # The comment form is Markdown's, not "anything that is not Python": now
+    # that a `.toml` manifest is scanned, writing `<!--claim:...-->` into it
+    # would produce a file no TOML parser accepts. Everything else keeps the
+    # brace form, which survives inside a `#` comment or a string value.
+    markdown = suffix == ".md"
     edits: List[Tuple[int, int, str]] = []
     offset = 0
     for number, line in enumerate(prose.split("\n"), start=1):
@@ -975,17 +1337,69 @@ def _changed_lines(before: str, after: str) -> List[Tuple[int, str, str]]:
 # Reports
 # ---------------------------------------------------------------------------
 def _summarise(claims: Sequence[Claim], cited: int) -> str:
-    """The one line that tracks the migration off value matching."""
+    """The two lines that track the migration, and what is still not checked.
+
+    The second line exists because the first used to be read as a statement
+    about the document and was only ever a statement about the armed subset of
+    it. A total that omits what it declined to look at reads as complete.
+    """
     counts = dict.fromkeys(BACKINGS, 0)
     for claim in claims:
         counts[claim.backing] = counts.get(claim.backing, 0) + 1
+    verified = len(claims) - counts["deferred"] - counts["unexamined"] + cited
     return (
-        f"claims: {len(claims) + cited} total | "
+        f"claims: {verified} checked | "
         f"cited {cited} | "
         f"value-matched {counts['value']} | "
         f"allowlisted {counts['allowlist']} | "
         f"marker {counts['marker']} | "
-        f"unbacked {counts['unbacked']}"
+        f"unbacked {counts['unbacked']}\n"
+        f"not checked: {counts['deferred'] + counts['unexamined']} prose number(s) | "
+        f"deferred {counts['deferred']} (visible, capped) | "
+        f"unexamined {counts['unexamined']} (no arming rule reaches them) | "
+        "python tools/check_claims.py --residue"
+    )
+
+
+def report_residue(project: Project, index: Dict[str, object], claims: Sequence[Claim]) -> None:
+    """Print every number the gate surfaced but did not verify.
+
+    This is the report that did not exist, and its absence is the whole defect:
+    a figure out of a keyword's reach was not merely un-backed, it was counted
+    in no total and named nowhere, so a summary line reading ``unbacked 0`` was
+    true of the armed subset and read as true of the document.
+    """
+    residue = [claim for claim in claims if claim.backing in ("deferred", "unexamined")]
+    by_file: Dict[str, List[Claim]] = {}
+    for claim in residue:
+        by_file.setdefault(_relative(claim.path, project), []).append(claim)
+
+    print("numbers the gate has surfaced but not verified\n")
+    for path in sorted(by_file):
+        rows = by_file[path]
+        deferred = [claim for claim in rows if claim.backing == "deferred"]
+        print(f"  {path}  ({len(deferred)} deferred, {len(rows) - len(deferred)} unexamined)")
+        for claim in rows:
+            if claim.backing != "deferred":
+                continue
+            resolvable = "" if candidates_for(claim.text, index) else "  NO MEASUREMENT MATCHES"
+            print(f"      :{claim.line_number}  {claim.text}{resolvable}")
+            print(f"          {claim.line[:100]}")
+    orphans = [claim for claim in residue if claim.backing == "deferred"]
+    unmatched = [claim for claim in orphans if not candidates_for(claim.text, index)]
+    print(
+        f"\nresidue summary: deferred {len(orphans)} | "
+        f"of those, {len(unmatched)} match no measurement at all | "
+        f"unexamined {len(residue) - len(orphans)}"
+    )
+    print(
+        "  deferred    the gate can see it and nothing cites it, and it is here rather than\n"
+        "              failing because widening coverage revealed it. Capped per file by\n"
+        "              DEFERRED_BASELINE; the cap may be lowered, never raised.\n"
+        "  unexamined  no arming rule reaches it. Uncapped, and listed per file above so\n"
+        "              that 'uncapped' is a number somebody can read rather than a silence.\n"
+        "              Deliberately NOT value-matched: the residue is mostly years, defaults\n"
+        "              and rank cutoffs, and every one that would have matched is AMBIGUOUS."
     )
 
 
@@ -1025,64 +1439,105 @@ def report_migration(project: Project, index: Dict[str, object], claims: Sequenc
     )
 
 
-def value_matched_counts(project: Project, claims: Sequence[Claim]) -> Dict[str, int]:
-    """How many value-matched claims each scanned file currently carries.
+def counts_by_file(project: Project, claims: Sequence[Claim], backing: str) -> Dict[str, int]:
+    """How many claims with ``backing`` each scanned file currently carries.
 
-    Keyed by repo-relative POSIX path, so the baseline in the source reads the
+    Keyed by repo-relative POSIX path, so the baselines in the source read the
     same on every platform.
     """
     counts: Dict[str, int] = {}
     for claim in claims:
-        if claim.backing != "value":
+        if claim.backing != backing:
             continue
         key = _relative(claim.path, project)
         counts[key] = counts.get(key, 0) + 1
     return counts
 
 
+def value_matched_counts(project: Project, claims: Sequence[Claim]) -> Dict[str, int]:
+    """How many value-matched claims each scanned file currently carries."""
+    return counts_by_file(project, claims, "value")
+
+
+def _ratchet_problems(
+    counts: Dict[str, int],
+    baseline: Dict[str, int],
+    *,
+    label: str,
+    over: str,
+    under: str,
+) -> List[str]:
+    """One message per file whose count does not equal its recorded budget.
+
+    An increase is a new number written without a citation; a decrease is a
+    successful migration whose baseline was not lowered in the same commit.
+    Both are reported, because a ratchet that only tightens on request is a
+    ratchet with slack -- migrate one claim, leave the number alone, and the
+    slot is free for the next uncited number.
+    """
+    problems: List[str] = []
+    for path in sorted(set(counts) | set(baseline)):
+        actual = counts.get(path, 0)
+        allowed = baseline.get(path, 0)
+        if actual == allowed:
+            continue
+        head = f"  {path}\n    {actual} {label}, baseline {allowed}. "
+        if actual > allowed:
+            problems.append(head + over.format(delta=actual - allowed))
+        else:
+            problems.append(head + under.format(delta=allowed - actual))
+    return problems
+
+
 def baseline_problems(project: Project, claims: Sequence[Claim]) -> List[str]:
-    """Where the value-matched ratchet has been broken.
+    """Where either ratchet has been broken.
 
     Args:
-        project: The checkout being scanned. When ``value_baseline`` is
-            ``None`` the ratchet is off and this returns nothing.
+        project: The checkout being scanned. When the baselines are ``None``
+            the ratchets are off and this returns nothing.
         claims: Every classified claim.
 
     Returns:
-        One message per file whose count does not equal its recorded budget.
-        An increase is a new claim written without a citation; a decrease is a
-        successful migration whose baseline was not lowered in the same commit.
-        Both are reported, because a ratchet that only tightens on request is a
-        ratchet with slack -- migrate one claim, leave the number alone, and the
-        slot is free for the next uncited number.
+        Messages for the value-matched ledger first, then the deferred one.
     """
-    if project.value_baseline is None:
-        return []
-    counts = value_matched_counts(project, claims)
     problems: List[str] = []
-    for path in sorted(set(counts) | set(project.value_baseline)):
-        actual = counts.get(path, 0)
-        allowed = project.value_baseline.get(path, 0)
-        if actual == allowed:
-            continue
-        if actual > allowed:
-            problems.append(
-                f"  {path}\n"
-                f"    {actual} value-matched claim(s), baseline {allowed}. "
-                f"{actual - allowed} new number(s) here are backed only by the fact that "
+    if project.value_baseline is not None:
+        problems += _ratchet_problems(
+            value_matched_counts(project, claims),
+            project.value_baseline,
+            label="value-matched claim(s)",
+            over=(
+                "{delta} new number(s) here are backed only by the fact that "
                 "some measurement happens to equal them.\n"
-                "    Cite the measurement instead: {{claim:<run-id>.<field>}}. Run\n"
+                "    Cite the measurement instead: {{{{claim:<run-id>.<field>}}}}. Run\n"
                 "      python tools/check_claims.py --migrate\n"
                 "    to see which run ids could supply each one."
-            )
-        else:
-            problems.append(
-                f"  {path}\n"
-                f"    {actual} value-matched claim(s), baseline {allowed}. "
-                f"{allowed - actual} were migrated or removed -- lower the baseline in\n"
+            ),
+            under=(
+                "{delta} were migrated or removed -- lower the baseline in\n"
                 "    tools/check_claims.py so the slot cannot be silently reused:\n"
                 "      python tools/check_claims.py --update-baseline"
-            )
+            ),
+        )
+    if project.deferred_baseline is not None:
+        problems += _ratchet_problems(
+            counts_by_file(project, claims, "deferred"),
+            project.deferred_baseline,
+            label="uncited bare number(s) on the deferred ledger",
+            over=(
+                "{delta} new figure(s) here carry a metric unit and cite nothing.\n"
+                "    The unit rule armed them; the deferred ledger is a debt register that\n"
+                "    was closed at the counts in tools/check_claims.py and may not grow.\n"
+                "    Cite them: {{{{claim:<run-id>.<field>}}}}, or run\n"
+                "      python tools/check_claims.py --residue\n"
+                "    to see which ones match no measurement at all."
+            ),
+            under=(
+                "{delta} were migrated or removed -- lower DEFERRED_BASELINE in\n"
+                "    tools/check_claims.py in the same commit:\n"
+                "      python tools/check_claims.py --update-baseline"
+            ),
+        )
     return problems
 
 
@@ -1103,6 +1558,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         otherwise. ``--render --dry-run`` returns ``1`` when a document is out
         of date, so CI can require rendered docs to be current.
     """
+    # --list, --residue and --migrate echo source lines back, and source lines in
+    # this repository carry characters no Windows console code page encodes (F with
+    # a subscript one, em dashes, arrows). Redirecting any of them to a file died
+    # with UnicodeEncodeError and a non-zero exit, which reads exactly like the gate
+    # failing. The summary path never hit it because it prints no source lines, so
+    # the crash lived in the three reports nobody redirects until they need to.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:  # pragma: no cover - stream-dependent
+            reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -1113,9 +1579,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="report which run ids could supply each value-matched claim",
     )
     parser.add_argument(
+        "--residue",
+        action="store_true",
+        help="list every number the gate surfaced but did not verify",
+    )
+    parser.add_argument(
         "--update-baseline",
         action="store_true",
-        help="print the VALUE_MATCHED_BASELINE block to paste after a migration",
+        help="print both ratchet blocks to paste after a migration",
     )
     parser.add_argument(
         "--render",
@@ -1187,28 +1658,43 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         report_migration(project, index, claims)
         return 0
 
-    if args.update_baseline:
-        counts = value_matched_counts(project, claims)
-        print("# Paste into tools/check_claims.py, replacing VALUE_MATCHED_BASELINE.")
-        print(f"# {sum(counts.values())} value-matched claim(s) across {len(counts)} file(s).")
-        print("VALUE_MATCHED_BASELINE: Dict[str, int] = {")
-        for path in sorted(counts):
-            print(f'    "{path}": {counts[path]},')
-        print("}")
+    if args.residue:
+        report_residue(project, index, claims)
         return 0
 
-    print(f"scanned {len(paths)} files, found {len(claims)} claim-shaped numbers")
+    if args.update_baseline:
+        print("# Paste into tools/check_claims.py, replacing both blocks.")
+        for name, backing in (
+            ("VALUE_MATCHED_BASELINE", "value"),
+            ("DEFERRED_BASELINE", "deferred"),
+        ):
+            counts = counts_by_file(project, claims, backing)
+            print(f"# {sum(counts.values())} {backing} claim(s) across {len(counts)} file(s).")
+            print(f"{name}: Dict[str, int] = {{")
+            for path in sorted(counts):
+                print(f'    "{path}": {counts[path]},')
+            print("}")
+        return 0
+
+    missing = absent_targets(project)
+    absence = f" ({len(missing)} scan target(s) absent: {', '.join(missing)})" if missing else ""
+    print(f"scanned {len(paths)} files, found {len(claims)} claim-shaped numbers{absence}")
     print(_summarise(claims, len(citations)))
 
     ratchet = baseline_problems(project, claims)
-    if project.value_baseline is None:
-        print("value-matched ratchet: off (not this checkout)")
+    if project.value_baseline is None or project.deferred_baseline is None:
+        print("ratchets: off (not this checkout)")
     else:
-        budget = sum(project.value_baseline.values())
         print(
             f"value-matched ratchet: {sum(value_matched_counts(project, claims).values())}"
-            f" of {budget} budgeted across {len(project.value_baseline)} file(s); "
-            "new claims must cite a run id"
+            f" of {sum(project.value_baseline.values())} budgeted across "
+            f"{len(project.value_baseline)} file(s); new claims must cite a run id"
+        )
+        print(
+            f"deferred ratchet: "
+            f"{sum(counts_by_file(project, claims, 'deferred').values())}"
+            f" of {sum(project.deferred_baseline.values())} budgeted across "
+            f"{len(project.deferred_baseline)} file(s); this register may not grow"
         )
 
     stale = _unused_allowlist(allowlist, claims)
@@ -1218,7 +1704,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     unbacked = [claim for claim in claims if claim.backing == "unbacked"]
     if not unbacked and not citation_problems and not ratchet:
         print(
-            f"all backed by {_relative(project.results_path, project)}, a citation, or the allowlist"
+            f"every checked number is backed by {_relative(project.results_path, project)}, "
+            "a citation, or the allowlist"
         )
         return 0
 

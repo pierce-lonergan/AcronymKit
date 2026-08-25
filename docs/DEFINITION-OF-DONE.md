@@ -11,6 +11,14 @@ re-derived on 2026-08-24 by running the check or reading the code, including the
 expected to come back met. Two came back differently from the standing read, and one of those is the
 flagship criterion.
 
+**Second sweep, same day, after five workstreams landed.** Three verdicts moved and the movement is
+recorded in D-057. Criterion 2 closes, but only because the criterion itself was made smaller and the
+narrowing is published in the verdict column. Criterion 3 stays open **and its evidence got worse**,
+because the gate now counts the numbers it cannot check instead of omitting them — a better
+instrument giving a worse reading is the outcome this page exists to keep visible, and it is the one
+most likely to be argued away next round. Criterion 4 is met more strongly and its residual has been
+replaced by a new one of the same class.
+
 **How to read the numbers.** A figure written as a plain number in prose is a citation into
 `bench/results.json` by run id — that is operating rule 1, and this document holds no exceptions to
 it. A figure inside a fenced block is **command output, not a benchmark measurement**: the command
@@ -24,20 +32,25 @@ figure. Nothing else appears.
 | # | Criterion | Verdict | Evidence | What would close it |
 |---|---|---|---|---|
 | 1 | The disambiguator can say "I don't know" — abstention exposed, curve published decomposed, **policy confirmed on held-out data** | **met with qualification** — mechanism and publication, not value | `min_margin`, `margin`, `abstained` ship; `disambiguation.sdu21.abstention_curve`; `docs/EVALUATION.md` | An on-by-default `min_margin` proposal with a threshold and a cost model, then D-043's single spend of SDU-21 AD `test.json` |
-| 2 | Every shipped subsystem carries an accuracy number | **not met** | Four of five scored; backronym synthesis and alignment has none, and `docs/EVALUATION.md` says so itself | A gold standard for backronym alignment — or scope the criterion to the four and say which one it excludes |
-| 3 | Every number gated, cited by run id, re-derivable offline from the sdist; **zero un-gated figures in user-facing prose** | **not met** — materially advanced this round | `tools/check_claims.py`; README now carries zero value-matched claims; the gate is keyword-armed and cannot see every number | Migrate the remaining value-matched claims; widen the scan to `bench/splits.toml` and `CHANGELOG.md`; replace keyword proximity with a rule that cannot miss |
-| 4 | `bench/splits.toml` parses, is loaded by a tool, checked in CI for role/task/licence, mutation-tested | **met** | `tools/splits.py --check` in CI; `bench/corpora.py` consults it at load; a mutation-test class in `tests/test_splits_manifest.py` | Nothing. One stale `status` string is noted below and is not load-bearing |
+| 2 | Every shipped subsystem carries an accuracy number — **AMENDED, see below** | **met under the amended wording; the original wording is not met and never will be** | `backronym.{med1250,sdu21_ad}.{alignment,synthesis}`; `docs/EVALUATION.md`; D-054 | Nothing for the amendment. The original reopens only on a published backronym gold, or a judge whose agreement against humans is measured first |
+| 3 | Every number gated, cited by run id, re-derivable offline from the sdist; **zero un-gated figures in user-facing prose** | **not met — and the evidence got worse, correctly** | `tools/check_claims.py --residue` now counts a deferred ledger and an unexamined residue that no earlier run had ever reported; two of the three named coverage gaps are closed | Migrate the deferred ledger, lowering the baseline in the same commit; widen the scan to `tools/` and `bench/`; widen the unit vocabulary — each one its own measurement |
+| 4 | `bench/splits.toml` parses, is loaded by a tool, checked in CI for role/task/licence, mutation-tested | **met, and strengthened** | `tools/splits.py --check` in CI, now reporting reserved arms; `Corpus.require_unreserved` refuses a read; mutation-test class in `tests/test_splits_manifest.py` | Nothing. The stale `status` residual is fixed; a new residual of the same class is named below |
 | 5 | At least one non-biomedical annotated corpus registered and reported, **with its short-form recall ceiling in the same table as its recall figure** | **met with qualification** | SDU@AAAI-22 AE registered, scored, gated; ceiling column present beside the recall figures in D-039 and, as of this round, in `docs/EVALUATION.md` | Nothing for the literal criterion. The corpus is a different *genre*, not a different domain, so the domain-generalisation gap is a separate item and stays open |
 | 6 | Two documented-but-absent extension points exist, or the documentation stops claiming them | **met** | Four injectable collaborators ship (D-035); the `acronymkit.data` entry-point group is deleted (D-038) | Nothing. The standing risk is re-declaring a pack group before a pack exists to load |
 | 7 | No known defect where a report claims clean while data is lost | **met** | All three governed defects re-probed live through the public API and all three are fixed | Nothing for the known set. "Known" is the whole content of the claim |
 | 8 | The do-not list has grown, not shrunk | **met** | Nine audit-derived items carried forward unchanged, one added since, plus a class-level closure and a reservation discipline | Nothing |
 
-**Two verdicts differ from the standing read.** Criterion 2 was carried as met and is not: the
-backronym subsystem ships in the public API, in the CLI and in the architecture map, and has no
-accuracy number anywhere. Criterion 5 was carried as needing confirmation, and it confirms — the
-ceiling really is printed in the same table as the recall figures — but the thing that remains open
-underneath it is not the ceiling, it is that the corpus is a different *genre* and not a different
-*domain*, which `bench/splits.toml` establishes by counting rather than by asserting.
+**Two verdicts differed from the standing read at the first sweep.** Criterion 2 was carried as met
+and was not: the backronym subsystem ships in the public API, in the CLI and in the architecture map,
+and had no accuracy number anywhere. Criterion 5 was carried as needing confirmation, and it
+confirms — the ceiling really is printed in the same table as the recall figures — but the thing that
+remains open underneath it is not the ceiling, it is that the corpus is a different *genre* and not a
+different *domain*, which `bench/splits.toml` establishes by counting rather than by asserting.
+
+**And criterion 9 is still not met, now on evidence rather than on absence.** The first instrument in
+this project capable of producing a corpus of *edges* was built and run this round, and its own report
+is that the substrate it was funded on does not supply the arbiter the plan was costed on. The gap did
+not close; it acquired a price. D-056.
 
 ---
 
@@ -74,9 +87,49 @@ stays open by design rather than by neglect.
 
 ---
 
-## 2. Every shipped subsystem carries an accuracy number
+## 2. Every shipped subsystem carries an accuracy number — amended
 
-**Not met.** This is the verdict that changed.
+**Met under the amended wording.** The original wording is **not met**, and the amendment is what
+changed, not the evidence for the original. Both statements are kept below in that order, because a
+criterion closed by being narrowed is only honestly closed if the narrowing is legible.
+
+> **The criterion, as amended (D-054).** Four of five subsystems carry an accuracy number. The
+> fifth — backronym synthesis and alignment — carries constraint-satisfaction, coverage and
+> underdetermination figures, and **cannot** carry an accuracy number, because scoring a backronym
+> requires a judgement no corpus records and this project has no judge.
+
+`bench/run_backronym.py` measures the fifth subsystem against an oracle that shares no code with the
+search, and publishes four gated run ids decomposed with the worst row in the table. **None of them
+is an accuracy figure and the runner prints the refusal above the numbers rather than under them.**
+What is measured is whether a returned alignment satisfies the constraint it claims to satisfy,
+whether a complete alignment existed at all, why it did not when it did not, and how often the
+constraint fails to determine the answer — that last one is the judge-shaped hole, counted rather than
+described.
+
+The run contradicts any reading of itself as a quality measurement, and the contradiction is
+published:
+
+```
+python bench/run_backronym.py --examples          -- command output
+  'ABC' -> 'aah baa cab'      'ACE' -> 'aah cab ear'
+```
+
+Every letter served, every word a real dictionary word, every initial correct — **and that row scores
+full marks on every property this project can check.** It is the argument for scoping the criterion
+rather than inventing a metric.
+
+**What the amendment gives up, stated plainly.** The original criterion asked whether every shipped
+subsystem is *accurate*. The amended one asks that of four subsystems and asks something weaker of the
+fifth. Anyone who thinks a criterion may not be closed by being narrowed is reading it correctly and
+should say so in a decision record; this page's position is that a narrowing published in the verdict
+column is honest and a narrowing absorbed into the word "met" is not. The original reopens on a
+published backronym gold — a phrase, a target word and a human's judgement that the alignment is
+good — or on a judge this project is willing to defend, with its agreement against humans measured
+before any figure it produces is quoted.
+
+### The original verdict, and the evidence for it, which still stands
+
+**Not met.** This is the verdict that changed at the first sweep.
 
 `docs/ARCHITECTURE.md`'s subsystem map names five things the engine dispatches to, and the governed
 package is a sixth. Serialization makes no judgement a corpus could score. The other five do:
@@ -87,7 +140,7 @@ package is a sixth. Serialization makes no judgement a corpus could score. The o
 | `AbbreviationExtractor` | `extraction.med1250.*`, `shortform.*` | tuning; PLOD held out, on a different task |
 | `LexicalDisambiguator` | `disambiguation.sdu21.*` | tuning, contaminated |
 | `acronymkit.governed` | `governed_gold.sec_xbrl.*`, `governed_gold.socrata.*` | held out, measured-before-declared |
-| `BackronymGenerator` | **none** | — |
+| `BackronymGenerator` | **none, and none is possible** — `backronym.*` carries properties, not accuracy | tuning, contaminated |
 
 `BackronymGenerator` is not a private helper. It is a box in the architecture map, two public methods
 on the facade (`generate_backronym`, `synthesize_backronym`), two CLI commands (`backronym`,
@@ -105,12 +158,47 @@ is an annotation nobody has published — or an amendment to the criterion namin
 subsystem out loud. The second is cheap and honest; silently reading "every shipped subsystem" as
 "every subsystem with a corpus" is the move this file exists to make expensive.
 
+**The second route was taken.** It is the amendment at the head of this section. The first route
+remains open and is the only thing that would restore the original wording.
+
 ---
 
 ## 3. Every number gated, cited by run id, re-derivable offline
 
-**Not met, and materially advanced this round.** The criterion has three clauses and they are in
-different states.
+**Not met — and the evidence for it got worse this round, which is the correct result.**
+
+Nothing regressed. `tools/check_claims.py` was widened so that its coverage is explicit instead of
+implicit, and the debt it revealed is now counted rather than absent (D-052). A gate that sees more is
+better even when the number looks worse, and this is the criterion where that distinction has to be
+held, because the reading now available is the first one this project has ever had:
+
+```
+python tools/check_claims.py --residue     -- command output, re-derivable, not a measurement
+  numbers on the deferred ledger              316   across 11 files
+  ... matching NO measurement at all           76
+  numbers no arming rule reaches            1,468
+  value-matched ratchet                        71   across 4 files, unmoved
+```
+
+Two of the three coverage gaps this section named at the first sweep are closed: `CHANGELOG.md` and
+`bench/splits.toml` are scanned. The third was answered by a different mechanism than the one proposed
+here, and the reason is worth carrying: **widening the proximity window could never have reached the
+figure that motivated it**, because that line carries no ASCII metric keyword at all. Vocabulary, not
+distance. A structural rule that reads the number's own shape — a metric unit written immediately
+after it — is what reaches it.
+
+**One published figure left the gate's view this round by an author's choice, and it is booked here.**
+Two bundled-resource byte counts were moved from prose into code spans so the gate would stop firing
+on them (D-055). The reasoning is sound: they are properties of shipped files, no runner measures a
+file size, and neither the allowlist nor a citation applies. The effect is still that two figures a
+reader sees are now invisible to the check. That is the shape this criterion exists to catch, and it
+now has an instance inside the same round that improved the gate. **A falling deferred count is
+therefore not by itself evidence that a figure was adjudicated** — the gate cannot distinguish a
+migrated claim from a fenced or code-spanned one.
+
+### The three clauses, and where each stands
+
+The criterion has three clauses and they are in different states.
 
 **Cited by run id.** The migration is real and is tracked by the ratchet in `tools/check_claims.py`.
 The running totals are deliberately not transcribed here — several workstreams write them in the
@@ -147,15 +235,24 @@ sat `28` characters from "mean absolute error" and was counted, while the *exact
 `51` characters from the same keyword, on the same line, in the same sentence, and was not. This
 paragraph tripped the ratchet on its own first draft, for the same reason it describes.
 
-Three further gaps in coverage, all structural:
+Three further gaps in coverage, all structural. **Two are closed and the third is unchanged:**
 
-* `bench/splits.toml` is outside the scan globs. The file's own closing note says so. Both
-  short-form recall ceilings live there and are named by run id but not gated.
-* `CHANGELOG.md` is not scanned at all, and it quotes measured figures.
-* A citation whose *field name* contains a metric keyword arms its own line. `oracle_union_recall`
-  in a comment made a rhetorical round number on the same line into a claim, which surfaced during
-  this round's migration. The interaction is harmless here and is a reminder that the arming rule is
-  lexical, not semantic.
+* ~~`bench/splits.toml` is outside the scan globs.~~ **Closed.** It is scanned. Its two short-form
+  recall ceilings both resolve against `bench/results.json` — the file was right about itself, and
+  nothing had been checking, which is precisely the state value matching cannot distinguish from
+  luck. Its remaining uncited figures are on the deferred ledger.
+* ~~`CHANGELOG.md` is not scanned at all.~~ **Closed, and it found something.** A microsecond
+  before-figure published in a release note matches no measurement in `bench/results.json` at any
+  precision, and had been there the whole time.
+* A citation whose *field name* contains a metric keyword arms its own line. Unchanged, and it fired
+  again this round on a bundled resource whose filename contains `precision` — see the byte-count
+  note above. The arming rule is lexical, not semantic, and that cuts both ways.
+
+**Two new gaps take their place, and neither is smaller than the ones that closed.** `tools/*.py` and
+`bench/*.py` are still outside the scan globs and carry substantial prose, including the claims gate's
+own docstring. And `MANIFEST.in` does not ship `bench/splits.toml`, so the checker inside an sdist
+scans one document fewer than the one in a checkout; `absent_targets()` now names that on every run,
+so it is visible rather than silent, but the fix is in a file nobody has opened.
 
 **Re-derivable offline from the sdist.** True in a weaker sense than the wording suggests, and the
 distinction is worth keeping. `MANIFEST.in` ships `bench/results.json`, `tools/claims_allowlist.txt`
@@ -211,11 +308,11 @@ README ever since.
 
 ## 4. `bench/splits.toml` parses, is loaded, is checked, is mutation-tested
 
-**Met.** All four clauses, verified rather than assumed.
+**Met, and strengthened this round.** All four clauses, verified rather than assumed.
 
 ```
 python tools/splits.py --check          -- command output, wrapped, not elided
-  bench/splits.toml: 8 corpora, 0 problem(s)
+  bench/splits.toml: 8 corpora, 3 reserved arm(s), 0 problem(s)
   note: no uncontaminated corpus carries role='held_out' for task='extraction'
         (1 declared, none eligible), so no extraction number in this project
         currently satisfies the headline rule
@@ -244,11 +341,36 @@ python -m pytest tests/test_splits_manifest.py --collect-only     -- command out
   whole file                               57 tests
 ```
 
-**One residual, not load-bearing.** Both SDU-22 AE entries carry
-`status = "registered; reader in bench/corpora.py; not yet scored through a runner"`. They have been
-scored — `shortform.sdu22_ae_legal_dev.*` and `shortform.sdu22_ae_scientific_dev.*` are gated runs —
-so the string is stale. `status` is free text that nothing validates, which is why it went stale
-quietly, and it is the same failure class as the three published sentences D-037 retired by hand.
+### The manifest now refuses a read, which is a fifth clause nobody asked for
+
+D-043 and D-047 each reserved a corpus arm in prose, and each said in its own *how it fails* that a
+reservation written into a decision record is not a mechanism. It is one now.
+`[[corpora.<name>.reservations]]` is a validated structure — arm, state, deciding record, both
+triggers, the near-misses written down in advance — and `Corpus.require_unreserved(arm)` raises unless
+this process first declared a spend naming the record and the purpose. Two readers call it, so the
+guard is live rather than available:
+
+```
+verified for this page, no reserved file opened          -- command output, abridged
+  read_sdu22_ae(domain="legal", split="train")   -> SystemExit, D-047, both triggers printed
+  read_sdu21_ad(split="test")                    -> SystemExit, D-043
+  the dev/train arms beside them                 -> resolve unchanged
+```
+
+The value of this to criterion 4 is not the refusal, which is D-053's subject. It is that the file now
+holds a kind of statement it could not hold before, and the validator refuses a malformed one — an
+unrecognised key on a reservation table is an error, unlike on a corpus table where it is preserved,
+because the field the structure exists to require is exactly the field a typo would silently drop.
+
+**The residual moved, and the new one is the same class as the old.** The stale SDU-22 AE `status`
+strings recorded at the first sweep have been corrected. In their place: the `socrata` entry's closing
+note states that `tools/check_claims.py` does not scan `bench/splits.toml` and lists the scan globs
+that exclude it. **That is now false** — the file is scanned, and the note's own reason for existing
+("the alternative is a governance file whose own figures are the only unchecked ones in the
+repository") has been answered. It is free-text prose that nothing validates, it went stale within a
+day, and it is exactly the failure class as the three published sentences D-037 retired by hand. It is
+recorded here rather than fixed because that entry was not this round's file, and it is the first
+correction owed next round.
 
 ---
 
@@ -436,6 +558,34 @@ That is the item, and it should not be dressed as anything smaller. D-042 record
 on: if the target is technical, criterion 9 is an honest gap in the evidence; if the target is an
 adopted library, it is the lead item and the rest of the queue is mis-ordered.
 
+### The extraction half now has a price on it, and the first attempt refuted its own premise
+
+The lead item was worked this round. `tools/build_gold_corpus.py` fetches, pools, samples and freezes
+an adjudicated corpus of **edges** over Federal Register final rules — the first instrument here that
+produces the shape D-048 established the flagship claim needs. It ran end to end. Three findings bear
+on this criterion and none of them closes it:
+
+* **The substrate does not supply the arbiter the plan was costed on.** The Federal Register was
+  chosen because its rules were said to routinely carry their own abbreviation legends. On the pinned
+  draw a small minority do, and the ones that do use a syntax the shipped legend reader does not read.
+  A legend row is evidence for a human, not a label.
+* **The pool is one algorithm with three implementations.** Every available external extractor is a
+  Schwartz & Hearst descendant, so agreement between them is not corroboration, and the sample of
+  candidates *no* proposer put forward is the load-bearing step rather than a budget line.
+* **The pilot cannot distinguish a nearly complete pool from one missing as much as it holds.** Its
+  unproposed strata found no definitions, and the re-weighted upper bounds on those zeroes are of the
+  same order as the true-edge estimate. That is the result, and every zero ships with its bound so the
+  point estimate can never be read alone.
+
+**No corpus was registered and no number was published.** The artifact is a single-annotator reference
+set adjudicated by the author of the extractor that proposed most of its pool, and it is a pilot that
+is not scorable in either direction. `tools/splits.py` `ROLES` cannot express what it is, so
+`bench/splits.toml` records the refusal instead of a table. **An honest refusal to register beats a
+comfortable mislabel, and it is worth more to this criterion than a filled slot would have been**:
+filing it `held_out` is one word, and it would have put a self-adjudicated corpus into
+`headline_capable('extraction')` — turning the one honestly-empty slot on this page into a filled and
+dishonest one. D-056 has the five conditions that would change that, in order, none optional.
+
 ---
 
 ## How this document fails
@@ -447,16 +597,24 @@ other four, 1, 2, 5 and 8, rest on prose and code read on one day, in one checko
 records three published sentences that had quietly become false and were caught by hand. Every
 verdict here is a candidate to become the fourth.
 
-**Criterion 2 turns on a definition.** "Shipped subsystem" is my scoping, stated above: a box in the
-architecture map that makes a judgement a corpus could score. A reader who scopes it to "subsystems
-with a registered corpus" makes it met by construction, and that is precisely the move the verdict
-is warning about — so the disagreement is real and should be argued in a decision record, not
-resolved by whichever reading is written down first.
+**Criterion 2 turns on a definition, and now on an amendment as well.** "Shipped subsystem" is my
+scoping, stated above: a box in the architecture map that makes a judgement a corpus could score. A
+reader who scopes it to "subsystems with a registered corpus" makes it met by construction, and that
+is precisely the move the verdict was warning about. The amendment is a *different* narrowing —
+narrower in the criterion rather than in the reading, and written in the verdict column rather than
+absorbed into the word "met" — and it was authored in the same round, by the workstream that benefits
+from it. **That is the strongest objection to the current verdict and it is not answered here.** A
+reader who holds that a criterion may never be closed by being made smaller should say so in a
+decision record; this page's answer is that the alternative on offer was a judge this project would
+have had to invent.
 
-**Criterion 3's verdict is partly circular.** The evidence that figures are invisible to the gate
-was produced by reading README by eye against `bench/results.json`. That method finds what a reader
-notices, so "ten invisible figures in README" is a lower bound and not a count. The other documents
-were not swept the same way, and on the arithmetic above they are where the rest of them are.
+**Criterion 3's verdict is partly circular, in two ways now.** The evidence that figures are invisible
+to the gate was originally produced by reading README by eye against `bench/results.json`, which finds
+what a reader notices — so "ten invisible figures in README" was a lower bound and not a count, and
+D-052 corrects the word "measured" in it besides: nine of the fifteen value-match and every one of the
+nine is ambiguous. The new figures are circular differently: the residue was measured with the same
+tokenizer that defines what a number is, so a different tokenizer gives a different residue, and the
+deferred total is a floor on the debt under one unit vocabulary rather than a measure of it.
 
 **Criterion 5's qualification could be read as a pass.** The literal criterion — ceiling in the same
 table as the recall figure — is satisfied, and the qualification I have attached is about something
@@ -467,11 +625,14 @@ domain coverage is not served by a corpus whose own manifest entry says calling 
 evidence would repeat a mistake this project has already paid for — but that is a judgement about
 what the criterion is *for*, and it is the one to attack.
 
-**Two of the eight verdicts were checked against a tree other people were still editing.** Criterion
-5's evaluation-document evidence and criterion 3's claim counts both moved during the session this
-page was written, because concurrent work landed in `docs/EVALUATION.md` and `bench/results.json`.
-The commands are printed so the numbers can be re-derived, but a verdict taken on a moving tree is
-weaker than the same verdict taken on a commit, and this page does not pretend otherwise.
+**Verdicts were checked against a tree other people were still editing, and the second sweep is worse
+for it than the first.** Criterion 5's evaluation-document evidence and criterion 3's claim counts
+both moved during the session this page was first written. At the second sweep five workstreams landed
+in one session; `bench/results.json`, `tools/check_claims.py`, `tools/splits.py`, `bench/splits.toml`,
+`bench/corpora.py`, `README.md` and four documents all moved, the claims gate itself was rewritten
+three times inside the session, and the test suite total moved with it. The commands are printed so
+every number can be re-derived, but a verdict taken on a moving tree is weaker than the same verdict
+taken on a commit, and a verdict taken on a tree where the *instrument* moved is weaker still.
 
 **Criterion 7 is the weakest kind of met.** It quantifies over known defects, and its evidence is
 three probes reproducing three fixes. Every one of the three original defects was found by a person

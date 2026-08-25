@@ -46,6 +46,33 @@
 # correction came from a person opening the actual terms. So the terms get
 # cited, with the date they were read, and `tools/splits.py` rejects a URL that
 # points at a badge rather than at licence text.
+#
+# ---------------------------------------------------------------------------
+# RESERVED ARMS -- operating rule 3, and it now REFUSES rather than asks
+# ---------------------------------------------------------------------------
+# A corpus can have one arm spoken for while the rest is free. Those arms are
+# declared as `[[corpora.<name>.reservations]]` tables, one per arm, each
+# naming:
+#
+#     arm            the split token a RUNNER passes ("train"), not a filename
+#     state          allocated | unallocated | spent
+#     decided_in     the D-record that put it in that state
+#     allocated_to   the question it answers and who owns the read  (allocated)
+#     spend_trigger  the event that would fire the spend            (required)
+#     lapse_trigger  the event that releases it again               (allocated)
+#     not_a_trigger  the near-misses, written down in advance       (optional)
+#
+# `tools/splits.py` validates all of that -- a reservation with no trigger, a
+# state contradicting its own fields, two reservations claiming one arm, or an
+# unrecognised key all fail `--check` -- and, more to the point, REFUSES A READ.
+# `Corpus.require_unreserved(arm)` raises unless this process first called
+# `Corpus.declare_spend(arm, decision="D-0nn", purpose="...")`.
+#
+# This replaces two prose reservations that refused nothing. D-043 and D-047
+# each say so about themselves in their own "How it fails": a trigger written
+# into a D-record is not a mechanism, and the guard was that somebody had to
+# read a note. That is the same shape as the eleven prose citations of THIS
+# FILE that nothing ever parsed.
 
 [policy]
 # Every headline number must come from a held-out corpus. Numbers from the
@@ -126,6 +153,64 @@ tools/fetch_data.py, asset key `med1250`.
 #
 # Until one lands, docs/EVALUATION.md says the extraction number is a tuning
 # number.
+
+# ---------------------------------------------------------------------------
+# A THIRD ROUTE WAS BUILT, AND ITS PRODUCT IS DELIBERATELY NOT DECLARED HERE.
+# ---------------------------------------------------------------------------
+# `tools/build_gold_corpus.py` fetches, pools, samples and freezes an
+# adjudicated PAIR corpus over Federal Register final rules -- the first
+# instrument in this project that produces EDGES rather than spans, which is
+# the shape D-048 established the flagship claim needs. It has been run end to
+# end. There is a frozen artifact on disk, `bench.corpora.ReferenceSet` parses
+# it, and `bench.corpora.read_federal_register_reference` will load it.
+#
+# NO `[corpora.<name>]` TABLE IS WRITTEN FOR IT, AND THAT IS THE DECISION.
+# D-056 records it in full. The short version, because the temptation is one
+# word wide and will recur:
+#
+#   * The artifact is a SINGLE-ANNOTATOR REFERENCE SET. It says so about
+#     itself: `artifact_kind`, `is_gold_standard = false`,
+#     `headline_eligible = false`, `adjudicator_count`, and a `role_note`
+#     naming what ROLES cannot express. The adjudicator authored the extractor
+#     that proposed most of the pool.
+#
+#   * `ROLES` is ("tuning", "held_out") and NEITHER IS TRUE OF IT.
+#     `held_out` would make a self-adjudicated corpus headline-eligible
+#     through `Manifest.headline_capable`, which is the one standing it must
+#     never have -- filing it that way would fill this file's one honestly
+#     empty slot with a corpus that cannot adjudicate anything.
+#     `tuning` asserts something was fitted to it, and nothing was.
+#     The documented escape is not available either: `role = "held_out"` with
+#     `contaminated = true` is a HARD VALIDATION ERROR by validate()'s own
+#     rule, because a contaminated corpus may not hold the headline role.
+#
+#   * It is also a PILOT and is NOT SCORABLE IN EITHER DIRECTION. A minority
+#     of the pooled candidates are adjudicated and no document is exhaustively
+#     annotated, so recall has an unknown denominator and precision is
+#     understated -- an unsampled correct pair scores as a false positive.
+#     `ReferenceSet.documents_for_scoring()` refuses on exactly those two
+#     conditions. A corpus in this file is one `--save` away from a table.
+#
+# WHAT THE ENTRY NEEDS, so that whoever writes it does not have to re-derive
+# this. `ROLES` must gain `single_annotator_reference`, taken as its own
+# decision in `tools/splits.py`. `[policy] headline_requires` needs NO change:
+# `headline_capable()` filters on the headline role and would exclude the new
+# one automatically, which is the property that makes the widening safe.
+# `bench/corpora.py` carries `UNREGISTERED_READERS` naming this reader and the
+# reason it is held back, and `tests/test_build_gold_corpus.py` asserts that
+# every name in that map is absent from THIS FILE -- so the moment an entry
+# lands, that test goes red and says the exemption is no longer describing
+# anything. Adding a table here without deleting the exemption is a broken
+# build, on purpose.
+#
+# AND THE ROLE IS NOT THE ONLY BAR. Promotion to anything a headline could
+# cite needs, in order: a second adjudicator who authored none of the pooled
+# systems, with agreement computed and published; a written guideline settling
+# long-form boundaries, contractions in legends, non-initialism defined terms
+# and typesetting artefacts; EXHAUSTIVE adjudication of every pooled candidate
+# in the documents to be scored; and an unproposed sample whose upper bound is
+# small against the definitions found. An honest refusal to register beats a
+# comfortable mislabel, and this is what the refusal looks like written down.
 
 [corpora.sdu21_ai]
 role = "held_out"
@@ -230,8 +315,58 @@ Role is "tuning" rather than "held_out" because its per-candidate-count
 breakdown has now been read (docs/EVALUATION.md). test.json is fetchable from
 the same pin and is deliberately NOT fetched, so a genuinely blind split
 remains available for anyone who improves the disambiguator. IT CAN BE SPENT
-ONCE. It is reserved for confirming a shipped abstention policy and is not
-available for a sanity check, a curiosity or a second look.
+ONCE -- see the `reservations` entry below, which is the machine-readable half
+and the one a runner is refused by.
+"""
+
+# D-043's reservation, as a structure rather than the paragraph above. The
+# paragraph said the same thing and refused nothing: D-043's own "How it fails"
+# records that "a trigger written into a D-record is not a mechanism ... the
+# guard is that somebody has to read this entry".
+[[corpora.sdu21_ad.reservations]]
+arm = "test"
+file = "dataset/test.json (upstream; deliberately absent from tools/fetch_data.py)"
+state = "allocated"
+decided_in = "D-043"
+allocated_to = """
+Confirming the cut-point of an abstention policy proposed for ON-BY-DEFAULT
+shipping. ONE spend, and the cost is terminal: on spend this corpus is
+contaminated for disambiguation permanently and the project has NO remaining
+blind arm for the task. `tools/splits.py --check` already prints that no
+uncontaminated corpus carries role = "held_out" for task = "disambiguation";
+this file is the only thing that could ever change that line, and spending it
+removes the possibility rather than using it.
+"""
+spend_trigger = """
+A `min_margin` default other than "off" is proposed, with a specific threshold
+and a stated cost model behind it. D-044 records that no such proposal is
+currently defensible -- abstention loses to a word-count baseline across most
+of its range -- so this is not close to firing.
+"""
+lapse_trigger = """
+The disambiguator changes shape so that an abstention cut-point is no longer
+the question this split would answer. D-043 states the consequence and not the
+release: "if the disambiguator changes shape entirely, this reservation will
+look like it was held for a question nobody ended up asking, and re-designating
+it needs its own record rather than a quiet edit to the manifest note." So the
+lapse is not automatic -- it is a licence to write the record, and the arm
+stays shut until one exists.
+
+NOTE, because this field is the one part of this entry D-043 did not write in
+so many words: the sentence above is a reading of D-043's "How it fails"
+paragraph, promoted to a field because the validator requires an allocation to
+say how it can be released. An allocation with no way out is permanent by
+omission, which is the drift the reservation was created to stop. If a later
+round disagrees with this reading, amend it in a record -- do not delete it.
+"""
+not_a_trigger = """
+A sanity check; a second look at the curve; a re-run after a tokenizer change;
+confirming that abstention "still works"; any figure whose absence would not
+block a decision. Also NOT a trigger: confirming a span-rule precision claim
+out of sample. That proposal reached D-043 and is a category error -- this
+corpus annotates one occurrence plus a fixed candidate set, holds no spans to
+score and no short forms to extract, and could not confirm a span claim if it
+were spent tomorrow.
 """
 
 # ---------------------------------------------------------------------------
@@ -257,12 +392,14 @@ available for a sanity check, a curiosity or a second look.
 # offers. They are recorded as such rather than promoted to `role = "held_out"`,
 # because the corpus is one artefact and the roles are declared per corpus.
 #
-# ***  legal/train.json IS ALLOCATED. READ `train_allocation` ON THE LEGAL  ***
-# ***  ENTRY BELOW BEFORE ANY RUNNER TOUCHES IT. Two live claims name this  ***
-# ***  file and it can be read unmined exactly once; D-047 says which one   ***
-# ***  owns the read, which one rides along free, and what the read cannot  ***
-# ***  buy. scientific/train.json is UNALLOCATED and its first spend needs  ***
-# ***  its own D-record -- first-come is refused.                           ***
+# ***  BOTH train.json FILES ARE RESERVED, and as of this round the         ***
+# ***  reservation REFUSES rather than asks. See the `[[...reservations]]`   ***
+# ***  tables on the two entries below: legal/train is ALLOCATED (D-047),    ***
+# ***  scientific/train is UNALLOCATED and its first spend needs its own     ***
+# ***  D-record -- first-come is refused. A reader that resolves either arm  ***
+# ***  calls `Corpus.require_unreserved(split)` and raises; the only way     ***
+# ***  past it is `declare_spend(arm, decision=..., purpose=...)`, which     ***
+# ***  names the record and lands in the run log.                            ***
 #
 # THE DOMAIN LABEL IS THE CORPUS'S WORD, NOT A DESCRIPTION. See below.
 
@@ -290,71 +427,6 @@ the 30 characters preceding each gold long-form span (669 gold long forms, 263
 missed, legend matches {'=': 127, ':': 4}) and used the result to rank a recall
 proposal. Reading a miss taxonomy is exactly what made MED1250 a tuning split.
 Only `train.json` is unread.
-"""
-train_allocation = """
-ALLOCATED. 3,564 unread samples, ONE unmined read. Decided in docs/DECISIONS.md
-D-047, and written here because the person about to spend it has THIS file open
-and not that one.
-
-WHAT IS SCARCE, because it is less than "held out" implies. This corpus is
-already role = "tuning" and contaminated = true, and both English test splits
-carry zero labels, so there is no blind arm here and never was. What train.json
-holds is the last UNMINED arm: a split nobody has read the misses of, which can
-be run against once before it is as contaminated as the dev split beside it.
-
-  ALLOCATED TO   the legend flag's precision cost, measured on an arm that was
-                 not mined to invent the flag. D-039 shipped `legend_syntax`
-                 off; D-045 measured its cost only on the two dev splits whose
-                 miss taxonomy suggested the rule. That workstream owns the
-                 read: it decides WHEN the split is read, WHICH miss
-                 decomposition is published, and what may be concluded.
-
-  LOSER          experiment nine, the two-word bracketed short form (D-032).
-                 It stays HELD. Holding costs nothing; the legend flag is
-                 SHIPPED with an unmeasured cost, which is a live liability.
-
-  FREE RIDE      `bench/run_shortform.py --variants` scores `two_word` and
-                 `legend` in ONE invocation over the same corpus -- they are
-                 two rows of `_VARIANTS`. The run that spends this split MUST
-                 save the `two_word` row as well. It costs zero extra reads and
-                 it is the only way experiment nine is ever answered once the
-                 arm is mined. Experiment nine may NOT commission a read of its
-                 own, or a miss decomposition of its own.
-
-  LAPSES WHEN    (a) a corpus that annotates legend definitions, is
-                 structurally capable, and can be declared uncontaminated is
-                 registered -- D-039's real precondition, which makes this arm
-                 redundant for the winner; or (b) `legend_syntax` is deleted
-                 rather than defaulted. Then experiment nine inherits it.
-                 NOT a trigger: experiment nine being older, a workstream
-                 needing a number this round, or the legend work stalling.
-
-WHAT THE SPEND CANNOT BUY, and this is the half that gets lost.
-
-  It cannot license flipping the legend default on its own. D-039's first
-  reason for shipping off is that NO uncontaminated structurally capable corpus
-  exists in this repository, and a within-corpus tuning arm does not answer
-  that -- D-039 says so itself: this split buys within-corpus corroboration and
-  not generalisation.
-
-  It cannot address the risk the flag is off for. Of the 138 separators in
-  legal dev, ZERO open a number (bench/results.json,
-  shortform.sdu22_ae_legal_dev.*.legend_cost). This split is where the legend
-  CLASS is dense and where the EQUATION surface is absent. Spending it and then
-  reporting "the equation risk is measured" repeats D-045's own finding one
-  corpus over.
-
-WHAT IT CAN BUY: an honest precision delta for a shipped flag on an arm nobody
-mined to invent it. Nothing else in this repository can buy that.
-
-CAPABILITY, counted before the spend rather than after it (R9's fifth question).
-Legal dev carries 26 multi-token gold short-form spans of 1,213 (2.14%), against
-PLOD's 0 of 2,869 -- which is why PLOD could not score experiment nine even in
-principle and why this split can. Scaling on the ceiling basis below (train
-9,532 gold acronym spans against dev's 1,213, a factor of 7.86), dev density
-projects roughly 200 multi-token spans and about 1,100 separators on train.
-THOSE TWO ARE ARITHMETIC ON A DEV COUNT, NOT MEASUREMENTS. They say the arm is
-worth spending; they are not quotable.
 """
 shortform_recall_ceiling_pct = 55.15
 shortform_recall_ceiling_basis = """
@@ -446,6 +518,91 @@ genuinely different genre from MEDLINE and that is worth having -- it is just
 not the legal domain, and the domain-generalisation gap stays open.
 """
 
+# D-047's allocation, as a structure. It was a `train_allocation` string here
+# until this round: valid TOML that `tools/splits.py` neither validated nor
+# rendered, so it landed in `Corpus.extra` and refused exactly nothing. D-047
+# says so about itself -- "an allocation in a D-record is not a mechanism ...
+# nothing in tools/splits.py refuses a run against train.json; the guard is that
+# somebody reads the manifest note". The prose is preserved below in `note`,
+# because the half about what the spend CANNOT buy is the half D-047 says gets
+# lost; the fields above it are the half a runner is now refused by.
+[[corpora.sdu22_ae_legal.reservations]]
+arm = "train"
+file = "data/english/legal/train.json -> data/sdu22_ae_legal_train.json"
+state = "allocated"
+decided_in = "D-047"
+allocated_to = """
+The legend flag's precision cost, measured on an arm that was not mined to
+invent it. D-039 shipped `legend_syntax` off; D-045 measured its cost only on
+the two dev splits whose miss taxonomy suggested the rule. THAT WORKSTREAM OWNS
+THE READ: it decides when the split is read, which miss decomposition is
+published, and what may be concluded.
+
+LOSER: experiment nine, the two-word bracketed short form (D-032). It stays
+HELD. Holding costs nothing; the legend flag is SHIPPED with an unmeasured
+cost, which is a live liability rather than a parked one. Experiment nine may
+NOT commission a read of its own, or a miss decomposition of its own.
+"""
+spend_trigger = """
+The legend workstream elects to publish `legend_syntax`'s precision cost on an
+unmined arm, and commits in the same run to publishing the miss decomposition
+beside it.
+
+FREE RIDE, and it is a condition of the spend rather than a courtesy:
+`bench/run_shortform.py --variants` scores `two_word` and `legend` in ONE
+invocation over the same corpus -- they are two rows of `_VARIANTS`, with
+`two_word` compared against `baseline` and `legend` against `balanced_trim`.
+The run that spends this split MUST save the `two_word` row as well. It costs
+zero extra reads and it is the only way experiment nine is ever answered once
+the arm is mined.
+"""
+lapse_trigger = """
+Either (a) a corpus that annotates legend definitions, is structurally capable,
+and can be declared uncontaminated is registered -- D-039's real precondition,
+which makes this arm redundant for the winner; or (b) `legend_syntax` is
+deleted rather than defaulted, at which point the question no longer exists.
+Then experiment nine inherits the split.
+"""
+not_a_trigger = """
+Experiment nine being older; a workstream needing a number this round; the
+legend work stalling. Priority does not transfer by default.
+"""
+note = """
+WHAT IS SCARCE, because it is less than "held out" implies. This corpus is
+already role = "tuning" and contaminated = true, and both English test splits
+carry zero labels, so there is no blind arm here and never was. What train.json
+holds is the last UNMINED arm -- 3,564 unread samples, a split nobody has read
+the misses of, which can be run against once before it is as contaminated as
+the dev split beside it.
+
+WHAT THE SPEND CANNOT BUY, and this is the half that gets lost.
+
+  It cannot license flipping the legend default on its own. D-039's first
+  reason for shipping off is that NO uncontaminated structurally capable corpus
+  exists in this repository, and a within-corpus tuning arm does not answer
+  that -- D-039 says so itself: this split buys within-corpus corroboration and
+  not generalisation.
+
+  It cannot address the risk the flag is off for. Of the 138 separators in
+  legal dev, ZERO open a number (bench/results.json,
+  shortform.sdu22_ae_legal_dev.*.legend_cost). This split is where the legend
+  CLASS is dense and where the EQUATION surface is absent. Spending it and then
+  reporting "the equation risk is measured" repeats D-045's own finding one
+  corpus over.
+
+WHAT IT CAN BUY: an honest precision delta for a shipped flag on an arm nobody
+mined to invent it. Nothing else in this repository can buy that.
+
+CAPABILITY, counted before the spend rather than after it (R9's fifth question).
+Legal dev carries 26 multi-token gold short-form spans of 1,213 (2.14%), against
+PLOD's 0 of 2,869 -- which is why PLOD could not score experiment nine even in
+principle and why this split can. Scaling on the `shortform_recall_ceiling_basis`
+above (train 9,532 gold acronym spans against dev's 1,213, a factor of 7.86), dev density
+projects roughly 200 multi-token spans and about 1,100 separators on train.
+THOSE TWO ARE ARITHMETIC ON A DEV COUNT, NOT MEASUREMENTS. They say the arm is
+worth spending; they are not quotable.
+"""
+
 [corpora.sdu22_ae_scientific]
 role = "tuning"
 task = "span_detection"
@@ -461,19 +618,6 @@ contamination_reason = """
 Same audit pass as the legal split: dev misses were decomposed by legend
 separator (720 gold long forms, 230 missed, legend matches {'=': 102, ':': 13})
 and the result was used to rank a recall proposal. Only `train.json` is unread.
-"""
-train_allocation = """
-UNALLOCATED, deliberately, and that is a state rather than a drift. Both of the
-live claims on this corpus name the LEGAL train split (D-032 experiment nine,
-D-039's legend default), so assigning this one a use today would mean inventing
-one -- which is the failure D-043 corrected when an unspent reservation attracted
-a proposal it could not serve.
-
-What is written instead is a rule: THE FIRST SPEND OF THIS FILE REQUIRES ITS OWN
-D-RECORD. First-come is refused. Read docs/DECISIONS.md D-047 before proposing
-one, and note in particular that this split is not an answer to the equation
-risk either: 5 of its 147 dev separators open a number (3.40%), and D-045
-records that as a FLOOR on the equation surface rather than a measurement of it.
 """
 shortform_recall_ceiling_pct = 74.23
 shortform_recall_ceiling_basis = """
@@ -497,6 +641,31 @@ BETWEEN THESE TWO SPLITS IS ANNOTATION DENSITY, NOT EXTRACTOR BEHAVIOUR. Quoting
 the raw pair as domain evidence would attribute to the text a difference that
 lives in how the two splits were annotated. Re-run both through a bench runner
 with --save before publishing either.
+"""
+
+# UNALLOCATED is a STATE here, not the absence of one, and the validator
+# enforces the difference: an unallocated arm must still carry the trigger that
+# would let it be spent, and must NOT name something it is allocated to. That is
+# what stops "unallocated" decaying back into "nobody happened to want it",
+# which is D-043's diagnosis of the AD reservation.
+[[corpora.sdu22_ae_scientific.reservations]]
+arm = "train"
+file = "data/english/scientific/train.json -> data/sdu22_ae_scientific_train.json"
+state = "unallocated"
+decided_in = "D-047"
+spend_trigger = """
+ITS OWN D-RECORD. First-come is refused. Both live claims on this corpus name
+the LEGAL train split (D-032 experiment nine, D-039's legend default), so
+assigning this one a use today would mean inventing one -- which is the failure
+D-043 corrected when an unspent reservation attracted a proposal it could not
+serve. A record naming a question this split can answer, plus a reservation here
+with state = "allocated", is the trigger; nothing else is.
+"""
+not_a_trigger = """
+Being the only unread file left; a workstream needing a number this round;
+symmetry with the legal split. And specifically NOT an answer to the equation
+risk: 5 of its 147 dev separators open a number (3.40%), and D-045 records that
+as a FLOOR on the equation surface rather than a measurement of it.
 """
 
 # ---------------------------------------------------------------------------
@@ -723,12 +892,22 @@ against the publisher on all 1,818 rule-5 disagreements
 would move this corpus several points in the direction the table does not
 report.
 
-NOTE ON THE FIGURES IN THIS ENTRY. tools/check_claims.py does NOT scan
-bench/splits.toml -- its SCAN_GLOBS are README.md, docs/*.md, docs/notes/*.md
-and src/acronymkit/**/*.py -- so every number in this file, including the two
-`shortform_recall_ceiling_pct` values above, sits outside the R1 gate. They are
-named by run id here anyway, because the alternative is a governance file whose
-own figures are the only unchecked ones in the repository.
+NOTE ON THE FIGURES IN THIS ENTRY -- RETIRED IN PLACE, D-037 STYLE, AND THE
+MECHANISM MATTERS MORE THAN THE CORRECTION. This paragraph used to say that
+tools/check_claims.py does NOT scan bench/splits.toml, list its SCAN_GLOBS, and
+justify citing run ids here on the grounds that the alternative was a governance
+file whose own figures were the only unchecked ones in the repository. D-052
+added this file to SCAN_GLOBS. The concern is answered, the sentence went false
+the same day it was written, and the run-id citations above are now load-bearing
+rather than voluntary: they are what keeps this entry green.
+
+The correction is left visible instead of deleted because the failure it records
+is the one this file exists to catch. A note describing the gate's coverage went
+stale inside a single day, in the entry that argues most loudly for citation
+discipline, and nothing turned red -- a prose claim about a tool's configuration
+is exactly the kind of number-free assertion no ratchet can see. The general
+form is unfixed: any other sentence in this repository describing what a tool
+scans, refuses or ignores can go false the same way, silently.
 """
 
 # ---------------------------------------------------------------------------

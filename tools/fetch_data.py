@@ -216,6 +216,48 @@ _PLOD_CW_ATTRIBUTION = (
 #: Pinned LibreOffice dictionaries commit for the Hunspell assets.
 LIBREOFFICE_DICTS_REF = "master"
 
+# ---------------------------------------------------------------------------
+# Federal Register (W10)
+# ---------------------------------------------------------------------------
+#: The Government Publishing Office's Public Domain & Copyright Notice, which is
+#: where this project read the Federal Register's terms.
+#:
+#: It is fetched and checksummed like any other licence file, for the reason the
+#: ``plod-cw-license`` entry gives: a licence finding that rests on a note in
+#: this file rather than on the text is the finding that has been wrong three
+#: times here already.
+_GOVINFO_POLICIES = "https://www.govinfo.gov/about/policies"
+
+#: The statute. Cited and **not** fetched, and the reason is worth recording
+#: rather than leaving as an absence: ``uscode.house.gov`` serves this page with
+#: a per-response token, so two fetches a second apart differ in bytes. Pinning
+#: it would install a checksum that fails on the next run for no reason, which is
+#: worse than not pinning it -- ``fetch()`` reserves a very loud failure for a
+#: pinned asset that changed, and an asset that changes every time teaches the
+#: reader to ignore it.
+_USC_17_105 = (
+    "https://uscode.house.gov/view.xhtml"
+    "?req=granuleid:USC-prelim-title17-section105&num=0&edition=prelim"
+)
+
+_FEDERAL_REGISTER_LICENCE = "Public domain (United States Government Work, 17 U.S.C. 105)"
+
+_FEDERAL_REGISTER_NOTE = (
+    "Read from GPO's Public Domain & Copyright Notice on 2026-08-24, not from a "
+    "badge and not from the Federal Register's own reader-aids pages, which "
+    "could not be read from this host -- see the CAPTCHA finding in the "
+    "Substrate entry below. The notice quotes the statute: 'Copyright protection "
+    "under this title is not available for any work of the United States "
+    "Government'. It also carries a caveat that a one-word licence field would "
+    "destroy, and that caveat is the reason the corpus is fetch-only rather than "
+    "merely large: a Government publication may contain third-party copyrighted "
+    "material used with permission, and publication in a Government document "
+    "does not extend that permission to anyone else. Federal Register rules "
+    "incorporate industry standards and manufacturers' service bulletins by "
+    "reference and quote from them, so 'public domain' is true of the document "
+    "and not automatically true of every string inside it."
+)
+
 USER_AGENT = "acronymkit-fetch-data/1.0 (+https://github.com/pierce-lonergan/AcronymKit)"
 
 
@@ -248,6 +290,20 @@ class Asset:
             directions, and defaults to ``False`` so that an asset added without
             a licence reading cannot become the source of a shipped resource by
             omission.
+        licence_read_on: ISO date the terms at :attr:`licence_url` were read.
+
+            Operating rule 4 is "licences from terms, never a badge", and
+            ``bench/splits.toml`` has enforced *both halves* of it — URL and read
+            date — since it acquired a reader. This registry enforced only the
+            URL half, so every entry above records where a conclusion came from
+            and none records when. That matters for exactly the reason the
+            manifest's ``STALE_AFTER_DAYS`` exists: upstream re-licenses, and a
+            citation with no date cannot be reported as worth re-reading.
+
+            The field defaults to empty because the existing entries predate it
+            and back-filling them would mean writing down dates nobody actually
+            read the terms on. An empty value is an honest gap; an invented date
+            would be worse than the gap. New entries carry it.
     """
 
     key: str
@@ -262,6 +318,7 @@ class Asset:
     attribution: str
     derivable: bool = False
     size_bytes: int = 0
+    licence_read_on: str = ""
 
 
 ASSETS: tuple[Asset, ...] = (
@@ -858,9 +915,121 @@ ASSETS: tuple[Asset, ...] = (
         purpose="Optional real German lexicon, installed locally by the user.",
         attribution="igerman98 / Bjoern Jacke and the Frami contributors.",
     ),
+    Asset(
+        key="federal-register-terms",
+        size_bytes=64162,
+        filename="federal_register_govinfo_policies.html",
+        url=_GOVINFO_POLICIES,
+        sha256="5189ea6f00ac5b788b6937d6024e9f5924ed958305e31afc7d94f7e4bc40c0a9",
+        licence=_FEDERAL_REGISTER_LICENCE,
+        licence_url=_GOVINFO_POLICIES,
+        licence_read_on="2026-08-24",
+        vendorable=False,
+        vendor_note=_FEDERAL_REGISTER_NOTE,
+        purpose=(
+            "The terms behind the Federal Register substrate registered below. "
+            "Pinned for the same reason as plod-cw-license: so the licence "
+            "finding rests on the text rather than on a note in this file."
+        ),
+        attribution="U.S. Government Publishing Office, Public Domain & Copyright Notice.",
+        derivable=True,
+    ),
 )
 
 BY_KEY = {asset.key: asset for asset in ASSETS}
+
+
+@dataclass(frozen=True)
+class Substrate:
+    """A corpus fetched *by document*, not as a file.
+
+    A sixth kind of entry, and the reason it is not an :class:`Asset` is
+    arithmetic before it is philosophy. An ``Asset`` is one URL, one file name
+    and one digest; a substrate is a query and a draw over thousands of
+    documents, and registering thirty of them individually would put the corpus's
+    identity in thirty places and the ledger would grow by a page every time the
+    draw changed. The identity belongs in one table, in the tool that builds it.
+
+    So this entry answers what a registry is *for* — licence, redistribution,
+    provenance, who fetches it — and points at that tool for the pins.
+
+    Attributes:
+        key: Short identifier.
+        name: What the substrate is.
+        discovery_url: The documented API that answers which documents exist.
+        licence: As read from terms.
+        licence_url: Where the terms were read.
+        licence_read_on: When.
+        licence_note: The reading, including anything the licence field alone
+            would destroy.
+        vendorable: Whether the fetched text may ship inside the wheel.
+        derivable: Whether a resource derived from it may ship.
+        fetched_by: The tool that fetches it and holds the pins.
+        pin_note: How the pin works and why it is not a digest of the bytes.
+        domain_note: What the text actually is. Mandatory in spirit: this
+            repository has twice had to correct a corpus that was described by
+            its own name rather than by its content.
+        access_note: Anything about reaching it that a future fetcher needs.
+    """
+
+    key: str
+    name: str
+    discovery_url: str
+    licence: str
+    licence_url: str
+    licence_read_on: str
+    licence_note: str
+    vendorable: bool
+    derivable: bool
+    fetched_by: str
+    pin_note: str
+    domain_note: str
+    access_note: str
+
+
+SUBSTRATES: tuple[Substrate, ...] = (
+    Substrate(
+        key="federal-register",
+        name="Federal Register final rules",
+        discovery_url="https://www.federalregister.gov/api/v1/documents.json",
+        licence=_FEDERAL_REGISTER_LICENCE,
+        licence_url=_GOVINFO_POLICIES,
+        licence_read_on="2026-08-24",
+        licence_note=_FEDERAL_REGISTER_NOTE + f" Statute cited from <{_USC_17_105}>.",
+        vendorable=False,
+        derivable=True,
+        fetched_by="python tools/build_gold_corpus.py fetch",
+        pin_note=(
+            "Pinned per document in tools/build_gold_corpus.py::PINNED_DOCUMENTS, by the "
+            "SHA-256 of the NORMALISED TEXT rather than of the fetched bytes. Measured "
+            "reason: both hosts serve the body through a CDN that rewrites e-mail "
+            "addresses into a per-response obfuscation token, so the same document "
+            "differs in bytes between hosts and a byte pin would fire the checksum "
+            "failure this file reserves for a corpus that really changed. Under the text "
+            "pin the primary host and the Government Publishing Office mirror agree "
+            "exactly on every pinned document, which is what makes --mirror-check an "
+            "independent verification rather than a second copy of the same fetch."
+        ),
+        domain_note=(
+            "United States agency rulemaking. A random draw of final rules is dominated "
+            "by environmental, aviation, fisheries and maritime-safety prose. It is ONE "
+            "MORE DOMAIN and not general text, and it is not a general-purpose "
+            "counterweight to the biomedical corpora -- the same correction "
+            "[corpora.sdu22_ae_legal] already carries for calling UN institutional prose "
+            "'legal'."
+        ),
+        access_note=(
+            "The JSON API answers automated requests normally. The site's HTML pages do "
+            "not: /reader-aids/developer-resources/rest-api and /reader-aids/legal-status "
+            "both return a CAPTCHA interstitial headed 'Request Access', explaining that "
+            "programmatic access to the site is limited to the API. That is why the "
+            "licence above is read from GPO -- reachable, stating the same statute, and "
+            "the terms of the host that serves the mirror. Anyone who wants the Federal "
+            "Register's own wording should open the page in a browser and add it here "
+            "with a read date. Do not defeat the CAPTCHA."
+        ),
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -1075,11 +1244,13 @@ def write_ledger() -> Path:
 
     def block(asset: Asset) -> list[str]:
         derived = "yes" if asset.derivable else "no"
+        read_on = asset.licence_read_on or "not recorded (entry predates the field)"
         return [
             f"### `{asset.key}` — {asset.filename}",
             "",
             f"- **Licence:** {asset.licence}",
             f"- **Licence text:** <{asset.licence_url}>",
+            f"- **Terms read on:** {read_on}",
             f"- **Source:** <{asset.url}>",
             f"- **SHA-256:** `{asset.sha256 or 'not yet recorded'}`",
             f"- **Size:** {asset.size_bytes:,} bytes"
@@ -1136,6 +1307,37 @@ def write_ledger() -> Path:
         ]
 
     lines += [
+        "## Substrates — fetched by document, not as a file",
+        "",
+        "A substrate is a query and a draw over a live corpus rather than a single",
+        "pinned file, so its identity lives in the tool that builds it and this table",
+        "records what a registry is for: licence, redistribution, provenance, and",
+        "anything about reaching it that the next fetcher needs.",
+        "",
+    ]
+    for substrate in SUBSTRATES:
+        lines += [
+            f"### `{substrate.key}` — {substrate.name}",
+            "",
+            f"- **Licence:** {substrate.licence}",
+            f"- **Licence text:** <{substrate.licence_url}>",
+            f"- **Terms read on:** {substrate.licence_read_on}",
+            f"- **Discovery:** <{substrate.discovery_url}>",
+            f"- **Fetched by:** `{substrate.fetched_by}`",
+            f"- **Ships in the wheel:** {'yes' if substrate.vendorable else 'no'}",
+            f"- **Derived resources may ship:** {'yes' if substrate.derivable else 'no'}",
+            "",
+            f"**Licence reading.** {substrate.licence_note}",
+            "",
+            f"**Pinning.** {substrate.pin_note}",
+            "",
+            f"**What the text is.** {substrate.domain_note}",
+            "",
+            f"**Access.** {substrate.access_note}",
+            "",
+        ]
+
+    lines += [
         "## Adding an asset",
         "",
         "1. Read the actual licence text. Do not infer it from a badge or a README line.",
@@ -1156,12 +1358,26 @@ def write_ledger() -> Path:
 
 def _list_assets() -> None:
     """Print the registry as a table."""
-    print(f"{'KEY':18} {'VENDOR':8} {'DERIVE':8} {'LICENCE':44} PURPOSE")
-    print(f"{'-' * 18} {'-' * 8} {'-' * 8} {'-' * 44} {'-' * 40}")
+    print(f"{'KEY':24} {'VENDOR':8} {'DERIVE':8} {'READ ON':12} {'LICENCE':40} PURPOSE")
+    print(f"{'-' * 24} {'-' * 8} {'-' * 8} {'-' * 12} {'-' * 40} {'-' * 40}")
     for asset in ASSETS:
         flag = "wheel" if asset.vendorable else "local"
         derive = "ok" if asset.derivable else "tainted"
-        print(f"{asset.key:18} {flag:8} {derive:8} {asset.licence[:44]:44} {asset.purpose[:52]}")
+        read_on = asset.licence_read_on or "--"
+        print(
+            f"{asset.key:24} {flag:8} {derive:8} {read_on:12} "
+            f"{asset.licence[:40]:40} {asset.purpose[:44]}"
+        )
+    print()
+    print("SUBSTRATES (fetched by document, pinned in their own tool)")
+    print(f"{'-' * 24} {'-' * 8} {'-' * 8} {'-' * 12} {'-' * 40}")
+    for substrate in SUBSTRATES:
+        flag = "wheel" if substrate.vendorable else "local"
+        derive = "ok" if substrate.derivable else "tainted"
+        print(
+            f"{substrate.key:24} {flag:8} {derive:8} {substrate.licence_read_on:12} "
+            f"{substrate.licence[:40]:40} {substrate.fetched_by}"
+        )
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
