@@ -95,9 +95,29 @@ if not TOOL_PATH.is_file() or not SPLITS_PATH.is_file():  # pragma: no cover - C
 builder = _load(TOOL_PATH, "_build_gold_corpus_under_test")
 splits = _load(SPLITS_PATH, "_splits_for_gold_corpus_test")
 
+# `bench/corpora.py` IS GUARDED SEPARATELY FROM `tools/`, BECAUSE THE SDIST SHIPS
+# ONE AND NOT THE OTHER. The extracted-tree run in the `build` job has `tools/`
+# -- that run is where these tool tests are meant to execute -- but the sdist
+# deliberately does not ship `bench/*.py`, so the import below fails there with
+# `cannot import name 'corpora' from 'bench'`: the package directory exists,
+# because `bench/results.json` ships, and the module does not.
+#
+# Skipping the whole module on that condition would be wrong. It would silently
+# drop the tool tests from the one run that exists to exercise them. So only the
+# reader tests stand down, via `needs_corpora` below.
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-from bench import corpora  # noqa: E402
+
+CORPORA_SOURCE = REPO_ROOT / "bench" / "corpora.py"
+if CORPORA_SOURCE.is_file():
+    from bench import corpora
+else:  # pragma: no cover - sdist run only
+    corpora = None  # type: ignore[assignment]
+
+#: For the tests that exercise the reader rather than the builder.
+needs_corpora = pytest.mark.skipif(
+    corpora is None, reason="bench/corpora.py is not shipped in the sdist"
+)
 
 # ---------------------------------------------------------------------------
 # fixtures
@@ -718,6 +738,7 @@ class TestFreezing:
 # ---------------------------------------------------------------------------
 # the reader in bench/corpora.py
 # ---------------------------------------------------------------------------
+@needs_corpora
 class TestTheReader:
     """Standing, not shape. Nothing here would crash; that is the danger."""
 
@@ -852,6 +873,7 @@ class TestTheReader:
             list(iter(reference))  # type: ignore[call-overload]
 
 
+@needs_corpora
 class TestTheRegistryGap:
     """The reader is unregistered on purpose, and the reason is checkable."""
 

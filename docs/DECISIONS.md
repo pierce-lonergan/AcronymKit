@@ -151,6 +151,59 @@ moves, not gates; making either a gate is not done, and until it is, the runner 
 place these are caught.
 
 
+### Third red round: the sdist shipped a gate it could not satisfy, for the fourth time, and hid `74` tests doing it
+
+`Build distribution` had been *skipped* in both earlier rounds — an upstream job failed first — so its
+first actual run this round was its first look at any of the work. It failed inside the extracted
+tree, and the gate named its own problem:
+
+```
+scanned 59 files, found 1656 claim-shaped numbers (1 scan target(s) absent: bench/splits.toml)
+deferred ratchet: 284 of 316 budgeted across 11 file(s)
+1 file(s) break the value-matched ratchet:
+  bench/splits.toml
+```
+
+D-052 added `bench/splits.toml` to `SCAN_GLOBS`. `MANIFEST.in` did not ship it. So the distribution
+carried a checker that could not pass — **green in a checkout by construction, because every scan
+target is present there.** `MANIFEST.in`'s own comment already recorded three instances of this exact
+shape: `bench/results.json`, then `data/LICENSES.md`, then a fixture. This is the fourth, and the
+recorder had listed it as a known gap the round before it became load-bearing.
+
+Shipped, and then the rule was **derived rather than remembered**:
+`tests/test_packaging_manifest.py` now walks `check_claims.SCAN_GLOBS`, expands each against the
+tree, and requires a `MANIFEST.in` line for every file it finds — plus an error for a glob matching
+nothing, since a scan target naming no file is a gate reading nothing. Mutation-tested rather than
+assumed to work: deleting the new manifest line fails the guard with
+`MANIFEST.in does not ship them ... ['bench/splits.toml']`, and restoring it goes green.
+
+### Shipping that one file un-skipped a module that had never run there
+
+`tests/test_splits_manifest.py` opens with
+`pytest.mark.skipif(not SPLITS.is_file(), reason="not a source checkout")`, and `SPLITS` **is**
+`bench/splits.toml`. While that file was unshipped, the mark skipped the **entire module** in the
+extracted-tree job — every test in it, silently, for as long as the file has existed. The build job
+was green because it was not looking.
+
+Shipping `splits.toml` turned the module on and surfaced `14` tests that reach through the manifest
+into `bench/corpora.py`, which the sdist deliberately does not ship and should not. Those `14` now
+carry a narrow `needs_corpora` mark; the module reports `74 passed, 14 skipped` in the extracted tree
+where it previously reported nothing at all. **The narrow mark is the whole point** — a module-wide
+skip is what hid these, and replacing one blanket with another would have kept the rest dark.
+
+Whole sdist, built and run: `4604` passed, `140` skipped, zero failures, zero collection errors.
+
+### The pattern across three rounds
+
+Four defects, one shape: **a check that cannot fail where it is run.** The claims gate cannot fail in
+a checkout that has every file it scans. The suite cannot fail on a machine that has `data/` and
+`tools/`. The type checker cannot fail against a `click` that predates `match`. The build job could
+not fail while an upstream job kept it skipped, and a skipped module cannot fail at all. **Each was
+found by the one environment that differs, and in every case the environment was CI rather than a
+gate.** Two of the four are now derived checks that fail locally; the other two are not, and that is
+recorded above rather than implied.
+
+
 ---
 
 ## D-057 — The definition of done, second sweep: one criterion closes by amendment, one gets worse by being measured, and the flagship gap now has a costed route

@@ -39,9 +39,12 @@ for the five-case table.
 
 from __future__ import annotations
 
+import importlib.util
 import shlex
+import sys
 from fnmatch import fnmatch
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -99,6 +102,21 @@ def _fixture_data_files() -> list[Path]:
     return found
 
 
+def _load_check_claims() -> ModuleType:
+    """Import the claims gate by path.
+
+    ``tools/`` is a directory of scripts and deliberately not a package; the two
+    test modules that already exercise it record the same reasoning.
+    """
+    path = REPO_ROOT / "tools" / "check_claims.py"
+    spec = importlib.util.spec_from_file_location("_check_claims_for_manifest_test", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def _is_covered(path: Path, patterns: list[str]) -> bool:
     """Return whether ``path`` matches any manifest pattern."""
     relative = path.relative_to(REPO_ROOT).as_posix()
@@ -126,6 +144,48 @@ def test_every_fixture_data_file_is_named_by_the_manifest() -> None:
     assert not missing, (
         "MANIFEST.in does not ship these test data files, so `pytest` inside "
         f"the sdist cannot run: {missing}"
+    )
+
+
+@pytest.mark.skipif(not MANIFEST.is_file(), reason="not a source checkout")
+def test_every_file_the_claims_gate_reads_is_shipped_by_the_manifest() -> None:
+    """Whatever the gate reads, the sdist ships -- derived, not remembered.
+
+    This distribution has now shipped a checker it could not satisfy four times,
+    each in the same shape and each caught by a different accident: first
+    ``bench/results.json``, then ``data/LICENSES.md``, then a fixture, then
+    ``bench/splits.toml`` when `tools/check_claims.py` gained it as a scan
+    target and nothing connected the two facts. The failure is invisible in a
+    checkout by construction -- every scan target is present there -- so it can
+    only appear in the extracted tree, which is the slowest place to find it.
+
+    Walking ``SCAN_GLOBS`` closes that: adding a scan target without a manifest
+    line fails here, locally, in the commit that adds it. The gate's own glob
+    syntax is `pathlib`-style, so each is expanded against the tree and every
+    resulting file checked; a glob matching nothing is itself an error, since a
+    scan target that names no file is a gate reading nothing.
+    """
+    tool = _load_check_claims()
+    globs = list(tool.SCAN_GLOBS)
+    assert globs, "SCAN_GLOBS is empty; this test would pass vacuously"
+
+    patterns = _manifest_patterns()
+    unmatched: list[str] = []
+    missing: list[str] = []
+    for glob in globs:
+        hits = [p for p in REPO_ROOT.glob(glob) if p.is_file()]
+        if not hits:
+            unmatched.append(glob)
+            continue
+        missing.extend(
+            p.relative_to(REPO_ROOT).as_posix() for p in hits if not _is_covered(p, patterns)
+        )
+
+    assert not unmatched, f"these SCAN_GLOBS entries match no file in the tree: {unmatched}"
+    assert not missing, (
+        "tools/check_claims.py reads these files, and MANIFEST.in does not ship "
+        "them -- the sdist would carry a gate that cannot pass: "
+        f"{sorted(set(missing))}"
     )
 
 

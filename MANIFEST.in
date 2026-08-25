@@ -57,6 +57,16 @@ recursive-include docs *.md
 # corpora and optional dependencies that an sdist has no business assuming.
 include bench/results.json
 include tools/claims_allowlist.txt
+# And the fourth time the same way. `tools/check_claims.py` gained
+# `bench/splits.toml` as a scan target, so the shipped checker started reading a
+# file the sdist did not ship, reported `1 scan target(s) absent` and broke its
+# own value-matched ratchet -- green in a checkout, red only in the extracted
+# tree. The rule this file keeps learning is one rule: WHATEVER THE GATE READS,
+# THE SDIST SHIPS. It is now derived rather than remembered --
+# `tests/test_packaging_manifest.py` walks `check_claims.SCAN_GLOBS` and fails
+# locally when a target is added here without a line, which is the check that
+# would have caught this one and the three before it.
+include bench/splits.toml
 recursive-include .github/workflows *.yml
 
 # The provenance and licence terms of every third-party data asset. SECURITY.md

@@ -154,6 +154,23 @@ pytestmark = [
     pytest.mark.skipif(_NO_PARSER, reason="tomllib is 3.11+; tomli not installed"),
 ]
 
+#: For the tests that reach through the manifest into `bench/corpora.py`.
+#:
+#: THESE WERE NOT SKIPPED BEFORE; THEY WERE NOT RUNNING AT ALL. `SPLITS` is
+#: `bench/splits.toml`, which the sdist did not ship until the claims gate
+#: started reading it, so the first `pytestmark` above skipped this ENTIRE
+#: module in the extracted-tree job -- every test in the file, silently, for
+#: as long as the file has existed. Shipping `splits.toml` un-skipped it and
+#: surfaced fourteen tests that need `bench/corpora.py`, which the sdist
+#: deliberately does not ship and should not: its readers want fetched corpora
+#: and optional dependencies an sdist has no business assuming.
+#:
+#: The narrow mark is the point. A module-wide skip is what hid these, and
+#: replacing one blanket with another would keep the rest of the file dark.
+needs_corpora = pytest.mark.skipif(
+    corpora is None, reason="bench/corpora.py is not shipped in the sdist"
+)
+
 
 @pytest.fixture(scope="module")
 def manifest() -> object:
@@ -424,6 +441,7 @@ class TestTheRealManifest:
         assert "task='extraction'" in reported
         assert "task='disambiguation'" in reported
 
+    @needs_corpora
     def test_every_registry_key_declares_the_task_its_registry_is_for(self) -> None:
         """``TASKS`` is closed *because* ``bench/corpora.py`` returns a type per task.
 
@@ -451,6 +469,7 @@ class TestTheRealManifest:
                     checked += 1
         assert checked, "no registry keys walked; this test is checking nothing"
 
+    @needs_corpora
     def test_the_one_registry_exception_is_enumerated_and_still_true(self) -> None:
         """``READERS`` holds four span-corpus keys on purpose, and only those four.
 
@@ -475,6 +494,7 @@ class TestTheRealManifest:
                 "extraction corpus; the exemption is excusing nothing"
             )
 
+    @needs_corpora
     def test_every_task_in_the_vocabulary_has_a_registry_and_a_gold_unit(self) -> None:
         """A task with no type behind it is a word, which is what the vocabulary is not."""
         assert set(corpora.TASK_REGISTRIES) == set(splits.TASKS)
@@ -507,6 +527,7 @@ class TestTheRealManifest:
         assert manifest.corpus("med1250").is_tuning
         assert manifest.corpus("med1250").label() == "tuning split, contaminated"
 
+    @needs_corpora
     def test_every_reader_in_bench_maps_to_a_declared_corpus(self, manifest: object) -> None:
         """``bench/corpora.py`` binds each reader to a declaration; the map must resolve.
 
@@ -590,6 +611,7 @@ class TestTheRealManifest:
                 "train", decision="D-047", purpose="a number this round", stream=io.StringIO()
             )
 
+    @needs_corpora
     def test_the_reader_that_would_spend_the_allocated_arm_is_wired(self) -> None:
         """The guard is LIVE, not merely available, and this is the difference.
 
@@ -608,6 +630,7 @@ class TestTheRealManifest:
             lambda: corpora._sdu22_ae_source(None, "legal", "dev")
         ).endswith("legal_dev.json")
 
+    @needs_corpora
     def test_the_ad_reservation_is_refused_before_the_split_is_called_a_typo(self) -> None:
         """D-043's arm, and the ordering that makes its reservation live rather than lucky.
 
@@ -627,6 +650,7 @@ class TestTheRealManifest:
         with pytest.raises(SystemExit, match="unknown SDU21-AD split"):
             corpora._sdu21_ad_source(None, "tset")
 
+    @needs_corpora
     def test_the_runner_facing_door_writes_the_ledger_the_reader_reads(self) -> None:
         """One door, one ledger -- the part most likely to be quietly wrong.
 
@@ -652,6 +676,7 @@ class TestTheRealManifest:
         with pytest.raises(SystemExit, match="RESERVED"):
             corpora._sdu22_ae_source(None, "scientific", "train")
 
+    @needs_corpora
     def test_every_registry_key_in_bench_is_one_the_manifest_can_answer_for(self) -> None:
         """No reader may be registered under a name ``label_for`` cannot resolve.
 
@@ -1122,6 +1147,7 @@ class TestTheAccessor:
 # ---------------------------------------------------------------------------
 # the segmentation reader
 # ---------------------------------------------------------------------------
+@needs_corpora
 class TestTheSegmentationReader:
     """``bench/corpora.py`` returns a type for the new task, and refuses to guess.
 
