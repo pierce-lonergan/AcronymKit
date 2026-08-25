@@ -90,8 +90,8 @@ dev = [
     # other way by omission. New rules are worth adopting -- deliberately, in a
     # commit that says so and fixes what they find, not in whatever commit
     # happens to be pushed the morning a release lands.
-    "ruff>=0.14.8,<0.15",
-    "mypy>=1.19.0,<2",
+    "ruff>=0.14.8,<0.17",
+    "mypy>=1.19.0,<3",
     "build>=1.0.0",
     "twine>=4.0.0",
 ]
