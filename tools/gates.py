@@ -76,6 +76,22 @@ What the validator enforces, and why each rule is here
     flattering or not. **On the day this file was written that count was zero**,
     and the summary line says so rather than implying otherwise.
 
+``every gate is ranked by what it costs if it silently stops working``
+    A count is not a plan. ``0 of 36`` was printed on every CI run for a phase
+    and told nobody which gate to fix first. :func:`cost_ranking_problems`
+    requires ``cost_rank`` to be a permutation of ``1..n`` and refuses one that
+    inverts its own declared factors -- :data:`BLAST_RADII` and
+    :data:`SILENCE_CLASSES` -- so moving a gate up the list costs an argument
+    rather than a nudged integer.
+
+``the in-situ debt has a quota, and it is a ceiling rather than a floor``
+    :func:`in_situ_problems`, built the way ``MIGRATION_QUOTA`` is built in
+    ``tools/check_claims.py``. The quota is on ``gates - in_situ`` and not on
+    ``in_situ``, because a floor on the coverage count is satisfied by a round
+    that adds five gates and demonstrates none: ``13 of 36`` becomes
+    ``13 of 41``, the floor holds, and the register reports health while going
+    backwards. A ceiling on the debt cannot be satisfied that way.
+
 What this file does NOT do
 --------------------------
 It does not run the gates. It runs *one* gate under *one* mutation, on demand,
@@ -87,6 +103,7 @@ Usage::
 
     python tools/gates.py --check                 # the CI gate
     python tools/gates.py --list                  # the register as a table
+    python tools/gates.py --ranking               # cost if inert, worst first
     python tools/gates.py --json                  # the register as JSON
     python tools/gates.py --mutate lint.mypy      # one mutation, with restore
     python tools/gates.py --mutate-environment lint --artifacts DIR
@@ -150,6 +167,52 @@ DEFECT_CLASSES = (
 #: ``none``       no mutation is proposed, and the reason says why.
 MUTATION_KINDS = ("automated", "inline", "control", "manual", "none")
 
+#: HOW FAR THE DAMAGE TRAVELS if this gate silently stops working. Ordered,
+#: worst first, and the order is load-bearing: :func:`cost_ranking_problems`
+#: refuses a ``cost_rank`` ordering that inverts it.
+#:
+#: ``published_numbers``      the defect reaches a figure or a corpus
+#:                            declaration a reader acts on. For a governance
+#:                            instrument this is the top tier by construction:
+#:                            the numbers ARE the product.
+#: ``installed_behaviour``    the defect reaches what the installed package
+#:                            does for somebody who imported it.
+#: ``release_provenance``     the defect reaches the release's identity --
+#:                            version, checksums, SBOM, metadata, size.
+#: ``distribution_contents``  the defect reaches which files the distribution
+#:                            carries. A reader holding an sdist finds a
+#:                            broken reference or a suite that cannot run.
+#: ``evidence_apparatus``     only this repository's own evidence apparatus is
+#:                            wrong: a register that has stopped describing CI,
+#:                            or a positive control that has stopped
+#:                            controlling. Nothing user-facing moves TODAY.
+#: ``repository``             the tree acquires a defect that stays in the tree.
+BLAST_RADII = (
+    "published_numbers",
+    "installed_behaviour",
+    "release_provenance",
+    "distribution_contents",
+    "evidence_apparatus",
+    "repository",
+)
+
+#: HOW THE FAILURE ANNOUNCES ITSELF **to this project** if the gate is inert.
+#: Ordered, worst first. This is the D-058 axis: all four defects of that record
+#: were silent here and loud somewhere else, which is why a silent gate costs
+#: more than a loud one at the same blast radius.
+SILENCE_CLASSES = ("silent", "delayed", "loud")
+
+#: Whether any OTHER registered gate covers the same defect.
+#:
+#: **Declared, printed, and deliberately NOT part of the ordering key.** A
+#: lexicographic third factor produced orderings this register would not defend
+#: -- it ranked a resource-consistency check above the whole test suite, purely
+#: because the suite is partly duplicated by ``installed-suite``. A factor that
+#: decides ranks nobody will defend is worse than a factor that informs them.
+#: Where a value here says ``partial``, ``[[defect_coverage]]`` is the evidence
+#: unless the gate's ``cost_if_inert`` names another.
+REDUNDANCY_CLASSES = ("sole", "partial", "covered")
+
 #: Every key a ``[gates.<id>]`` table may carry.
 GATE_FIELDS = (
     "environment",
@@ -158,6 +221,11 @@ GATE_FIELDS = (
     "defect_class",
     "detects",
     "blind_to",
+    "cost_rank",
+    "blast_radius",
+    "silence",
+    "redundancy",
+    "cost_if_inert",
     "mutation",
 )
 
@@ -171,6 +239,7 @@ MUTATION_FIELDS = (
     "verified_locally_on",
     "verified_in_situ_on",
     "verified_in_situ_run",
+    "verified_in_situ_commit",
     "note",
 )
 
@@ -211,6 +280,97 @@ _COMMIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 #: its own staleness window: a gate that turns red with the passage of time
 #: fires on an unrelated commit.
 STALE_AFTER_DAYS = 120
+
+#: How far the in-situ debt must fall in a round that touches this register.
+#:
+#: **Built the way ``tools/check_claims.py``'s ``MIGRATION_QUOTA`` is built, and
+#: for the same reason: an honest count with no rate attached is a backlog with
+#: better manners.** ``--check`` printed ``0 of 36`` on every CI run for a whole
+#: phase and nothing about that line obliged anybody to move it.
+#:
+#: The quota is stated on the DEBT -- ``uncovered = gates - in_situ`` -- and not
+#: on the coverage count, and that choice is the whole design. A floor on the
+#: coverage count is satisfied by a round that adds five gates and demonstrates
+#: none: the count holds, the ratio falls, and the register reports health while
+#: going backwards. A ceiling on the debt cannot be satisfied that way, because
+#: a gate added without evidence raises the debt by one.
+IN_SITU_QUOTA = 3
+
+#: Every gate at or above this rank in the cost-if-inert ordering must carry
+#: in-situ evidence. Three, because ranks 1-3 are the three highest-cost gates
+#: that this harness can mutate at all: rank 4 is ``airgap_suite_under_guard``,
+#: whose environment is a privileged network namespace nothing here can build.
+#: Raising this is what closing the next rank down looks like; it may not fall.
+TOP_RANKS_REQUIRING_IN_SITU = 3
+
+
+@dataclass(frozen=True)
+class InSituRound:
+    """One round's standing on in-situ evidence, as the round left it.
+
+    Args:
+        label: An id. Duplicates are refused, the way ``LedgerRound`` labels are.
+        gates: How many gates the register held when the round ended.
+        in_situ: How many of them carried in-situ evidence.
+        run: The CI run the evidence was taken from. Required whenever
+            ``in_situ`` rises: a count with no run id is a claim with no
+            evidence, which is operating rule 1 applied to a gate.
+        commit: The commit that run was taken on, so a reader can check that
+            the gate demonstrated there is the gate shipping here.
+        waiver: Why this round is allowed to miss :data:`IN_SITU_QUOTA`.
+        note: What moved, and what it cost.
+    """
+
+    label: str
+    gates: int
+    in_situ: int
+    run: str = ""
+    commit: str = ""
+    waiver: str = ""
+    note: str = ""
+
+    @property
+    def uncovered(self) -> int:
+        """Gates carrying no in-situ evidence. The quantity the quota is on."""
+        return self.gates - self.in_situ
+
+
+#: Where the in-situ count has been, newest **last**.
+#:
+#: Checked rather than decorative (:func:`in_situ_problems`): the last row must
+#: equal the live register, the debt may never rise, and a round that pays less
+#: than :data:`IN_SITU_QUOTA` must write down why. The coupling to the live
+#: register is what makes this a fact about the tree rather than a note about
+#: it -- adding a gate to ``.github/gates.toml`` reddens ``--check`` until a row
+#: is appended, and the appended row cannot be a healthy one unless the evidence
+#: came with the gate.
+IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
+    InSituRound(
+        label="M2-P3 X5 (register opened)",
+        gates=36,
+        in_situ=0,
+        note=(
+            "the count the day the register was written. The workstream that built it could "
+            "not run GitHub Actions, so every mutation it recorded was taken on a developer "
+            "machine -- precisely the evidence R11 says does not count."
+        ),
+    ),
+    InSituRound(
+        label="M2-P4 (the first harvest)",
+        gates=36,
+        in_situ=13,
+        run="32808357572",
+        commit="3173126",
+        note=(
+            "gate-mutation.yml HAD run -- once, on 2026-08-25, green, with all five artifact "
+            "bundles uploaded -- and nothing in this repository had harvested it. All 13 "
+            "automated gates came back `demonstrated` on ubuntu-latest/CPython 3.12. The 23 "
+            "that remain are the 8 inline, 13 manual and 2 control refusals, none of which "
+            "this harness can mutate; the next payment is the heredoc extraction that would "
+            "close three of the eight at once."
+        ),
+    ),
+)
 
 
 class GatesError(Exception):
@@ -344,6 +504,7 @@ class Mutation:
     verified_locally_on: Optional[_datetime.date] = None
     verified_in_situ_on: Optional[_datetime.date] = None
     verified_in_situ_run: str = ""
+    verified_in_situ_commit: str = ""
     note: str = ""
 
     @property
@@ -352,7 +513,11 @@ class Mutation:
 
     @property
     def has_in_situ_evidence(self) -> bool:
-        return self.verified_in_situ_on is not None and bool(self.verified_in_situ_run)
+        return (
+            self.verified_in_situ_on is not None
+            and bool(self.verified_in_situ_run)
+            and bool(self.verified_in_situ_commit)
+        )
 
 
 @dataclass(frozen=True)
@@ -364,9 +529,25 @@ class Gate:
     step: str
     defect_class: str
     detects: str
+    cost_rank: int = 0
+    blast_radius: str = ""
+    silence: str = ""
+    redundancy: str = ""
+    cost_if_inert: str = ""
     command: str = ""
     blind_to: str = ""
     mutation: Mutation = field(default_factory=lambda: Mutation(kind="none", reason="undeclared"))
+
+    @property
+    def cost_key(self) -> Tuple[int, int]:
+        """The ordering key ``cost_rank`` must not invert.
+
+        Two factors, not three. :data:`REDUNDANCY_CLASSES` is declared and
+        printed and stays out of this tuple; the reason is on that constant.
+        """
+        blast = BLAST_RADII.index(self.blast_radius) if self.blast_radius in BLAST_RADII else -1
+        quiet = SILENCE_CLASSES.index(self.silence) if self.silence in SILENCE_CLASSES else -1
+        return (blast, quiet)
 
 
 @dataclass(frozen=True)
@@ -416,6 +597,22 @@ class GateManifest:
 
     def with_in_situ_evidence(self) -> List[Gate]:
         return [g for g in self.gates.values() if g.mutation.has_in_situ_evidence]
+
+    def by_cost(self) -> List[Gate]:
+        """Every gate, most expensive first if it silently stopped working."""
+        return sorted(self.gates.values(), key=lambda g: (g.cost_rank, g.name))
+
+    def demonstrable_without_evidence(self) -> List[Gate]:
+        """Gates this harness CAN mutate that have never been mutated in situ.
+
+        The one number that separates "we cannot demonstrate it" from "we have
+        not". Everything here is a gate whose own command a runner could invoke
+        today, so a non-empty list is a debt rather than a limit.
+        """
+        return sorted(
+            (g for g in self.automated() if not g.mutation.has_in_situ_evidence),
+            key=lambda g: g.cost_rank,
+        )
 
 
 def _as_date(value: Any, where: str) -> Optional[_datetime.date]:
@@ -493,6 +690,7 @@ def _mutation(raw: Mapping[str, Any], where: str) -> Mutation:
         verified_locally_on=_as_date(raw.get("verified_locally_on"), where),
         verified_in_situ_on=_as_date(raw.get("verified_in_situ_on"), where),
         verified_in_situ_run=str(raw.get("verified_in_situ_run", "")),
+        verified_in_situ_commit=str(raw.get("verified_in_situ_commit", "")),
         note=str(raw.get("note", "")),
     )
 
@@ -544,12 +742,20 @@ def load(path: Path = GATES_PATH) -> GateManifest:
         mutation_raw = body.get("mutation")
         if not isinstance(mutation_raw, dict):
             raise GatesError(f"{where}: a [gates.{name}.mutation] table is required")
+        rank = body.get("cost_rank", 0)
+        if not isinstance(rank, int) or isinstance(rank, bool):
+            raise GatesError(f"{where}: `cost_rank` must be an integer, got {rank!r}")
         gates[name] = Gate(
             name=name,
             environment=str(body["environment"]),
             step=str(body["step"]),
             defect_class=str(body["defect_class"]),
             detects=str(body["detects"]).strip(),
+            cost_rank=rank,
+            blast_radius=str(body.get("blast_radius", "")),
+            silence=str(body.get("silence", "")),
+            redundancy=str(body.get("redundancy", "")),
+            cost_if_inert=str(body.get("cost_if_inert", "")).strip(),
             command=str(body.get("command", "")).strip(),
             blind_to=str(body.get("blind_to", "")).strip(),
             mutation=_mutation(mutation_raw, f"{where}.mutation"),
@@ -680,6 +886,26 @@ def validate(
             problems.append(
                 f"{where}: defect_class {gate.defect_class!r} is not one of {list(DEFECT_CLASSES)}"
             )
+        # -- the cost-if-inert factors ---------------------------------------
+        for attribute, allowed in (
+            ("blast_radius", BLAST_RADII),
+            ("silence", SILENCE_CLASSES),
+            ("redundancy", REDUNDANCY_CLASSES),
+        ):
+            value = getattr(gate, attribute)
+            if value not in allowed:
+                problems.append(
+                    f"{where}: {attribute} {value!r} is not one of {list(allowed)}. "
+                    "Every gate declares what it costs if it silently stops working, "
+                    "because a register that ranks nothing tells a reader with one "
+                    "afternoon which gate to fix by leaving them to guess."
+                )
+        if not gate.cost_if_inert:
+            problems.append(
+                f"{where}: `cost_if_inert` is required. Say what breaks and how far it "
+                "travels if this gate goes inert -- the three factors above are the "
+                "ordering, and this is the sentence that has to be true for them."
+            )
         # -- the step it names must exist in the workflow -------------------
         if home.workflow != "local":
             steps = scanned.get(home.workflow, {}).get(home.job, [])
@@ -737,6 +963,20 @@ def validate(
                 "with no run id is a claim with no evidence, which is operating rule 1 applied "
                 "to a gate instead of to a number."
             )
+        if mutation.verified_in_situ_on and not mutation.verified_in_situ_commit:
+            problems.append(
+                f"{where}.mutation: `verified_in_situ_on` with no `verified_in_situ_commit`. A "
+                "run id says a demonstration happened; the commit says WHICH gate was "
+                "demonstrated. Without it nobody can check that the gate that failed there is "
+                "the gate shipping here."
+            )
+        if mutation.verified_in_situ_commit and not _COMMIT_RE.match(
+            mutation.verified_in_situ_commit
+        ):
+            problems.append(
+                f"{where}.mutation: verified_in_situ_commit "
+                f"{mutation.verified_in_situ_commit!r} is not a commit name"
+            )
         # -- the edits must be applicable ------------------------------------
         for n, edit in enumerate(mutation.edits):
             target = REPO_ROOT / edit.file
@@ -790,7 +1030,219 @@ def validate(
         if defect.measured_on is None:
             problems.append(f"{where}: `measured_on` is required -- a coverage claim has a date")
 
+    problems.extend(cost_ranking_problems(manifest))
+    # THE QUOTA IS A FACT ABOUT *THIS* REGISTER, so it is checked only when this
+    # register is what was loaded. Same asymmetry, and the same reasoning, as
+    # ``Project.value_baseline`` in ``tools/check_claims.py``: applying a
+    # trajectory recorded for these gates to a manifest somebody handed the tool
+    # would be the validator asserting a property of the checkout it lives in
+    # against a checkout it was given. :func:`in_situ_problems` takes an explicit
+    # trajectory so a test can drive every rule of it against a synthetic pair.
+    if manifest.path == GATES_PATH:
+        problems.extend(in_situ_problems(manifest))
     return problems
+
+
+def cost_ranking_problems(manifest: GateManifest) -> List[str]:
+    """Where the declared cost ordering disagrees with its own factors.
+
+    ``cost_rank`` is a total order over every gate: rank ``1`` is the gate whose
+    silent failure costs this project the most. It is not free text and it is
+    not a mood. Two rules hold it down:
+
+    * **it is a permutation of ``1..n``** -- no gaps, no ties, nothing
+      unranked, so "which gate do I fix first" has exactly one answer; and
+    * **it may not invert its own factors.** Sorting by rank must give a
+      non-decreasing sequence of :attr:`Gate.cost_key`. Moving a gate up the
+      list therefore costs an argument about *blast radius* or *silence*, in a
+      field, rather than a nudged integer -- which is the difference between a
+      ranking and an opinion with numbers on it.
+
+    Ties on the key are left free: within one bucket the order is judgement, and
+    ``cost_if_inert`` is where that judgement is written down.
+    """
+    problems: List[str] = []
+    gates = list(manifest.gates.values())
+    if not gates:
+        return problems
+
+    ranks = sorted(gate.cost_rank for gate in gates)
+    expected = list(range(1, len(gates) + 1))
+    if ranks != expected:
+        missing = sorted(set(expected) - set(ranks))
+        repeated = sorted({rank for rank in ranks if ranks.count(rank) > 1})
+        problems.append(
+            f"cost_rank is not a permutation of 1..{len(gates)}: "
+            f"{len(repeated)} repeated {repeated[:5]}, {len(missing)} missing {missing[:5]}. "
+            "Every gate carries exactly one rank and no two share one, or the register "
+            "cannot answer the only question a reader with one afternoon has."
+        )
+        return problems
+
+    ordered = sorted(gates, key=lambda gate: gate.cost_rank)
+    for higher, lower in zip(ordered, ordered[1:]):
+        if higher.cost_key > lower.cost_key:
+            problems.append(
+                f"gates.{lower.name} ranks {lower.cost_rank} below gates.{higher.name} at "
+                f"{higher.cost_rank}, and its factors are strictly worse: "
+                f"({lower.blast_radius}, {lower.silence}) against "
+                f"({higher.blast_radius}, {higher.silence}). "
+                "A rank may not invert the factors it is derived from -- change a factor "
+                "and say why, or leave the rank where the factors put it."
+            )
+    return problems
+
+
+def in_situ_problems(
+    manifest: GateManifest,
+    trajectory: Sequence[InSituRound] = IN_SITU_TRAJECTORY,
+    *,
+    quota: int = IN_SITU_QUOTA,
+    top_ranks: int = TOP_RANKS_REQUIRING_IN_SITU,
+) -> List[str]:
+    """Where the in-situ evidence quota is not met.
+
+    The quota is on the **debt**, and every rule below follows from that:
+
+    ``the debt may not rise``
+        A round that adds a gate without adding evidence raises
+        ``gates - in_situ`` by one and cannot satisfy this. That failure mode is
+        the reason the quota is not a floor on the coverage count: a floor is
+        satisfied by a round that adds five gates and demonstrates none, while
+        ``13 of 36`` quietly becomes ``13 of 41``. **Not waivable.**
+
+    ``the last row must equal the live register``
+        The coupling. Editing ``.github/gates.toml`` without appending a round
+        reddens ``--check`` immediately, so the trajectory is a fact about the
+        tree rather than a note beside it. Same rule, same reason, as
+        ``LEDGER_TRAJECTORY``'s last-row check. **Not waivable.**
+
+    ``the top of the ranking carries evidence``
+        Ranking gates and then demonstrating whichever were easiest is the
+        failure this whole exercise is about. **Not waivable.**
+
+    ``a round pays the quota, or writes down why it could not``
+        Waivable, and deliberately: the demonstrable set is finite, and once it
+        is exhausted the only currency left is extracting an inline gate into a
+        script. A rule with no escape gets deleted; one with a named escape gets
+        argued with.
+
+    ``every automated gate carries evidence``
+        Waivable through the same door. A gate whose own command a runner can
+        invoke and that has never been mutated on a runner is a debt, not a
+        limit -- but the commit that ADDS such a gate cannot also hold its CI
+        run, so the waiver is what lets that commit land.
+    """
+    problems: List[str] = []
+    if not trajectory:
+        return [
+            "  IN_SITU_TRAJECTORY is empty. The in-situ count may not move without a "
+            "recorded round -- that is what stopped `0 of 36` being a line nobody owed anything "
+            "against."
+        ]
+
+    labels = [entry.label for entry in trajectory]
+    for label in sorted({label for label in labels if labels.count(label) > 1}):
+        problems.append(f"  IN_SITU_TRAJECTORY has two rounds labelled {label!r}. Labels are ids.")
+
+    for previous, entry in zip(trajectory, trajectory[1:]):
+        where = f"  IN_SITU_TRAJECTORY[{entry.label!r}]\n    "
+        rise = entry.uncovered - previous.uncovered
+        if rise > 0:
+            problems.append(
+                where + f"the in-situ debt ROSE from {previous.uncovered} to {entry.uncovered} "
+                f"({previous.gates} gates and {previous.in_situ} demonstrated, then "
+                f"{entry.gates} and {entry.in_situ}). A round that adds gates without adding "
+                "evidence may not satisfy this quota: the count would go backwards while the "
+                "coverage number looked healthy. Demonstrate the new gate, or pay for it by "
+                "demonstrating another."
+            )
+            continue
+        if entry.gates < previous.gates and not entry.waiver:
+            # DELETING A GATE PAYS THE QUOTA EXACTLY AS DEMONSTRATING ONE DOES,
+            # because both lower `gates - in_situ`. Nothing in arithmetic can
+            # tell paying a debt from repudiating it, so this is the one place
+            # the rule asks for a sentence instead.
+            problems.append(
+                where + f"the register shrank from {previous.gates} to {entry.gates} gate(s) "
+                "with no waiver. Removing a check lowers the in-situ debt exactly as "
+                "demonstrating one does, and the arithmetic cannot tell those apart. Name the "
+                "gate that left and why it left."
+            )
+        if entry.in_situ < previous.in_situ and not entry.waiver:
+            problems.append(
+                where + f"in-situ evidence fell from {previous.in_situ} to {entry.in_situ} "
+                "with no waiver. Evidence is deleted when a gate is deleted or a "
+                "demonstration is withdrawn; both are decisions and both get written down."
+            )
+        if entry.in_situ > previous.in_situ and not (entry.run and entry.commit):
+            problems.append(
+                where + f"claims {entry.in_situ - previous.in_situ} more demonstrated gate(s) "
+                "and names no run id and commit. R11 evidence is a run in the environment the "
+                "gate runs in; a round that cannot name one did not take any."
+            )
+        fall = previous.uncovered - entry.uncovered
+        if fall < quota and not entry.waiver:
+            problems.append(
+                where + f"cut the in-situ debt by {fall} against a quota of {quota}, and "
+                "records no waiver. Either demonstrate more gates in situ or write down why "
+                "this round could not."
+            )
+
+    last = trajectory[-1]
+    live_gates = len(manifest.gates)
+    live_in_situ = len(manifest.with_in_situ_evidence())
+    if last.gates != live_gates:
+        problems.append(
+            f"  IN_SITU_TRAJECTORY[{last.label!r}]\n"
+            f"    says the register holds {last.gates} gate(s); it holds {live_gates}.\n"
+            "    Adding or removing a gate IS a round. Append an InSituRound in the same "
+            "commit, and it may not raise the debt."
+        )
+    if last.in_situ != live_in_situ:
+        problems.append(
+            f"  IN_SITU_TRAJECTORY[{last.label!r}]\n"
+            f"    says {last.in_situ} gate(s) carry in-situ evidence; {live_in_situ} do.\n"
+            "    An in-situ count that moves without a recorded round is a coverage claim "
+            "nobody can audit."
+        )
+
+    for gate in manifest.by_cost():
+        if gate.cost_rank <= top_ranks and not gate.mutation.has_in_situ_evidence:
+            problems.append(
+                f"  gates.{gate.name} ranks {gate.cost_rank} of {live_gates} by cost-if-inert "
+                "and carries no in-situ evidence.\n"
+                f"    The top {top_ranks} of the ranking must be demonstrated where they run. "
+                "Demonstrating whichever gates were easiest to mutate is the failure this "
+                "register exists to end."
+            )
+
+    owed = manifest.demonstrable_without_evidence()
+    if owed and not last.waiver:
+        problems.append(
+            f"  {len(owed)} gate(s) this harness can mutate carry no in-situ evidence: "
+            f"{[gate.name for gate in owed[:6]]}.\n"
+            "    Their own commands are runnable on a runner today, so this is a debt and "
+            "not a limit. Run .github/workflows/gate-mutation.yml and record the run, or "
+            f"put a waiver on IN_SITU_TRAJECTORY[{last.label!r}] saying why not."
+        )
+    return problems
+
+
+def in_situ_line(manifest: GateManifest, trajectory: Sequence[InSituRound]) -> str:
+    """The one-line quota summary printed under the in-situ count."""
+    live = len(manifest.gates) - len(manifest.with_in_situ_evidence())
+    if not trajectory:
+        return "in-situ quota: no rounds recorded"
+    last = trajectory[-1]
+    moved = (trajectory[-2].uncovered - last.uncovered) if len(trajectory) > 1 else 0
+    return (
+        f"in-situ quota: debt {live}, ceiling {last.uncovered} | "
+        f"{len(trajectory)} round(s) | {last.label} cut {moved}"
+        + (f" (run {last.run} at {last.commit})" if last.run else "")
+        + f" | quota {IN_SITU_QUOTA} per round, top {TOP_RANKS_REQUIRING_IN_SITU} of the "
+        "ranking must be demonstrated"
+    )
 
 
 def assert_environment(env: Environment, root: Path = REPO_ROOT) -> List[str]:
@@ -1004,13 +1456,21 @@ def _summary_lines(manifest: GateManifest) -> List[str]:
     for gate in manifest.gates.values():
         by_kind[gate.mutation.kind] = by_kind.get(gate.mutation.kind, 0) + 1
     kinds = ", ".join(f"{kind} {count}" for kind, count in sorted(by_kind.items()))
+    ranked = manifest.by_cost()
+    top = [g for g in ranked if g.cost_rank <= TOP_RANKS_REQUIRING_IN_SITU]
+    top_done = sum(1 for g in top if g.mutation.has_in_situ_evidence)
     return [
         f"gate manifest: {len(manifest.gates)} gate(s) across {len(manifest.environments)} "
         f"environment(s) in {len(scan_workflows())} workflow file(s)",
         f"mutation kind: {kinds}",
-        f"demonstrable by this harness: {len(automated)} of {len(manifest.gates)}",
+        f"demonstrable by this harness: {len(automated)} of {len(manifest.gates)}, "
+        f"{len(manifest.demonstrable_without_evidence())} of them still owed",
         f"CARRYING IN-SITU EVIDENCE:   {len(in_situ)} of {len(manifest.gates)}"
         + ("" if in_situ else "   <- R11 is not satisfied for any gate here"),
+        f"top of the cost ranking:     {top_done} of {len(top)} demonstrated  ("
+        + ", ".join(f"{g.cost_rank} {g.name}" for g in top)
+        + ")",
+        in_situ_line(manifest, IN_SITU_TRAJECTORY),
     ]
 
 
@@ -1040,9 +1500,34 @@ def _cmd_list(manifest: GateManifest) -> int:
             print(f"  lacks: {', '.join(env.lacks)}")
         if not gates:
             print(f"  (no gates) {env.no_gates_reason}")
-        for gate in sorted(gates, key=lambda g: g.name):
+        for gate in sorted(gates, key=lambda g: g.cost_rank):
             mark = "in-situ" if gate.mutation.has_in_situ_evidence else gate.mutation.kind
-            print(f"  {gate.name:<38} {gate.defect_class:<20} {mark}")
+            print(f"  #{gate.cost_rank:<3} {gate.name:<34} {gate.defect_class:<20} {mark}")
+    print()
+    for line in _summary_lines(manifest):
+        print(line)
+    return 0
+
+
+def _cmd_ranking(manifest: GateManifest) -> int:
+    """Every gate, most expensive first if it silently stopped working."""
+    print(
+        "cost if inert, worst first. `evidence` is R11: a mutation run in the environment\n"
+        "the gate runs in, with the failure captured. `-` is a gate that has never had one.\n"
+    )
+    print(
+        f"{'#':>3}  {'gate':<34} {'blast radius':<22} {'silent?':<8} {'other cover':<12} evidence"
+    )
+    for gate in manifest.by_cost():
+        mark = (
+            f"{gate.mutation.verified_in_situ_on} run {gate.mutation.verified_in_situ_run}"
+            if gate.mutation.has_in_situ_evidence
+            else f"-  ({gate.mutation.kind})"
+        )
+        print(
+            f"{gate.cost_rank:>3}  {gate.name:<34} {gate.blast_radius:<22} "
+            f"{gate.silence:<8} {gate.redundancy:<12} {mark}"
+        )
     print()
     for line in _summary_lines(manifest):
         print(line)
@@ -1069,14 +1554,32 @@ def _cmd_json(manifest: GateManifest) -> int:
                 "step": gate.step,
                 "command": gate.command,
                 "defect_class": gate.defect_class,
+                "cost_rank": gate.cost_rank,
+                "blast_radius": gate.blast_radius,
+                "silence": gate.silence,
+                "redundancy": gate.redundancy,
+                "cost_if_inert": gate.cost_if_inert,
                 "mutation_kind": gate.mutation.kind,
                 "artifact": gate.mutation.artifact,
                 "verified_locally_on": str(gate.mutation.verified_locally_on or ""),
                 "verified_in_situ_on": str(gate.mutation.verified_in_situ_on or ""),
                 "verified_in_situ_run": gate.mutation.verified_in_situ_run,
+                "verified_in_situ_commit": gate.mutation.verified_in_situ_commit,
             }
             for name, gate in manifest.gates.items()
         },
+        "in_situ_trajectory": [
+            {
+                "label": entry.label,
+                "gates": entry.gates,
+                "in_situ": entry.in_situ,
+                "uncovered": entry.uncovered,
+                "run": entry.run,
+                "commit": entry.commit,
+                "waiver": entry.waiver,
+            }
+            for entry in IN_SITU_TRAJECTORY
+        ],
         "defect_coverage": [
             {
                 "id": d.id,
@@ -1123,6 +1626,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--path", type=Path, default=GATES_PATH)
     parser.add_argument("--check", action="store_true", help="validate the register (the CI gate)")
     parser.add_argument("--list", action="store_true", help="print the register as a table")
+    parser.add_argument(
+        "--ranking",
+        action="store_true",
+        help="every gate ordered by what it costs if it silently stops working",
+    )
     parser.add_argument("--json", action="store_true", help="print the register as JSON")
     parser.add_argument("--mutate", action="append", default=[], metavar="GATE")
     parser.add_argument("--mutate-environment", metavar="ENV")
@@ -1174,6 +1682,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_mutate(manifest, names, args.artifacts)
     if args.list:
         return _cmd_list(manifest)
+    if args.ranking:
+        return _cmd_ranking(manifest)
     if args.json:
         return _cmd_json(manifest)
     return _cmd_check(manifest)

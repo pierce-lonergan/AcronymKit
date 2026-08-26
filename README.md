@@ -70,6 +70,56 @@ Demoting it is not hiding it: the table showing exactly where it loses is in
 [docs/EVALUATION.md](docs/EVALUATION.md), and why this project stopped treating that figure as
 something to improve is in [docs/POSITIONING.md](docs/POSITIONING.md).
 
+**The worst-looking comparison anyone can find here is a one-line all-caps rule beating the
+extractor, and the whole of it belongs on this page rather than three links away.** On PLOD-CW
+pooled — the only held-out corpus that can see short-form spans — `predict_all_caps` scores
+68.62<!--claim:shortform_contest.plod.all.allcaps.all.exact_f1:.2f--> short-form exact F1 against
+52.56<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.all.exact_f1:.2f--> for
+`HIGH_PRECISION`. Decomposed on the 2×2 of the two structural handicaps, that deficit is **not shared
+between them**. Taking the baseline's handicap away — scoring only gold its own rule could ever
+admit — makes ours *worse*
+(54.98<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.caps.exact_f1:.2f-->
+against 78.38<!--claim:shortform_contest.plod.all.allcaps.caps.exact_f1:.2f-->). Taking *ours* away —
+scoring only gold standing beside a bracket, which is the only gold a pair-emitting extractor can
+address at all — reverses the result
+(85.73<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.definitional.exact_f1:.2f-->
+against 75.13<!--claim:shortform_contest.plod.all.allcaps.definitional.exact_f1:.2f-->, and
+87.22<!--claim:shortform_contest.plod.test.acronymkit.high_precision.definitional.exact_f1:.2f-->
+against 72.36<!--claim:shortform_contest.plod.test.allcaps.definitional.exact_f1:.2f--> on the test
+split). With both handicaps removed this library still leads,
+88.66<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.definitional_caps.exact_f1:.2f-->
+against 86.56<!--claim:shortform_contest.plod.all.allcaps.definitional_caps.exact_f1:.2f-->. Those
+`acronymkit` figures are the native-offset row, which is the one previously quoted against us; through
+the shared string localiser every other system is scored by, the same configuration reads
+52.31<!--claim:shortform_contest.plod.all.acronymkit.high_precision.all.exact_f1:.2f--> and
+85.32<!--claim:shortform_contest.plod.all.acronymkit.high_precision.definitional.exact_f1:.2f--> —
+about a quarter of a point in our favour, and it changes nothing here.
+
+**The finding worth more than the reversal is a finding about the corpora.** Nothing was re-run and
+neither system changed; only the annotation convention the gold is read under did. That axis alone
+moves the margin by
+26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:.2f--> points and
+reverses its sign, and the identical unmodified configuration scores anywhere between
+52.56<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.all.exact_f1:.2f--> and
+88.66<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.definitional_caps.exact_f1:.2f-->
+on one corpus — a
+36.10<!--claim:shortform_contest.plod.all.convention.span.acronymkit:.2f-->-point range. **That is the
+same family of result as the monoculture figures below**: the field's evaluation substrate shapes the
+answer at least as much as the systems do, which is also why nobody here optimises against it again.
+
+**And this is not a vindication, because the metric cannot see the thing this library claims.** The
+span scorer has a slot for short-form spans and a slot for long-form spans and none for the edge
+between them. Replaying PLOD's own gold with the pairings rotated scores
+100.00<!--claim:shortform_contest.plod.all.pairing_blind.rotated.short_form.exact_f1:.2f--> on all
+four span metrics — byte-identical to the honest replay — while
+1,054<!--claim:shortform_contest.plod.all.pairing_denominator.pairs_mispaired:,--> of
+1,778<!--claim:shortform_contest.plod.all.pairing_denominator.pairs_replayed:,--> replayed pairs are
+wrong. **The column this library wins is short-form *detection*, not pairing**, and pairing is what
+`extract()` returns. It still cannot report *this is an abbreviation and I do not know what it stands
+for* — `long_form=None` is a `ValidationError` — so on PLOD's own task the trivial baseline is scored
+on an output shape this library is forbidden to produce. Both halves are in
+[docs/EVALUATION.md](docs/EVALUATION.md#the-one-line-rules-win-is-the-annotation-convention-and-restricted-to-comparable-gold-it-reverses).
+
 ## Why
 
 Four kinds of tool exist in the open-source acronym ecosystem, and each stops somewhere:
@@ -106,14 +156,23 @@ neither Schwartz & Hearst commitment — a trivial all-caps rule and `shapecue` 
 Run ids `monoculture.*`, decomposed in
 [docs/EVALUATION.md](docs/EVALUATION.md#the-extraction-monoculture-and-what-it-does-to-the-corpora).
 
-**The strong reading of that is confounded, and this README does not get to publish only the first
-half.** The tempting conclusion — that the benchmarks were drawn around the pool and therefore
-certify its blind spot — cannot be separated from **genre**. MED1250 is abstracts and PLOD is article
-body text; abstracts carry no figure legends and no table footnotes, which is exactly where the
-unproposed class lives. The control reads the same either way: on MED1250 the independent proposer's
-gain over gold is 0.00<!--claim:monoculture.med1250.gold.pairs.independent_gain_pct:.2f--> %, which
-is what provenance predicts and also what genre predicts. Separating them needs article body text
-whose gold was pooled from these systems, and nobody publishes one on purpose.
+**The strong reading of that was confounded with genre, and the genre half has now been separated
+and measured.** The tempting conclusion — that the benchmarks were drawn around the pool and
+therefore certify its blind spot — competed with a duller one: MED1250 is abstracts, PLOD is article
+body text, and abstracts carry no figure legends or table footnotes, which is exactly where the
+unproposed class lives. Both accounts predicted the same ordering, including the control
+(on MED1250 the independent proposer's gain over gold is
+0.00<!--claim:monoculture.med1250.gold.pairs.independent_gain_pct:.2f--> %).
+
+A same-article instrument settles the genre half. Taking each PMC Open Access article's own abstract
+and its own body — same authors, same journal, same deposit route, so **only genre varies** — gold
+long forms sit beside a bracket in 84.54<!--claim:genre.pmc_oa.abstract.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f--> % of abstracts against 75.85<!--claim:genre.pmc_oa.body.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f--> % of bodies, and all six paired
+contrasts point the way genre predicts. **The verdict is genre**, run ids `genre.pmc_oa.*`.
+
+**That kills the strong reading rather than refuting it.** Nothing here measures the provenance
+effect on its own; it says the cross-corpus ordering does not *require* provenance to explain it. So
+the monoculture measurement stands, its field-level indictment does not, and the reason is now
+something measured instead of something conceded.
 
 So the argument for this library is not that it does more things than the rows above. It is that a
 system which reports what it cannot see is worth more, to somebody governing data, than one that

@@ -348,6 +348,106 @@ role change here. The first condition is the one this project cannot meet
 alone.
 """
 
+[corpora.pmc_oa_same_article_genre]
+role = "single_annotator_reference"
+task = "extraction"
+status = "measured for one contrast; never scorable as a headline"
+domain = "Biomedical and life sciences (PMC Open Access Subset journal articles). The SAME domain as med1250 and plod, and deliberately not offered as a counterweight to either."
+licence = "Per article; CC BY / CC0 only after a per-article filter"
+licence_url = "https://pmc.ncbi.nlm.nih.gov/tools/openftlist/"
+licence_read_on = 2026-08-25
+vendorable = false
+contaminated = true
+adjudicators = [
+  "each article's own authors, via the <def-list> abbreviation roster they deposited in <back>",
+  "pierce-lonergan (author of acronymkit), who wrote the admission rule that decides which roster rows count)",
+]
+pooling_recipe = """
+THERE IS NO POOL, and that is the one thing this corpus has that the Federal
+Register reference set does not. Nothing was adjudicated from candidates. The
+gold is read straight out of each article's own `<def-list>` in `<back>` -- the
+same arbiter PLOD-CW uses, taken at the source rather than through Zilio et
+al.'s pipeline -- so no abbreviation-detection system appears anywhere in its
+construction and there is nothing for a proposer's blind spot to have shaped.
+
+What IS mine, and what therefore carries the single-annotator weight:
+
+  the admission rule   bench/run_genre.py::roster_pair_admissible. Length,
+                       whitespace, case and character-class conditions on each
+                       string SEPARATELY, plus whole-string inequality. NO
+                       CHARACTER OF THE TERM IS COMPARED AGAINST THE
+                       DEFINITION, because a gold standard filtered by the
+                       Schwartz & Hearst alignment cannot be used to measure
+                       what that alignment misses.
+  the location rule    a declared pair is gold ABOUT A HALF only where both of
+                       its strings occur in that half, via the same
+                       `locate_pair` bench/run_monoculture.py uses for MED1250.
+  the draw             uniform over PMC identifier integers, seeded, version .1
+                       only, filtered to CC BY and CC0.
+
+WHAT IT CANNOT DO, and the role is the enforcement rather than this sentence.
+It cannot back a headline: `single_annotator_reference` is in
+NEVER_HEADLINE_ROLES, and it would fail the held_out policy first in any case.
+It is not a recall corpus in either direction -- authors declare only the
+abbreviations they choose to declare, so the roster is neither exhaustive over
+the article nor a random sample of it, and an abbreviation absent from the
+roster is not evidence of anything. Every figure it backs is a DIFFERENCE
+BETWEEN TWO HALVES OF THE SAME ARTICLES, where that selection bias is identical
+on both sides and cancels. Quoting an absolute number off it -- "the family
+reaches X % of gold" -- is quoting the authors' declaration habits.
+"""
+contamination_reason = """
+Read in full and published in full: bench/run_genre.py measured every article
+and docs/EVALUATION.md quotes the result. Nothing here was ever tuned against
+and nothing is fitted to it, so `contaminated` is belt and braces rather than
+the operative bar -- the ROLE is the bar. It is set for the same reason the
+Federal Register entry sets it: it makes a later promotion to `held_out` a hard
+validation error rather than a one-word edit.
+"""
+note = """
+2,000 pinned articles drawn from the PMC Open Access Subset, each split into the
+abstract and the body of THE SAME FILE. It exists to answer one question and it
+is registered rather than left undeclared because it produces gated figures:
+D-065 measured a monoculture and then killed its own strong reading of it,
+because MED1250 is abstracts and PLOD is body text, so genre and provenance
+could not be separated on public data. Here provenance is held constant by
+construction and only genre varies.
+
+WHAT IS IN NEITHER HALF: `<back>`. The roster lives there, so the arbiter is
+outside both measured texts and is a gold standard for the abstract and for the
+body symmetrically. Reference lists live there too and are not read.
+
+LICENCE, read from the terms on 2026-08-25 at the URL above, which is PMC's own
+Open Access Subset page and not a badge, not the AWS registry card and not the
+per-article deed. It says the thing a one-word licence field destroys: "Within
+the PMC Open Access Subset articles are available for reuse, but license terms
+vary. Please refer to the license statement in each article for specific terms
+of use." So the subset is a distribution channel carrying several licences, and
+treating it as one would be wrong about roughly a quarter of it. See
+data/LICENSES.md, substrate key `pmc-oa-same-article`, for the measured mix and
+for the retrieval constraint the same page imposes.
+
+THE PINS AND THE FETCH: bench/run_genre.py --fetch, --verify. Two pins, because
+the collection is continuously updated: the drawn identifiers, and one SHA-256
+over every fetched article's own digest.
+
+HOW IT FAILS, stated here rather than in the runner so a reader of the manifest
+meets it too.
+  1. The roster subset is SMALL and it is not the sample. Most articles do not
+     ship a `<def-list>` at all, and an abstract spells out only a handful of
+     the abbreviations its own article declares -- so the gold arm's abstract
+     denominator is thin and its interval is wide. The figures it backs carry
+     cluster-bootstrap intervals for that reason and one of them does not clear
+     zero.
+  2. Within-article correlation is real and is NOT ignored: the cluster is the
+     article and both halves are resampled together.
+  3. `body_matched` -- a body window cut to the abstract's length -- is a
+     length control for the proposal statistics and is BIASED for the gold ones,
+     because a window that contains a pair's two strings without containing its
+     definition site locates a non-definitional co-occurrence. It is reported as
+     a robustness arm and never as the headline.
+"""
+
 [corpora.sdu21_ai]
 role = "held_out"
 task = "span_detection"

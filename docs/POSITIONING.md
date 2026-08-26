@@ -72,8 +72,9 @@ which the corpus admission rule forces rather than merely permits, because a pop
 rewrite the identifier and the two strings would stop sharing a character stream
 ([docs/EVALUATION.md](EVALUATION.md#the-governed-subsystem-its-first-accuracy-figures)). So those
 figures measure where an identifier is cut and say nothing whatever about what a governed vocabulary
-is worth. The one experiment that *did* build a catalog inferred it from the very labels used as
-gold, and that experiment is [reversal one](#reversal-one-the-lead-is-wrong-if-a-catalog-is-worth-nothing-on-a-real-schema).
+is worth. Every experiment that *does* build a catalog — the audit's, and the gated re-run that
+replaced it — infers that catalog from labels of the very kind used as gold, and that whole line of
+work is [reversal one](#reversal-one-the-lead-is-wrong-if-a-catalog-is-worth-nothing-on-a-real-schema).
 
 This is the standing unknown that has gone unclosed across three phases; it is ranked first in
 [docs/AUDIT-2026-08.md](AUDIT-2026-08.md#1-does-a-governed-catalog-add-anything-on-a-real-schema),
@@ -155,20 +156,34 @@ a bigger number over the same blind spot. That is the argument, and it is measur
 `monoculture.*`, decomposed in
 [docs/EVALUATION.md](EVALUATION.md#the-extraction-monoculture-and-what-it-does-to-the-corpora).
 
-**The measurement is strong. The strong reading of it is confounded, and this page does not get to
-publish only the first half.** The tempting conclusion — that the corpora themselves were drawn
-around the pool, so the benchmarks certify the blind spot — cannot be separated from **genre**.
-MED1250 is abstracts and PLOD is article body text. Abstracts carry no figure legends and no table
-footnotes, which is exactly where the unproposed class lives, so every figure above is equally
-consistent with "the corpora were built by these systems" and with "abstracts do not contain the hard
-cases". The control says the same thing twice: on MED1250 the independent proposer's gain over gold
-is 0.00<!--claim:monoculture.med1250.gold.pairs.independent_gain_pct:.2f--> %, which is what
+**The measurement is strong. Its strong reading was confounded with genre, and the genre half has
+since been separated — against the expectation recorded here.** The tempting conclusion — that the
+corpora themselves were drawn around the pool, so the benchmarks certify the blind spot — competed
+with "abstracts do not contain the hard cases". MED1250 is abstracts and PLOD is article body text,
+and abstracts carry no figure legends or table footnotes, which is exactly where the unproposed
+class lives. Every figure above was equally consistent with both, including the control: on MED1250
+the independent proposer's gain over gold is
+0.00<!--claim:monoculture.med1250.gold.pairs.independent_gain_pct:.2f--> %, which is what
 *provenance* predicts and also what *genre* predicts.
 
-Separating them needs article body text whose gold was pooled from Schwartz & Hearst descendants.
-Nobody publishes one on purpose. **That absence is a result, not a task**, and it is the reason the
-research-artifact positioning was rejected: it would rest the whole project on a claim that may be
-permanently unprovable with public data, and it forecloses the adoption that would make the
+**CORRECTED IN PLACE, AND THE PARAGRAPH THIS REPLACES WAS WRONG WITHIN ONE ROUND OF BEING WRITTEN.**
+It said separating them needed article body text whose gold was pooled from Schwartz & Hearst
+descendants, that nobody publishes one on purpose, and that **"that absence is a result, not a
+task"**. That was the wrong instrument, confidently named. The right one holds provenance constant
+instead of varying it: each PMC Open Access article's own abstract against its own body, same
+authors, same journal, same deposit route, gold taken from the article's own `<def-list>` roster
+which sits in neither measured half. Gold long forms are bracket-adjacent in 84.54<!--claim:genre.pmc_oa.abstract.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f--> % of abstracts
+against 75.85<!--claim:genre.pmc_oa.body.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f--> % of bodies; all six paired contrasts exclude zero and all six point the way genre
+predicts. **The verdict is genre**, run ids `genre.pmc_oa.*`.
+
+This **kills the strong reading rather than refuting it**: nothing in that instrument measures the
+provenance effect on its own, only that the ordering does not require it. Reversal three is
+unchanged. But the sentence calling the absence "a result, not a task" is retired, because a
+workstream took it as a task and it took one round — and it is left visible here because a
+*permanently unprovable* label applied to something provable is the most expensive kind of wrong
+this project can write, and the reason the research-artifact positioning was rejected rested partly
+on it. The rejection stands on the remaining ground: provenance itself is still unmeasured, and it
+forecloses the adoption that would make the
 discipline matter to anybody.
 
 ---
@@ -263,19 +278,77 @@ about a measurement rather than about a preference.
 ### Reversal one: the lead is wrong if a catalog is worth nothing on a real schema
 
 The governance positioning rests on the governed half being the half worth leading with. **The one
-measurement that bears on it currently points the other way.** Under a portal-disjoint split of real
-Socrata schemas, an adversarial pass found a voted catalog scoring *no better than an empty catalog* —
-because real schemas are largely already spelled out and Title Casing does most of the work. Those
-figures are un-gated and are deliberately not quoted here; they are in
-[docs/AUDIT-2026-08.md](AUDIT-2026-08.md#1-does-a-governed-catalog-add-anything-on-a-real-schema)
-with the reasons the adversary refused to assert them as a result, chiefly that Socrata display
-labels are a noisy gold.
+measurement that bore on it used to point the other way. It has been re-run under the harness, and
+it does not measure what it was read as measuring.**
 
-**What would settle it:** one real proprietary glossary measured against the schema it governs,
-catalog against empty catalog, on gold the auditor did not infer from the labels being scored. If a
-catalog adds essentially nothing there, this subsystem's value is provenance and compliance — the
-entry id, the source, the rule that fired, the unknown-token worklist — and **not** expansion
-accuracy, and the README has to say so and lead with something else.
+The pooled result reproduces. Under a portal-disjoint split of real Socrata schemas a voted catalog
+scores worse than an empty one in
+79<!--claim:governed_catalog.socrata.sweep.cells_where_voted_loses_pooled:,--> of
+80<!--claim:governed_catalog.socrata.sweep.cells_run:,--> catalog configurations, and the single
+exception is the one cell whose catalog has no acting rows at all — the empty arm under another
+name. That is the audit's finding, now gated: `governed_catalog.socrata.*`, decomposed in
+[docs/EVALUATION.md](EVALUATION.md#does-a-governed-catalog-add-anything-on-a-real-schema-not-as-the-pooled-figure-asks-it),
+and the un-gated original is still at
+[docs/AUDIT-2026-08.md](AUDIT-2026-08.md#1-does-a-governed-catalog-add-anything-on-a-real-schema).
+
+**The decomposition reverses the reading of it, and nobody had ever computed it.**
+76.53<!--claim:governed_catalog.socrata.census.subsets.identical.pairs_pct:.2f--> % of that corpus's
+distinct field/caption pairs are already unabbreviated — the caption re-cuts the identifier and
+nothing else — and on those a catalog can only do damage. Only
+11.31<!--claim:governed_catalog.socrata.census.live_pairs_pct:.2f--> % carry an expansion at all, and that
+is the only place the question is live. Split on that line, the same runs say:
+
+- **The whole of the pooled loss is damage to pairs that needed no catalog.** The audit-shaped
+  catalog broke 97<!--claim:governed_catalog.socrata.voted.fold_ab.identical.empty_only_correct:,--> and
+  283<!--claim:governed_catalog.socrata.voted.fold_ba.identical.empty_only_correct:,--> already-correct
+  pairs across the two folds, and fixed
+  0<!--claim:governed_catalog.socrata.voted.fold_ab.identical.voted_only_correct:,--> and
+  0<!--claim:governed_catalog.socrata.voted.fold_ba.identical.voted_only_correct:,-->.
+- **On the live pairs a catalog cannot lose, so the readable number is how often it wins.** The
+  empty arm is zero there *by construction* — it cannot emit characters the identifier does not
+  carry — so "the voted catalog loses
+  0<!--claim:governed_catalog.socrata.sweep.cells_where_voted_loses_live:,--> times" is arithmetic
+  and not evidence. What is evidence: it *wins* in
+  51<!--claim:governed_catalog.socrata.sweep.cells_where_voted_beats_empty_live:,--> of
+  80<!--claim:governed_catalog.socrata.sweep.cells_run:,--> configurations, and in the other
+  29<!--claim:governed_catalog.socrata.sweep.cells_where_voted_ties_live:,--> it recovers nothing
+  at all.
+- **And on the atoms the empty catalog provably cannot touch, a catalog is worth something.** On the
+  token positions where the identifier's token differs from the caption's word, the empty catalog is
+  right 0<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.empty_correct:,--> of
+  486<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.tokens:,--> and
+  0<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.empty_correct:,--> of
+  618<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.tokens:,--> — **a derivation and
+  not a result**, because an empty catalog cannot emit characters the identifier does not carry. The
+  best catalog inferable from the corpus itself is right
+  12.35<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.voted_correct_pct:.2f--> % and
+  9.22<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.voted_correct_pct:.2f--> % there.
+
+So the pooled comparison cannot answer this question at any setting in the grid. A catalog
+aggressive enough to reach the live subset moves the pairs that needed nothing by
+-22.60<!--claim:governed_catalog.socrata.eager.fold_ab.identical.delta_points:.2f--> points; a catalog cautious enough to protect the pooled figure fires on
+23<!--claim:governed_catalog.socrata.voted.fold_ab.live.catalog_fired_pairs:,--> of
+3,276<!--claim:governed_catalog.socrata.voted.fold_ab.live.pairs:,--> live pairs and so measures nothing.
+**The audit measured a catalog's cost and the record read it as a catalog's worth.**
+
+**What that does to the commitment: it removes the evidence pointing against the lead, and supplies
+none for it.** The adversary's own reason for refusing to assert the original figure as a result
+stands unchanged and now cuts both ways — Socrata display labels are a noisy gold,
+`':@computed_region_92fq_4b7q'` is captioned `'City Council Districts 2'`, and
+82.86<!--claim:governed_catalog.socrata.census.token_word_count_mismatch_pct:.2f--> % of the
+non-identical pairs have a token count that does not match the caption's word count. Every catalog
+scored above is still inferred by the harness from labels of the kind being scored, which is
+circular by construction; the portal-disjoint split moves that circularity from the pair to the
+corpus and does not remove it.
+
+**What would settle it:** unchanged, and more urgent rather than less. One real proprietary glossary
+measured against the schema it governs, catalog against empty catalog, on gold the auditor did not
+infer from the labels being scored — and **decomposed on the already-unabbreviated line above rather
+than pooled**, because a pooled figure on a real schema will be dominated by the same population and
+will be just as unreadable. If a catalog adds essentially nothing *on the live subset there*, this
+subsystem's value is provenance and compliance — the entry id, the source, the rule that fired, the
+unknown-token worklist — and **not** expansion accuracy, and the README has to say so and lead with
+something else.
 
 ### Reversal two: adoption-seeking unblocks the day adoption becomes legible
 
@@ -361,13 +434,16 @@ somebody assembled by hand; the claim that refusal is worth more than a higher F
 about users this project has never measured. Both are the number-free assertion class
 `docs/SECOND-READER.md` exists for, and both are unguarded by construction.
 
-**The evidence and the conclusion point in opposite directions in one place, and it is the important
-place.** The commitment above says the governed half is what this library is for. Reversal one
-records that the only measurement anybody has taken of whether a governed catalog *helps* found it
-not helping. The
-defence — that the gold was noisy and the catalogs were inferred from the labels being scored — is
-the adversary's own defence and it is a real one, but a reader who says the positioning was chosen
-before its central question was answered is reading this correctly.
+**The lead was chosen before its central question was answered, and it is still not answered.** The
+commitment above says the governed half is what this library is for. The one measurement that
+appeared to contradict it has been re-run and decomposed, and it turns out to have measured what a
+catalog *costs* on the pairs that need no catalog rather than what a catalog is *worth* — so the
+contradiction is gone and the evidence is not. What replaced it is a floor: on the token positions
+an empty catalog provably cannot reach, the best catalog this project can build from public data
+recovers about a tenth of them, and every one of those catalogs is inferred from labels of the kind
+being scored. Reversal one carries the figures. A reader who says the positioning rests on a
+question nobody has answered is reading this correctly, and the honest change since the last
+revision of this page is that the question is now open rather than answered against us.
 
 **Two of the three reversal conditions cannot be triggered by anybody working on this repository.**
 Reversal one needs an organisation and reversal three needs a corpus nobody publishes. A reversal

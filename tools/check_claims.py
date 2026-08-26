@@ -413,13 +413,20 @@ DEFERRED_BASELINE: Dict[str, int] = {
     #
     # Lowered again from 84 by the first round the recorder itself ran under the
     # binding: 18 more citations, no deletion and no fencing, across 10 records.
-    # What is left is 53 in the three records docs/CLAIMS-LEDGER.md section 4
-    # names as blocked, 4 in indented display blocks a comment-form citation
-    # cannot enter without rendering visibly, 4 blocked by this module's own
-    # citation-arms-neighbour defect, and 5 that are not measurements of this
-    # library at all. The citable remainder is zero and the next bound round
-    # owes a waiver; see LEDGER_TRAJECTORY["M2-P5 (the recorder pays)"].
-    "docs/DECISIONS.md": 66,
+    #
+    # Lowered from 66 by the round that walked the residue that round called
+    # uncitable: 3 citations and 9 deletions, still none by fencing. The "the
+    # citable remainder is zero" forecast was wrong for the same reason it had
+    # already been wrong twice -- "blocked" was a per-record verdict applied per
+    # number. What is left is 54, counted per record: 36 in D-023 and 9 in D-013,
+    # which have no runner behind them at all; 6 in D-048, which that record
+    # already labels un-gated; and 3 that are not measurements this project took
+    # -- a CI threshold quoted as the name of a code comment, a rounded "about
+    # 44 %" from a reverted arm that leaves no row, and a perturbation-range
+    # endpoint whose twin sentence lives in README.md. The next bound round owes
+    # a waiver naming four mechanisms; see D-084 and
+    # LEDGER_TRAJECTORY["M2-P6 (the walk)"].
+    "docs/DECISIONS.md": 54,
     "docs/DEFINITION-OF-DONE.md": 1,
     "docs/EVALUATION.md": 10,
     "docs/OFFLINE.md": 3,
@@ -2396,6 +2403,38 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
             "docs/DECISIONS.md D-071 for the residue walked number by number."
         ),
     ),
+    LedgerRound(
+        label="M2-P6 (the walk)",
+        deferred=201,
+        value_matched=64,
+        by_citation=3,
+        by_deletion=9,
+        from_record_file=12,
+        note=(
+            "the round that walked the 66 the previous round called uncitable, and paid the "
+            "floor exactly rather than taking the waiver that round predicted. All 12 came "
+            "out of docs/DECISIONS.md; none by fencing. THREE BY CITATION: D-013's 2.3 "
+            "against micro.import.cold_import_ms, which sits in prose OUTSIDE the frozen "
+            "before/after table the blocked verdict was about; and D-011's 85.99 and 88.49 "
+            "against oracle.med1250.{oracle_union_recall,own_space_recall}. NINE BY "
+            "DELETION, under a rule stated in D-084 so a later round can hold this one to "
+            "it: 6 are a percentage restating a numerator and denominator the reader still "
+            "has on the same line (D-019 78.4, D-014 82.3, D-012 96.5 and 3.5, D-011 88.49 "
+            "and 78.40); 2 are a notional maximum rather than a measurement (D-011's two "
+            "bare '100 %'); 1 is a figure the record's own sentence declares not quotable "
+            "(D-048's 49.72). --render --dry-run reports 'up to date', so all three "
+            "citations render to the text already on the page. THE ARMING DEFECT THE "
+            "PREVIOUS ROUND ROUTED AROUND COULD NOT BE ROUTED AROUND HERE: both backing "
+            "fields carry 'recall' in their names, so citing them arms the bare '100 %' ten "
+            "characters later onto the closed value ledger. The neighbour was deleted "
+            "instead -- it should have gone anyway -- and the defect is still unfixed with a "
+            "second published workaround. 11 records were added, the pin went red at 83 "
+            "against 73, and this row plus a pin re-taken at 84 is what closes it. What "
+            "remains is 54, walked per record in D-084: 45 in two records with no runner, 6 "
+            "the record itself labels un-gated, and 3 that are not measurements this project "
+            "took. The next bound round owes a waiver naming four mechanisms."
+        ),
+    ),
 )
 
 #: How many records :data:`RECORD_FILE` held when the newest round was appended.
@@ -2421,7 +2460,7 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
 #: the gate reads, and ``label`` puts the words "which round paid for this"
 #: into the diff. It is a deterrent, not a mechanism, and calling it a mechanism
 #: would be the same overclaim this policy exists to stop.
-RECORD_FILE_PIN = RecordPin(label="M2-P5 (the recorder pays)", records=73)
+RECORD_FILE_PIN = RecordPin(label="M2-P6 (the walk)", records=84)
 
 
 def count_records(text: str) -> int:

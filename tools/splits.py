@@ -222,6 +222,20 @@ ROLES = ("tuning", "held_out", "single_annotator_reference")
 #: D-056's whole argument is that filing this corpus ``held_out`` is "one word
 #: away at all times". A role whose ineligibility depends on a *different* line
 #: staying put is one word away as well, just a quieter one.
+#:
+#: **The braces have a firing count and it is zero.** Under every ``[policy]``
+#: value :data:`ROLES` admits, deleting the
+#: :meth:`Manifest.headline_capable` clause changes no output on the shipped
+#: manifest -- the one corpus in this role is ``contaminated = true`` as well,
+#: so a second rule excludes it whenever the policy line does not. That is
+#: measured, not argued, in
+#: ``tests/test_splits_manifest.py::test_the_role_filter_changes_no_output_on_the_shipped_manifest``,
+#: and it is stronger than D-063's account, which named only the policy line.
+#: The clause is kept because ``tools/splits.py --json`` reaches
+#: ``headline_capable`` **without validating**, and because contamination is a
+#: fact about this pilot rather than about the role: the next corpus filed here
+#: -- a fresh pilot whose misses nobody has analysed -- is uncontaminated, and
+#: on that manifest this is the only rule left.
 NEVER_HEADLINE_ROLES = ("single_annotator_reference",)
 
 #: Fields a corpus must declare **because of the role it claims**, beyond
@@ -995,17 +1009,38 @@ class Manifest:
         caller who most needs to be asked what their headline is about is
         exactly the caller who would have omitted the argument.
 
-        **The role filter is applied twice, and the second one is not
-        redundant.** ``[policy] headline_requires`` decides which role is
-        eligible, and that is one editable line: setting it to a role in
-        :data:`NEVER_HEADLINE_ROLES` would make a self-adjudicated corpus the
-        source for every headline in the project. :func:`validate` refuses that
-        edit, and this filter refuses to act on it even if the validator never
-        ran -- so the exclusion holds under a bad ``[policy]``, a bypassed gate,
-        or a caller that loaded the manifest and never validated it. D-056's
-        finding was that the wrong filing is "one word away at all times"; an
-        exclusion that depends on a *different* word staying put is one word away
-        too.
+        **The role filter is applied twice, and on the manifest as it ships
+        today the second one is redundant. Three ways, not the one D-063
+        named.** This used to say *the second one is not redundant*, and that
+        sentence was a design argument standing where a measurement belongs.
+        Re-derived across every value :data:`ROLES` admits -- the test is
+        ``test_the_role_filter_changes_no_output_on_the_shipped_manifest``:
+
+        * ``headline_requires = "held_out"`` -- ``with_role`` never yields a
+          never-headline corpus, so ``may_back_a_headline`` is evaluated 16
+          times over the four tasks and returns ``False`` **zero** times. This
+          is D-063's firing count and it is correct.
+        * ``headline_requires = "tuning"`` -- the same, ``False`` zero times.
+        * ``headline_requires = "single_annotator_reference"`` -- the filter
+          returns ``False`` on all four evaluations, and **the result is
+          identical with the filter deleted**, because the one corpus in that
+          role is also ``contaminated = true`` and the next clause excludes it
+          unaided.
+
+        So deleting this clause today changes no output under any policy, and a
+        reader who calls that dead code is reading the shipped manifest
+        correctly. **It is kept for one measured reason and one structural
+        one.** The measured reason: ``--json`` returns from :func:`main` before
+        :func:`validate` is ever called, and it renders this function's answer
+        for every task, so a refused ``[policy]`` reaches this line at ``rc=0``
+        in a shipped command -- exercised by
+        ``test_the_never_headline_filter_fires_in_a_shipped_command_that_never_validates``.
+        The structural one: contamination is a per-corpus flag about *this*
+        pilot, and a fresh single-adjudicator pilot whose misses nobody has read
+        yet is uncontaminated by construction. On that manifest this clause is
+        the only rule left. D-056's finding was that the wrong filing is "one
+        word away at all times"; an exclusion that depends on a *different* word
+        staying put is one word away too.
 
         Args:
             task: One of :data:`TASKS`. What the headline number is a claim

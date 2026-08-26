@@ -85,7 +85,7 @@ the package floor rather than to your interpreter.
 
 ## The gates
 
-Six commands. All six must be green before you push, and CI runs all six:
+Seven commands. All seven must be green before you push, and CI runs all seven:
 
 ```bash
 python -m pytest tests
@@ -94,13 +94,22 @@ python -m ruff format --check src tests tools bench
 python -m mypy
 python tools/check_claims.py
 python tools/splits.py --check
+python tools/gates.py --check
 ```
 
-The last two are the ones most often missed, and they are the two that fail on a *document* rather
-than on code. `tools/check_claims.py` refuses a new performance or accuracy figure that does not
-cite a run id in `bench/results.json`; `tools/splits.py --check` refuses a corpus with no declared
-role, task or licence, and refuses a read of a reserved corpus arm. On Windows, set
-`PYTHONIOENCODING=utf-8` before the report modes of `check_claims.py`.
+**That block said six, and had done since `tools/gates.py` shipped.** `python tools/gates.py --check`
+runs in the `lint` job, in the step named *Every CI gate is registered, and says whether it has ever
+failed on purpose*, and both this file and `docs/SECOND-READER.md` told a reader there were six. A
+list of the gates is exactly the kind of prose no gate reads — so this one is now read:
+`tests/test_second_reader_policy.py` parses the block above, requires each command's script to exist,
+runs `--help` on it, and requires the flag named here to be a flag it accepts.
+
+The last three are the ones most often missed, and they are the three that fail on a *document*
+rather than on code. `tools/check_claims.py` refuses a new performance or accuracy figure that does
+not cite a run id in `bench/results.json`; `tools/splits.py --check` refuses a corpus with no
+declared role, task or licence, and refuses a read of a reserved corpus arm; `tools/gates.py --check`
+refuses a CI job that no gate register accounts for. On Windows, set `PYTHONIOENCODING=utf-8` before
+the report modes of `check_claims.py`.
 
 Two of those gates carry ratchets that **may not grow** — the value-matched register and the
 deferred register. If your change raises either, the fix is to cite the figure, not to raise the
@@ -115,23 +124,42 @@ Public classes and functions need Google-style docstrings with `Args:` / `Return
 They are held to one extra step, and it is a step rather than an aspiration:
 
 **A change to any of them ends with a cold read, by somebody who did not write the change.**
-The procedure, the two triggers, what the reader may fix rather than report, and what one round of
-it costs are in [docs/SECOND-READER.md](docs/SECOND-READER.md). The short version:
+The procedure, the two triggers, the hand-off and what one round of it costs are in
+[docs/SECOND-READER.md](docs/SECOND-READER.md). The short version:
 
-1. Cold-read the user-facing files this change touched — given the document and the gates only, ask
-   what would have to be true for it to be wrong.
-2. Cold-read one user-facing file the change did *not* touch, from the rotation in that page. Just
-   under half of the first pass's findings were in files nobody had edited, which is why this half
-   of the trigger exists.
-3. Report each finding with the command that refutes it and one of three dispositions: **fixed**,
-   **blocked on a named decision**, or **permanent, and here is why**.
+1. Ask whether a cold read is due, and do not answer from memory:
+
+   ```bash
+   python tools/second_reader.py --trigger   # the user-facing files in your working tree
+   python tools/second_reader.py --open      # findings nobody has applied yet
+   python tools/second_reader.py --check     # the gate over the ledger and the policy page
+   ```
+
+   `--trigger` reads the **working tree**, not committed history, because the cold read happens
+   before the commit. The command it published for its first year read `<round-base>..HEAD` and
+   returned an empty list at the only moment it fires.
+
+2. Cold-read the files `--trigger` names — given the document and the gates only, ask what would have
+   to be true for it to be wrong.
+3. Cold-read the one file the rotation cursor points at. Just under half of the first pass's findings
+   were in files nobody had edited, which is why this half of the trigger exists.
+4. **Write every finding into [`docs/cold-reads.toml`](docs/cold-reads.toml). Do not fix anything.**
+   The reader reports and somebody else applies: `disposition = "fixed"` requires an `applied_by`,
+   and the gate refuses an `applied_by` equal to the reader who raised the finding. Each entry
+   carries the file, the line, the sentence quoted exactly, the command that refutes it, an owner and
+   one of **open**, **fixed**, **blocked on a named decision**, or **permanent, and here is why**.
+5. **Re-affirm every finding still open**, by pointing its `reviewed_in` at your read. A finding may
+   be open across two cold reads; on the third the gate refuses it and it has to be applied, blocked
+   or made permanent. That rule exists because a finding this project had already located, written
+   down and published stayed unaltered in three files for a full round.
 
 The four highest-yield checks, if you read nothing else: run every pasted output block, run every
 command a number is published beside, follow every "see X" pointer into X, and count both sides of
 every *all* / *every* / *only*. Each of those caught a live defect on the first pass.
 
-Nothing in CI enforces this yet, and `docs/SECOND-READER.md` says so under its own *How this fails*
-rather than in a footnote.
+`python tools/second_reader.py --check` enforces the *state* — the cursor, the rotation's coverage,
+the shape of every finding. **Nothing in CI enforces that a cold read happened**, and
+`docs/SECOND-READER.md` says so under its own *How this fails* rather than in a footnote.
 
 ## Changing the scoring function
 

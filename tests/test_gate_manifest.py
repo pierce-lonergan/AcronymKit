@@ -55,10 +55,11 @@ Nothing here reaches the network, opens a corpus, or edits the repository.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 import pytest
 
@@ -143,6 +144,11 @@ runs_on = "ubuntu-latest"
 environment = "only"
 step = "Do the thing"
 defect_class = "behaviour"
+cost_rank = 1
+blast_radius = "installed_behaviour"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = "the thing goes wrong and nothing says so"
 detects = "a thing going wrong"
 [gates.thing.mutation]
 kind = "manual"
@@ -397,12 +403,430 @@ edits = [ { file = "pyproject.toml", append = "\\n" } ]
         problems = _problems(write(text))
         assert any("A date with no run id" in p for p in problems), problems
 
+    def test_an_in_situ_date_with_no_commit_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # A run id says a demonstration happened. Only the commit says WHICH
+        # gate was demonstrated, and a register whose evidence cannot be tied to
+        # a tree is a register of claims about runs nobody can re-open.
+        text = _MINIMAL.replace(
+            'kind = "manual"',
+            'kind = "manual"\nverified_in_situ_on = 2026-08-24\nverified_in_situ_run = "1"',
+        )
+        problems = _problems(write(text))
+        assert any("no `verified_in_situ_commit`" in p for p in problems), problems
+
+    def test_an_in_situ_commit_that_is_not_a_commit_name_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        text = _MINIMAL.replace(
+            'kind = "manual"',
+            'kind = "manual"\nverified_in_situ_commit = "last tuesday"',
+        )
+        problems = _problems(write(text))
+        assert any("is not a commit name" in p for p in problems), problems
+
     def test_a_workflow_scanning_to_zero_jobs_is_refused(
         self, write: Callable[[str], object]
     ) -> None:
         # The failure that would make every rule above vacuously true.
         problems = _problems(write(_MINIMAL), {"w.yml": {"solo": ["Do the thing"]}, "z.yml": {}})
         assert any("scanned to ZERO jobs" in p for p in problems), problems
+
+
+# ---------------------------------------------------------------------------
+# the cost-if-inert ordering
+# ---------------------------------------------------------------------------
+_GATE_BODY = """environment = "only"
+step = "Do the thing"
+defect_class = "behaviour"
+cost_rank = {rank}
+blast_radius = "{blast}"
+silence = "{silence}"
+redundancy = "{redundancy}"
+cost_if_inert = "something breaks"
+detects = "a thing going wrong"
+"""
+
+
+def _ranked_pair(
+    first: Tuple[int, str, str, str],
+    second: Tuple[int, str, str, str],
+) -> str:
+    """Two gates with declared factors, so an inversion can be constructed."""
+    head, _, tail = _MINIMAL.partition("[gates.thing]")
+    body, _, coverage = tail.partition("[[defect_coverage]]")
+    del body
+    parts = [head]
+    for name, spec in (("first", first), ("second", second)):
+        rank, blast, silence, redundancy = spec
+        parts.append(f"[gates.{name}]\n")
+        parts.append(
+            _GATE_BODY.format(rank=rank, blast=blast, silence=silence, redundancy=redundancy)
+        )
+        parts.append(f'[gates.{name}.mutation]\nkind = "manual"\nreason = "not here"\n\n')
+    parts.append("[[defect_coverage]]")
+    parts.append(coverage.replace('caught_by = ["thing"]', 'caught_by = ["first"]'))
+    return "".join(parts)
+
+
+class TestTheCostRanking:
+    """``cost_rank`` is a total order derived from declared factors, or it is an opinion.
+
+    ``--check`` printed ``CARRYING IN-SITU EVIDENCE: 0 of 36`` on every CI run
+    for a phase. The line was honest and it was useless: it told a reader with
+    one afternoon nothing about which gate to fix. These tests are what stop the
+    replacement being a column of integers somebody nudges.
+    """
+
+    def test_a_ranked_pair_is_valid(self, write: Callable[[str], object]) -> None:
+        # The control. Without it every refusal below could be a refusal of
+        # anything at all in the two-gate register.
+        text = _ranked_pair(
+            (1, "published_numbers", "silent", "sole"), (2, "repository", "loud", "sole")
+        )
+        assert _problems(write(text)) == []
+
+    def test_an_unranked_gate_is_refused(self, write: Callable[[str], object]) -> None:
+        text = _MINIMAL.replace("cost_rank = 1\n", "")
+        problems = _problems(write(text))
+        assert any("permutation of 1..1" in p for p in problems), problems
+
+    def test_a_duplicate_rank_is_refused(self, write: Callable[[str], object]) -> None:
+        text = _ranked_pair(
+            (1, "published_numbers", "silent", "sole"), (1, "repository", "loud", "sole")
+        )
+        problems = _problems(write(text))
+        assert any("1 repeated [1]" in p for p in problems), problems
+
+    def test_a_gap_in_the_ranks_is_refused(self, write: Callable[[str], object]) -> None:
+        text = _ranked_pair(
+            (1, "published_numbers", "silent", "sole"), (3, "repository", "loud", "sole")
+        )
+        problems = _problems(write(text))
+        assert any("missing [2]" in p for p in problems), problems
+
+    def test_a_rank_that_inverts_its_own_factors_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # THE RULE THAT MAKES THE ORDERING FALSIFIABLE. Moving a gate up the
+        # list costs an argument about blast radius or silence, in a field,
+        # rather than a nudged integer.
+        text = _ranked_pair(
+            (1, "repository", "loud", "sole"),
+            (2, "published_numbers", "silent", "sole"),
+        )
+        problems = _problems(write(text))
+        assert any("may not invert the factors" in p for p in problems), problems
+
+    def test_silence_breaks_ties_within_one_blast_radius(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # A loud gate ranked above a silent one at the same blast radius is the
+        # D-058 lesson inverted: every one of those four defects was silent
+        # here and loud on a runner.
+        text = _ranked_pair(
+            (1, "installed_behaviour", "loud", "sole"),
+            (2, "installed_behaviour", "silent", "sole"),
+        )
+        problems = _problems(write(text))
+        assert any("may not invert the factors" in p for p in problems), problems
+
+    def test_redundancy_does_not_decide_the_order(self, write: Callable[[str], object]) -> None:
+        # DECLARED, PRINTED, AND DELIBERATELY OUT OF THE KEY. As a third
+        # lexicographic factor it ranked a resource-consistency check above the
+        # whole test suite, purely because the suite is partly duplicated.
+        text = _ranked_pair(
+            (1, "installed_behaviour", "silent", "partial"),
+            (2, "installed_behaviour", "silent", "sole"),
+        )
+        assert _problems(write(text)) == []
+
+    @pytest.mark.parametrize(
+        "field, value",
+        [
+            ("blast_radius", "catastrophic"),
+            ("silence", "quiet"),
+            ("redundancy", "none at all"),
+        ],
+    )
+    def test_an_unknown_factor_is_refused(
+        self, write: Callable[[str], object], field: str, value: str
+    ) -> None:
+        text = re.sub(rf'^{field} = ".*"$', f'{field} = "{value}"', _MINIMAL, flags=re.M)
+        problems = _problems(write(text))
+        assert any(f"{field} {value!r} is not one of" in p for p in problems), problems
+
+    def test_a_gate_with_no_cost_if_inert_is_refused(self, write: Callable[[str], object]) -> None:
+        text = _MINIMAL.replace('cost_if_inert = "the thing goes wrong and nothing says so"\n', "")
+        problems = _problems(write(text))
+        assert any("`cost_if_inert` is required" in p for p in problems), problems
+
+    def test_a_non_integer_rank_is_refused_at_load(self, tmp_path: Path) -> None:
+        path = tmp_path / "gates.toml"
+        path.write_text(_MINIMAL.replace("cost_rank = 1", 'cost_rank = "first"'), encoding="utf-8")
+        with pytest.raises(gates.GatesError, match="must be an integer"):
+            gates.load(path)
+
+
+# ---------------------------------------------------------------------------
+# the in-situ evidence quota
+# ---------------------------------------------------------------------------
+class TestTheInSituQuota:
+    """The quota is a ceiling on the DEBT, and every test here is about why.
+
+    A floor on the coverage count is satisfied by a round that adds five gates
+    and demonstrates none: ``13 of 36`` becomes ``13 of 41``, the floor holds,
+    and the register reports health while going backwards. A ceiling on
+    ``gates - in_situ`` cannot be satisfied that way, and the first test below
+    is that exact round being refused.
+    """
+
+    @staticmethod
+    def _manifest(write: Callable[[str], object], gate_count: int, evidenced: int) -> object:
+        """A register with ``gate_count`` gates, ``evidenced`` of them in situ."""
+        head, _, tail = _MINIMAL.partition("[gates.thing]")
+        _, _, coverage = tail.partition("[[defect_coverage]]")
+        parts = [head]
+        for index in range(gate_count):
+            parts.append(f"[gates.g{index}]\n")
+            parts.append(
+                _GATE_BODY.format(
+                    rank=index + 1,
+                    blast="installed_behaviour",
+                    silence="silent",
+                    redundancy="sole",
+                )
+            )
+            parts.append(f'[gates.g{index}.mutation]\nkind = "manual"\nreason = "not here"\n')
+            if index < evidenced:
+                parts.append(
+                    "verified_in_situ_on = 2026-08-25\n"
+                    'verified_in_situ_run = "1"\nverified_in_situ_commit = "abc1234"\n'
+                )
+            parts.append("\n")
+        parts.append("[[defect_coverage]]")
+        parts.append(coverage.replace('caught_by = ["thing"]', 'caught_by = ["g0"]'))
+        return write("".join(parts))
+
+    def test_a_round_that_adds_a_gate_without_evidence_cannot_satisfy_the_quota(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # THE FAILURE MODE THE QUOTA EXISTS FOR, and the one a coverage floor
+        # would wave through.
+        manifest = self._manifest(write, gate_count=11, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(label="after", gates=11, in_situ=5),
+            ),
+        )
+        assert any("in-situ debt ROSE" in p for p in problems), problems
+        assert any("may not satisfy this quota" in p for p in problems), problems
+
+    def test_a_round_that_adds_a_gate_with_its_evidence_is_accepted(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # The same edit, paid for. The debt holds at five and the round passes.
+        manifest = self._manifest(write, gate_count=11, evidenced=6)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(
+                    label="after",
+                    gates=11,
+                    in_situ=6,
+                    run="1",
+                    commit="abc1234",
+                    waiver="the debt held flat rather than falling",
+                ),
+            ),
+            top_ranks=0,
+        )
+        assert problems == [], problems
+
+    def test_a_debt_that_rises_is_refused_even_with_a_waiver(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # NOT WAIVABLE, on purpose. Every other rule here has a named escape.
+        manifest = self._manifest(write, gate_count=11, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(label="after", gates=11, in_situ=5, waiver="we were busy"),
+            ),
+        )
+        assert any("in-situ debt ROSE" in p for p in problems), problems
+
+    def test_a_round_below_the_quota_with_no_waiver_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        manifest = self._manifest(write, gate_count=10, evidenced=6)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(label="after", gates=10, in_situ=6, run="1", commit="abc1234"),
+            ),
+            quota=3,
+            top_ranks=0,
+        )
+        assert any("against a quota of 3" in p for p in problems), problems
+
+    def test_the_same_round_with_a_waiver_is_accepted(self, write: Callable[[str], object]) -> None:
+        manifest = self._manifest(write, gate_count=10, evidenced=6)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(
+                    label="after",
+                    gates=10,
+                    in_situ=6,
+                    run="1",
+                    commit="abc1234",
+                    waiver="the demonstrable set is exhausted; the next payment is an extraction",
+                ),
+            ),
+            quota=3,
+            top_ranks=0,
+        )
+        assert problems == [], problems
+
+    def test_new_evidence_with_no_run_id_is_refused(self, write: Callable[[str], object]) -> None:
+        manifest = self._manifest(write, gate_count=10, evidenced=9)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(label="after", gates=10, in_situ=9),
+            ),
+            top_ranks=0,
+        )
+        assert any("names no run id and commit" in p for p in problems), problems
+
+    def test_evidence_deleted_without_a_waiver_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        manifest = self._manifest(write, gate_count=6, evidenced=3)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(label="after", gates=6, in_situ=3),
+            ),
+            top_ranks=0,
+        )
+        assert any("in-situ evidence fell from 5 to 3" in p for p in problems), problems
+
+    def test_paying_the_quota_by_deleting_a_check_needs_a_sentence(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # Removing an undemonstrated gate lowers `gates - in_situ` exactly as
+        # demonstrating one does, and no arithmetic can tell paying a debt from
+        # repudiating it. This is the one rule that asks for prose instead.
+        manifest = self._manifest(write, gate_count=6, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(label="after", gates=6, in_situ=5),
+            ),
+            top_ranks=0,
+        )
+        assert any("the register shrank from 10 to 6" in p for p in problems), problems
+
+    def test_a_trajectory_that_disagrees_with_the_live_register_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # THE COUPLING. Editing the register without appending a round reddens
+        # `--check` immediately, which is what makes the trajectory a fact about
+        # the tree rather than a note beside it.
+        manifest = self._manifest(write, gate_count=10, evidenced=8)
+        problems = gates.in_situ_problems(
+            manifest,
+            (gates.InSituRound(label="stale", gates=9, in_situ=8, run="1", commit="abc1234"),),
+            top_ranks=0,
+        )
+        assert any("says the register holds 9 gate(s); it holds 10" in p for p in problems), (
+            problems
+        )
+
+    def test_a_trajectory_that_overstates_the_evidence_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        manifest = self._manifest(write, gate_count=10, evidenced=4)
+        problems = gates.in_situ_problems(
+            manifest,
+            (gates.InSituRound(label="stale", gates=10, in_situ=8, run="1", commit="abc1234"),),
+            top_ranks=0,
+        )
+        assert any("says 8 gate(s) carry in-situ evidence; 4 do" in p for p in problems), problems
+
+    def test_the_top_of_the_ranking_must_carry_evidence(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # Ranking the gates and then demonstrating whichever were easiest to
+        # mutate is the failure this whole exercise is about.
+        manifest = self._manifest(write, gate_count=10, evidenced=0)
+        problems = gates.in_situ_problems(
+            manifest,
+            (gates.InSituRound(label="only", gates=10, in_situ=0),),
+            top_ranks=2,
+        )
+        named = [p for p in problems if "by cost-if-inert" in p]
+        assert len(named) == 2, problems
+        assert "gates.g0" in named[0] and "gates.g1" in named[1]
+
+    def test_an_empty_trajectory_is_refused(self, write: Callable[[str], object]) -> None:
+        manifest = self._manifest(write, gate_count=2, evidenced=2)
+        problems = gates.in_situ_problems(manifest, ())
+        assert any("IN_SITU_TRAJECTORY is empty" in p for p in problems), problems
+
+    def test_duplicate_round_labels_are_refused(self, write: Callable[[str], object]) -> None:
+        manifest = self._manifest(write, gate_count=2, evidenced=2)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="same", gates=2, in_situ=2, run="1", commit="abc1234"),
+                gates.InSituRound(label="same", gates=2, in_situ=2, run="1", commit="abc1234"),
+            ),
+            quota=0,
+            top_ranks=0,
+        )
+        assert any("two rounds labelled" in p for p in problems), problems
+
+    def test_a_demonstrable_gate_with_no_evidence_is_a_debt_rather_than_a_limit(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # An `automated` gate is one whose own command a runner can invoke
+        # today, so "we have not" and "we cannot" are different answers and the
+        # register has to give the first one.
+        head, _, tail = _MINIMAL.partition("[gates.thing]")
+        _, _, coverage = tail.partition("[[defect_coverage]]")
+        text = (
+            head
+            + "[gates.runnable]\n"
+            + _GATE_BODY.format(
+                rank=1, blast="repository", silence="loud", redundancy="sole"
+            ).replace('step = "Do the thing"', 'step = "Do the thing"\ncommand = "python -c pass"')
+            + '[gates.runnable.mutation]\nkind = "automated"\nexpect = "fail"\n'
+            + 'artifact = "a.log"\nedits = [ { file = "README.md", append = "x" } ]\n\n'
+            + "[[defect_coverage]]"
+            + coverage.replace('caught_by = ["thing"]', 'caught_by = ["runnable"]')
+        )
+        manifest = write(text)
+        problems = gates.in_situ_problems(
+            manifest,
+            (gates.InSituRound(label="only", gates=1, in_situ=0),),
+            top_ranks=0,
+        )
+        assert any("this harness can mutate carry no in-situ evidence" in p for p in problems), (
+            problems
+        )
 
     def test_a_manifest_with_no_manifest_table_is_refused(self, tmp_path: Path) -> None:
         path = tmp_path / "gates.toml"

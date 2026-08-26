@@ -231,10 +231,31 @@ jobs:
           python -m pip install --quiet build
           python -m pip install --quiet -e ".[dev]"
       - name: Reintroduce each historical breakage against a real sdist
+        # THE `| tee` HERE SWALLOWED A NON-ZERO EXIT AND IS GONE.
+        #
+        # GitHub's default shell for `run:` on Linux is `bash -e {0}`. `-e` is
+        # set; `pipefail` is NOT. The exit status of `a | tee b` is tee's, so
+        # this step reported success on 2026-08-25 while
+        # `gate_packaging_mutation.py` was returning 1 -- every one of its six
+        # sdist builds had failed, its own control was void, and it printed
+        # `0 of 5` twice. The whole workflow was green.
+        #
+        # That is a check that could not fail in the environment where it ran,
+        # introduced by the workflow built to catalogue exactly that shape, and
+        # it is the fifth instance in this repository. The redirect below keeps
+        # the artifact and keeps the exit code; `cat` puts the summary back in
+        # the log where a reader expects it.
+        #
+        # `status=$?` on its own line would never run under `-e`: the shell
+        # aborts on the failing command first. `|| status=$?` is the form that
+        # survives errexit, and it is why this is four lines rather than one.
         run: |
           mkdir -p artifacts/packaging
+          status=0
           python tools/gate_packaging_mutation.py --out artifacts/packaging \
-            | tee artifacts/packaging/summary.txt
+            > artifacts/packaging/summary.txt || status=$?
+          cat artifacts/packaging/summary.txt
+          exit $status
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
@@ -258,3 +279,30 @@ jobs:
         # written it was ZERO, and a register that only reports its good totals
         # is the document this repository keeps finding stale.
         run: python tools/gates.py --list
+
+      - name: Print the cost ranking, worst first
+        # WHICH GATE TO FIX, not how many are unfixed. A count told a reader
+        # with one afternoon nothing; this orders every gate by what it costs
+        # if it silently stops working, and marks the ones that have never been
+        # demonstrated where they run.
+        run: python tools/gates.py --ranking
+
+      - name: How to record what this run demonstrated
+        # THE HARVEST STEP, AND IT EXISTS BECAUSE THE FIRST RUN WAS NOT
+        # HARVESTED. This workflow ran green on 2026-08-25, uploaded all five
+        # artifact bundles, and `--check` went on printing `0 of 36` for a
+        # phase afterwards because nobody wrote the run id into the register.
+        # Evidence that is produced and not recorded is evidence nobody has.
+        run: |
+          echo "This run: ${{ github.run_id }} at commit ${{ github.sha }}"
+          echo
+          echo "For every gate this run reported \`demonstrated\`, add to its"
+          echo "[gates.<id>.mutation] table in .github/gates.toml:"
+          echo
+          echo "  verified_in_situ_on = $(date -u +%Y-%m-%d)"
+          echo "  verified_in_situ_run = \"${{ github.run_id }}\""
+          echo "  verified_in_situ_commit = \"$(git rev-parse --short=7 HEAD)\""
+          echo
+          echo "Then append an InSituRound to IN_SITU_TRAJECTORY in tools/gates.py."
+          echo "tools/gates.py --check refuses the register until you do, and it"
+          echo "refuses a round that raises the in-situ debt."

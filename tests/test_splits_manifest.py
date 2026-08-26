@@ -64,9 +64,11 @@ happens before the path is resolved.
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import importlib.util
 import io
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -1125,6 +1127,133 @@ class TestTheValidatorCatchesWhatItClaimsTo:
         assert [corpus.name for corpus in control.headline_capable("extraction")] == ["example"], (
             "the control is not headline-capable either, so the exclusion above "
             "is a property of the fixture rather than of the role"
+        )
+
+    def test_the_never_headline_filter_fires_in_a_shipped_command_that_never_validates(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        """**The reason the inner filter is not dead code, run through the CLI.**
+
+        D-063 disclosed that under the shipped ``[policy] headline_requires =
+        "held_out"`` the never-headline filter inside ``headline_capable``
+        evaluates **zero times**, and that *the braces have only ever fired in a
+        test*. The test above is that test: it builds a :class:`Manifest` and
+        calls the method. It proves the rule and it does not prove the rule is
+        reachable from anything a person runs.
+
+        This one closes that. ``python tools/splits.py --json`` returns before
+        :func:`validate` is ever called -- read :func:`main`: ``--json`` prints
+        :func:`as_dict` and returns ``0``, and ``problems = validate(manifest)``
+        is three lines further down. :func:`as_dict` calls
+        ``headline_capable`` for every task. So a manifest whose ``[policy]``
+        the validator would refuse still renders a headline-capable list, at
+        ``rc=0``, in a shipped command -- and the inner filter is the only rule
+        standing between that list and a self-adjudicated corpus.
+
+        The fixture is uncontaminated for the reason the test above gives, and
+        here it matters more: on the **real** manifest the one
+        ``single_annotator_reference`` corpus is also ``contaminated = true``,
+        so deleting the role filter changes no output there under any policy at
+        all. That masking is measured in the test below. A corpus in this role
+        that nobody has read the misses of yet is the case where this filter is
+        the only rule left, and it is the case a fresh single-adjudicator pilot
+        produces.
+        """
+        body = _single_annotator(contaminated=False).replace(
+            'headline_requires = "held_out"',
+            'headline_requires = "single_annotator_reference"',
+        )
+        path = _write(tmp_path, body)
+
+        assert splits.main(["--json", "--path", str(path)]) == 0, (
+            "--json refused a manifest it does not validate; the premise of this test is gone"
+        )
+        rendered = json.loads(capsys.readouterr().out)
+
+        assert rendered["policy"]["headline_requires"] == "single_annotator_reference", (
+            "the mutation did not take; this test proves nothing"
+        )
+        assert rendered["corpora"]["example"]["contaminated"] is False, (
+            "the fixture is contaminated, so an exclusion below is not the role's"
+        )
+        assert rendered["corpora"]["example"]["task"] == "extraction"
+        for task in splits.TASKS:
+            assert rendered["headline_capable"][task] == [], task
+
+        # The control, and it is the half that makes the empty lists mean
+        # something: the same fixture, the same unvalidated command, the role
+        # and the policy agreeing on a role that is *not* never-headline, and
+        # the corpus appears. Without it, four empty lists are equally
+        # consistent with `--json` never rendering anything.
+        control = _write(
+            tmp_path / "control",
+            _single_annotator(contaminated=False).replace(
+                'role = "single_annotator_reference"', 'role = "held_out"'
+            ),
+        )
+        assert splits.main(["--json", "--path", str(control)]) == 0
+        assert json.loads(capsys.readouterr().out)["headline_capable"]["extraction"] == ["example"]
+
+    def test_the_role_filter_changes_no_output_on_the_shipped_manifest(
+        self, manifest: object
+    ) -> None:
+        """**R12's firing count for the never-headline filter, on real data.**
+
+        D-063 reported zero firings under the shipped policy and attributed it
+        to ``with_role`` excluding the corpus upstream. That is true and it is
+        not the whole reason. Re-derived here across **every** value
+        :data:`ROLES` admits, not just the shipped one:
+
+        * ``headline_requires = "held_out"``   -- the filter is evaluated for
+          each held-out corpus and each task, and returns ``False`` **never**.
+        * ``headline_requires = "tuning"``     -- same, ``False`` **never**.
+        * ``headline_requires = "single_annotator_reference"`` -- the filter
+          returns ``False`` every time, and **the result is identical either
+          way**, because ``federal_register_rules_2024q1`` is also
+          ``contaminated = true`` and the contamination rule excludes it on its
+          own.
+
+        So on the shipped manifest the braces are redundant three ways rather
+        than the one D-063 named, and this test pins that rather than letting
+        the next reader believe the filter is load-bearing on real data. It
+        recomputes ``headline_capable`` with the role filter dropped -- in the
+        test, not by mutating the source -- and asserts the two agree.
+
+        **The day it stops agreeing is the day this test earns its keep.** A
+        ``single_annotator_reference`` corpus registered uncontaminated -- a
+        fresh pilot whose misses nobody has analysed yet -- makes the role
+        filter the only rule left, and this assertion is what says so.
+        """
+        for role in splits.ROLES:
+            probe = dataclasses.replace(
+                manifest,  # type: ignore[type-var]
+                policy=dataclasses.replace(manifest.policy, headline_requires=role),  # type: ignore[attr-defined]
+            )
+            for task in splits.TASKS:
+                wanted = {corpus.name for corpus in probe.with_task(task)}
+                without_the_role_filter = tuple(
+                    corpus
+                    for corpus in probe.with_role(role)
+                    if not corpus.contaminated and corpus.name in wanted
+                )
+                assert probe.headline_capable(task) == without_the_role_filter, (
+                    f"the never-headline filter now changes the answer for role={role!r} "
+                    f"task={task!r}. That is not a failure -- it means a corpus in a "
+                    "NEVER_HEADLINE role is no longer excluded by anything else, so the "
+                    "filter is now the only rule between it and a headline slot. Confirm "
+                    "that is intended, then update this test and D-063's firing count."
+                )
+
+        never_headline = [
+            corpus
+            for name in manifest.names  # type: ignore[attr-defined]
+            for corpus in [manifest.corpora[name]]  # type: ignore[attr-defined]
+            if corpus.role in splits.NEVER_HEADLINE_ROLES
+        ]
+        assert never_headline, "no corpus holds a never-headline role; this test measures nothing"
+        assert all(corpus.contaminated for corpus in never_headline), (
+            "a never-headline corpus is uncontaminated, which is exactly the case the "
+            "assertion above says makes the role filter load-bearing"
         )
 
     def test_every_never_headline_role_is_a_role(self) -> None:

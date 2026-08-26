@@ -1,0 +1,253 @@
+# The cold-read ledger: what every second reader found, and what happened to it.
+#
+# ---------------------------------------------------------------------------
+# WHY THIS FILE EXISTS
+# ---------------------------------------------------------------------------
+# `docs/SECOND-READER.md` section 5 said, in a sentence, that a cold reader who
+# starts editing another workstream's page "stops being cold and starts being a
+# seventh author of it". On the policy's first execution the reader edited a
+# page another workstream had written that same round, and flagged itself for
+# doing so. THE SENTENCE DID NOT HOLD IT, AND IT WOULD NOT HOLD IT NEXT TIME.
+#
+# So the boundary is here instead of there. The reader's whole output is this
+# file. `disposition = "fixed"` requires an `applied_by` that is NOT the reader
+# who raised the finding, so a reader cannot close its own finding by editing
+# prose -- closing takes a second name. That is the read-only half.
+#
+# The other half is the one that actually decides whether this is worth doing.
+# A read-only reviewer whose findings rot is worse than one who fixes things,
+# and this repository has the measurement: the first pass found two pages
+# claiming the air-gap job drives "every CLI subcommand" while the probe drives
+# thirteen of the sixteen, and one round later it was unaltered in all three
+# places -- AFTER somebody had found it and written down where it is. The rule
+# that answers that is in `tools/second_reader.py`:
+#
+#   * a finding is born `open`;
+#   * an `open` finding is re-affirmed at EVERY cold read (`reviewed_in` names
+#     the newest read), which costs one field and cannot be forgotten quietly;
+#   * an `open` finding may survive at most OPEN_READ_LIMIT reads. On the next
+#     one it is `fixed`, or `blocked` naming a decision, or `permanent` naming a
+#     reason (R14). It never stops being a finding. It stops being silent.
+#
+# Nothing here forces anybody to apply anything. A reader who could assign work
+# to strangers would be authoring by another route.
+#
+# ---------------------------------------------------------------------------
+# HOW TO ADD TO IT
+# ---------------------------------------------------------------------------
+#   python tools/second_reader.py --trigger   # the files this round touched
+#   python tools/second_reader.py --open      # the apply worklist
+#   python tools/second_reader.py --check     # the gate; run it after editing
+#
+# `--check` is validated by `tests/test_second_reader_policy.py`, which
+# mutation-tests every rule below rather than asserting that they hold.
+#
+# ---------------------------------------------------------------------------
+# WHAT IS TRANSCRIBED HERE AND WHAT WAS RE-DERIVED
+# ---------------------------------------------------------------------------
+# Both recorded reads predate this file, so their headers are TRANSCRIBED from
+# `docs/DECISIONS.md` (D-060, D-072) and from section 8 of the policy page --
+# `transcribed_from` says so per read, and no cold read is claimed that did not
+# happen. Every FINDING below was re-run on the tree of 2026-08-25 before being
+# entered; the `refutation` field is the command that was actually executed, not
+# the command the earlier record published. One of the earlier published
+# refutations does not refute what it was published beside, and the corrected
+# one is in F-2026-08-25-02.
+#
+# There is no `fixed` finding here, and `--check` prints that count on every run
+# rather than leaving the absence to be noticed. The six fixes the second read
+# shipped were made by the reader itself under the superseded section 5 fix
+# clause; entering them as `fixed` would require naming that reader as
+# `applied_by`, which the rule above refuses on purpose. They are described in
+# reads[1].note instead of being re-shaped to fit.
+
+[ledger]
+schema_version = 1
+policy = "docs/SECOND-READER.md"
+
+
+# ===========================================================================
+# READS
+# ===========================================================================
+
+[[reads]]
+id = "2026-08-24"
+reader = "cold-read-1"
+rotation_served = ""
+cursor_after = "docs/GOVERNED_NAMING.md"
+covered = ["README.md", "docs/EVALUATION.md"]
+transcribed_from = "docs/DECISIONS.md D-060; docs/SECOND-READER.md sections 4.2, 6 and 7"
+note = """
+Trigger B did not fire because it did not yet exist: this pass WROTE the policy,
+and the rotation set is a list it assembled from what it had already read. It
+covered four files no workstream had touched -- docs/OFFLINE.md,
+docs/SUPPORT_MATRIX.md, docs/ENTERPRISE.md and CONTRIBUTING.md -- which is the
+count that bought trigger B, and it is why `rotation_served` is empty rather
+than naming one of them. The cursor it left was set by hand.
+
+Fifteen findings, six of them material errors of fact in user-facing prose,
+three fixed in the same commit. Only the ones still live on 2026-08-25 are
+carried below; a ledger that re-lists closed findings is a changelog.
+"""
+
+[[reads]]
+id = "2026-08-25"
+reader = "cold-read-2"
+rotation_served = "docs/GOVERNED_NAMING.md"
+cursor_after = "docs/SUPPORT_MATRIX.md"
+covered = ["README.md", "docs/POSITIONING.md", "pyproject.toml", "docs/GOVERNED_NAMING.md"]
+transcribed_from = "docs/DECISIONS.md D-072; docs/SECOND-READER.md section 8"
+note = """
+First execution as policy rather than as a one-off. Trigger B served the file
+the previous cursor pointed at, which is the property `tools/second_reader.py`
+now checks rather than hopes for.
+
+Six fixes shipped in the same commit, by this reader: the README's honest-scope
+bullet about the empty catalog; "eight criteria ... and the ninth" corrected to
+fourteen and the tenth; "one structural count is left" corrected to three; a
+false sentence in docs/POSITIONING.md about inferred catalogs; "seven
+implementations, one algorithm" corrected in two files to five implementations
+at seven operating points; and SCAN_GLOBS corrected from six patterns to seven.
+D-072 ruled that three of the four edits to docs/POSITIONING.md were inside the
+then-current fix clause and the fourth was authoring. Under the schema that now
+governs, none of them could be entered as `fixed`, because `applied_by` would be
+this reader. That is the change, stated where it is visible rather than argued.
+
+It also found three defects in the policy itself. Two are closed by
+`tools/second_reader.py` and by the section 3 rewrite: the trigger command that
+returned nothing at the moment it fires, and the cursor rule nobody could
+compute. The third -- that "report everything else" produced no fix -- is what
+this file is for, and the findings below are the test of whether it works.
+"""
+
+
+# ===========================================================================
+# FINDINGS
+# ===========================================================================
+# Each carries the file and line, the sentence quoted exactly, the command or
+# reading that refutes it, and a disposition. That is section 5's shape, made
+# into a schema so that a missing half is a red build rather than a habit.
+
+[[findings]]
+id = "F-2026-08-24-01"
+raised_in = "2026-08-24"
+reviewed_in = "2026-08-25"
+file = "docs/OFFLINE.md"
+line = 25
+quote = "public API and every CLI subcommand inside a routeless network namespace"
+refutation = """
+grep -c '\\.command(' src/acronymkit/cli.py  ->  16
+The probe's own list, in .github/workflows/ci.yml under `invocations = [`, names
+13 distinct subcommands. Absent: normalize-name, governed-batch, governed-audit.
+Re-derived on 2026-08-25 from the two files, not carried from D-072.
+"""
+owner = "unowned"
+disposition = "open"
+
+[[findings]]
+id = "F-2026-08-24-02"
+raised_in = "2026-08-24"
+reviewed_in = "2026-08-25"
+file = "docs/OFFLINE.md"
+line = 150
+quote = "the whole public API plus every CLI subcommand inside"
+refutation = """
+Same two commands as F-2026-08-24-01. This is the second copy of the claim in
+the same file, which is why it is a separate entry: a fix that repairs one line
+and not the other leaves the page half true, and the ledger should say so.
+"""
+owner = "unowned"
+disposition = "open"
+
+[[findings]]
+id = "F-2026-08-24-03"
+raised_in = "2026-08-24"
+reviewed_in = "2026-08-25"
+file = "docs/ENTERPRISE.md"
+line = 111
+quote = "the whole public API plus every CLI subcommand inside `unshare -n`"
+refutation = """
+git grep -n 'every CLI subcommand' -- docs   ->  still present here on 2026-08-25
+grep -c '\\.command(' src/acronymkit/cli.py  ->  16, against 13 driven
+This is the third place, in a second file, one round after it was written down.
+"""
+owner = "unowned"
+disposition = "open"
+
+[[findings]]
+id = "F-2026-08-24-04"
+raised_in = "2026-08-24"
+reviewed_in = "2026-08-25"
+file = "docs/OFFLINE.md"
+line = 53
+quote = "All 27 shipped modules under `src/acronymkit/` were compiled"
+refutation = """
+find src/acronymkit -name '*.py' | wc -l   ->  40
+Re-run on 2026-08-25. Either the scan covered 27 of 40 modules, or the sentence
+is counting something it does not name; both are defects and the page picks
+neither.
+"""
+owner = "unowned"
+disposition = "open"
+
+[[findings]]
+id = "F-2026-08-24-05"
+raised_in = "2026-08-24"
+reviewed_in = "2026-08-25"
+file = "docs/SUPPORT_MATRIX.md"
+line = 39
+quote = "All of `generate`, `backronym`, `synthesize`, `extract`, `score`, `tokens`, `schema`, `doctor`, `version`"
+refutation = """
+grep -c '\\.command(' src/acronymkit/cli.py  ->  16
+Nine named under an exhaustive word, on a sixteen-command CLI. The seven the
+sentence does not reach are the governed half -- expand-token,
+expand-identifier, physical-name, normalize-name, check-name, governed-batch,
+governed-audit -- which is the half docs/POSITIONING.md commits the library to
+leading with. This file is also where the rotation cursor now points, so the
+next cold read serves the page this finding is in.
+"""
+owner = "unowned"
+disposition = "open"
+
+[[findings]]
+id = "F-2026-08-25-01"
+raised_in = "2026-08-25"
+reviewed_in = "2026-08-25"
+file = "src/acronymkit/__init__.py"
+line = 1
+quote = "acronymkit - bi-directional, multi-tiered acronym engine."
+refutation = """
+sed -n '1,3p' src/acronymkit/__init__.py  ->  lines 1 and 3 still open with two
+of the three sentences docs/POSITIONING.md quotes verbatim as retired, and this
+file is inside tools/check_claims.py's SCAN_GLOBS. Re-checked 2026-08-25.
+"""
+owner = "unowned"
+disposition = "blocked"
+blocked_on = """
+Ownership. D-070's own How it fails records the disposition as blocked on
+ownership: it is one edit in a source file, and it has survived two workstreams
+because neither was assigned it. It is not blocked on knowing what to write.
+"""
+
+[[findings]]
+id = "F-2026-08-25-02"
+raised_in = "2026-08-25"
+reviewed_in = "2026-08-25"
+file = "docs/GOVERNED_NAMING.md"
+line = 1022
+quote = "No policy, argument or code path shortens a name or drops a token."
+refutation = """
+PYTHONIOENCODING=utf-8 PYTHONPATH=src python -c "from acronymkit.governed import
+normalize, GovernedDictionary as D; print(ascii(normalize('TXN_\\xa9_ID', D())),
+ascii(normalize('\\u33a1', D())))"   ->  'TXN_ID' ''
+
+A token vanishes and a whole name vanishes, with no signal, on the `normalize`
+path. THE PUBLISHED REFUTATION WAS NOT THIS ONE. D-072 records that the two
+commands the second read published beside this finding -- the ASCII spellings
+`(c)` and `(square-m)` -- do not refute it: they return 'TXN_C_ID' and
+'SQUARE_M'. Both were re-run here and both reproduce as D-072 says. The finding
+is real; it holds for the copyright SIGN and the CJK compatibility square, and
+the entry above is the corrected command.
+"""
+owner = "unowned"
+disposition = "open"

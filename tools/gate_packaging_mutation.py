@@ -311,7 +311,23 @@ def measure_one(case: str, base: Path, work: Path, python: str) -> Dict[str, Any
 
     record: Dict[str, Any] = {"case": case, "label": label, "fixed_in": fixed_in}
     started = time.time()
-    rc, out = _run([python, "-m", "build", "--sdist", "--no-isolation", "--outdir", "dist"], tree)
+    # THE COMMAND IS THE GATE'S COMMAND, AND IT DID NOT USED TO BE.
+    #
+    # This line read `--no-isolation` until the first CI run of
+    # `gate-mutation.yml` was read. `ci.yml`'s `build` job and its
+    # `installed-suite` job both run a plain `python -m build`, with isolation,
+    # so `--no-isolation` was the reproduction drifting from the thing it
+    # reproduces -- the exact cost `.github/gates.toml` records beside
+    # `gates.installed_expected_non_passing` and `gates.sdist_file_list`,
+    # realised.
+    #
+    # It cost the whole measurement. A developer machine has `setuptools`
+    # installed, so the isolated backend was never needed there; a GitHub
+    # runner on 3.12 does not, and every one of the six builds died with
+    # `BackendUnavailable: Cannot import 'setuptools.build_meta'`. All five
+    # historical breakages came back `0 of 5` against a void control, and the
+    # job reported success -- see the `| tee` in `gate-mutation.yml`.
+    rc, out = _run([python, "-m", "build", "--sdist", "--outdir", "dist"], tree)
     if rc != 0:
         record["sdist_build"] = {"rc": rc, "tail": out[-3000:]}
         record["verdict"] = "SDIST BUILD FAILED"
@@ -443,6 +459,26 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     (args.out / "results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
     if temp is not None:
         shutil.rmtree(temp, ignore_errors=True)
+    unbuilt = sorted(
+        case
+        for case, record in results.items()
+        if isinstance(record, dict) and record.get("verdict") == "SDIST BUILD FAILED"
+    )
+    if unbuilt:
+        # A CASE THAT COULD NOT BE BUILT IS NOT A CASE THAT WAS MEASURED, and
+        # the first CI run of this script is why that is stated separately from
+        # the control check below. Every one of the six builds failed there, the
+        # table printed `0 of 5` twice, and the run was green -- so the number a
+        # reader would have taken from it was not merely wrong, it was a number
+        # about nothing at all.
+        print(
+            f"\n{len(unbuilt)} case(s) never produced an sdist: {unbuilt}. "
+            "The tail of each is in results.json. Nothing in the table above is a "
+            "measurement of packaging coverage; it is a measurement of a build that "
+            "did not happen.",
+            file=sys.stderr,
+        )
+        return 1
     if not control_clean:
         print(
             "\nThe control is the whole basis of the table. A broken checkout produces five "

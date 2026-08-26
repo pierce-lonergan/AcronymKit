@@ -66,14 +66,65 @@
 # `reason`, and `--check` prints the counts whether they flatter or not.
 #
 # ---------------------------------------------------------------------------
-# THE STATE ON THE DAY THIS WAS WRITTEN, STATED BEFORE ANYONE HAS TO ASK
+# WHAT `cost_rank` MEANS, AND WHY IT IS A FIELD RATHER THAN A PARAGRAPH
 # ---------------------------------------------------------------------------
-# ZERO gates carry in-situ evidence. Not one. The mutations below were run on a
-# developer machine, which is precisely the evidence R11 says does not count,
-# and the summary line of `--check` prints that count on every CI run so it
-# cannot be quietly read past. The first scheduled run of
-# `.github/workflows/gate-mutation.yml` is what changes it, and every
-# `verified_in_situ_on` here is empty until a run id can be written beside it.
+# `--check` printed `CARRYING IN-SITU EVIDENCE: 0 of 36` on every CI run for a
+# phase. The line was honest and it was useless: it told a reader with one
+# afternoon nothing about WHICH gate to fix. So every gate now carries a total
+# order, and the order is derived rather than asserted:
+#
+#   blast_radius  how far the damage travels if this gate silently stops
+#                 working, worst first: published_numbers, installed_behaviour,
+#                 release_provenance, distribution_contents, evidence_apparatus,
+#                 repository.
+#   silence       how the failure announces itself TO THIS PROJECT if the gate
+#                 is inert: silent, delayed, loud. This is the D-058 axis -- all
+#                 four defects of that record were silent here and loud on a
+#                 runner -- and it is why a silent gate outranks a loud one at
+#                 the same blast radius.
+#   redundancy    whether another registered gate covers the same defect: sole,
+#                 partial, covered. DECLARED AND PRINTED, AND DELIBERATELY NOT
+#                 PART OF THE ORDER. As a third lexicographic key it ranked a
+#                 resource-consistency check above the whole test suite, purely
+#                 because the suite is partly duplicated by installed-suite. A
+#                 factor that decides ranks nobody would defend is worse than
+#                 one that informs them.
+#
+# `tools/gates.py --check` refuses a `cost_rank` that is not a permutation of
+# 1..36, and refuses one that inverts (blast_radius, silence). Ties on that key
+# are left free: inside one bucket the order is judgement, and `cost_if_inert`
+# is where the judgement is written down and can be argued with.
+#
+# THE MOST ATTACKABLE JUDGEMENT IN THE ORDERING, NAMED RATHER THAN BURIED:
+# every positive control is `evidence_apparatus` and therefore ranks in the
+# twenties, below gates whose defects reach a user. The argument is that a
+# rotted control is NECESSARY BUT NOT SUFFICIENT for the protected defect to
+# ship. A reader who holds that a control which has stopped controlling costs
+# exactly what the gate behind it costs is making an argument this ranking
+# rejects with a reason rather than by omission.
+#
+# ---------------------------------------------------------------------------
+# THE STATE, AND HOW IT CHANGED
+# ---------------------------------------------------------------------------
+# WRITTEN AT ZERO. Every mutation below was first run on a developer machine,
+# which is precisely the evidence R11 says does not count, and `--check` printed
+# `0 of 36` on every CI run so it could not be quietly read past.
+#
+# IT IS NOW 13 OF 36, AND THE EVIDENCE WAS NOT NEW WORK. `gate-mutation.yml`
+# HAD run -- once, on 2026-08-25, green, with all five artifact bundles
+# uploaded -- and nothing in this repository had ever looked at it. All 13
+# automated gates came back `demonstrated` on ubuntu-latest under CPython
+# 3.12. Each one now carries the date, the run id AND the commit, because a run
+# id says a demonstration happened and only the commit says which gate was
+# demonstrated.
+#
+# The 23 that remain are the 8 inline, 13 manual and 2 control refusals. None of
+# them is a gate this harness can mutate, so the next payment is not more of the
+# same: it is the heredoc extraction that would close three of the eight at
+# once. `IN_SITU_TRAJECTORY` in `tools/gates.py` is the ledger, and its quota is
+# a CEILING ON THE DEBT rather than a floor on the coverage count -- because a
+# floor is satisfied by a round that adds five gates and demonstrates none,
+# while `13 of 36` quietly becomes `13 of 41`.
 
 [manifest]
 schema_version = 1
@@ -365,6 +416,15 @@ environment = "lint"
 step = "Ruff"
 command = "python -m ruff check src tests tools bench"
 defect_class = "static_analysis"
+cost_rank = 35
+blast_radius = "repository"
+silence = "loud"
+redundancy = "sole"
+cost_if_inert = """
+Inert, lint violations accumulate across src, tests, tools and bench. Nothing ships wrong; the
+next person to run anything sees them. `bench` was outside this check for months and the cost of
+that was style, not correctness.
+"""
 detects = """
 Lint violations across src, tests, tools and bench. `bench` was outside the
 check for months while holding every benchmark runner -- the only writers of
@@ -375,6 +435,9 @@ kind = "automated"
 expect = "fail"
 artifact = "lint/ruff.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 note = """
 An unused import is the cheapest thing ruff must catch. The probe is a NEW file
 rather than an edit to an existing one, so a botched restore leaves an
@@ -389,6 +452,15 @@ environment = "lint"
 step = "Ruff format check"
 command = "python -m ruff format --check src tests tools bench"
 defect_class = "static_analysis"
+cost_rank = 36
+blast_radius = "repository"
+silence = "loud"
+redundancy = "sole"
+cost_if_inert = """
+The cheapest gate here if it stops working, and it is ranked last for that reason rather than
+because it is easy to mutate. Inert, formatting drifts. It is a formatter, not a style review,
+and it has never been the thing that caught a bad change.
+"""
 detects = "Formatting drift in src, tests, tools and bench."
 blind_to = """
 Everything ruff's formatter does not normalise. It is a formatter, not a style
@@ -399,6 +471,9 @@ kind = "automated"
 expect = "fail"
 artifact = "lint/ruff-format.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 note = """
 Single quotes are a formatting-only difference: the selected lint rules say
 nothing about quote style, so this probe separates the format gate from the
@@ -413,6 +488,15 @@ environment = "lint"
 step = "Mypy"
 command = "python -m mypy"
 defect_class = "static_analysis"
+cost_rank = 10
+blast_radius = "installed_behaviour"
+silence = "delayed"
+redundancy = "partial"
+cost_if_inert = """
+Inert at the wrong floor, a 3.10-only call ships and raises for a 3.9 caller -- which is the
+recorded instance, not a hypothetical. Delayed rather than silent because the 3.9 matrix cells
+did eventually catch it; they caught it after review, not before.
+"""
 detects = """
 Type errors in src/acronymkit, tools and bench, checked at the 3.9 floor that
 `requires-python` declares. The floor is the load-bearing half: five
@@ -431,6 +515,9 @@ kind = "automated"
 expect = "fail"
 artifact = "lint/mypy.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 note = """
 THIS IS THE DEFECT THAT SHIPPED, NOT A SYNTHETIC ONE. `Path.write_text` grew
 its `newline` parameter in 3.10. The probe fails only while
@@ -446,6 +533,15 @@ environment = "lint"
 step = "The train/test manifest parses, and every corpus cites its licence"
 command = "python tools/splits.py --check"
 defect_class = "claim_backing"
+cost_rank = 2
+blast_radius = "published_numbers"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Backs the DECLARATIONS every headline number stands on: role, task, licence, contamination, read
+date. Inert, a contaminated corpus can claim `held_out` and the number that comes out of it is
+published as held out. The figure looks identical either way; only this gate can tell.
+"""
 detects = """
 An invalid, incomplete or dishonest `bench/splits.toml`: a missing role, task
 or licence; a licence cited from a badge rather than from terms; a future read
@@ -457,6 +553,9 @@ kind = "automated"
 expect = "fail"
 artifact = "lint/splits.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 note = """
 Operating rule 4 in one edit: a badge URL in place of licence terms. This
 project has recorded a corpus as more permissive than it is three times, and
@@ -471,6 +570,15 @@ environment = "lint"
 step = "Every performance claim is backed by a measurement"
 command = "python tools/check_claims.py"
 defect_class = "claim_backing"
+cost_rank = 1
+blast_radius = "published_numbers"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Every published number in this repository is adjudicated here and nowhere else. Inert, an
+invented figure reads exactly like a measured one, ships in the sdist, and is quoted onward --
+and a governance instrument's numbers ARE its product. Nothing downstream re-derives them.
+"""
 detects = """
 A published number with no measurement behind it, plus two ratchets that may
 not grow: value-matched claims and the deferred ledger.
@@ -487,6 +595,9 @@ kind = "automated"
 expect = "fail"
 artifact = "lint/claims.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 note = """
 The probe appends an uncited figure to docs/GATES.md, which is inside
 `SCAN_GLOBS` and absent from both baselines -- so it is allowed zero and the
@@ -501,6 +612,16 @@ environment = "lint"
 step = "Every CI gate is registered, and says whether it has ever failed on purpose"
 command = "python tools/gates.py --check"
 defect_class = "environment_drift"
+cost_rank = 25
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+The one rule that checks this register against the tree rather than against itself. Inert, a job
+can be added, renamed or deleted and nobody is ever asked whether it can fail -- which is the
+state that produced the four defects of D-058. Nothing user-facing moves today; the next four
+rounds of defects are the cost.
+"""
 detects = """
 A job nobody registered; a gate pointing at a renamed step; a mutation with no
 edits or a refusal with no reason; a defect-coverage row naming a gate that
@@ -511,6 +632,9 @@ kind = "automated"
 expect = "fail"
 artifact = "lint/gate-manifest.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 note = """
 This is the level-1 mutation described in [manifest].stops_at, and the edit is
 chosen to hit the ONE rule that checks this file against the tree rather than
@@ -531,12 +655,23 @@ environment = "resources"
 step = "Validate resource file formats"
 command = "python tools/validate_resources.py --require"
 defect_class = "artifact_contents"
+cost_rank = 12
+blast_radius = "installed_behaviour"
+silence = "delayed"
+redundancy = "partial"
+cost_if_inert = """
+Inert, a malformed or empty bundled resource ships. It surfaces in the wheel jobs and in the
+suite rather than here, so the cost is a later red build rather than a silent wrong answer.
+"""
 detects = "A bundled resource that is malformed, empty, or absent."
 [gates.resource_formats.mutation]
 kind = "automated"
 expect = "fail"
 artifact = "resources/formats.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 edits = [
   { file = "src/acronymkit/resources/stopwords_fr.json", delete = true },
 ]
@@ -546,12 +681,24 @@ environment = "resources"
 step = "Assert committed n-gram models match the lexicons"
 command = "python tools/build_ngram_model.py --check"
 defect_class = "artifact_contents"
+cost_rank = 7
+blast_radius = "installed_behaviour"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, a committed model that no longer derives from its committed lexicon still returns scores.
+Every one of them is wrong and none of them is an error, which is the worst shape a resource
+defect takes.
+"""
 detects = "A committed n-gram model that no longer derives from the committed lexicon."
 [gates.ngram_matches_lexicon.mutation]
 kind = "automated"
 expect = "fail"
 artifact = "resources/ngram.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 edits = [
   { file = "src/acronymkit/resources/lexicon_en.txt", append = "zzzzqqqqxxxx\n" },
 ]
@@ -560,6 +707,14 @@ edits = [
 environment = "resources"
 step = "Assert the bundled schema copy matches the canonical one"
 defect_class = "artifact_contents"
+cost_rank = 6
+blast_radius = "installed_behaviour"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Two copies of one contract. Inert, the shipped validator accepts what the documented schema
+rejects, and a caller who wrote to the document is wrong in production with no error anywhere.
+"""
 detects = """
 Divergence between schemas/acronym-engine-result.schema.json and the copy
 bundled into the wheel. Two copies of one contract is how a shipped validator
@@ -586,6 +741,15 @@ environment = "test"
 step = "Test"
 command = "python -m pytest"
 defect_class = "behaviour"
+cost_rank = 3
+blast_radius = "installed_behaviour"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+The broadest behaviour check here, across fifteen matrix cells. Inert, a wrong answer ships and
+looks like a right one. Partly duplicated: `installed-suite` and `air-gap` run the same tests on
+one cell each, which is why this is not `sole` despite being the largest.
+"""
 detects = "Everything 4,734 tests assert, across fifteen matrix cells."
 blind_to = """
 Anything that needs a fetched corpus, which is the whole of `data/`. Also, on
@@ -597,6 +761,9 @@ on every runner.
 kind = "automated"
 expect = "fail"
 artifact = "test/suite.log"
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 note = """
 THE MOST IMPORTANT MUTATION IN THIS FILE, AND THE ONE THAT IS EXPECTED TO COME
 BACK `INERT` LOCALLY. It restores D-058's cause one exactly: a control asserting
@@ -618,6 +785,31 @@ aside between two runs of `pytest tests/test_splits_manifest.py`:
 
 Same tree, same suite, same defect, opposite verdicts. That is the whole of R11
 in one table, and it is the prediction `test-gates` exists to check in situ.
+
+THE PREDICTION WAS CHECKED AND IT HELD -- AND THE RUN FOUND SOMETHING THE
+PREDICTION DID NOT COVER. Run 32808357572, ubuntu-latest, CPython 3.12.14,
+`data/` absent, this mutation applied:
+
+    2 failed, 4861 passed, 11 skipped, 1 xfailed in 60.57s     (mutated, rc=1)
+    FAILED tests/test_splits_manifest.py::TestTheRealManifest::
+           test_the_reader_that_would_spend_the_allocated_arm_is_wired
+           SystemExit: missing .../data/sdu22_ae_legal_dev.json
+
+That is the predicted failure, by name, in the predicted environment. The
+SECOND failure is not:
+
+    FAILED tests/test_gate_manifest.py::TestTheRegisterThisRepositoryShips::
+           test_it_validates -- assert ['gates.suite...ne described'] == []
+
+The probe edits `tests/test_splits_manifest.py`, which is the anchor
+`gates.suite`'s own register entry names -- so the register's validator
+correctly reports the anchor no longer matches. THE DEMONSTRATION IS THEREFORE
+CONFOUNDED: the suite would have gone red on that second test even if the
+D-058 defect had not been restored, so `rc=1` alone does not establish that
+this gate catches this defect. What establishes it is the named FAILED line
+above, and a reader should take the evidence from the line rather than from the
+verdict. Fixing this needs a probe that does not edit a file the register
+anchors on; it is not done.
 """
 edits = [
   { file = "tests/test_splits_manifest.py", find = "assert _unreserved_filename(\n            lambda: corpora._sdu22_ae_source(None, \"legal\", \"dev\")\n        ).endswith(\"legal_dev.json\")", replace = "assert corpora._sdu22_ae_source(None, \"legal\", \"dev\").name.endswith(\"legal_dev.json\")" },
@@ -628,6 +820,14 @@ environment = "test"
 step = "This runner is the environment the register says it is"
 command = "python tools/gates.py --assert-environment test"
 defect_class = "positive_control"
+cost_rank = 27
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, a cached or vendored data/ turns every gate that depends on that absence into a
+tautology, silently, in eleven of fifteen cells. It is already blind in the other four.
+"""
 detects = """
 That this runner really holds what `environments.test` says it holds and really
 lacks what it says it lacks. Fifteen matrix cells are a corpora-absent run of
@@ -652,6 +852,9 @@ workstream's file.
 kind = "automated"
 expect = "fail"
 artifact = "test/environment-control.log"
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 note = """
 Deleting a declared `holds` path must make the control refuse. Not verified
 locally, and it cannot be: on a developer machine with the corpora fetched this
@@ -671,6 +874,15 @@ edits = [
 environment = "zero_dependency"
 step = "Import and run without click, spaCy, NLTK or onnxruntime present"
 defect_class = "behaviour"
+cost_rank = 13
+blast_radius = "installed_behaviour"
+silence = "loud"
+redundancy = "sole"
+cost_if_inert = """
+Inert, Tier 0 pulls an optional dependency into sys.modules and the base install stops
+importing. Catastrophic for that caller and instantly visible to them, which is what makes it
+cheaper than a wrong answer nobody sees. No other job installs without the extras.
+"""
 detects = """
 Tier 0 pulling an optional dependency into sys.modules, and Tier 0 failing to
 generate or extract at all with no extras installed.
@@ -688,6 +900,14 @@ stands without copying the gate.
 environment = "air_gap"
 step = "Prove the network namespace really has no route"
 defect_class = "positive_control"
+cost_rank = 28
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, a runner where `unshare` silently did nothing turns every later step of the air-gap job
+into a tautology that passes. This is the prior art for the whole register.
+"""
 detects = """
 A runner where `unshare` silently did nothing, which would turn every later
 step of this job into a tautology that passes. The same connection must succeed
@@ -706,6 +926,14 @@ environment = "air_gap"
 step = "Show that the socket guard actually blocks"
 command = "python tests/airgap_socket_guard.py"
 defect_class = "positive_control"
+cost_rank = 29
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, a guard whose patch targets have been renamed yields a green suite that checks nothing --
+worse than no gate, because it reads as evidence.
+"""
 detects = """
 A socket guard whose patch targets have been renamed, which yields a green
 suite that checks nothing -- worse than no gate, because it reads as evidence.
@@ -724,6 +952,15 @@ controls this repository already had.
 environment = "air_gap"
 step = "Install with no index and no route"
 defect_class = "supply_chain"
+cost_rank = 9
+blast_radius = "installed_behaviour"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, a dependency that quietly needs a package index or a cache under HOME ships, and the
+install fails for exactly the air-gapped operator this package advertises to. No other job
+installs without a route.
+"""
 detects = """
 A dependency that quietly needs a package index, or a cache under HOME, to
 install. HOME points at a path that does not exist so "it just caches to
@@ -742,6 +979,15 @@ an edit a probe may make and revert.
 environment = "air_gap"
 step = "Run the full test suite with every socket primitive patched to raise"
 defect_class = "behaviour"
+cost_rank = 4
+blast_radius = "installed_behaviour"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+The only place in this repository a socket is watched. Inert, a phone-home at import or
+collection ships from a library whose documentation promises it never fetches -- and that is a
+promise made to people running it inside a network somebody governs.
+"""
 detects = """
 Any socket touched during collection, import or a test -- which is when a
 phone-home would actually fire, and is why `-p` loads the guard before conftest.
@@ -759,6 +1005,15 @@ which is more than any other gate here can say.
 environment = "air_gap"
 step = "Exercise the whole public API with no route to anywhere"
 defect_class = "behaviour"
+cost_rank = 5
+blast_radius = "installed_behaviour"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+Every public entry point exercised with no route to anywhere. Inert, a path that silently
+degrades offline ships. The suite covers most of these paths, but not under a guard, so it would
+not see a call that succeeds by reaching the network.
+"""
 detects = """
 Any public entry point -- generation, extraction, disambiguation, backronyms,
 batch, async, schema load, capabilities(), every CLI subcommand -- that
@@ -776,6 +1031,15 @@ enough that extracting it is a real piece of work rather than a tidy-up.
 environment = "import_time"
 step = "Measure cold import in a subprocess and enforce the ceiling"
 defect_class = "budget"
+cost_rank = 8
+blast_radius = "installed_behaviour"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, an eagerly bound dependency costs every caller the difference between a ~2 ms cold import
+and the ~130 ms a re-eager DTO layer measures, on every process start. Nobody measures import
+time by accident, so nothing else here would ever notice.
+"""
 detects = """
 `import acronymkit` binding anything eagerly -- the structural half, which
 cannot be flaky -- and a cold import over 30 ms, which separates ~2 ms from
@@ -803,6 +1067,14 @@ gates.schema_copies_match and gates.tier_zero_purity. Three gates, one fix.
 environment = "installed_suite"
 step = "The import must resolve to site-packages, not to a tree"
 defect_class = "environment_drift"
+cost_rank = 26
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, the installed-suite job goes on passing while testing a checkout. Every claim that job
+makes rests on this one step, and a job testing the wrong tree reports success either way.
+"""
 detects = """
 A source tree that has got into the run directory, or a conftest that has found
 a new way to put one on sys.path. Every claim the installed-suite job makes
@@ -821,6 +1093,14 @@ found the third by enumeration, which is the argument for enumerating.
 environment = "installed_suite"
 step = "Run the full suite against the installed package"
 defect_class = "artifact_contents"
+cost_rank = 23
+blast_radius = "distribution_contents"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+Two of the five, measured. Inert, a test that fails only against the installed distribution goes
+unseen, and so does a name on the list that has quietly started passing.
+"""
 detects = """
 A test that passes in a checkout and fails against the installed distribution,
 and -- in the other direction -- a name on EXPECTED_NON_PASSING that has started
@@ -860,6 +1140,15 @@ at all.
 environment = "build"
 step = "Check metadata"
 defect_class = "supply_chain"
+cost_rank = 20
+blast_radius = "release_provenance"
+silence = "loud"
+redundancy = "partial"
+cost_if_inert = """
+Inert, the upload itself fails on metadata PyPI rejects -- which is how the first publish
+failed. PyPI's own validation is the second net, so this costs a failed release rather than a
+bad one.
+"""
 detects = "Distribution metadata PyPI would reject -- which is how the first publish failed."
 [gates.twine_metadata.mutation]
 kind = "manual"
@@ -873,6 +1162,15 @@ is not done: the five historical breakages were the budget for that job.
 environment = "build"
 step = "Enforce the wheel size budget"
 defect_class = "budget"
+cost_rank = 18
+blast_radius = "release_provenance"
+silence = "delayed"
+redundancy = "sole"
+cost_if_inert = """
+Inert, the wheel grows past the budget and every install pays it. Delayed: somebody notices the
+next time anybody measures, and the change it exists to reject is a single large dictionary
+rather than a drift.
+"""
 detects = """
 A wheel over 786,432 B. The change it exists to reject is an LRABR-derived
 expansion dictionary, measured at 402.7 KB gzipped for the tightest useful
@@ -891,6 +1189,15 @@ coverage.
 environment = "build"
 step = "Verify bundled resources are present in the wheel"
 defect_class = "artifact_contents"
+cost_rank = 11
+blast_radius = "installed_behaviour"
+silence = "delayed"
+redundancy = "partial"
+cost_if_inert = """
+Inert, a required resource is missing from the wheel and the package fails on first use.
+`installed_wheel_smoke` and `installed-suite` reach some of the same absences, and the
+hand-written required list is the wrong shape for the rest.
+"""
 detects = "A required resource missing from the built wheel."
 blind_to = """
 Everything not on its hand-written `required = [...]` list, which is the wrong
@@ -906,6 +1213,14 @@ reason = "A heredoc; see gates.schema_copies_match."
 environment = "build"
 step = "Verify the installed wheel works without a source checkout"
 defect_class = "behaviour"
+cost_rank = 14
+blast_radius = "installed_behaviour"
+silence = "loud"
+redundancy = "partial"
+cost_if_inert = """
+Inert, a wheel installs and cannot generate. Loud on first use, and `installed-suite` reaches
+the same class of failure from the sdist side.
+"""
 detects = """
 A wheel that installs and then cannot generate, or whose `load_schema()`
 resolves to the checkout copy rather than the bundled resource.
@@ -926,6 +1241,15 @@ reason = "A heredoc; see gates.schema_copies_match."
 environment = "build"
 step = "Verify the sdist ships the files its own test suite reads"
 defect_class = "artifact_contents"
+cost_rank = 24
+blast_radius = "distribution_contents"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+Two of five, measured, and the ONLY net on breakage `b`: nothing else in this repository notices
+data/LICENSES.md leaving the sdist, and two shipped documents cite it as evidence. Deleting
+these lines as tidy-up is how that file goes missing.
+"""
 detects = """
 Five named files missing from the sdist, by name: conftest.py, the schema,
 bench/results.json, data/LICENSES.md and the air-gap guard. `data/LICENSES.md`
@@ -949,6 +1273,14 @@ gates.installed_expected_non_passing.
 environment = "build"
 step = "Verify the sdist ships the files its own test suite reads"
 defect_class = "artifact_contents"
+cost_rank = 22
+blast_radius = "distribution_contents"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+Four of the five historical packaging breakages, measured. Inert, an sdist ships whose own suite
+cannot run, and the checkout stays green throughout. Sole net on breakage `e`.
+"""
 detects = """
 THE GATE THAT CATCHES THE MOST, AND THE REASON IS WHY THE AST GUARD WAS RETIRED
 AGAINST IT: it runs the artifact's own suite inside the extracted tree, so it
@@ -971,6 +1303,15 @@ reason = "Same as gates.sdist_file_list: it needs a built and extracted sdist."
 environment = "build"
 step = "Verify the sdist ships the files its own test suite reads"
 defect_class = "claim_backing"
+cost_rank = 21
+blast_radius = "distribution_contents"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+THE ONE THAT ACTUALLY FIRED. Inert, the distribution ships a claims gate that cannot pass, so
+the reader who checks our numbers gets an error instead of an answer. Silent here by
+construction: a checkout holds every scan target, so this can only ever redden in the sdist.
+"""
 detects = """
 The claims gate reading a scan target the distribution does not ship. This is a
 SECOND gate on the same step, and it is listed separately because it is the one
@@ -998,6 +1339,15 @@ measured 2026-08-24.
 environment = "publish_build"
 step = "Assert the packaged version is releasable"
 defect_class = "supply_chain"
+cost_rank = 15
+blast_radius = "release_provenance"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, a distribution goes to PyPI under a version that is not the tag. PyPI filenames cannot be
+reused, so the mistake is permanent, and nothing about the artifact says it happened. It has
+failed in anger once already (48baa86).
+"""
 detects = "A release whose packaged version does not match the tag, or is not releasable."
 [gates.release_version_guard.mutation]
 kind = "manual"
@@ -1013,6 +1363,14 @@ undemonstrated-on-a-schedule.
 environment = "publish_build"
 step = "Check that both SBOMs actually describe this distribution"
 defect_class = "supply_chain"
+cost_rank = 17
+blast_radius = "release_provenance"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, an SBOM generated against something other than the released artifact ships beside it. An
+SBOM is consumed by machines that do not re-derive it.
+"""
 detects = "An SBOM generated against something other than the artifact being released."
 [gates.sbom_describes_this_distribution.mutation]
 kind = "manual"
@@ -1022,6 +1380,14 @@ reason = "Release-only environment; same disposition as gates.release_version_gu
 environment = "publish_build"
 step = "Build one offline install bundle per platform"
 defect_class = "supply_chain"
+cost_rank = 19
+blast_radius = "release_provenance"
+silence = "delayed"
+redundancy = "sole"
+cost_if_inert = """
+Inert, a platform ships with no complete offline install bundle. The operator finds out when
+they try to install without a route, which is late but loud.
+"""
 detects = "A platform for which no complete offline install bundle can be assembled."
 [gates.offline_bundle.mutation]
 kind = "manual"
@@ -1031,6 +1397,14 @@ reason = "Release-only environment; needs an index while building. Same disposit
 environment = "publish_build"
 step = "Collect everything the release page will carry, and check-sum it"
 defect_class = "supply_chain"
+cost_rank = 16
+blast_radius = "release_provenance"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, a release asset ships un-checksummed or check-summed against the wrong file -- which is
+worse than no checksum, because a checksum is read as provenance.
+"""
 detects = "A release asset that is not check-summed, or a checksum over the wrong file."
 [gates.release_checksums.mutation]
 kind = "manual"
@@ -1047,6 +1421,15 @@ environment = "mutation_controls"
 step = "Positive control - a mutation that must be demonstrated"
 command = "python tools/gates.py --check --path .github/gates.toml"
 defect_class = "positive_control"
+cost_rank = 31
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+The positive control on the same detector. Inert, the harness can no longer tell a failure from
+a pass, and every `demonstrated` in this register is worthless. Cheaper than its twin only
+because a detector that sees nothing also fails the negative control.
+"""
 detects = """
 That this harness can still tell a failure from a pass. The edit makes
 `--check` red by giving a gate an unknown key; if the harness reports anything
@@ -1058,6 +1441,9 @@ kind = "automated"
 expect = "fail"
 artifact = "controls/always-red.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 edits = [
   { file = ".github/gates.toml", find = "artifact = \"controls/always-green.log\"", replace = "artifact = \"controls/always-green.log\"\nthis_key_is_never_allowed = true" },
 ]
@@ -1067,6 +1453,15 @@ environment = "mutation_controls"
 step = "Negative control - a mutation that must NOT be demonstrated"
 command = "python tools/gates.py --check --path .github/gates.toml"
 defect_class = "positive_control"
+cost_rank = 30
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+The negative control on the mutation harness's detector. Inert, a harness that has rotted into
+reporting `demonstrated` for everything passes every other row it prints. Paired with
+control_always_red, which checks the other direction.
+"""
 detects = """
 A harness that has rotted into reporting `demonstrated` for everything. The
 edit is a comment: it changes a byte and cannot change an outcome, so this gate
@@ -1080,6 +1475,9 @@ kind = "automated"
 expect = "pass"
 artifact = "controls/always-green.log"
 verified_locally_on = 2026-08-24
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 edits = [
   { file = ".github/gates.toml", append = "\n# a comment appended by the negative control, and reverted\n" },
 ]
@@ -1094,6 +1492,14 @@ environment = "mutation_harness"
 step = "Mutate every automated gate of ci.yml's lint job, in that environment"
 command = "python tools/gates.py --assert-environment lint"
 defect_class = "positive_control"
+cost_rank = 32
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, the mutation job claims to have demonstrated the lint gates somewhere that is not the
+lint environment. A mutation run in the wrong place proves nothing about the gate it names.
+"""
 detects = """
 That the harness job really is the `lint` environment before it claims to have
 demonstrated anything there. A mutation run in the wrong place proves nothing
@@ -1103,6 +1509,9 @@ about the gate it names, and that is the whole content of R11.
 kind = "automated"
 expect = "fail"
 artifact = "harness/lint-environment.log"
+verified_in_situ_on = 2026-08-25
+verified_in_situ_run = "32808357572"
+verified_in_situ_commit = "3173126"
 note = """
 Not verified locally, and it cannot be: on a developer machine with `data/`
 fetched this assertion already fails, which is the correct answer and makes the
@@ -1116,6 +1525,15 @@ edits = [
 environment = "mutation_packaging"
 step = "Reintroduce each historical breakage against a real sdist"
 defect_class = "artifact_contents"
+cost_rank = 34
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, the five historical breakages stop being re-run and [[defect_coverage]] becomes a table
+that was true once. It is a reproduction of two gates rather than the gates, so its drift is
+already the register's own recorded cost.
+"""
 detects = """
 The five historical packaging breakages, reintroduced one at a time against a
 real sdist and run through both the extracted-tree suite and the installed
@@ -1130,11 +1548,42 @@ stops before. Its correctness is held by the two synthetic controls in the
 `controls` job and by the fact that a wrong answer here changes a published
 coverage table that a reader can re-derive with the commands in docs/GATES.md.
 """
+note = """
+IT HAS RUN ONCE AND IT MEASURED NOTHING, AND THE JOB WAS GREEN.
+
+Run 32808357572, 2026-08-25: all six sdist builds died with
+`BackendUnavailable: Cannot import 'setuptools.build_meta'`, the table printed
+`0 of 5` twice and `unmutated control: NOT GREEN -- every verdict above is
+void`, and `packaging-gates` reported success. Two causes, both fixed here:
+
+  1. tools/gate_packaging_mutation.py passed `--no-isolation`, which ci.yml's
+     `build` and `installed-suite` jobs do not. A developer machine has
+     setuptools installed and a 3.12 runner does not. The reproduction had
+     drifted from the gate in exactly the way the `reason` above warns about,
+     and the drift is what killed the run.
+  2. gate-mutation.yml piped the script through `| tee`. GitHub's default
+     shell is `bash -e` WITHOUT pipefail, so the pipeline's status was tee's
+     and the script's `return 1` was discarded.
+
+The script now also refuses any run in which a case produced no sdist, because
+a case that could not be built is not a case that was measured. The
+[[defect_coverage]] totals below therefore still stand on the 2026-08-24
+Windows re-measurement and have never been re-derived on a runner.
+"""
 
 [gates.harness_test_environment]
 environment = "mutation_test"
 step = "Mutate ci.yml's test job on one cell"
 defect_class = "environment_drift"
+cost_rank = 33
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Inert, the one prediction written into this register in advance -- gates.suite demonstrated on a
+runner and INERT on a laptop -- stops being checked, and R11's clearest single measurement goes
+unre-taken.
+"""
 detects = """
 That `gates.suite`'s mutation -- D-058's cause one, restored -- really does turn
 the suite red where `data/` is absent. This is the gate whose whole point is

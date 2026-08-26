@@ -15,6 +15,10 @@ breaking change if your CI asserts on that report's key set. **Changed** carries
 changes, both of which make an existing report *stricter* rather than different, and one of which
 will newly flag identifiers a pipeline previously waved through.
 
+**And if you are here to decide whether a governed catalog is worth building**, read the first entry
+under **Documentation**. It is the only measurement anybody has of that question and it says less
+than its headline sounds like it says.
+
 ### Positioning
 
 - **`acronymkit` is now stated to be a governance instrument, and the governed half leads.** No code
@@ -197,6 +201,89 @@ will newly flag identifiers a pipeline previously waved through.
 
 ### Documentation
 
+- **What a governed catalog is worth on a real schema, measured for the first time — and the answer
+  is "a little, in a place the pooled figure cannot see".** If you are deciding whether to build or
+  buy a catalog for `expand_identifier`, this is the entry to read, and it comes with a warning about
+  how easy it is to over-read.
+  - **The pooled comparison says a catalog makes things worse, and it is measuring the wrong thing.**
+    Across `80` catalog configurations on real portal schemas, a catalog inferred from the corpus
+    loses to an **empty** catalog in `79` of them. But `76.53 %` of those field/caption pairs are
+    already unabbreviated — the caption is the identifier re-cut and nothing more — and on those a
+    catalog can only do damage. **The whole of the loss is there.** That is not an opinion about the
+    result; the empty arm emits the identifier's own characters, so it is exactly right *only* on
+    those pairs and exactly wrong on every other kind, at every setting.
+  - **On the `11.31 %` of pairs where the question is live, a catalog helps — and the margin is
+    small.** The best of the `80` configurations recovers `40` of `3,276` live pairs, `1.22` points,
+    while costing `17.79` points on the pooled figure. On the individual tokens an empty catalog
+    provably cannot reach it recovers `12.35 %` and `9.22 %` across two portal-disjoint folds against
+    a structural zero. **Read the margin with the win count. "Wins in 51 of 80 configurations" on its
+    own is a sentence tighter than the measurement.**
+  - **What this does and does not tell you.** Every catalog measured here was inferred by the harness
+    from labels of the same kind it was then scored against, so `12.35 %` is a **floor** on what a
+    real curated glossary could do and not an estimate of one. The corpus is public portal metadata
+    in `snake_lower` and `flat_lower`; nothing here transfers to `UPPER_SNAKE` or to a proprietary
+    standard. `docs/EVALUATION.md` carries the decomposition; `docs/DECISIONS.md` D-074.
+- **You can now run that comparison on your own schema, offline, and tell nobody the result.**
+  `tools/byoc_eval.py` ships in the sdist. Point it at your catalog and your schema and it scores an
+  empty catalog against yours through the same public API you would call, prints **how many
+  identifiers your catalog fired on before it prints any accuracy figure**, runs an exact paired test
+  over the disagreements, checks whether your catalog was derived from the labels it is being scored
+  on, and refuses to write a report containing any string from your input. It imports nothing outside
+  the standard library and this package, and a test asserts the source names no network module at all.
+  `python tools/byoc_eval.py --self-test` and `python tools/byoc_eval.py --template <dir>` are the
+  two commands to start with; the second writes example input files you can shape your own to.
+  - **One limitation stated up front, because it is the one that would mislead you**: the paired test
+    assumes the disagreeing identifiers are independent and columns in one schema are not, so the
+    p-value it prints is optimistic by an amount nobody has measured. The firing count and the two raw
+    figures are the numbers to trust. `docs/SOURCING.md` §4.
+- **How to read this project's monoculture result got narrower, in the direction that costs us.** The
+  finding that the field's abbreviation extractors share one blind spot is unchanged. What was
+  previously offered alongside it — that the benchmark corpora may have been built *by* those systems
+  — no longer needs to be invoked: measured on `1,839` biomedical articles split into their own
+  abstract and their own body, so that everything except **genre** is held constant, every quantity
+  moves the way genre alone predicts. If you were citing the provenance reading, cite the genre one.
+  `docs/EVALUATION.md`; `docs/DECISIONS.md` D-075.
+- **The project's own do-not list has been audited and nothing was lifted.** `55` recorded
+  prohibitions were enumerated and `56` of their supporting figures re-derived from source. No
+  conclusion fell; `13` of the `35` figures behind the largest list are either not true of the tree
+  today or cannot be re-derived at all, and nine stated *reasons* are named for correction. If you
+  have ever wondered whether a "we decided not to" in this repository is load-bearing, the answer now
+  has a denominator. `docs/AUDIT-PROHIBITIONS-2026-08.md`; `docs/DECISIONS.md` D-077.
+- **The one comparison that looks worst for this library is now on the front page together with its
+  refutation, and the finding underneath it is about the corpora rather than about this library.**
+  On PLOD-CW pooled, a one-line all-caps rule scores `68.62` short-form exact F1 against `52.56` for
+  `HIGH_PRECISION` on native offsets (`52.31` through the shared localiser, which changes nothing
+  below) — a gap that has been in the record since it was measured. Decomposed on the 2×2 of
+  the two structural handicaps it is **not shared between them**: removing the baseline's handicap
+  makes ours *worse* (`54.98` against `78.38`), removing ours reverses the result (`85.73` against
+  `75.13`; `87.22` against `72.36` on the test split), and with both removed this library still leads
+  (`88.66` against `86.56`). `README.md` and `docs/EVALUATION.md` now carry the decomposition in the
+  same table as the figure it qualifies, because a dissolution in a section a reader can skip is not
+  a dissolution.
+  - **The annotation axis alone is worth `26.66` points of margin and reverses the sign by itself.**
+    The identical unmodified configuration scores anywhere between `52.56` and `88.66` on one corpus,
+    a `36.10`-point range decided only by which annotation convention the gold is read under, with
+    nothing re-run and neither system changed. That is the same family of result as the extraction
+    monoculture, and `docs/EVALUATION.md` now joins the two so they are read together: **the field's
+    evaluation substrate shapes the answer at least as much as the systems do.**
+  - **"About eighteen points" was the wrong subtraction and it understated the finding.** Eighteen is
+    the corner-to-corner swing, which nets the `+26.66` annotation-convention effect against the
+    `-8.50` that the baseline's own admission rule costs inside definitional gold — and an admission
+    rule is a property of the baseline, not a convention of the corpus. It also happens to
+    sit within a quarter-point of the baseline's own gain across the same two rows (`17.94`), which is
+    a different quantity. The arithmetic is published rather than the adjective, under the new run ids
+    `shortform_contest.plod.{all,test}.convention`.
+  - **None of this is a vindication, and these notes are not going to read like one.** The span scorer
+    has no slot for the edge between a short form and a long form: replaying PLOD's own gold with the
+    pairings rotated scores `100.00` on all four span metrics, byte-identical to the honest replay.
+    The column this library wins is short-form **detection**; `extract()` returns pairs, and it still
+    cannot report *this is an abbreviation and I do not know what it stands for*.
+  - **A correction to a figure that had begun circulating in summaries of that control**: it mis-pairs
+    three pairs in five, not three quarters — `1,054` of `1,778` replayed pairs, `59.28 %`. The
+    three-quarters reading is the wrong end of the same run: `1,009` of `1,351` documents, `74.69 %`,
+    carry at most one long form and the rotation could not touch them. New run ids
+    `shortform_contest.plod.{all,test}.pairing_denominator`. The null result is unchanged; the
+    strength of the evidence for it is smaller than the summary said. `docs/DECISIONS.md` D-066.
 - **A term defined once does not "resolve everywhere afterwards".** `README.md` and the
   `engine.disambiguate` docstring both said it did. There is no cross-call state; the docs now say so
   and show the alternative that works. The engine's example now leads with the dictionary path, where
@@ -316,6 +403,15 @@ will newly flag identifiers a pipeline previously waved through.
   had read before. `docs/DECISIONS.md` D-064 to D-067.
 
 ### Notes
+
+- **This project measures the error rate of its own reporting, and it is not zero.** A seeded sample
+  of `24` claims made by the round that produced these notes was re-checked against running code: `5`
+  of them — `20.8 %` — are not true. That is the same rate as the previous round measured, and the
+  two decompositions that made the previous rate look explainable did **not** replicate. The failing
+  claims are listed and corrected in `docs/DECISIONS.md` D-082. **Nothing about the library's measured
+  behaviour is implicated** — every published accuracy figure is gated against `bench/results.json` —
+  but if you quote a *narrative* sentence from this project's documentation, that is the rate it comes
+  with.
 
 - **The type checker now models the Python floor this package claims.** `[tool.mypy]` targeted
   `3.10` while `requires-python` is `>=3.9`, on a rationale — that mypy had dropped

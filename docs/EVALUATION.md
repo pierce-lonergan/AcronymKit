@@ -15,6 +15,8 @@ python bench/run_backronym.py --save                      # backronym properties
 python tools/fetch_data.py plod-cw-test plod-cw-dev plod-cw-train sdu22-ae-legal-dev sdu22-ae-scientific-dev
 python bench/run_monoculture.py --save     --interpreter /path/to/python3.12  # the S&H monoculture
 python bench/run_monoculture.py --demo                    # the independence demonstration, no corpus needed
+python bench/run_genre.py --fetch                         # 2,000 pinned PMC OA articles into data/
+python bench/run_genre.py --save --interpreter /path/to/python3.12   # genre against provenance
 
 # competitor rows (pyab3p and scispacy need Python <3.13)
 python bench/run_extraction.py --save     --system acronymkit --system abbreviations     --system abbreviation_extractor --system pyab3p     --interpreter /path/to/python3.12
@@ -118,6 +120,8 @@ disambiguator, and the catalog handed to the governed subsystem.
 | `run_governed_gold.py` | catalog | **one** — empty, and it refuses any other | argued at length rather than defaulted: a populated catalog scores the caller's table, not the library |
 | `run_micro.py` | config preset | **two** — `Config.fast()` and `Config()` | partial by design; the subject is latency, and the presets that differ in cost are the two measured |
 
+| `run_genre.py` | extraction profile | **all three** | it imports `bench/run_monoculture.py`'s `PROFILES` and loops over it, and adds no proposer of its own — which `tests/test_genre.py` asserts rather than the runner claiming it |
+
 **Two runners are missing from the table on purpose.** `bench/run_monoculture.py` and
 `bench/run_shortform_contest.py` were being written by other workstreams while this enumeration was
 taken. Both were read once and both carry `PROFILES = ("high_precision", "general", "biomedical")`
@@ -178,9 +182,31 @@ Footprint is measured on the installed distribution: unpacked size, cold `import
   evidence of anything, and re-deriving "within half a point" from the real recall would fail by
   roughly a point and a half in any case. What the row supports is narrower and is all it ever
   supported — the reference implementation runs through this harness and posts the best score in the
-  table. Whether the harness *matches Ab3P's own published evaluation* is **unestablished and is
-  named in the standing unknowns**, because closing it needs the paper's numbers read from the paper
-  and cited, which is one afternoon nobody has spent.
+  table. Whether the harness *matches Ab3P's own published evaluation* is **unestablished**, and it
+  is standing unknown `U-1` in
+  [docs/DEFINITION-OF-DONE.md](DEFINITION-OF-DONE.md#standing-unknowns),
+  where until this round it was promised rather than written: that section did not exist, and this
+  sentence had been pointing at it for a round. Closing it needs the paper's figures read from the
+  paper and cited with the date somebody read them, which is one afternoon nobody has spent.
+
+  **The hole the withdrawal left, named — because a retraction that names no hole reads as a fix.**
+  With that sentence gone, **nothing in this repository argues that the extraction reader and scorer
+  are correct rather than merely self-consistent.** Every row in the table above is produced by this
+  harness, which is what makes the rows comparable to each other and is exactly why no arrangement
+  of them can adjudicate the harness. The `pyab3p` row is the closest thing to an outside check and
+  it is not one: it establishes that the reference implementation runs here and wins here, under our
+  reader and our scorer, which is the proposition in question. Under the governance positioning
+  ([docs/POSITIONING.md](POSITIONING.md)) extraction is a supporting number, so this is **not
+  urgent** — it is a hole, not an emergency. Leaving it unnamed is how a withdrawn argument quietly
+  becomes an argument nobody needed.
+
+  **And the same shape is still live further down this page.** `tools/check_external.py` — a gate
+  written in the round that wrote this paragraph, because nothing in the repository could see an
+  appeal to somebody else's numbers at all — fires on the disambiguation section's own
+  harness-validation sentence, for the same reason: it rests on a shared task's own baseline scores,
+  and no date anybody read them on is recorded anywhere in this tree. It is held in that tool's
+  `UNCITED_LEDGER` with a stated disposition rather than silently exempted, and the disposition is
+  that it is either cited with a real read date or withdrawn the way this one was.
 - We beat the other pure-Python Schwartz & Hearst implementation (84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> against 82.48),
   on higher recall (77.31<!--claim:extraction.med1250.acronymkit.exact_recall:.2f--> against 73.46).
 - We lose narrowly to the Rust implementation (84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f--> against 84.44), and the gap is
@@ -592,7 +618,20 @@ gold standard we partly invented cannot adjudicate our own system, so no pairing
 independent span-detection scores instead, in token space, PLOD-CW test split. **The fourth column is
 the same short-form score restricted to the gold spans a definition extractor can stand in front of
 at all**, and it is in this table rather than in a section underneath it because the third column is
-not a like-for-like comparison and has been quoted as one:
+not a like-for-like comparison and has been quoted as one.
+
+**Every number in this table is span *detection* and none of it is pairing**, which is stated before
+the table rather than under it because the table is what gets quoted. `bench.run_spans.SpanPrediction`
+holds short-form spans and long-form spans and has no slot for the edge between them: replaying
+PLOD's own gold with each document's long forms rotated against its short forms scores
+100.00<!--claim:shortform_contest.plod.all.pairing_blind.rotated.short_form.exact_f1:.2f--> on all
+four span metrics, byte-identical to the honest replay, while
+1,054<!--claim:shortform_contest.plod.all.pairing_denominator.pairs_mispaired:,--> of the
+1,778<!--claim:shortform_contest.plod.all.pairing_denominator.pairs_replayed:,--> replayed pairs are
+wrong. A win in any column below says this library puts abbreviation spans in the right places. It
+says nothing about whether the expansions it pairs them with are right, and this library's actual
+claim is the pairing. [The scoring type is the conclusion, not a caveat](#the-scoring-type-is-the-conclusion-not-a-caveat)
+carries the firing counts and the two consequences.
 
 | System | SF exact P / R / F1 | SF exact F1, definitional gold | LF exact P / R / F1 | LF overlap F1 |
 |---|---|---:|---|---:|
@@ -660,17 +699,22 @@ run ids.
 
 **The two factors do not split the gap between them; one of them is the whole gap.** Removing the
 baseline's handicap alone — scoring only gold the all-caps rule could ever admit — makes our deficit
-*larger*, not smaller. Removing this library's handicap alone reverses the result. Read down the two
-F1 columns rather than across, because the row that flips is the one that names the cause:
+*larger*, not smaller. Removing this library's handicap alone reverses the result. The signed margin
+per region, cited rather than fenced, because a delta printed only inside a code block is a delta the
+claims gate cannot check:
 
-```
-python bench/run_shortform_contest.py --split all   -- command output, abridged, not a measurement
-  region               acronymkit   allcaps   lead
-  all                       52.56     68.62   allcaps    +16.06
-  caps                      54.98     78.38   allcaps    +23.40
-  definitional              85.73     75.13   acronymkit +10.60
-  definitional_caps         88.66     86.56   acronymkit  +2.10
-```
+| Gold short-form spans kept | Margin, `acronymkit` − `allcaps`, exact F1 | Who leads |
+|---|---:|---|
+| all — every annotated occurrence | -16.06<!--claim:shortform_contest.plod.all.convention.margin.all:+.2f--> | `allcaps` |
+| all-caps token only — the baseline's own rule | -23.40<!--claim:shortform_contest.plod.all.convention.margin.caps:+.2f--> | `allcaps` |
+| bracket-adjacent only — definitional gold | +10.60<!--claim:shortform_contest.plod.all.convention.margin.definitional:+.2f--> | **`acronymkit`** |
+| both conditions | +2.10<!--claim:shortform_contest.plod.all.convention.margin.definitional_caps:+.2f--> | **`acronymkit`** |
+
+Those four figures are the differences of the eight cells above them, taken on the published
+two-decimal values so that subtracting the table reproduces them exactly. They are recorded under
+`shortform_contest.plod.all.convention`, whose `command` field is the one line that re-derives every
+one of them from `bench/results.json`; the runner prints the same four rows as its `lead` column
+under `python bench/run_shortform_contest.py --split all`.
 
 `allcaps` scores exactly 100.00<!--claim:shortform_contest.plod.all.allcaps.caps.exact_recall:.2f--> recall in both caps regions **by construction** — those regions are
 defined by its own admission rule, so it cannot have a false negative inside them and only its
@@ -701,6 +745,91 @@ its own — same corpus, same convention, same localiser as every other member. 
 Schwartz & Hearst descendant, so "reachable by any definition-based method" is a statement about one
 algorithm with several spellings, and the pooled ceiling is very nearly one system's ceiling.
 
+### What the reversal costs to say: annotation convention, priced, and the subtraction that gets it wrong
+
+**This is a finding about the corpora and not about either system, and it belongs beside
+[the monoculture result](#the-extraction-monoculture-and-what-it-does-to-the-corpora) rather than
+beside a vindication.** That section measures what the field's extractors can *see*. This one
+measures what the field's corpora *count*, and the two are the same shape: the evaluation substrate
+decides the answer at least as much as the systems do.
+
+Nothing below re-ran anything. The same two unmodified systems are scored over the same
+1,351<!--claim:shortform_contest.plod.all.convention.documents:,--> documents four times; the only
+thing that changes is which gold spans PLOD's annotation convention is read as admitting.
+
+| Quantity | Value | What moved, from the margin table above |
+|---|---:|---|
+| The **annotation** axis, at the full gold denominator | +26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:+.2f--> | `all` → `definitional`; **the sign reverses on this axis alone** |
+| The annotation axis again, inside the caps region | +25.50<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_caps_gold:+.2f--> | `caps` → `definitional_caps` |
+| The **admission-rule** axis, at the full gold denominator | -7.34<!--claim:shortform_contest.plod.all.convention.swing.caps_at_all_gold:+.2f--> | `all` → `caps`; it runs the other way |
+| The admission-rule axis again, inside definitional gold | -8.50<!--claim:shortform_contest.plod.all.convention.swing.caps_at_definitional_gold:+.2f--> | `definitional` → `definitional_caps` |
+| Interaction between the two | -1.16<!--claim:shortform_contest.plod.all.convention.swing.interaction:+.2f--> | the axes are close to additive |
+| Corner to corner, raw row to doubly-restricted row | +18.16<!--claim:shortform_contest.plod.all.convention.swing.corner_to_corner:+.2f--> | `all` → `definitional_caps` |
+
+**"Annotation convention was worth about eighteen points" is the wrong subtraction, and it
+understates the finding.** Eighteen is the corner-to-corner figure, and it is the **net** of two
+axes only one of which is a convention. The `definitional` axis is one — PLOD annotates every
+*occurrence* of an abbreviation, defined or not, and D-041 forbids this library from emitting an
+unpaired short form, so that axis prices a decision the corpus made about what to label. The `caps`
+axis is not: it is `predict_all_caps`'s own admission rule turned into a gold filter, which is a
+property of the baseline rather than of PLOD. Eighteen is what is left after the convention effect is
+netted against that system-shape effect, and the two ways of doing that subtraction are the two
+routes across the 2×2 in the table above:
++26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:+.2f--> then
+-8.50<!--claim:shortform_contest.plod.all.convention.swing.caps_at_definitional_gold:+.2f-->, or
+-7.34<!--claim:shortform_contest.plod.all.convention.swing.caps_at_all_gold:+.2f--> then
++25.50<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_caps_gold:+.2f-->. Both
+reach 18.16<!--claim:shortform_contest.plod.all.convention.swing.corner_to_corner:.2f-->; the two
+*headline* effects do not, because
+26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:.2f--> and
+-7.34<!--claim:shortform_contest.plod.all.convention.swing.caps_at_all_gold:.2f--> add to `19.32`, and the
+gap between `19.32` and the corner is the interaction,
+-1.16<!--claim:shortform_contest.plod.all.convention.swing.interaction:.2f--> — which is the whole
+reason to print the four conditional effects rather than two main ones. **The honest number for
+*annotation convention* is the larger one**, taken at the full gold denominator, where it reverses
+the ranking by itself.
+
+**And "about eighteen" is a value two different quantities happen to share, which is why it is worth
+publishing the arithmetic rather than the adjective.** Between the raw row and the doubly-restricted
+row the baseline's own F1 rises by
+17.94<!--claim:shortform_contest.plod.all.convention.span.allcaps:.2f--> points
+(68.62<!--claim:shortform_contest.plod.all.allcaps.all.exact_f1:.2f--> →
+86.56<!--claim:shortform_contest.plod.all.allcaps.definitional_caps.exact_f1:.2f-->) — within a
+quarter of a point of the corner-to-corner swing and not the same measurement. This library's own F1
+rises by 36.10<!--claim:shortform_contest.plod.all.convention.span.acronymkit:.2f-->
+(52.56<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.all.exact_f1:.2f--> →
+88.66<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.definitional_caps.exact_f1:.2f-->),
+and this library's rise minus the baseline's is the corner-to-corner
+18.16<!--claim:shortform_contest.plod.all.convention.swing.corner_to_corner:.2f-->. **That
+36.10<!--claim:shortform_contest.plod.all.convention.span.acronymkit:.2f-->-point range is the
+corpus statement**: one unmodified
+configuration, one corpus, one metric, and a published F1 anywhere between
+52.56<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.all.exact_f1:.2f--> and
+88.66<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.definitional_caps.exact_f1:.2f-->
+according only to which annotation convention the gold is read under.
+
+**Through the unprivileged localiser the finding is the same size.** The convention axis reads
+26.50<!--claim:shortform_contest.plod.all.convention.localised_swing.definitional_at_all_gold:.2f-->
+and the corner-to-corner swing
+18.25<!--claim:shortform_contest.plod.all.convention.localised_swing.corner_to_corner:.2f-->, against
+26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:.2f--> and
+18.16<!--claim:shortform_contest.plod.all.convention.swing.corner_to_corner:.2f--> on the native
+row — so nothing here depends on the span path D-066 flagged as the flattering one.
+
+**The replication is not independent and is reported anyway.** On the `test` split the convention
+axis reads
+26.00<!--claim:shortform_contest.plod.test.convention.swing.definitional_at_all_gold:.2f--> and the
+corner-to-corner swing
+15.27<!--claim:shortform_contest.plod.test.convention.swing.corner_to_corner:.2f-->. `test` is a
+subset of `all`, so that is one corpus reported twice and not a second observation — and the
+corner-to-corner figure is three points off the pooled one, which is what a `153`-document
+sub-sample of a `1,351`-document corpus looks like.
+
+**What this does not say.** It does not say PLOD's convention is wrong; PLOD annotates occurrences
+because a reader of PLOS text wants occurrences. It does not say this library would win under a
+convention chosen by somebody else. And it does not survive contact with the next section, which is
+the one that matters more than the reversal.
+
 ### The scoring type is the conclusion, not a caveat
 
 **This whole comparison is conducted under a metric that is native to neither system, and that fact
@@ -715,6 +844,24 @@ scores — `100.00` on all four span metrics either way. The rotation is not a n
 1,054<!--claim:shortform_contest.plod.all.pairing_blind.pairs_mispaired:,--> pairs wrong. D-048 found this by
 permuting most of PLOD's long forms; it is re-derived inside the runner that publishes the contested
 figures so that the null arrives with its firing count attached.
+
+**That firing count needs its denominator, and the denominator is the part that keeps getting
+overstated.** Under the same zip-order pairing the replay uses, PLOD-CW pooled holds
+1,778<!--claim:shortform_contest.plod.all.pairing_denominator.pairs_replayed:,--> pairs, so the
+1,054<!--claim:shortform_contest.plod.all.pairing_denominator.pairs_mispaired:,--> wrong ones are
+59.28<!--claim:shortform_contest.plod.all.pairing_denominator.pairs_mispaired_pct:.2f--> % of them —
+**three in five, not three quarters.** The three-quarters reading is available on this run and it is
+the wrong end of it:
+1,009<!--claim:shortform_contest.plod.all.pairing_denominator.documents_untouched:,--> documents,
+74.69<!--claim:shortform_contest.plod.all.pairing_denominator.documents_untouched_pct:.2f--> % of the
+corpus, carry at most one long form and the rotation could not touch them at all. On the `test` split
+the same control is weaker again —
+61<!--claim:shortform_contest.plod.test.pairing_denominator.pairs_mispaired:,--> of
+149<!--claim:shortform_contest.plod.test.pairing_denominator.pairs_replayed:,--> pairs, and
+83.66<!--claim:shortform_contest.plod.test.pairing_denominator.documents_untouched_pct:.2f--> % of
+documents untouched. **The result is unaffected and the strength of the evidence is not**: the metric
+is blind to three pairings in five and the null is exactly as null, but nobody may say the scorer was
+shown three quarters of the gold mis-paired, because it was not.
 
 Two consequences, and neither is small:
 
@@ -763,6 +910,31 @@ this library, and it is worth more than any of the accuracy numbers above if it 
 **This section is the argument [docs/POSITIONING.md](POSITIONING.md) rests on**, which is why the
 genre confound under *What this does not establish* is part of the finding rather than a caveat
 appended to it. Anything quoted out of here into a positioning claim has to carry both halves.
+
+**Read it with the convention result above, because they are one story and neither half is about a
+system.** This section measures what the field's extractors can *see*: seven Schwartz & Hearst
+descendants reach
+57.65<!--claim:monoculture.plod_all.gold.long_form.overlap.class.sh_family_recall_pct:.2f--> % of
+PLOD's gold long forms and
+34.98<!--claim:monoculture.plod_all.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form_pct_of_gold:.2f--> %
+of that gold is both unreached and cleanly alignable — pairs the validator would accept and the
+candidate generator never offers. [The convention section](#what-the-reversal-costs-to-say-annotation-convention-priced-and-the-subtraction-that-gets-it-wrong)
+measures what the field's corpora *count*: the same unmodified configuration of this library scores
+anywhere between
+52.56<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.all.exact_f1:.2f--> and
+88.66<!--claim:shortform_contest.plod.all.acronymkit.high_precision.native.definitional_caps.exact_f1:.2f-->
+on one corpus — a
+36.10<!--claim:shortform_contest.plod.all.convention.span.acronymkit:.2f-->-point range decided
+entirely by which annotation convention the gold is read under, and enough to reverse a head-to-head
+ranking against a one-line baseline. **The evaluation substrate shapes the answer at least as much
+as the systems do**, and that is the sentence this project would keep if it had to discard every
+accuracy number on this page. It is also the reason the extraction figure is a supporting number:
+optimising against a substrate this plastic is optimising against the substrate.
+
+**Neither half licenses the other.** The convention result is measured on PLOD alone and says nothing
+about the field's blind spot; the monoculture result is measured across five corpora and says nothing
+about how much a convention is worth. They agree in shape and were measured separately, and that is
+all that is being claimed by putting them together.
 
 `bench/run_monoculture.py` measures it. Two commitments define the algorithm and both are
 executable here: candidates are generated only from a **bracketed window**, and a candidate is
@@ -875,9 +1047,17 @@ from these systems, the less of it they can see.
 **This is not proof, and the confound is genre, not provenance.** MED1250 is MEDLINE titles and
 abstracts, which carry no figure legends and no table footnotes; PLOD is article body text, which
 carries both. A corpus of abstracts would look parenthetical however its gold was built. The
-ordering is consistent with the thesis and does not establish it, and separating the two would need
-a corpus of article body text annotated by pooling Schwartz & Hearst systems — which nobody has
-published, because nobody builds a gold standard that way on purpose.
+ordering is consistent with the thesis and does not establish it.
+
+**Half of that confound is now measured, and this table is not the evidence it was read as.**
+Separating the *provenance* half would still need a corpus of article body text annotated by pooling
+Schwartz & Hearst systems, which nobody publishes on purpose. The *genre* half can be measured the
+other way round — hold provenance constant and vary genre, by taking the abstract and the body of
+the **same** articles — and it has been:
+[below](#genre-separated-from-provenance-abstracts-against-bodies-of-the-same-articles). On articles
+whose provenance is identical by construction, the body half is measurably less parenthetical and
+hands the independent proposers measurably more. **So the ordering above does not require the
+provenance explanation**, and the strong reading of it stays dead.
 
 ### The class of gold that no Schwartz & Hearst descendant proposes
 
@@ -989,12 +1169,191 @@ is not a sample and could not support an independence measurement at all. That a
 result: in these corpora, definitions written out in running prose with a lexical cue are
 vanishingly rare, and the class the bracket scanners actually miss is the typographic one.
 
+### Genre, separated from provenance: abstracts against bodies of the same articles
+
+The confound above says separating genre from provenance needs a corpus of article body text whose
+gold was pooled from Schwartz & Hearst descendants. **That is the right instrument for the
+*provenance* half and it still does not exist. The *genre* half can be measured the other way
+round** — hold provenance constant and vary genre — and it now has been.
+
+`bench/run_genre.py`, corpus `[corpora.pmc_oa_same_article_genre]`, role
+`single_annotator_reference`, which `headline_capable()` excludes for every task. Nothing below is
+a headline number and nothing below is offered as one.
+
+**The design, and what it holds constant.** PMC's Open Access Subset ships each article as one JATS
+file carrying an `<abstract>` and a `<body>`. Taking both halves out of one file holds provenance,
+domain, author, journal, register and deposit route constant, and varies genre alone. The gold is
+each article's own `<def-list>` abbreviation roster — the same arbiter PLOD-CW uses, read at the
+source rather than through Zilio et al.'s pipeline — and it sits in `<back>`, which is in **neither**
+measured half, so it adjudicates the two symmetrically. Admission compares no character of a term
+against its definition, because a gold filtered by `sh_alignable` could not measure what
+`sh_alignable` misses. The proposer pool is `bench/run_monoculture.py`'s, unchanged: same nine
+proposers, same edge unit, same `bracket_adjacent`, same `gold_class_record`. No descendant was
+added.
+
+**A third half, because "bodies are longer" is the obvious attack.** `body_matched` is a contiguous
+body window cut to that article's own abstract length at a seeded uniform offset. It is the length
+control for the **proposal** rows and it is **biased for the gold rows**: a window holding a pair's
+two strings without holding its definition site locates a non-definitional co-occurrence, which is
+almost never beside a bracket. Read it for the proposal rows; for the gold rows the full body is the
+honest arm.
+
+**The licence is per article, and filtering is not optional.** PMC's own page says so —
+*"Within the PMC Open Access Subset articles are available for reuse, but license terms vary"* —
+and the draw measured it rather than assuming it. Of
+5,376<!--claim:genre.pmc_oa.sample.draw_probes:,--> probes,
+3,453<!--claim:genre.pmc_oa.sample.draw_article_versions_that_exist:,--> reached an article version and
+2,756<!--claim:genre.pmc_oa.sample.draw_articles_carrying_a_licence_code:,--> of those carried a licence code. Only
+2,013<!--claim:genre.pmc_oa.sample.draw_articles_permissively_licensed:,--> were CC BY or CC0 —
+26.96<!--claim:genre.pmc_oa.sample.draw_non_permissive_pct_of_licensed:.2f--> % of the licensed articles are **not**, split across
+CC BY-NC-ND (312<!--claim:genre.pmc_oa.sample.draw_census.CC BY-NC-ND:,-->), CC BY-NC
+(300<!--claim:genre.pmc_oa.sample.draw_census.CC BY-NC:,-->), CC BY-NC-SA (119<!--claim:genre.pmc_oa.sample.draw_census.CC BY-NC-SA:,-->), a
+text-mining-only grant (11<!--claim:genre.pmc_oa.sample.draw_census.TDM:,-->) and exactly
+1<!--claim:genre.pmc_oa.sample.draw_census.CC BY-ND:,--> CC BY-ND. That last one is the trap
+[docs/AUDIT-2026-08.md](AUDIT-2026-08.md#pmc-mirror-or-do-not-but-decide-on-the-merits) flagged —
+PMC groups ND under filters for commercial reuse, and commercial reuse and derivative works are not
+the same permission — and it is real, if rare. Retrieval is through the PMC Cloud Service, which the
+same page names as one of four services permitted to retrieve automatically. See
+[data/LICENSES.md](../data/LICENSES.md), substrate `pmc-oa-same-article`.
+
+**The sample, with its attrition.** 2,000<!--claim:genre.pmc_oa.sample.attrition_drawn:,--> articles drawn and fetched;
+161<!--claim:genre.pmc_oa.sample.attrition_no_abstract_or_no_body:,--> carry no abstract or no body and are not a
+same-article contrast; 0<!--claim:genre.pmc_oa.sample.attrition_unparseable:,--> failed to parse;
+1,839<!--claim:genre.pmc_oa.sample.attrition_kept:,--> kept. Of those,
+220<!--claim:genre.pmc_oa.sample.articles_with_a_roster:,--> ship an abbreviation roster, declaring
+2,696<!--claim:genre.pmc_oa.sample.roster_pairs_declared:,--> pairs between them. **The gold arm rests on those
+220<!--claim:genre.pmc_oa.sample.articles_with_a_roster:,--> articles and not on the sample**, and its denominators are
+in the table.
+
+**The result.** Every column is the same 1,839<!--claim:genre.pmc_oa.sample.attrition_kept:,--> articles.
+
+| | Abstract | Body | Body window cut to the abstract's length |
+|---|---:|---:|---:|
+| Characters | 2,974,657<!--claim:genre.pmc_oa.abstract.corpus.characters:,--> | 59,486,201<!--claim:genre.pmc_oa.body.corpus.characters:,--> | 2,974,657<!--claim:genre.pmc_oa.body_matched.corpus.characters:,--> |
+| Declared roster pairs located here | 388<!--claim:genre.pmc_oa.abstract.corpus.gold_pairs_located:,--> | 1,892<!--claim:genre.pmc_oa.body.corpus.gold_pairs_located:,--> | 196<!--claim:genre.pmc_oa.body_matched.corpus.gold_pairs_located:,--> |
+| **Located gold long forms beside a bracket %** | **84.54<!--claim:genre.pmc_oa.abstract.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f-->** | **75.85<!--claim:genre.pmc_oa.body.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f-->** | 50.00<!--claim:genre.pmc_oa.body_matched.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f--> |
+| S&H family reaches, of located gold long forms % | 87.11<!--claim:genre.pmc_oa.abstract.gold.long_form.overlap.class.sh_family_recall_pct:.2f--> | 80.92<!--claim:genre.pmc_oa.body.gold.long_form.overlap.class.sh_family_recall_pct:.2f--> | 45.92<!--claim:genre.pmc_oa.body_matched.gold.long_form.overlap.class.sh_family_recall_pct:.2f--> |
+| Unreached yet alignable with a gold short form, % of gold | 9.79<!--claim:genre.pmc_oa.abstract.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form_pct_of_gold:.2f--> | 16.01<!--claim:genre.pmc_oa.body.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form_pct_of_gold:.2f--> | 46.94<!--claim:genre.pmc_oa.body_matched.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form_pct_of_gold:.2f--> |
+| Proposal edges in the union | 3,794<!--claim:genre.pmc_oa.abstract.proposals.edges.union_total:,--> | 40,385<!--claim:genre.pmc_oa.body.proposals.edges.union_total:,--> | 2,214<!--claim:genre.pmc_oa.body_matched.proposals.edges.union_total:,--> |
+| **Union gain from the two independent proposers %** | **0.82<!--claim:genre.pmc_oa.abstract.proposals.edges.independent_gain_pct:.2f-->** | **9.55<!--claim:genre.pmc_oa.body.proposals.edges.independent_gain_pct:.2f-->** | **13.32<!--claim:genre.pmc_oa.body_matched.proposals.edges.independent_gain_pct:.2f-->** |
+| `shapecue` roster and cue firings | 32<!--claim:genre.pmc_oa.abstract.proposer.shapecue.cue_firings_total:,--> | 5,694<!--claim:genre.pmc_oa.body.proposer.shapecue.cue_firings_total:,--> | 316<!--claim:genre.pmc_oa.body_matched.proposer.shapecue.cue_firings_total:,--> |
+| `shapecue` edges per 100,000 characters | 1.08<!--claim:genre.pmc_oa.abstract.proposer.shapecue.edges_per_100k_characters:.2f--> | 9.57<!--claim:genre.pmc_oa.body.proposer.shapecue.edges_per_100k_characters:.2f--> | 10.62<!--claim:genre.pmc_oa.body_matched.proposer.shapecue.edges_per_100k_characters:.2f--> |
+| Open brackets per 100,000 characters | 301.9<!--claim:genre.pmc_oa.abstract.corpus.open_brackets_per_100k_characters:.1f--> | 412.4<!--claim:genre.pmc_oa.body.corpus.open_brackets_per_100k_characters:.1f--> | 418.9<!--claim:genre.pmc_oa.body_matched.corpus.open_brackets_per_100k_characters:.1f--> |
+
+**The last row kills the cheapest counter-explanation.** Bodies are bracket-**richer** than their own
+abstracts — 412.4<!--claim:genre.pmc_oa.body.corpus.open_brackets_per_100k_characters:.1f--> open brackets per 100,000
+characters against 301.9<!--claim:genre.pmc_oa.abstract.corpus.open_brackets_per_100k_characters:.1f-->, after citation
+brackets have been swept out of both — and their definitions are nonetheless *less* often beside
+one. The genre effect is not "body text has fewer parentheses".
+
+The obvious objection to that row is that the citation sweep leaves punctuation-only brackets
+behind — `[<xref>1</xref>, <xref>2</xref>]` renders as `[, ]`, which the sweep's pattern does not
+match — so it was measured rather than argued, and it does not reach the conclusion. Command output,
+not a benchmark measurement; columns are characters, open brackets, punctuation-only brackets, and
+open brackets per 100,000 characters **after** every punctuation-only bracket is deducted:
+
+```
+python -c "
+import random,sys
+sys.path[:0]=['.','src']
+from bench import run_genre as g
+FILLER=set(' ,;-'+chr(9)+chr(10)+chr(8211)+chr(8212))
+def junk(s):
+    n=0
+    for i,ch in enumerate(s):
+        if ch in '([':
+            j=i+1
+            while j<len(s) and s[j] in FILLER: j+=1
+            if j<len(s) and s[j] in ')]': n+=1
+    return n
+a,_=g.load_articles(g.pinned_pmcids())
+for h in ('abstract','body'):
+    r=random.Random(g.WINDOW_SEED); t=[x.half(h,r) for x in a]; c=sum(map(len,t))
+    o=sum(sum(s.count(b) for b in '([{') for s in t); k=sum(junk(s) for s in t)
+    print(f'{h:<9}{c:>12,}{o:>10,}{k:>8,}{100000*(o-k)/c:>9.1f}')
+"
+abstract    2,974,657     8,980       0    301.9
+body       59,486,201   245,306   2,596    408.0
+```
+
+Body text carries the residue and abstracts carry none of it, and deducting every last one of them
+leaves the ordering exactly where it was. What body text actually carries is a class of definition
+that is not written with a parenthesis at all, and the second-to-last row of the table is where that
+class lives: `shapecue`'s roster rule fires
+1.08<!--claim:genre.pmc_oa.abstract.proposer.shapecue.edges_per_100k_characters:.2f--> times per 100,000 characters of abstract and
+10.62<!--claim:genre.pmc_oa.body_matched.proposer.shapecue.edges_per_100k_characters:.2f--> times per 100,000 characters of
+length-matched body — the same articles, the same authors, the same character budget.
+
+**The differences, paired, with cluster-bootstrap intervals over articles.** The cluster is the
+article and both halves are resampled together, because an article whose author writes `CT`
+everywhere contributes many correlated observations to both halves and treating them as independent
+would understate every interval. 2,000<!--claim:genre.pmc_oa.contrast.abstract_minus_body.independent_gain_on_proposal_edges.replicates_requested:,-->
+replicates, seed 31,337<!--claim:genre.pmc_oa.contrast.abstract_minus_body.independent_gain_on_proposal_edges.seed:,-->. Both interval columns are percentile intervals at the conventional
+ninety-five per cent level, written in words because it is a convention rather than a measurement and
+the claims gate cannot tell those apart.
+
+| Quantity | Abstract − body | Interval | Abstract − length-matched body window | Interval |
+|---|---:|---:|---:|---:|
+| Located gold long forms beside a bracket % | **+8.69<!--claim:genre.pmc_oa.contrast.abstract_minus_body.bracket_adjacency_of_located_gold_long_forms.difference_pct:+.2f-->** | [3.29<!--claim:genre.pmc_oa.contrast.abstract_minus_body.bracket_adjacency_of_located_gold_long_forms.difference_ci_low_pct:.2f-->, 13.85<!--claim:genre.pmc_oa.contrast.abstract_minus_body.bracket_adjacency_of_located_gold_long_forms.difference_ci_high_pct:.2f-->] | +34.54<!--claim:genre.pmc_oa.contrast.abstract_minus_body_matched.bracket_adjacency_of_located_gold_long_forms.difference_pct:+.2f--> | [21.76<!--claim:genre.pmc_oa.contrast.abstract_minus_body_matched.bracket_adjacency_of_located_gold_long_forms.difference_ci_low_pct:.2f-->, 46.69<!--claim:genre.pmc_oa.contrast.abstract_minus_body_matched.bracket_adjacency_of_located_gold_long_forms.difference_ci_high_pct:.2f-->] |
+| S&H family reach of located gold long forms % | **+6.19<!--claim:genre.pmc_oa.contrast.abstract_minus_body.sh_family_recall_of_located_gold_long_forms.difference_pct:+.2f-->** | [1.67<!--claim:genre.pmc_oa.contrast.abstract_minus_body.sh_family_recall_of_located_gold_long_forms.difference_ci_low_pct:.2f-->, 10.37<!--claim:genre.pmc_oa.contrast.abstract_minus_body.sh_family_recall_of_located_gold_long_forms.difference_ci_high_pct:.2f-->] | +41.20<!--claim:genre.pmc_oa.contrast.abstract_minus_body_matched.sh_family_recall_of_located_gold_long_forms.difference_pct:+.2f--> | [28.88<!--claim:genre.pmc_oa.contrast.abstract_minus_body_matched.sh_family_recall_of_located_gold_long_forms.difference_ci_low_pct:.2f-->, 52.60<!--claim:genre.pmc_oa.contrast.abstract_minus_body_matched.sh_family_recall_of_located_gold_long_forms.difference_ci_high_pct:.2f-->] |
+| Union gain from the independent proposers % | **-8.73<!--claim:genre.pmc_oa.contrast.abstract_minus_body.independent_gain_on_proposal_edges.difference_pct:.2f-->** | [-9.80<!--claim:genre.pmc_oa.contrast.abstract_minus_body.independent_gain_on_proposal_edges.difference_ci_low_pct:.2f-->, -7.70<!--claim:genre.pmc_oa.contrast.abstract_minus_body.independent_gain_on_proposal_edges.difference_ci_high_pct:.2f-->] | -12.51<!--claim:genre.pmc_oa.contrast.abstract_minus_body_matched.independent_gain_on_proposal_edges.difference_pct:.2f--> | [-16.10<!--claim:genre.pmc_oa.contrast.abstract_minus_body_matched.independent_gain_on_proposal_edges.difference_ci_low_pct:.2f-->, -9.06<!--claim:genre.pmc_oa.contrast.abstract_minus_body_matched.independent_gain_on_proposal_edges.difference_ci_high_pct:.2f-->] |
+
+**The firing counts behind those intervals, because a difference with no denominator is not a
+result.** The two gold rows rest on
+157<!--claim:genre.pmc_oa.contrast.abstract_minus_body.bracket_adjacency_of_located_gold_long_forms.articles_with_evidence_left:,--> articles
+carrying at least one located gold pair in the abstract and
+208<!--claim:genre.pmc_oa.contrast.abstract_minus_body.bracket_adjacency_of_located_gold_long_forms.articles_with_evidence_right:,--> in the
+body; the proposal row rests on
+1,310<!--claim:genre.pmc_oa.contrast.abstract_minus_body.independent_gain_on_proposal_edges.articles_with_evidence_left:,--> and
+1,816<!--claim:genre.pmc_oa.contrast.abstract_minus_body.independent_gain_on_proposal_edges.articles_with_evidence_right:,-->. All
+2,000<!--claim:genre.pmc_oa.contrast.abstract_minus_body.independent_gain_on_proposal_edges.replicates_used:,--> replicates were usable in every
+comparison; none was dropped for an empty denominator.
+
+**The verdict: genre.** All six intervals exclude zero and all six point the way the genre account
+predicts. On articles whose provenance is identical by construction, the body half is less
+parenthetical, is reached less by the Schwartz & Hearst family, and hands the independent proposers
+a larger share of the union — by the three differences in the table above, on both body arms. **The ordering in the table above therefore does not require
+the provenance explanation, and the strong reading of the monoculture stays dead.**
+
+**And it stays dead rather than refuted, because three things this cannot do are worth naming.**
+
+- **It measures the genre main effect and nothing else.** The provenance main effect — whether a
+  corpus pooled from these systems certifies their blind spot — is untouched, and settling it still
+  needs the corpus nobody publishes. Reversal three in
+  [docs/POSITIONING.md](POSITIONING.md#reversal-three-the-research-artifact-stops-resting-on-an-unprovable-claim)
+  is unchanged.
+- **Every same-article difference here is smaller than the MED1250-to-PLOD difference it is offered
+  against, and the residue must not be read as provenance.** Set the two tables side by side and the
+  gap is plain. What that gap is *not* is an estimate of a provenance effect: the two comparisons use
+  different passage units — one article per passage here, one sentence in PLOD, and a longer passage
+  collapses repeated `(short, long)` keys that a shorter one keeps — different corpora, different
+  annotation conventions, and PLOD's gold carries a published error rate of its own. Subtracting one
+  from the other would be arithmetic on incommensurable quantities. The passage-length half of that
+  list is the one thing with a control: on the **proposal** row, where the window is real text and
+  the truncation bias does not apply, cutting the body to the abstract's own length moves the
+  difference *further* from zero rather than nearer. So passage length is not manufacturing the
+  genre effect; if anything the full-body arm understates it. The `body_matched` gold rows carry the
+  truncation bias and bound nothing.
+- **The abstract half is not MED1250 and the two bracket-adjacency figures are not comparable
+  either.** They are measured with different locators — this runner folds the long form's case,
+  because an author's roster is typed in sentence case and the article writes the phrase in lower
+  case, and without the fold the abstract half locates only
+  141<!--claim:genre.pmc_oa.abstract.corpus.gold_pairs_located_without_the_case_fold:,--> pairs instead of
+  388<!--claim:genre.pmc_oa.abstract.corpus.gold_pairs_located:,-->. A reader who lines
+  84.54<!--claim:genre.pmc_oa.abstract.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f--> % up against MED1250's
+  98.91<!--claim:monoculture.med1250.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f--> % and
+  reads the difference as provenance at fixed genre is doing something this measurement does not
+  support.
+
 ### What this does not establish
 
-- **The genre confound above is not resolved**, and it is the first thing a hostile reader will
-  find. MED1250's near-zero independent gain and its
+- **Only the genre half of the confound is resolved, and it is resolved in the direction that
+  weakens this section's strongest reading.** "Abstracts have no figure legends" is now a measured
+  effect rather than a rival story: on the same articles it moves every quantity in this section the
+  way MED1250 and PLOD differ. What is *not* measured is whether a corpus pooled from these systems
+  certifies their blind spot — the provenance half — and nothing here bears on it. MED1250's
   98.91<!--claim:monoculture.med1250.corpus.gold_pairs_long_form_bracket_adjacent_pct:.2f--> %
-  parenthetical gold are equally well explained by "abstracts have no figure legends".
+  parenthetical gold has a sufficient explanation that is not provenance.
 - **PLOD's gold is noisy by its own authors' account.** Their published validation sample reports
   wrong annotation in one segment in twenty and *missing* annotation in more than a quarter, so
   every "unreached" figure here has a denominator that is itself incomplete. The direction of that
@@ -1513,6 +1872,11 @@ admission rule removes every pair whose caption is longer than its identifier, w
 abbreviation-expansion task. This is the one judgement the governed subsystem makes on its own,
 measured once, on the shipped code path, with stock defaults.
 
+Expansion **is** measured, on the population this admission rule discards, in
+[the section below](#does-a-governed-catalog-add-anything-on-a-real-schema-not-as-the-pooled-figure-asks-it).
+The two must never be read as one number: this table scores cut placement with an empty catalog on
+pairs that share a character stream, and that one scores catalog resolution on pairs that do not.
+
 ### Provenance
 
 Both corpora are fetched by the runner, so the table is re-derivable by anyone with a network
@@ -1545,6 +1909,296 @@ them. Reading a corpus's miss taxonomy is exactly the act `bench/splits.toml` re
 contaminated MED1250 and both SDU@AAAI-22 dev splits. It happened here in the same round as the
 measurement, on this page, and it should be weighed against any `contaminated = false` entry for
 these two corpora rather than assumed away.
+
+## Does a governed catalog add anything on a real schema? Not as the pooled figure asks it
+
+Every figure in the table above is taken with an **empty** catalog, because the admission rule that
+makes that table defensible forces one: a populated catalog rewrites `QTY` to `Quantity` and the two
+strings stop sharing a character stream. Those figures measure cut placement and say nothing
+whatever about what a governed vocabulary is worth — and that is the question
+[`docs/POSITIONING.md`](POSITIONING.md#reversal-one-the-lead-is-wrong-if-a-catalog-is-worth-nothing-on-a-real-schema)'s
+first reversal condition rests on. The August 2026 audit measured it once, un-gated, on a
+portal-disjoint split of Socrata, found a voted catalog scoring no better than an empty one, and
+recorded the structural cause as *real schemas are already spelled out*
+([`docs/AUDIT-2026-08.md`](AUDIT-2026-08.md#1-does-a-governed-catalog-add-anything-on-a-real-schema)).
+
+`bench/run_governed_catalog.py` re-runs that comparison under the current harness. **The pooled
+result reproduces and the reading of it does not survive decomposition.** The voted catalog does
+lose — in 79<!--claim:governed_catalog.socrata.sweep.cells_where_voted_loses_pooled:,--> of
+80<!--claim:governed_catalog.socrata.sweep.cells_run:,--> catalog configurations — and it loses
+*entirely* on pairs where a catalog can only do damage. On the pairs where a catalog is the only
+instrument there is it cannot lose — the empty arm is zero there by construction — so the readable
+figure is that it *wins* in
+51<!--claim:governed_catalog.socrata.sweep.cells_where_voted_beats_empty_live:,--> of the same
+80<!--claim:governed_catalog.socrata.sweep.cells_run:,--> and recovers nothing at all in the other
+29<!--claim:governed_catalog.socrata.sweep.cells_where_voted_ties_live:,-->.
+
+### Why this is a second runner, and how it is still one scorer
+
+The gold runner's admission rule — *the caption's alphanumerics case-fold equal to the identifier's*
+— is the exact complement of the population this question lives in. A pair a catalog could help is a
+pair whose caption is **not** the identifier's characters re-cut, so applying that rule here admits
+an empty population and the answer is `0/0`. It cannot be reused, and the runner's docstring says so
+rather than quietly widening it, because a rule loosened after seeing which direction it moves the
+result is not a rule.
+
+The **scorer** is reused, and the reuse is a measurement rather than a claim. This runner compares
+the case-folded tuple of alphanumeric words; the gold runner compares a set of integer cut positions
+over a shared character stream. On a shared stream those are the same statement, and
+`governed_catalog.socrata.scorer_agreement` re-scores every pair the gold runner admits, both ways,
+to check that they are:
+
+| Metric | Admitted pairs | exact % | Verdicts disagreeing |
+|---|---:|---:|---:|
+| `run_governed_gold.cuts` equality — the gated segmentation metric | 26,536<!--claim:governed_catalog.socrata.scorer_agreement.admitted_pairs:,--> | 91.37<!--claim:governed_catalog.socrata.scorer_agreement.cut_set_exact_pct:.2f--> | — |
+| `run_governed_catalog.phrase_words` equality — this section's metric | 26,536<!--claim:governed_catalog.socrata.scorer_agreement.admitted_pairs:,--> | 91.37<!--claim:governed_catalog.socrata.scorer_agreement.word_tuple_exact_pct:.2f--> | 0<!--claim:governed_catalog.socrata.scorer_agreement.verdicts_disagreeing:,--> |
+
+The second row reproduces `governed_gold.socrata.columns.all.exact_pct` to the digit. Two scorers
+for one question is how a project acquires a number it later cannot compare; this is one scorer with
+a published identity, and `tests/test_governed_catalog.py` pins the identity as a property rather
+than as a coincidence of this corpus.
+
+### The census: how much of a real schema needs a catalog at all
+
+This decides how to read everything below it, and it has no arms, no thresholds and nothing chosen.
+Every column pair is classified once by comparing the case-folded alphanumerics of identifier and
+caption. Same corpus, same cache and same fetch as the segmentation table above.
+
+| Population | What it is | Distinct pairs | % | Occurrences | % |
+|---|---|---:|---:|---:|---:|
+| `identical` | the caption re-cuts the identifier and nothing else — **a catalog can only do damage** | 59,978<!--claim:governed_catalog.socrata.census.subsets.identical.pairs:,--> | **76.53<!--claim:governed_catalog.socrata.census.subsets.identical.pairs_pct:.2f-->** | 124,046<!--claim:governed_catalog.socrata.census.subsets.identical.occurrences:,--> | 79.90<!--claim:governed_catalog.socrata.census.subsets.identical.occurrences_pct:.2f--> |
+| `expansion` | the identifier's characters are a subsequence of a longer caption | 7,911<!--claim:governed_catalog.socrata.census.subsets.expansion.pairs:,--> | 10.09<!--claim:governed_catalog.socrata.census.subsets.expansion.pairs_pct:.2f--> | 13,381<!--claim:governed_catalog.socrata.census.subsets.expansion.occurrences:,--> | 8.62<!--claim:governed_catalog.socrata.census.subsets.expansion.occurrences_pct:.2f--> |
+| `expansion_strict` | `expansion`, and every token is an abbreviation of its own caption word | 955<!--claim:governed_catalog.socrata.census.subsets.expansion_strict.pairs:,--> | 1.22<!--claim:governed_catalog.socrata.census.subsets.expansion_strict.pairs_pct:.2f--> | 1,718<!--claim:governed_catalog.socrata.census.subsets.expansion_strict.occurrences:,--> | 1.11<!--claim:governed_catalog.socrata.census.subsets.expansion_strict.occurrences_pct:.2f--> |
+| `other` | reordered, annotated, or a caption that *abbreviates* — `unit_number` captioned `Unit Num` | 9,525<!--claim:governed_catalog.socrata.census.subsets.other.pairs:,--> | 12.15<!--claim:governed_catalog.socrata.census.subsets.other.pairs_pct:.2f--> | 16,116<!--claim:governed_catalog.socrata.census.subsets.other.occurrences:,--> | 10.38<!--claim:governed_catalog.socrata.census.subsets.other.occurrences_pct:.2f--> |
+| **LIVE** | both `expansion` rows: **the only place the question is live** | **8,866<!--claim:governed_catalog.socrata.census.live_pairs:,-->** | **11.31<!--claim:governed_catalog.socrata.census.live_pairs_pct:.2f-->** | **15,099<!--claim:governed_catalog.socrata.census.live_occurrences:,-->** | **9.72<!--claim:governed_catalog.socrata.census.live_occurrences_pct:.2f-->** |
+| ALL | | 78,369<!--claim:governed_catalog.socrata.census.distinct_pairs:,--> | | 155,261<!--claim:governed_catalog.socrata.census.occurrences:,--> | |
+
+**The audit's `87.3 %` does not reproduce, and the correction goes against us.** On this corpus the
+already-unabbreviated share is
+76.53<!--claim:governed_catalog.socrata.census.unabbreviated_pairs_pct:.2f--> % of distinct pairs and
+79.90<!--claim:governed_catalog.socrata.census.unabbreviated_occurrences_pct:.2f--> % of column
+occurrences — a smaller majority than the audit recorded, so *more* of the corpus is live than that
+figure implied, not less. The audit's number was taken on a different walk of a live catalog and is
+not re-derivable; this one is, from the cache the segmentation table was taken from. The audit's
+companion noise figure moves the same way: of the
+18,391<!--claim:governed_catalog.socrata.census.non_identical_pairs:,--> pairs whose caption is not the
+identifier re-cut, 82.86<!--claim:governed_catalog.socrata.census.token_word_count_mismatch_pct:.2f--> %
+have a token count that does not match the caption's word count, against the audit's `78.9 %`.
+
+Inside `expansion_strict` the alignment is well defined, which yields the atoms this question is
+really about: 1,100<!--claim:governed_catalog.socrata.census.abbreviated_tokens:,--> **abbreviated
+tokens** — token positions where the identifier's token differs from the caption's word, so a
+catalog is the only thing that could ever produce the right answer.
+
+### The comparison, decomposed
+
+Portal-disjoint, by the same digest the segmentation table's robustness halves use, so no portal
+casts a training vote and is then scored. Two folds, reported separately and never pooled. `E-only`
+and `V-only` are the paired counts: pairs only the empty arm got right, and pairs only the voted arm
+got right.
+
+**`voted`** is the audit's catalog reconstructed — every aligned vote counts, a token must be seen
+twice, a simple majority wins:
+
+| Fold | Subset | Pairs | empty % | voted % | delta | catalog fired | E-only | V-only |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| `fold_ab` | all | 31,348<!--claim:governed_catalog.socrata.voted.fold_ab.all.pairs:,--> | **65.62<!--claim:governed_catalog.socrata.voted.fold_ab.all.empty_exact_pct:.2f-->** | **65.32<!--claim:governed_catalog.socrata.voted.fold_ab.all.voted_exact_pct:.2f-->** | -0.31<!--claim:governed_catalog.socrata.voted.fold_ab.all.delta_points:.2f--> | 168<!--claim:governed_catalog.socrata.voted.fold_ab.all.catalog_fired_pairs:,--> | 97<!--claim:governed_catalog.socrata.voted.fold_ab.all.empty_only_correct:,--> | 0<!--claim:governed_catalog.socrata.voted.fold_ab.all.voted_only_correct:,--> |
+| | identical | 24,854<!--claim:governed_catalog.socrata.voted.fold_ab.identical.pairs:,--> | 82.77<!--claim:governed_catalog.socrata.voted.fold_ab.identical.empty_exact_pct:.2f--> | 82.38<!--claim:governed_catalog.socrata.voted.fold_ab.identical.voted_exact_pct:.2f--> | -0.39<!--claim:governed_catalog.socrata.voted.fold_ab.identical.delta_points:.2f--> | 105<!--claim:governed_catalog.socrata.voted.fold_ab.identical.catalog_fired_pairs:,--> | 97<!--claim:governed_catalog.socrata.voted.fold_ab.identical.empty_only_correct:,--> | 0<!--claim:governed_catalog.socrata.voted.fold_ab.identical.voted_only_correct:,--> |
+| | **live** | 3,276<!--claim:governed_catalog.socrata.voted.fold_ab.live.pairs:,--> | 0.00<!--claim:governed_catalog.socrata.voted.fold_ab.live.empty_exact_pct:.2f--> | 0.00<!--claim:governed_catalog.socrata.voted.fold_ab.live.voted_exact_pct:.2f--> | 0.00<!--claim:governed_catalog.socrata.voted.fold_ab.live.delta_points:.2f--> | 23<!--claim:governed_catalog.socrata.voted.fold_ab.live.catalog_fired_pairs:,--> | 0<!--claim:governed_catalog.socrata.voted.fold_ab.live.empty_only_correct:,--> | 0<!--claim:governed_catalog.socrata.voted.fold_ab.live.voted_only_correct:,--> |
+| `fold_ba` | all | 49,308<!--claim:governed_catalog.socrata.voted.fold_ba.all.pairs:,--> | **63.10<!--claim:governed_catalog.socrata.voted.fold_ba.all.empty_exact_pct:.2f-->** | **62.53<!--claim:governed_catalog.socrata.voted.fold_ba.all.voted_exact_pct:.2f-->** | -0.57<!--claim:governed_catalog.socrata.voted.fold_ba.all.delta_points:.2f--> | 2,516<!--claim:governed_catalog.socrata.voted.fold_ba.all.catalog_fired_pairs:,--> | 283<!--claim:governed_catalog.socrata.voted.fold_ba.all.empty_only_correct:,--> | 1<!--claim:governed_catalog.socrata.voted.fold_ba.all.voted_only_correct:,--> |
+| | identical | 37,323<!--claim:governed_catalog.socrata.voted.fold_ba.identical.pairs:,--> | 83.37<!--claim:governed_catalog.socrata.voted.fold_ba.identical.empty_exact_pct:.2f--> | 82.61<!--claim:governed_catalog.socrata.voted.fold_ba.identical.voted_exact_pct:.2f--> | -0.76<!--claim:governed_catalog.socrata.voted.fold_ba.identical.delta_points:.2f--> | 1,953<!--claim:governed_catalog.socrata.voted.fold_ba.identical.catalog_fired_pairs:,--> | 283<!--claim:governed_catalog.socrata.voted.fold_ba.identical.empty_only_correct:,--> | 0<!--claim:governed_catalog.socrata.voted.fold_ba.identical.voted_only_correct:,--> |
+| | **live** | 5,625<!--claim:governed_catalog.socrata.voted.fold_ba.live.pairs:,--> | 0.00<!--claim:governed_catalog.socrata.voted.fold_ba.live.empty_exact_pct:.2f--> | 0.02<!--claim:governed_catalog.socrata.voted.fold_ba.live.voted_exact_pct:.2f--> | 0.02<!--claim:governed_catalog.socrata.voted.fold_ba.live.delta_points:.2f--> | 434<!--claim:governed_catalog.socrata.voted.fold_ba.live.catalog_fired_pairs:,--> | 0<!--claim:governed_catalog.socrata.voted.fold_ba.live.empty_only_correct:,--> | 1<!--claim:governed_catalog.socrata.voted.fold_ba.live.voted_only_correct:,--> |
+
+Read the `E-only` and `V-only` columns before the deltas. On `fold_ab` the catalog broke
+97<!--claim:governed_catalog.socrata.voted.fold_ab.identical.empty_only_correct:,--> already-correct
+pairs and fixed
+0<!--claim:governed_catalog.socrata.voted.fold_ab.identical.voted_only_correct:,-->; on `fold_ba`,
+283<!--claim:governed_catalog.socrata.voted.fold_ba.identical.empty_only_correct:,--> broken and
+0<!--claim:governed_catalog.socrata.voted.fold_ba.identical.voted_only_correct:,--> fixed. **The whole
+of the pooled loss is damage to pairs that needed no catalog.** On the live subset the same catalog
+fired on only 23<!--claim:governed_catalog.socrata.voted.fold_ab.live.catalog_fired_pairs:,--> and
+434<!--claim:governed_catalog.socrata.voted.fold_ba.live.catalog_fired_pairs:,--> pairs — operating rule
+12's firing count, and it is what makes the live deltas of
+0.00<!--claim:governed_catalog.socrata.voted.fold_ab.live.delta_points:.2f--> and
+0.02<!--claim:governed_catalog.socrata.voted.fold_ba.live.delta_points:.2f--> points a measurement of
+almost nothing rather than a null result.
+
+**And the confinement of the loss is forced rather than incidental.** The empty arm's output has
+the identifier's alphanumerics, so it can be exactly right only on `identical` — which means
+`empty_only_correct` is structurally zero on every other subset, for **every** catalog in the grid
+and not only for these two. A voted catalog cannot lose a pair outside `identical` at any setting.
+That is a derivation from the classification, and it is why the pooled figure is a damage figure by
+construction rather than by accident.
+
+**`eager`** is the catalog arm at its best: of the
+80<!--claim:governed_catalog.socrata.sweep.cells_run:,--> configurations swept, the one that recovers
+most of the live subset. It is selected *after* seeing the sweep and the entry says so in its own
+`chosen_as` field.
+
+| Fold | Subset | Pairs | empty % | voted % | delta | catalog fired | E-only | V-only |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| `fold_ab` | all | 31,348<!--claim:governed_catalog.socrata.eager.fold_ab.all.pairs:,--> | **65.62<!--claim:governed_catalog.socrata.eager.fold_ab.all.empty_exact_pct:.2f-->** | **47.84<!--claim:governed_catalog.socrata.eager.fold_ab.all.voted_exact_pct:.2f-->** | -17.79<!--claim:governed_catalog.socrata.eager.fold_ab.all.delta_points:.2f--> | 11,171<!--claim:governed_catalog.socrata.eager.fold_ab.all.catalog_fired_pairs:,--> | 5,616<!--claim:governed_catalog.socrata.eager.fold_ab.all.empty_only_correct:,--> | 40<!--claim:governed_catalog.socrata.eager.fold_ab.all.voted_only_correct:,--> |
+| | identical | 24,854<!--claim:governed_catalog.socrata.eager.fold_ab.identical.pairs:,--> | 82.77<!--claim:governed_catalog.socrata.eager.fold_ab.identical.empty_exact_pct:.2f--> | 60.18<!--claim:governed_catalog.socrata.eager.fold_ab.identical.voted_exact_pct:.2f--> | **-22.60<!--claim:governed_catalog.socrata.eager.fold_ab.identical.delta_points:.2f-->** | 8,282<!--claim:governed_catalog.socrata.eager.fold_ab.identical.catalog_fired_pairs:,--> | 5,616<!--claim:governed_catalog.socrata.eager.fold_ab.identical.empty_only_correct:,--> | 0<!--claim:governed_catalog.socrata.eager.fold_ab.identical.voted_only_correct:,--> |
+| | **live** | 3,276<!--claim:governed_catalog.socrata.eager.fold_ab.live.pairs:,--> | 0.00<!--claim:governed_catalog.socrata.eager.fold_ab.live.empty_exact_pct:.2f--> | **1.22<!--claim:governed_catalog.socrata.eager.fold_ab.live.voted_exact_pct:.2f-->** | **1.22<!--claim:governed_catalog.socrata.eager.fold_ab.live.delta_points:.2f-->** | 925<!--claim:governed_catalog.socrata.eager.fold_ab.live.catalog_fired_pairs:,--> | 0<!--claim:governed_catalog.socrata.eager.fold_ab.live.empty_only_correct:,--> | 40<!--claim:governed_catalog.socrata.eager.fold_ab.live.voted_only_correct:,--> |
+| | `expansion_strict` | 407<!--claim:governed_catalog.socrata.eager.fold_ab.expansion_strict.pairs:,--> | 0.00<!--claim:governed_catalog.socrata.eager.fold_ab.expansion_strict.empty_exact_pct:.2f--> | **9.83<!--claim:governed_catalog.socrata.eager.fold_ab.expansion_strict.voted_exact_pct:.2f-->** | **9.83<!--claim:governed_catalog.socrata.eager.fold_ab.expansion_strict.delta_points:.2f-->** | 153<!--claim:governed_catalog.socrata.eager.fold_ab.expansion_strict.catalog_fired_pairs:,--> | 0<!--claim:governed_catalog.socrata.eager.fold_ab.expansion_strict.empty_only_correct:,--> | 40<!--claim:governed_catalog.socrata.eager.fold_ab.expansion_strict.voted_only_correct:,--> |
+| `fold_ba` | all | 49,308<!--claim:governed_catalog.socrata.eager.fold_ba.all.pairs:,--> | **63.10<!--claim:governed_catalog.socrata.eager.fold_ba.all.empty_exact_pct:.2f-->** | **50.18<!--claim:governed_catalog.socrata.eager.fold_ba.all.voted_exact_pct:.2f-->** | -12.92<!--claim:governed_catalog.socrata.eager.fold_ba.all.delta_points:.2f--> | 15,009<!--claim:governed_catalog.socrata.eager.fold_ba.all.catalog_fired_pairs:,--> | 6,408<!--claim:governed_catalog.socrata.eager.fold_ba.all.empty_only_correct:,--> | 36<!--claim:governed_catalog.socrata.eager.fold_ba.all.voted_only_correct:,--> |
+| | identical | 37,323<!--claim:governed_catalog.socrata.eager.fold_ba.identical.pairs:,--> | 83.37<!--claim:governed_catalog.socrata.eager.fold_ba.identical.empty_exact_pct:.2f--> | 66.20<!--claim:governed_catalog.socrata.eager.fold_ba.identical.voted_exact_pct:.2f--> | **-17.17<!--claim:governed_catalog.socrata.eager.fold_ba.identical.delta_points:.2f-->** | 9,980<!--claim:governed_catalog.socrata.eager.fold_ba.identical.catalog_fired_pairs:,--> | 6,408<!--claim:governed_catalog.socrata.eager.fold_ba.identical.empty_only_correct:,--> | 0<!--claim:governed_catalog.socrata.eager.fold_ba.identical.voted_only_correct:,--> |
+| | **live** | 5,625<!--claim:governed_catalog.socrata.eager.fold_ba.live.pairs:,--> | 0.00<!--claim:governed_catalog.socrata.eager.fold_ba.live.empty_exact_pct:.2f--> | **0.64<!--claim:governed_catalog.socrata.eager.fold_ba.live.voted_exact_pct:.2f-->** | **0.64<!--claim:governed_catalog.socrata.eager.fold_ba.live.delta_points:.2f-->** | 2,780<!--claim:governed_catalog.socrata.eager.fold_ba.live.catalog_fired_pairs:,--> | 0<!--claim:governed_catalog.socrata.eager.fold_ba.live.empty_only_correct:,--> | 36<!--claim:governed_catalog.socrata.eager.fold_ba.live.voted_only_correct:,--> |
+| | `expansion_strict` | 552<!--claim:governed_catalog.socrata.eager.fold_ba.expansion_strict.pairs:,--> | 0.00<!--claim:governed_catalog.socrata.eager.fold_ba.expansion_strict.empty_exact_pct:.2f--> | **6.52<!--claim:governed_catalog.socrata.eager.fold_ba.expansion_strict.voted_exact_pct:.2f-->** | **6.52<!--claim:governed_catalog.socrata.eager.fold_ba.expansion_strict.delta_points:.2f-->** | 266<!--claim:governed_catalog.socrata.eager.fold_ba.expansion_strict.catalog_fired_pairs:,--> | 0<!--claim:governed_catalog.socrata.eager.fold_ba.expansion_strict.empty_only_correct:,--> | 36<!--claim:governed_catalog.socrata.eager.fold_ba.expansion_strict.voted_only_correct:,--> |
+
+**The two effects live on disjoint populations and the damaged one is about seven times larger.**
+A catalog aggressive enough to recover
+9.83<!--claim:governed_catalog.socrata.eager.fold_ab.expansion_strict.voted_exact_pct:.2f--> % of the
+cleanest live pairs moves the pairs that needed nothing by
+-22.60<!--claim:governed_catalog.socrata.eager.fold_ab.identical.delta_points:.2f--> points. That, and not "a catalog adds nothing", is what the pooled figure is made of.
+
+### The atoms: the empty catalog's zero there is a derivation, not a measurement
+
+On the abbreviated tokens inside `expansion_strict` — the token positions where the identifier's
+token differs from the caption's word — the empty catalog is right
+0<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.empty_correct:,--> times out of
+486<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.tokens:,--> on one fold and
+0<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.empty_correct:,--> out of
+618<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.tokens:,--> on the other. **That
+zero is arithmetic and this page will not sell it as evidence**: an empty catalog passes every token
+through, so its output's alphanumerics are the identifier's, and the gold's are not. It is printed
+because it is the positive control on the harness — a run that produced a non-zero there would be
+broken in a way no delta would reveal — and `tests/test_governed_catalog.py` proves it rather than
+observing it.
+
+What is *not* arithmetic is the other column:
+
+| Fold | Abbreviated tokens | empty correct | `voted` correct | `eager` correct | `eager` % |
+|---|---:|---:|---:|---:|---:|
+| `fold_ab` | 486<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.tokens:,--> | 0<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.empty_correct:,--> | 0<!--claim:governed_catalog.socrata.voted.fold_ab.abbreviated_tokens.voted_correct:,--> | 60<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.voted_correct:,--> | **12.35<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.voted_correct_pct:.2f-->** |
+| `fold_ba` | 618<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.tokens:,--> | 0<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.empty_correct:,--> | 1<!--claim:governed_catalog.socrata.voted.fold_ba.abbreviated_tokens.voted_correct:,--> | 57<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.voted_correct:,--> | **9.22<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.voted_correct_pct:.2f-->** |
+
+A catalog inferred from the corpus itself recovers about a tenth of the atoms an empty catalog
+cannot touch at all. That is a small number, it is a floor rather than an estimate, and it is the
+first non-zero anybody has measured on the population where this question is live — the audit's
+figures were pooled over a population that is mostly not live at all.
+
+### The sweep, and the null control
+
+Quoting a maximum out of a sweep is only honest if the whole sweep is on the record, so the whole
+sweep is on the record at `governed_catalog.socrata.sweep.cells`: five harvesting rules, four
+`min_votes` settings, two `min_share` settings, both folds.
+
+```
+python bench/run_governed_catalog.py            -- command output, not a benchmark measurement
+                                                -- every cell is saved; these are counts over them
+
+  sweep: 80 cells, counted on pair counts and not on a rounded delta.
+    pooled : voted wins 0, loses 79, ties 1 (1 of the ties have an empty catalog)
+    live   : voted wins 51, loses 0, ties 29
+  null control fold_ab: delta 0.0 points, fired 0
+  null control fold_ba: delta 0.0 points, fired 0
+```
+
+The direction never changes. The voted catalog beats the empty catalog on the pooled figure in
+0<!--claim:governed_catalog.socrata.sweep.cells_where_voted_beats_empty_pooled:,--> of
+80<!--claim:governed_catalog.socrata.sweep.cells_run:,--> cells and loses in
+79<!--claim:governed_catalog.socrata.sweep.cells_where_voted_loses_pooled:,-->; the single tie is the one
+cell whose catalog has no acting rows at all, which is the empty arm under another name. On the live
+subset it wins 51<!--claim:governed_catalog.socrata.sweep.cells_where_voted_beats_empty_live:,--> and
+loses 0<!--claim:governed_catalog.socrata.sweep.cells_where_voted_loses_live:,--> — which is
+arithmetic rather than evidence, because the empty arm is zero there by construction — while
+recovering nothing at all in
+29<!--claim:governed_catalog.socrata.sweep.cells_where_voted_ties_live:,-->. The worst pooled cost
+anywhere in the grid is
+-27.90<!--claim:governed_catalog.socrata.sweep.pooled_delta_points_worst:.2f--> points and the best
+token-level recovery anywhere in it is
+12.35<!--claim:governed_catalog.socrata.sweep.abbreviated_tokens_voted_correct_pct_best:.2f--> %.
+
+The null control is the harness scored against itself: an empty catalog against an empty catalog,
+0.00<!--claim:governed_catalog.socrata.null_control.fold_ab.delta_points:.2f--> points and
+0<!--claim:governed_catalog.socrata.null_control.fold_ab.catalog_fired_pairs:,--> firings on one fold,
+0.00<!--claim:governed_catalog.socrata.null_control.fold_ba.delta_points:.2f--> and
+0<!--claim:governed_catalog.socrata.null_control.fold_ba.catalog_fired_pairs:,--> on the other. A harness
+that reported a difference between an arm and itself would make every number above a coincidence.
+
+### What this settles, and what it does not
+
+**Settled:** the audit's pooled comparison is not a measurement of what a catalog is worth. It is a
+measurement of what a catalog costs on the
+76.53<!--claim:governed_catalog.socrata.census.subsets.identical.pairs_pct:.2f--> % of pairs that need no
+catalog, and that population outweighs the live one about seven to one. Any catalog aggressive
+enough to reach the live subset destroys the pooled figure; any catalog cautious enough to protect
+the pooled figure never fires on the live subset. **The pooled metric cannot answer this question at
+any setting in the grid**, which is a stronger statement than the audit's and it points the other
+way.
+
+**Not settled:** whether a *real* glossary helps. Every catalog measured here is inferred by this
+harness from labels of the very kind being scored, exactly as the audit's was, and the best of them
+reaches about a tenth of the atoms. That is a floor on a real catalog, not an estimate of one, and
+nothing public closes the gap — which is the whole content of
+[`docs/POSITIONING.md`](POSITIONING.md#reversal-one-the-lead-is-wrong-if-a-catalog-is-worth-nothing-on-a-real-schema)'s
+first reversal condition and the reason it asks for one organisation's glossary rather than for more
+work in this repository.
+
+### The gates that adjudicate this section, shown failing
+
+Operating rule 11: a gate must be demonstrated capable of failing where it runs, by mutation, with
+the failure captured. Seven mutations, one at a time, each file restored from bytes read before the
+first mutation and md5-verified.
+
+```
+python tools/check_claims.py                 -- command output, not a benchmark measurement
+python -m pytest tests/test_governed_catalog.py
+CPython 3.13.4 on win32. One mutation applied at a time, the gate run, the file restored.
+
+  rc=0  control, unmutated                                     claims gate
+  rc=0  control, unmutated                                     suite
+  rc=1  A  a cited value edited: 76.53 -> 99.99                docs/POSITIONING.md
+  rc=1  B  that citation repointed at governed_catalog.socrata.nope    docs/POSITIONING.md
+  rc=1  C  a bare accuracy percentage added to the census head docs/EVALUATION.md
+  rc=1  D  scorer mutated: phrase_words stops case-folding     bench/run_governed_catalog.py
+  rc=1  E  classifier mutated: nothing can reach the expansion buckets bench/run_governed_catalog.py
+  rc=1  F  Cell.as_dict stops publishing the raw counts        bench/run_governed_catalog.py
+  rc=1  G  identity rows emitted as catalog rows after all     bench/run_governed_catalog.py
+```
+
+**Both controls are green and every mutation is red**, which is the property the count is worth
+reading for. `D` through `G` are the four judgements in this harness that a reader cannot check by
+eye — the metric, the classification, the tally, and what counts as a catalog row — and each of them
+turns the suite red on its own. This is a developer machine, which is exactly the environment
+[`docs/GATES.md`](GATES.md) says does not satisfy rule 11; the register's in-situ count is unchanged
+by this block.
+
+### How this fails
+
+**The gold is a publisher's caption, and on the live subset it is worse gold than on the
+segmentation table.** There, the admission rule guaranteed the two strings were the same characters.
+Here nothing guarantees that the caption is an *expansion* of the identifier rather than a different
+name for the same column, and `expansion` is a character-subsequence test that is necessary for that
+and not sufficient. `expansion_strict` is tighter and is only
+1.22<!--claim:governed_catalog.socrata.census.subsets.expansion_strict.pairs_pct:.2f--> % of the corpus.
+
+**This round selected on this corpus, and `bench/splits.toml` says the opposite.** That file declares
+`socrata` `contaminated = false`, and the reason it gives is that the miss decomposition was
+published but "nothing was selected on it: the runner has no thresholds, no configuration and no arms
+to choose between." This runner has all three, and it quotes a maximum over a grid. Every entry it
+writes carries `selection_on_this_corpus = true`. Whether the manifest entry should still read
+`contaminated = false`, and whether `governed_gold.socrata.*` is still held-out evidence, is a
+question for whoever owns that file. It is reported here and deliberately not fixed here.
+
+**The catalog is circular, and the split moves the circularity rather than removing it.** Rows are
+voted from labels of the same kind as the labels being scored. The portal-disjoint split means no
+portal trains a catalog and is then scored by it, so the circularity is at the corpus level rather
+than at the pair level — which is the most a public substitute can offer and is not the same as
+being non-circular.
+
+**The two folds are not two independent estimates of one number.** They are two different catalogs
+on two different populations, reported side by side because a portal-disjoint split makes them
+comparable, and never pooled. Where they disagree — `fold_ab` recovers
+12.35<!--claim:governed_catalog.socrata.eager.fold_ab.abbreviated_tokens.voted_correct_pct:.2f--> % of the
+atoms and `fold_ba`
+9.22<!--claim:governed_catalog.socrata.eager.fold_ba.abbreviated_tokens.voted_correct_pct:.2f--> % — the
+spread is the honest width of this measurement, and there are two points in it.
+
+**Nothing here transfers to a schema written in UPPER_SNAKE.** The shape census on the segmentation
+table above holds for this corpus too: it is `snake_lower` and `flat_lower`, and the shape the
+package's own documentation is built around does not appear in it.
 
 ## The backronym subsystem: an accuracy number for `align`, none for `synthesize`
 

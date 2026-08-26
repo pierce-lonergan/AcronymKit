@@ -258,6 +258,59 @@ _FEDERAL_REGISTER_NOTE = (
     "and not automatically true of every string inside it."
 )
 
+#: The PMC Open Access Subset's own terms page. Cited and **not** fetched as an
+#: :class:`Asset`, for the same reason ``_USC_17_105`` is not: the page carries a
+#: per-request ``<meta name="ncbi_phid">`` tracking token, so two fetches a
+#: second apart differ in bytes and a byte pin would install a checksum that
+#: fails on every run. Measured rather than assumed -- two fetches on 2026-08-25
+#: were 82,989 bytes each and differed on exactly one line, and with that one
+#: meta element removed both digest to
+#: ``caf0d245a484b6957bf0b8d95a9b99eda83e53bd538d2e3af7f93b2f1cdcd6d8``.
+_PMC_OA_TERMS = "https://pmc.ncbi.nlm.nih.gov/tools/openftlist/"
+
+#: PMC's copyright notice, which the subset page above defers to for the terms
+#: of any individual article.
+_PMC_COPYRIGHT = "https://pmc.ncbi.nlm.nih.gov/about/copyright/"
+
+#: The licence field for the PMC substrate, phrased so that the one-word version
+#: cannot be quoted on its own. "CC BY" is what most of it is and is not what it
+#: **is**.
+_PMC_LICENCE = "Per article; CC BY / CC0 only after a per-article filter (see the note)"
+
+_PMC_LICENCE_NOTE = (
+    "Read from the PMC Open Access Subset page on 2026-08-25, not from a badge "
+    "and not from the AWS registry card. The page states the position in its own "
+    "words: 'Within the PMC Open Access Subset articles are available for reuse, "
+    "but license terms vary. Please refer to the license statement in each "
+    "article for specific terms of use.' So the subset is NOT a licence -- it is "
+    "a distribution channel carrying several -- and any tool that treats it as "
+    "one is wrong about most of it. Two machine-readable statements carry the "
+    "per-article answer: `license_code` in each article's metadata JSON, and the "
+    "`ali:license_ref` URL inside the article's own <permissions> block. "
+    "bench/run_genre.py admits only 'CC BY' and 'CC0' and counts everything it "
+    "drops. MEASURED on its own 5,376-probe draw of 2026-08-25: of the 2,756 "
+    "probes that reached an article carrying a licence code, 2,013 were "
+    "permissive and 743 -- 26.96 % -- were not, split across CC BY-NC-ND, "
+    "CC BY-NC, CC BY-NC-SA, a text-mining-only grant, and exactly one CC BY-ND. "
+    "That last one is the trap docs/AUDIT-2026-08.md flagged and it is real, if "
+    "rare: PMC's own filters group ND under 'permits commercial reuse', and "
+    "commercial reuse and derivative works are not the same permission. "
+    "THIS CORRECTS docs/AUDIT-2026-08.md RATHER THAN CONFIRMING IT. That page "
+    "measured a 30,546-article sample and reported 'CC BY 28,285, CC0 2,261, "
+    "anything else 0'. True of `oa_comm` -- the commercial-use subset, already "
+    "filtered upstream -- and `oa_comm` no longer exists as a distribution. The "
+    "Cloud Service that replaced it serves the WHOLE Open Access Subset under one "
+    "prefix scheme with no licence filter anywhere in the path, so the same draw "
+    "now returns NC, ND and SA articles and the per-article filter is the only "
+    "thing keeping them out. The audit's other phrase, '5.27M CC BY / CC0 full "
+    "texts', overstates the permissive population for the same reason. The "
+    "same page also constrains HOW: 'The PMC Cloud Service, PMC OAI-PMH Service, "
+    "E-Utilities and BioC API are the only services that may be used for "
+    "automated retrieval of PMC content. Systematic retrieval (or bulk "
+    "retrieval) of articles through any other automated process is prohibited.' "
+    "The Cloud Service is the route used."
+)
+
 USER_AGENT = "acronymkit-fetch-data/1.0 (+https://github.com/pierce-lonergan/AcronymKit)"
 
 
@@ -1027,6 +1080,53 @@ SUBSTRATES: tuple[Substrate, ...] = (
             "the terms of the host that serves the mirror. Anyone who wants the Federal "
             "Register's own wording should open the page in a browser and add it here "
             "with a read date. Do not defeat the CAPTCHA."
+        ),
+    ),
+    Substrate(
+        key="pmc-oa-same-article",
+        name="PMC Open Access Subset, abstract/body pairs from single articles",
+        discovery_url="https://pmc-oa-opendata.s3.amazonaws.com/",
+        licence=_PMC_LICENCE,
+        licence_url=_PMC_OA_TERMS,
+        licence_read_on="2026-08-25",
+        licence_note=_PMC_LICENCE_NOTE + f" Per-article terms defer to <{_PMC_COPYRIGHT}>.",
+        vendorable=False,
+        derivable=True,
+        fetched_by="python bench/run_genre.py --fetch",
+        pin_note=(
+            "Pinned two ways because one is not enough for a continuously updated "
+            "collection. bench/run_genre.py::PINNED_PMCIDS_TEXT holds the 2,000 drawn "
+            "identifiers, and PINNED_MANIFEST_SHA256 holds one SHA-256 over "
+            "'PMC<id>\\t<sha256 of the XML>' for all of them, sorted. The identifier "
+            "list is what makes the DRAW reproducible: PMC adds, updates and "
+            "occasionally removes article versions continuously, so re-running the "
+            "seeded draw against a later bucket would not return this sample, and a "
+            "digest alone could not tell a changed article from a changed draw. Only "
+            "version .1 of each article is fetched, so a later version cannot silently "
+            "replace a pinned one. `--verify` re-digests what is on disk."
+        ),
+        domain_note=(
+            "Biomedical and life-sciences journal articles, the same domain as MED1250 "
+            "and PLOD-CW and NOT a counterweight to either -- which is the correction "
+            "[corpora.plod] already carries and which this entry is not going to repeat. "
+            "It is here for one property those two cannot supply between them: the "
+            "abstract and the body of ONE article, so that genre varies and provenance "
+            "does not. The draw is uniform over PMC identifier integers, which "
+            "over-weights whatever identifier ranges open-access coverage happens to be "
+            "dense in; that bias lands on both halves equally and is not corrected."
+        ),
+        access_note=(
+            "The legacy FTP tree docs/AUDIT-2026-08.md probed on 2026-08-23 is GONE. Its "
+            "deadline of 24 August 2026, recorded in D-020 item 3, fired. On 2026-08-25 "
+            "ftp.ncbi.nlm.nih.gov/pub/pmc/ holds PMC-ids.csv.gz and readme.txt and "
+            "nothing else; the deprecated/oa_bulk path the audit found up returns 404. "
+            "The readme says all legacy PMC Article Dataset files 'are in the process of "
+            "being removed from the FTP Service' and that 'All files are now available "
+            "via the updated PMC Cloud Service'. The Cloud Service layout is one prefix "
+            "per article version -- PMC<id>.<version>/ holding a metadata JSON, JATS "
+            "XML, plain text, PDF and media -- served over HTTPS with no credential, and "
+            "the daily CSV inventory it also publishes is kept for 30 days, which is why "
+            "the pins above are a draw rather than an index reference."
         ),
     ),
 )

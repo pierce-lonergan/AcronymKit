@@ -1341,6 +1341,16 @@ FEDERAL_REGISTER_CORPUS = "federal_register_rules_2024q1"
 #: make a self-adjudicated set the eligible source for the project's flagship
 #: claim; the loader refuses to open the artifact under any role but this one, so
 #: that edit fails where the corpus is used and not only where it is validated.
+#:
+#: **What this check is worth, with its firing count.** It is the only one of the
+#: role's three guards that runs where a *number* would be produced. The two
+#: inside ``tools/splits.py`` -- ``validate`` refusing the ``[policy]`` line, and
+#: ``headline_capable`` filtering the role out -- run where the manifest is read,
+#: and the second returns ``False`` **zero** times on the shipped manifest under
+#: every policy value ``ROLES`` admits, because this corpus is
+#: ``contaminated = true`` and that clause excludes it unaided. The exclusion is
+#: three-deep and the three fire in different places, which is the property worth
+#: having; it is not three independent measurements of the same thing.
 FEDERAL_REGISTER_ROLE = "single_annotator_reference"
 
 #: Readers that exist and are deliberately absent from every registry, with the
@@ -1678,10 +1688,14 @@ def read_federal_register_reference(path: Optional[Path] = None) -> ReferenceSet
             raise SystemExit(
                 f"{error}\n"
                 f"{FEDERAL_REGISTER_CORPUS} is a single-annotator reference set adjudicated by "
-                "the author of the extractor that proposed most of its pool. The role it is "
-                f"declared under is what keeps it out of headline_capable(); {FEDERAL_REGISTER_ROLE!r} "
-                "is the only role this reader will open it at. Changing it is a promotion, and "
-                "bench/splits.toml lists the conditions a promotion needs."
+                "the author of the extractor that proposed most of its pool. Three rules keep "
+                "it out of headline_capable() and the role is the third of them: "
+                '[policy] headline_requires = "held_out" excludes it first, contaminated = true '
+                "excludes it if that line ever changes, and the role excludes it if both do. "
+                f"{FEDERAL_REGISTER_ROLE!r} is still the only role this reader will open it at, "
+                "because this check fires where the corpus is USED rather than where the "
+                "manifest is validated. Changing it is a promotion, and bench/splits.toml "
+                "lists the conditions a promotion needs."
             ) from error
     source = Path(path) if path is not None else FEDERAL_REGISTER_CACHE / "reference_set.json"
     if not source.is_file():
