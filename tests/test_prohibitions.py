@@ -25,9 +25,26 @@ from typing import Any
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-_SPEC = importlib.util.spec_from_file_location(
-    "_prohibitions_under_test", REPO_ROOT / "tools" / "prohibitions.py"
-)
+_TOOL = REPO_ROOT / "tools" / "prohibitions.py"
+
+# THE FIFTH INSTANCE OF THIS EXACT SHAPE, AND IT SHIPPED IN THE ROUND THAT
+# HARVESTED EVIDENCE FOR THE GATE THAT CATCHES IT. `tools/` is no part of an
+# installed distribution, so without this guard the load below raises
+# `FileNotFoundError` and the file fails to COLLECT rather than skipping. A
+# decorator cannot help: marks are consulted at collection and a module body runs
+# at import, which is earlier.
+#
+# It is a skip and NOT a name in `EXPECTED_NON_PASSING`. That list is keyed on the
+# FILE, so while a name sits there the installed-suite job cannot see any second
+# defect anywhere in it -- measured, and the reason both of its file-keyed entries
+# were deleted. The narrow skip absorbs one named condition and nothing else.
+if not _TOOL.is_file():  # pragma: no cover - CI job only
+    pytest.skip(
+        "tools/ is not part of an installed distribution; these tests belong to a checkout",
+        allow_module_level=True,
+    )
+
+_SPEC = importlib.util.spec_from_file_location("_prohibitions_under_test", _TOOL)
 assert _SPEC is not None and _SPEC.loader is not None
 prohibitions = importlib.util.module_from_spec(_SPEC)
 sys.modules["_prohibitions_under_test"] = prohibitions

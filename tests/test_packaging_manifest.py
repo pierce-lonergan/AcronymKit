@@ -40,6 +40,7 @@ for the five-case table.
 from __future__ import annotations
 
 import importlib.util
+import re
 import shlex
 import sys
 from fnmatch import fnmatch
@@ -198,6 +199,83 @@ def test_every_file_the_claims_gate_reads_is_shipped_by_the_manifest() -> None:
         "tools/check_claims.py reads these files, and MANIFEST.in does not ship "
         "them -- the sdist would carry a gate that cannot pass: "
         f"{sorted(set(missing))}"
+    )
+
+
+#: Link targets that are deliberately not shipped, each with the reason. Kept
+#: tiny on purpose: every name here is a link a reader of the sdist follows to
+#: nothing, so the bar for adding one is that shipping it would be worse.
+_LINKS_NOT_SHIPPED = {
+    # Git-ignored, fetched by tools/fetch_data.py against pinned digests. The
+    # ledger that describes them (data/LICENSES.md) IS shipped.
+    "data",
+    # The runners need fetched corpora and optional dependencies an sdist has no
+    # business assuming; MANIFEST.in says so where it ships results.json alone.
+    "bench",
+}
+
+
+def _relative_link_targets(text: str) -> set:
+    """Every repo-relative path a markdown document links to.
+
+    Anchors, URLs and mailto: are not paths. A link with a `#fragment` is split
+    at the fragment, because the file is the part that has to exist.
+    """
+    targets = set()
+    for raw in re.findall(r"\]\(([^)]+)\)", text):
+        target = raw.split("#", 1)[0].strip()
+        if not target or "://" in target or target.startswith(("mailto:", "#")):
+            continue
+        targets.add(target)
+    return targets
+
+
+@pytest.mark.skipif(not MANIFEST.is_file(), reason="not a source checkout")
+def test_every_link_out_of_a_shipped_document_is_itself_shipped() -> None:
+    """A shipped document may not link to something the sdist leaves behind.
+
+    This distribution has now shipped a document pointing at a file it did not
+    carry five times: ``bench/results.json``, ``data/LICENSES.md``, a fixture,
+    ``bench/splits.toml``, and ``SECURITY.md`` -- which ``README.md`` offers as
+    "[Security policy](SECURITY.md)" and which was not in ``MANIFEST.in`` at all.
+
+    **The failure is invisible in a checkout by construction**, because every
+    link resolves there. It can only appear in the extracted tree, which is the
+    slowest and least-run place to find it, and four of the five were found by
+    something else entirely tripping over the absence.
+
+    Walking the links makes the rule derived rather than remembered: a document
+    that gains a link to an unshipped file fails here, locally, in the commit
+    that adds the link.
+    """
+    patterns = _manifest_patterns()
+    shipped_docs = [
+        path
+        for path in REPO_ROOT.rglob("*.md")
+        if not _IGNORED_PARTS.intersection(path.parts) and _is_covered(path, patterns)
+    ]
+    assert shipped_docs, "no shipped markdown found; this test would pass vacuously"
+
+    dangling: list = []
+    for doc in shipped_docs:
+        base = doc.parent
+        for target in _relative_link_targets(doc.read_text(encoding="utf-8", errors="replace")):
+            resolved = (base / target).resolve()
+            try:
+                relative = resolved.relative_to(REPO_ROOT)
+            except ValueError:
+                continue  # points outside the tree; not this test's business
+            if relative.as_posix().split("/", 1)[0] in _LINKS_NOT_SHIPPED:
+                continue
+            if not resolved.exists():
+                continue  # a broken link in the checkout is a different defect
+            if resolved.is_dir() or _is_covered(resolved, patterns):
+                continue
+            dangling.append(f"{doc.relative_to(REPO_ROOT).as_posix()} -> {relative.as_posix()}")
+
+    assert not dangling, (
+        "these shipped documents link to files MANIFEST.in does not ship, so the "
+        "link resolves to nothing for anyone holding an sdist: " + str(sorted(set(dangling)))
     )
 
 

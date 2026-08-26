@@ -9,6 +9,18 @@ include LICENSE
 include README.md
 include CHANGELOG.md
 include CONTRIBUTING.md
+# THE FIFTH TIME A SHIPPED DOCUMENT LINKED TO SOMETHING THE SDIST DID NOT SHIP.
+# `README.md` carries "[Security policy](SECURITY.md) -- threat model and
+# disclosure", README ships, and SECURITY.md did not, so that link resolved to
+# nothing for everyone holding a distribution. Caught by the second-reader
+# rotation's existence check running inside the extracted tree, which is the only
+# environment where the absence is visible -- in a checkout every link resolves
+# by construction, which is precisely why this keeps happening.
+#
+# The class, not just the instance, is now derived rather than remembered:
+# `tests/test_packaging_manifest.py` walks every relative link out of every
+# shipped markdown file and requires each target to be shipped too.
+include SECURITY.md
 include MANIFEST.in
 include pyproject.toml
 include .editorconfig
@@ -67,6 +79,19 @@ include tools/claims_allowlist.txt
 # locally when a target is added here without a line, which is the check that
 # would have caught this one and the three before it.
 include bench/splits.toml
+# THE SAME CLASS, FOUND BY THE NEW LINK GUARD IN THE COMMIT THAT ADDED IT, AND
+# ALL THREE WERE CREATED THIS ROUND. `docs/GATES.md` links to `.github/gates.toml`
+# and `docs/SECOND-READER.md` plus `CONTRIBUTING.md` both link to
+# `docs/cold-reads.toml`. `recursive-include docs *.md` carries the prose and not
+# the register it documents, and `.github` shipped workflows only -- so three
+# pages shipped pointing at evidence the reader did not get.
+#
+# Both are governance registers whose whole purpose is to be inspected, which is
+# the same argument that already ships `bench/results.json`, `bench/splits.toml`
+# and `data/LICENSES.md`: an sdist carrying the claim without the register is an
+# sdist asking to be taken on trust.
+include .github/gates.toml
+include docs/cold-reads.toml
 recursive-include .github/workflows *.yml
 
 # The provenance and licence terms of every third-party data asset. SECURITY.md
