@@ -114,8 +114,23 @@ needs_workflow = pytest.mark.skipif(
 )
 
 
+#: ``tomllib`` is 3.11+ and ``requires-python`` is ``>=3.9``; ``tomli`` is not a
+#: declared dev dependency, so on 3.9 and 3.10 there is no parser to read the
+#: register with. ``tests/test_splits_manifest.py`` carries the identical guard
+#: for the identical reason, and this file shipped without it -- green on the
+#: author's 3.13 and red on four matrix cells, which is the third instance this
+#: round of a check that cannot fail where it runs.
+_NO_PARSER = sys.version_info < (3, 11) and importlib.util.find_spec("tomli") is None
+
+needs_parser = pytest.mark.skipif(_NO_PARSER, reason="tomllib is 3.11+; tomli not installed")
+
+
 def _register() -> dict:
-    import tomllib
+    """Parse ``.github/gates.toml``; callers must carry ``needs_parser``."""
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:  # pragma: no cover - 3.9/3.10 matrix cells only
+        import tomli as tomllib  # type: ignore[no-redef]
 
     with GATES.open("rb") as handle:
         return tomllib.load(handle)
@@ -382,6 +397,7 @@ class TestTheWorkflowAndTheScriptsAgree:
 class TestTheRegisterAndTheScriptsAgree:
     """A marker that drifts turns every future demonstration into ``INERT``."""
 
+    @needs_parser
     def test_each_extracted_gate_declares_the_marker_its_script_prints(self) -> None:
         register = _register()["gates"]
         for gate, module in (
@@ -392,6 +408,7 @@ class TestTheRegisterAndTheScriptsAgree:
             declared = register[gate]["mutation"]["expect_failure_matching"]
             assert declared == module.FAILURE_MARKER, gate
 
+    @needs_parser
     def test_each_extracted_gate_declares_the_command_ci_runs(self) -> None:
         register = _register()["gates"]
         for gate, script in (
