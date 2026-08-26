@@ -117,13 +117,15 @@ pytestmark = pytest.mark.skipif(_NO_PARSER, reason="tomllib is 3.11+; tomli not 
 
 #: For the tests that read the register this repository actually ships.
 #:
-#: `MANIFEST.in` ships `.github/workflows/*.yml` and nothing else from that
-#: directory, so `.github/gates.toml` is absent inside an sdist. The mark is
-#: narrow on purpose — the synthetic-manifest tests below need no such file and
-#: go on running in the extracted tree, which is exactly the discipline
-#: `needs_corpora` established in `tests/test_splits_manifest.py`.
+#: STALE WHEN IT WAS WRITTEN AND CORRECTED HERE: this note used to say
+#: `MANIFEST.in` ships `.github/workflows/*.yml` "and nothing else from that
+#: directory, so `.github/gates.toml` is absent inside an sdist". `a62f99a`
+#: added `include .github/gates.toml` to `MANIFEST.in`, so the register DOES
+#: ship and this mark does not fire in the extracted tree. The mark stays,
+#: because an installed distribution still has neither — and a guard whose
+#: condition is checked rather than assumed costs nothing when it is wrong.
 needs_register = pytest.mark.skipif(
-    not GATES.is_file(), reason=".github/gates.toml is not shipped in the sdist"
+    not GATES.is_file(), reason=".github/gates.toml is absent (an installed distribution)"
 )
 
 
@@ -1105,3 +1107,421 @@ class TestStaleness:
         )
         manifest = write(text)
         assert gates.stale_notes(manifest, today=datetime.date(2026, 8, 24)) == []
+
+
+class TestTheVerdictRestsOnANamedLine:
+    """``rc != 0`` is not evidence that a gate caught anything.
+
+    ``gates.suite`` is the case this rule was written from and it is worth the
+    paragraph. Its probe edits ``tests/test_splits_manifest.py``, which is also
+    the file its own register entry anchors on -- so while the mutation is
+    applied, ``test_gate_manifest.py`` correctly reports the anchor no longer
+    matches and the suite goes red on THAT, whether or not the D-058 defect is
+    caught. Measured with ``data/`` present, where the register predicts the
+    gate is inert: rc=1, and the only failure is the anchor check.
+
+    So the gate's automated verdict could not have come back ``INERT`` for any
+    tree. ``docs/GATES.md`` already said "take the evidence from the line, not
+    from the verdict"; nothing enforced it. These tests are the enforcement.
+    """
+
+    def test_an_automated_fail_mutation_must_name_its_line(
+        self, write: Callable[[str], object]
+    ) -> None:
+        text = _MINIMAL.replace(
+            '[gates.thing.mutation]\nkind = "manual"\n'
+            'reason = "the environment cannot be built here"',
+            '[gates.thing.mutation]\nkind = "automated"\nexpect = "fail"\n'
+            'artifact = "a.log"\nedits = [{ file = "gates.toml", append = "x" }]',
+        ).replace('step = "Do the thing"', 'step = "Do the thing"\ncommand = "python -c pass"', 1)
+        problems = _problems(write(text))
+        assert any("requires `expect_failure_matching`" in p for p in problems), problems
+
+    def test_a_refusal_may_not_declare_one(self, write: Callable[[str], object]) -> None:
+        text = _MINIMAL.replace(
+            'reason = "the environment cannot be built here"',
+            'reason = "the environment cannot be built here"\nexpect_failure_matching = "boom"',
+        )
+        problems = _problems(write(text))
+        assert any("only a mutation this harness runs can use" in p for p in problems), problems
+
+    def test_a_refusal_may_not_declare_a_setup(self, write: Callable[[str], object]) -> None:
+        text = _MINIMAL.replace(
+            'reason = "the environment cannot be built here"',
+            'reason = "the environment cannot be built here"\nsetup = "python -c pass"',
+        )
+        problems = _problems(write(text))
+        assert any("`setup`" in p for p in problems), problems
+
+    def test_a_negative_control_may_not_name_a_failure_line(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # A mutation that must NOT be detected has no failure output to match.
+        text = _MINIMAL.replace(
+            '[gates.thing.mutation]\nkind = "manual"\n'
+            'reason = "the environment cannot be built here"',
+            '[gates.thing.mutation]\nkind = "automated"\nexpect = "pass"\n'
+            'expect_failure_matching = "boom"\nartifact = "a.log"\n'
+            'edits = [{ file = "gates.toml", append = "x" }]',
+        ).replace('step = "Do the thing"', 'step = "Do the thing"\ncommand = "python -c pass"', 1)
+        problems = _problems(write(text))
+        assert any('expect = "pass"' in p for p in problems), problems
+
+    def test_a_failure_without_the_named_line_is_inert(self, tmp_path: Path) -> None:
+        # The whole rule, end to end: the gate DID exit non-zero, and it is
+        # still not a demonstration, because the failure is not the one the
+        # register predicted.
+        root = TestTheMutationRunner._root(tmp_path)
+        gate = gates.Gate(
+            name="probe",
+            environment="only",
+            step="Do the thing",
+            defect_class="behaviour",
+            detects="a probe",
+            command="python probe_gate.py",
+            mutation=gates.Mutation(
+                kind="automated",
+                artifact="probe.log",
+                expect_failure_matching="a line this probe never prints",
+                edits=(gates.Edit(file="broken.txt", create="x\n"),),
+            ),
+        )
+        outcome = gates.mutate(gate, root=root)
+        assert outcome.mutated_rc == 1
+        assert outcome.verdict == "INERT", outcome.detail
+        assert "does not contain" in outcome.detail
+
+    def test_the_same_mutation_with_the_right_line_is_demonstrated(self, tmp_path: Path) -> None:
+        # The control. Without it the test above would pass against a harness
+        # that had simply stopped reporting demonstrations.
+        root = tmp_path
+        (root / "probe_gate.py").write_text(
+            "import pathlib, sys\n"
+            "if pathlib.Path('broken.txt').exists():\n"
+            "    print('PROBE GATE FAILED')\n"
+            "    sys.exit(1)\n",
+            encoding="utf-8",
+        )
+        gate = gates.Gate(
+            name="probe",
+            environment="only",
+            step="Do the thing",
+            defect_class="behaviour",
+            detects="a probe",
+            command="python probe_gate.py",
+            mutation=gates.Mutation(
+                kind="automated",
+                artifact="probe.log",
+                expect_failure_matching="PROBE GATE FAILED",
+                edits=(gates.Edit(file="broken.txt", create="x\n"),),
+            ),
+        )
+        assert gates.mutate(gate, root=root).verdict == "demonstrated"
+
+
+class TestTheSetupCommand:
+    """For the one gate whose environment puts the code out of the tree's reach.
+
+    ``ci.yml``'s ``import-time`` job installs NON-EDITABLY on purpose, so an
+    edit to ``src/`` never reaches the interpreter that gate measures. Without a
+    re-install the mutation is inert there by construction -- which reads as a
+    blind gate when the harness simply never touched what the gate looks at.
+    """
+
+    def test_the_setup_runs_before_the_gate(self, tmp_path: Path) -> None:
+        (tmp_path / "make.py").write_text(
+            "import pathlib; pathlib.Path('installed.txt').write_text('yes')\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "probe_gate.py").write_text(
+            "import pathlib, sys\n"
+            "if not pathlib.Path('installed.txt').exists():\n"
+            "    sys.exit('setup did not run')\n"
+            "if pathlib.Path('broken.txt').exists():\n"
+            "    print('PROBE GATE FAILED')\n"
+            "    sys.exit(1)\n",
+            encoding="utf-8",
+        )
+        gate = gates.Gate(
+            name="probe",
+            environment="only",
+            step="Do the thing",
+            defect_class="behaviour",
+            detects="a probe",
+            command="python probe_gate.py",
+            mutation=gates.Mutation(
+                kind="automated",
+                artifact="probe.log",
+                setup="python make.py",
+                expect_failure_matching="PROBE GATE FAILED",
+                edits=(gates.Edit(file="broken.txt", create="x\n"),),
+            ),
+        )
+        outcome = gates.mutate(gate, root=tmp_path)
+        assert outcome.verdict == "demonstrated", outcome.detail
+
+    def test_a_setup_that_fails_is_not_a_demonstration(self, tmp_path: Path) -> None:
+        (tmp_path / "probe_gate.py").write_text("import sys; sys.exit(1)\n", encoding="utf-8")
+        gate = gates.Gate(
+            name="probe",
+            environment="only",
+            step="Do the thing",
+            defect_class="behaviour",
+            detects="a probe",
+            command="python probe_gate.py",
+            mutation=gates.Mutation(
+                kind="automated",
+                artifact="probe.log",
+                setup="python no_such_setup.py",
+                expect_failure_matching="PROBE GATE FAILED",
+                edits=(gates.Edit(file="broken.txt", create="x\n"),),
+            ),
+        )
+        outcome = gates.mutate(gate, root=tmp_path)
+        assert outcome.verdict == "UNRESTORED", outcome.detail
+        assert "never ran against the mutated tree" in outcome.detail
+        assert not (tmp_path / "broken.txt").exists()
+
+
+class TestWithdrawingEvidence:
+    """A count that can only rise is not a measurement.
+
+    Until this round the debt-may-not-rise rule fired first and was declared not
+    waivable, so retiring a demonstration was arithmetically impossible: the
+    debt goes up by one and every escape was refused before it was consulted.
+    That also made ``docs/GATES.md``'s own documented waiver -- *"a round that
+    adds an `automated` gate it could not run in CI in the same commit"* --
+    unreachable, because adding such a gate raises the debt too.
+
+    So a rise is now allowed when it is ATTRIBUTED, and refused when it is not.
+    """
+
+    _manifest = staticmethod(TestTheInSituQuota._manifest)
+
+    def test_an_unattributed_rise_is_still_refused(self, write: Callable[[str], object]) -> None:
+        manifest = self._manifest(write, gate_count=11, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(label="after", gates=11, in_situ=5, waiver="we were busy"),
+            ),
+            top_ranks=0,
+        )
+        assert any("in-situ debt ROSE" in p for p in problems), problems
+
+    def test_a_rise_attributed_to_a_gate_owed_forward_is_accepted(
+        self, write: Callable[[str], object]
+    ) -> None:
+        manifest = self._manifest(write, gate_count=11, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(
+                    label="after",
+                    gates=11,
+                    in_situ=5,
+                    owed_forward=1,
+                    waiver="the run that demonstrates it is the one this commit triggers",
+                ),
+            ),
+            top_ranks=0,
+        )
+        assert problems == [], problems
+
+    def test_an_attribution_without_a_waiver_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # The attribution says WHAT rose. The waiver is where somebody says why
+        # that was the right thing to do.
+        manifest = self._manifest(write, gate_count=11, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(label="after", gates=11, in_situ=5, owed_forward=1),
+            ),
+            top_ranks=0,
+        )
+        assert any("and no waiver" in p for p in problems), problems
+
+    def test_a_withdrawal_names_the_gate(self, write: Callable[[str], object]) -> None:
+        manifest = self._manifest(write, gate_count=10, evidenced=4)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(label="after", gates=10, in_situ=4, waiver="it was unsound"),
+            ),
+            top_ranks=0,
+        )
+        assert any("named in `withdrawn_gates`" in p for p in problems), problems
+
+    def test_a_named_withdrawal_is_accepted(self, write: Callable[[str], object]) -> None:
+        manifest = self._manifest(write, gate_count=10, evidenced=4)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(label="before", gates=10, in_situ=5),
+                gates.InSituRound(
+                    label="after",
+                    gates=10,
+                    in_situ=4,
+                    withdrawn_gates=("g4",),
+                    owed_forward=1,
+                    waiver="its verdict was reachable with the defect uncaught",
+                ),
+            ),
+            top_ranks=0,
+        )
+        assert problems == [], problems
+
+    def test_withdrawing_a_gate_that_still_carries_evidence_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        manifest = self._manifest(write, gate_count=10, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(
+                    label="only",
+                    gates=10,
+                    in_situ=5,
+                    withdrawn_gates=("g0",),
+                    waiver="said so",
+                ),
+            ),
+            top_ranks=0,
+        )
+        assert any("still carries a verified_in_situ_run" in p for p in problems), problems
+
+    def test_withdrawing_a_gate_that_does_not_exist_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        manifest = self._manifest(write, gate_count=10, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(
+                    label="only",
+                    gates=10,
+                    in_situ=5,
+                    withdrawn_gates=("ghost",),
+                    waiver="said so",
+                ),
+            ),
+            top_ranks=0,
+        )
+        assert any("not a gate in this register" in p for p in problems), problems
+
+    def test_a_withdrawn_top_ranked_gate_is_allowed_only_while_it_is_owed_forward(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # Withdrawal matters MOST at the top of the ranking, which is exactly
+        # where the old rule made it unsayable. It is allowed, and only while a
+        # re-take is owed.
+        import dataclasses
+
+        manifest = self._manifest(write, gate_count=10, evidenced=0)
+        owed = gates.InSituRound(
+            label="only",
+            gates=10,
+            in_situ=0,
+            withdrawn_gates=("g0",),
+            owed_forward=1,
+            waiver="the harness verdict for it carried no information",
+        )
+        problems = gates.in_situ_problems(manifest, (owed,), top_ranks=1)
+        assert not any("by cost-if-inert" in p for p in problems), problems
+
+        forgotten = dataclasses.replace(owed, owed_forward=0)
+        problems = gates.in_situ_problems(manifest, (forgotten,), top_ranks=1)
+        assert any("by cost-if-inert" in p for p in problems), problems
+
+    def test_a_promise_owed_forward_has_a_due_date(self, write: Callable[[str], object]) -> None:
+        # `owed_forward` is a promise that the next CI run takes the evidence.
+        # A promise nothing checks is the shape this register catalogues.
+        manifest = self._manifest(write, gate_count=10, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(
+                    label="promised", gates=10, in_situ=5, owed_forward=2, waiver="next run"
+                ),
+                gates.InSituRound(label="later", gates=10, in_situ=5),
+            ),
+            quota=0,
+            top_ranks=0,
+        )
+        assert any("owed 2 gate(s) forward" in p for p in problems), problems
+
+
+class TestEvidenceProvenance:
+    """The proof that licensed the first harvest had a one-commit lifetime.
+
+    All thirteen demonstrations rested on one sentence: that ``git diff
+    <harvest commit> HEAD`` over eight paths was EMPTY. That was true when it
+    was written and false on the very next commit. What replaces it is a
+    per-gate dependency set, computed rather than asserted.
+    """
+
+    def test_the_dependency_set_is_edits_plus_command_plus_workflow(
+        self, write: Callable[[str], object]
+    ) -> None:
+        manifest = write(_MINIMAL)
+        depends, unbounded = gates.evidence_dependencies(manifest.gates["thing"], manifest)
+        assert ".github/workflows/w.yml" in depends
+        assert unbounded is True
+
+    def test_a_command_naming_a_file_closes_the_set(self, write: Callable[[str], object]) -> None:
+        text = _MINIMAL.replace(
+            'step = "Do the thing"',
+            'step = "Do the thing"\ncommand = "python tools/gates.py --check"',
+            1,
+        )
+        manifest = write(text)
+        depends, unbounded = gates.evidence_dependencies(manifest.gates["thing"], manifest)
+        assert "tools/gates.py" in depends
+        assert unbounded is False
+
+    def test_a_command_naming_no_file_is_reported_unbounded_rather_than_empty(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # An empty changed-set would read as "nothing this gate depends on has
+        # moved", which is the flattering answer and the false one.
+        text = _MINIMAL.replace(
+            'step = "Do the thing"', 'step = "Do the thing"\ncommand = "python -m pytest"', 1
+        )
+        manifest = write(text)
+        _, unbounded = gates.evidence_dependencies(manifest.gates["thing"], manifest)
+        assert unbounded is True
+
+    @needs_register
+    def test_the_live_register_answers_the_question_for_every_demonstrated_gate(self) -> None:
+        manifest = gates.load(GATES)
+        records = gates.evidence_provenance(manifest)
+        assert len(records) == len(manifest.with_in_situ_evidence())
+        for record in records:
+            assert record.state in ("describes HEAD", "predates a change", "unknown")
+
+
+class TestTheRestoreNoticesAConcurrentWrite:
+    """One declared mutation deletes ``bench/results.json`` for a gate run, and
+    this repository is edited by several agents at once."""
+
+    def test_a_file_written_under_the_mutation_is_reported(self, tmp_path: Path) -> None:
+        target = tmp_path / "subject.txt"
+        target.write_text("original\n", encoding="utf-8")
+        saved = [gates._apply(gates.Edit(file="subject.txt", append="mutated\n"), tmp_path)]
+        target.write_text("somebody else wrote this\n", encoding="utf-8")
+        notes = gates._restore(saved)
+        assert notes and "is not as the mutation left it" in notes[0]
+        assert target.read_text(encoding="utf-8") == "original\n"
+
+    def test_an_undisturbed_restore_says_nothing(self, tmp_path: Path) -> None:
+        target = tmp_path / "subject.txt"
+        target.write_text("original\n", encoding="utf-8")
+        saved = [gates._apply(gates.Edit(file="subject.txt", append="mutated\n"), tmp_path)]
+        assert gates._restore(saved) == []
+        assert target.read_text(encoding="utf-8") == "original\n"

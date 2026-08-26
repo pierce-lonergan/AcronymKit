@@ -59,11 +59,11 @@ gate-able             92         200     292
 no-number              0           0       0
 stale                  0           0       0
 blocked              135          10     145
-not-a-claim            4         377     381
-unclassified           0         939     939
-ALL                  231        1526    1757
+not-a-claim            4         511     515
+unclassified           0        1144    1144
+ALL                  189        1865    2054
 
-judged 104 of 1757 (96 of them under one whole-file entry, 8 one at a time)
+judged 104 of 2054 (96 of them under one whole-file entry, 8 one at a time)
   | derived 1653 of 1757
 not-a-claim by detector:
   byte-size 56 | iso-date-fragment 141 | section-or-list-ordinal 43
@@ -257,9 +257,9 @@ The gate prints the last row on every run, so the trajectory is visible without 
 ```
 $ python tools/check_claims.py            # output, not a benchmark measurement
 
-ledger trajectory: 3 rounds | M2-P4 (the recorder is bound) moved 31
-  (citation 30, deletion 1, fencing 0, other 0) | 31 of them out of docs/DECISIONS.md
-  | deferred 231, value-matched 64 | quota 12 per round, record-file floor 12
+ledger trajectory: 7 rounds | M3-PB (the salvage) moved 0
+  (citation 0, deletion 0, fencing 0, other 0) | 0 of them out of docs/DECISIONS.md
+  | deferred 189, value-matched 64 | quota 12 per round, record-file floor 12
 ```
 
 ### What the first bound round actually did, and what it did not
@@ -290,10 +290,27 @@ plan therefore added up to `32`. A phrasing tighter than the measurement is a fa
 Three groups account for most of the `blocked` bucket, and none of them is blocked on effort. A
 fourth section follows them: what is left in the record file now that it is bound.
 
+> **EVERY FIGURE IN THE THREE BLOCKS ABOVE WAS STALE WHEN A COLD READER CHECKED THEM, INCLUDING THE
+> COLUMN THIS PAGE CALLS A FACT.** The classify table read `231/1526/1757` against a live
+> `189/1865/2054`; the trajectory block read `3 rounds … deferred 231` against seven rounds and
+> `189`; the residue read `84` against `42`. The round that added the newest row to
+> `LEDGER_TRAJECTORY` in `tools/check_claims.py` **edited this page in the same commit** and did not
+> update any of them.
+>
+> The cause is structural and not carelessness: **this page transcribes the output of a command**,
+> and a transcription of a moving number is stale the moment the number moves. R16 says a figure
+> inside an image is an unchecked claim because no gate can read it; a figure transcribed out of a
+> tool into prose is the same defect with better ergonomics — the gate sees a code span and stops.
+> The durable fix is to stop transcribing and print the command, or to generate this section the way
+> R16 requires README figures to be generated. **Neither is done here.** The numbers above are
+> correct as of the read that found them wrong, which is exactly the property being complained about.
+
 ### What is left in `docs/DECISIONS.md`, with the reason
 
-`84` deferred numbers remain, and the residue is not evenly spread. **Forty-eight of the eighty-four
-sit in two records**, and both are blocked for a reason already written on this page:
+`42` deferred numbers remain — the figure was `84` two rounds ago and the page did not follow it
+down. The residue is not evenly spread, and the largest single holder is no longer this file at all:
+`docs/notes/pydantic-cost.md` carries `70`. Both records named below are still blocked for a reason
+already written on this page:
 
 | where | left | of which no measurement anywhere matches | why |
 |---|---:|---:|---|
@@ -409,3 +426,168 @@ whole-file verdict is a specific judgement overriding it, and there is exactly o
 
 **This page's own figures are fenced.** They are properties of the documents and no runner saves
 them, so the gate cannot see them and cannot tell you when they go stale. Re-run the commands.
+
+---
+
+## 6. The one rate this project has on its own prose, and the decomposition that is retired
+
+Everything above is about numbers a gate can see. The residue this page keeps publishing —
+`unexamined`, uncapped, reached by no arming rule — has exactly one instrument on it, and it is not a
+gate. R15 makes every workstream submit at least twelve non-load-bearing checkable claims; a sampler
+draws from them under a published seed and re-checks each one against running code, a live endpoint or
+a mutation rather than against the document that states it. **It has run three times.**
+
+**How the figures below are handled.** They are properties of two sampling passes, not of the library,
+and no runner saves a sampling pass — so they are transcribed from [`docs/DECISIONS.md`](DECISIONS.md)
+D-068 and D-082 inside code spans, which is the treatment §1 already gives this page's own counts and
+which the claims gate cannot see. The one figure here that is *derived* is the copy census, and its
+command is printed with it.
+
+### The headline rate stays, and `20.8` % is not the number to quote
+
+Rounds one and two both measured `20.8` % **not true**, on an identical `5`-of-`24` split, which the
+second sampler called a coincidence rather than a replication. **Round three measured `25.0` % not
+true — and `20.8` % strictly false.**
+
+So `20.8` % has now appeared in three different cells across three rounds, and anybody quoting
+"`20.8` % again" off round three is comparing a false-only row against two not-true rows. The
+sampler's own reading is the one to carry: **that is the clearest available argument that this is a
+draw from a distribution rather than a property of the project.** Round three's sensitivity band,
+with the grading boundary written down before the draw, is `20.8`-`29.2` % — wider than the
+`4.2`-point gap between the rounds, so all three sit inside each other's error bars.
+
+This subsection previously read *"`20.8` % of sampled claims not true, both rounds … That is the
+number to attach to a narrative sentence quoted out of this repository."* It was true of two rounds
+and is retired rather than deleted, because it is the sentence a reader would have quoted.
+
+**Where it is actually published, derived rather than recalled — and the first draft of this sentence
+named a file that does not carry it.** It said `README.md`, `CHANGELOG.md` and
+[`docs/DEFINITION-OF-DONE.md`](DEFINITION-OF-DONE.md). `README.md` carries no such figure; the front
+page states the library's own accuracy and says nothing about the project's reporting error rate. The
+mistake was caught by running the grep this section already publishes for `36.4`, one value over:
+
+```
+git grep -c "20\.8" -- README.md CHANGELOG.md "docs/*.md"
+        command output, not a benchmark measurement. Re-run it.
+
+  CHANGELOG.md                        2   the D-068 and D-082 release notes
+  docs/AUDIT-PROHIBITIONS-2026-08.md  1   that page's opening
+  docs/CLAIMS-LEDGER.md               2   this section
+  docs/DECISIONS.md                   8   D-068 and D-082 themselves
+  docs/DEFINITION-OF-DONE.md          1   How this document fails
+  docs/EVALUATION.md                  1   an unrelated table cell, not this figure
+  README.md                           -   absent
+```
+
+**And the transcription of that output was wrong twice before it was right.** The first version named
+`README.md` from memory. The second was hand-typed from a `-n` listing and omitted this page — whose
+own two lines the published pathspec obviously matches — and put `7` against the record file where the
+count is `8`. Two errors in five minutes, in a hand-copied command output, inside the section that
+retires a statistic for being under-checked. That is D-068's finding reproduced live rather than
+quoted, and it is the argument for `-c` over `-n` and for pasting rather than typing.
+
+**The identical figure is a coincidence, and the second sampler said so before anybody asked.** Its
+own sensitivity check moves the round to `29.2` % or `12.5` % on one grader's boundary — about plus or
+minus eight points, which is wider than the gap between the two rounds. Two points that agree to the
+decimal under an instrument with that much play are two points, not a replication.
+
+### What is retired
+
+**The kind-of-check decomposition.** D-068 split its sample into claims settled by one lookup and
+claims needing a derivation, measured `7.7` % against `36.4` %, and the `4.7x` ratio read as a rule:
+*the round-level rate is a function of the sampler's mix.* The second round measured `25.0` % against
+`18.8` %. **The ratio is `0.75x`: it did not shrink, it inverted.** A sensitivity check moving the two
+`git`-invoking claims across the boundary gives `16.7` % and `22.2` %, so the collapse survives the
+boundary choice while the individual cell rates do not.
+
+**The failure-mode decomposition.** D-068 found staleness in `3` of `5` failures. The second round
+found `1` of `5`, and the dominant mode was a premise asserted as fact and never measured.
+
+Two further reasons neither may be carried as a trend line, both stronger than the non-replication
+itself:
+
+- **The mix moved**, `13`/`11` to `8`/`16`. The two rounds partition their samples differently, so
+  this may be a comparison of two partitions rather than a non-replication of one.
+- **The first round's boundary was never written down.** Nobody can now say where D-068 drew the line
+  between a lookup and a derivation, so the two pairs of cells are not known to be the same two cells.
+
+**The rule being applied is this project's own, written about itself in advance.** D-082's **Amends**
+field quotes it: *D-068 said one round of this is a baseline rather than a trend, and two rounds are
+two points.* Applying that to the project's most-quoted internal statistic is the point of having a
+rule rather than admiring it. The alternative on offer was to keep the decomposition under a caveat,
+and a caveat is what a decomposition gets when nobody wants to give it up.
+
+### Every copy, and what happened to it
+
+*One sentence in two places corrected in one* is the shape this repository has hit five times, and
+`tests/test_claims_gate_coverage.py` exists because of it. So the census is derived rather than
+recalled:
+
+```
+$ git grep -n "36\.4" -- "*.md" "*.py" ":!docs/DECISIONS.md" ":!build/*"
+        command output taken BEFORE this round's edits, not a benchmark measurement.
+        Re-run it after them and it returns seven lines, none of which is a claim: every
+        occurrence outside the record file now sits inside a retirement notice, or inside
+        this section. That is the check, and it is the whole of what a value-matching
+        census can offer -- see the two near misses below for what it cannot.
+
+  CHANGELOG.md:568                          the D-068 release note
+  docs/AUDIT-PROHIBITIONS-2026-08.md:5      that page's framing sentence
+  docs/AUDIT-PROHIBITIONS-2026-08.md:137    a `D-068's rate` comparator column
+  tools/prohibitions.py:8                   the module's stated motivation
+```
+
+| where | disposition |
+|---|---|
+| [`docs/DECISIONS.md`](DECISIONS.md) D-068, D-082 | **untouched.** A record may not be changed, and D-082 already carries the non-replication in its own title |
+| [`docs/AUDIT-PROHIBITIONS-2026-08.md`](AUDIT-PROHIBITIONS-2026-08.md), three sites | retired in place; the comparator column struck and the framing sentence withdrawn, that page's own census figures unaffected |
+| `CHANGELOG.md`, the D-068 note | retired in place beside the entry, which is still under `[Unreleased]` |
+| `tools/prohibitions.py` module docstring | rewritten onto the structural argument, which needs no rate |
+
+**Two near misses, recorded because they are the trap.** `docs/AUDIT-PROHIBITIONS-2026-08.md` and
+`tools/prohibitions.py` each carry a second `7.7` that is **not** D-068's lookup rate — both are the
+sensitivity of a stratum to one further failure. A census matching on the value alone would have
+"corrected" two sentences that were right. And the prohibitions page's own `3.2` % against `52.0` %
+split reads like a third observation of the same ratio and is not one: different population, a census
+rather than a seeded sample, and a three-valued grading R15's two rounds never used.
+
+### What a third round would need, so that nobody re-derives this
+
+Not "run R15 again". Four conditions, and the first is the one missing both times:
+
+1. **A boundary written down before the draw** — what separates a claim settled by one lookup from one
+   needing a derivation, as a rule a second grader could apply to the same sample and land in the same
+   cells. D-082's sensitivity check exists precisely because no such rule was on file.
+2. **A pre-registered mix, or a stratified draw.** The mix moved from `13`/`11` to `8`/`16` between the
+   two rounds, which is enough on its own to move the round-level rate without either cell rate
+   changing. Fix the strata and the cells become comparable across rounds.
+3. **Enough failures for a cell to mean anything.** With `5` failures a round, reclassifying one claim
+   moves a cell by six to twenty points. A decomposition powered at that level cannot distinguish
+   `4.7x` from `0.75x` from parity — which is what the two rounds demonstrated rather than what they
+   measured.
+4. **A second grader on the same sample**, so the boundary in condition one is shown to be applicable
+   rather than merely written. R15's own framing is that the sampler's verdicts are claims too, and
+   the error rate of the error-rate measurement is unmeasured for the second round running.
+
+Conditions one, two and four are procedure and cost a round's attention. **Condition three is
+arithmetic and is not satisfiable by trying harder inside one round**: it needs a much larger draw, or
+several rounds pooled under a fixed boundary — the same shape as every other underpowered question on
+this project's list. Until all four hold, the honest statement is the headline rate and nothing
+underneath it.
+
+### How this section fails
+
+**It retires a decomposition on two observations, which is the objection it makes.** Two rounds
+disagreeing is not evidence that no relationship exists; it is evidence that this instrument cannot
+see one. The word above is *retired*, not *refuted*, and a third round meeting the four conditions may
+find the gap again.
+
+**Nothing enforces the retirement.** The claims gate cannot read a sentence, so nothing turns red if a
+later round quotes `36.4` % as a baseline again. The census command is the only defence and it matches
+on a value rather than on a meaning, which is exactly why the two near misses are named beside it.
+
+**The headline rate is itself two points with the same boundary problem.** The sensitivity analysis
+that kills the decomposition moves the headline by roughly plus or minus eight points. It survives as
+the figure to quote because it is what every published use of it already means, not because it is
+precise — and a reader who treats `20.8` % as a measurement good to three significant figures is
+reading it more tightly than it was measured.

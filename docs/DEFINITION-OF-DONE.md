@@ -1,7 +1,10 @@
-# Definition of done — the fourteen criteria, swept
+# Definition of done — the twenty criteria, swept
 
-Eight criteria governed what "finished" means for this library, and a second mandate added six
-more. They have been carried in mandates and answered one at a time in `docs/DECISIONS.md`; they had
+Eight criteria governed what "finished" means for this library, a second mandate added six
+more, and a third mandate added six more again. **The met-count did not rise with them, and the
+proportion fell**: `11` of `20` at the sixth sweep against `10` of `14` at the fifth, which is the
+first time this page's own answer to *"a definition of done whose met-count rises when new criteria
+arrive is scoped by the same people it grades"* has been a number rather than a defence. They have been carried in mandates and answered one at a time in `docs/DECISIONS.md`; they had
 never been read together, and a list nobody reads as a list is how a verdict that was true when it
 was written goes on being repeated after it stops being true. This page reads them together, states
 a verdict on each, names the evidence, and says what would close the ones that are open.
@@ -21,10 +24,26 @@ two sweeps ran on 2026-08-24 and re-derived every verdict by running the check o
 The third, across 2026-08-24 and 2026-08-25, re-derived twelve of fourteen and carried `6` and `7`.
 The fourth sweep re-derived seven of fourteen and carried seven. **The fifth sweep re-derived nine of
 fourteen — `3`, `4`, `8`, `9`, `10`, `11`, `12`, `13` and `14` — and carried `1`, `2`, `5`, `6` and
-`7` from an earlier sweep.** Five of fourteen still rest on an answer somebody else gave on an earlier
-tree. The table says so per row, in the verdict column, because a page whose whole purpose is to stop
+`7` from an earlier sweep.** **The sixth sweep re-derived eleven of twenty — `3`, `4`, `9`, `13`,
+`14` and all six of the new `15` to `20`, each by running the command in its own row — and carried
+nine: `1`, `2`, `5`, `6`, `7`, `8`, `10`, `11` and `12`.** Nine of twenty still rest on an answer
+somebody else gave on an earlier tree, and five of those nine (`1`, `2`, `5`, `6`, `7`) have now
+been carried for four sweeps running. The table says so per row, in the verdict column, because a page whose whole purpose is to stop
 a stale verdict being repeated is the last page that gets to be vague about which of its verdicts are
 stale. D-073, D-083.
+
+**`2026-08-26` — THIS IS A CORRECTION PASS AND NOT A SEVENTH SWEEP. Read it as strictly weaker than
+a sweep.** No verdict was re-derived and no criterion was re-adjudicated. What happened is that a
+cold read found three of this page's cells false or stale and the recorder corrected them in place
+along with three cells its own round moved: criterion `3`'s trajectory (two rounds stale, in the row
+whose whole subject is stale figures), criterion `9`'s evidence cell (contradicting the verdict cell
+beside it for a round, after D-090 recorded amending exactly that figure), the *"nothing else
+appears"* sentence in **How to read the numbers** (false, and the reason the first two went stale
+invisibly), and then criteria `13`, `14` and `16` for what this round's own records establish.
+**Every other row on this page carries the sweep number it last carried**, and nine of twenty still
+rest on an answer somebody else gave on an earlier tree. **A page that gets corrected in the gaps
+between sweeps and reports its met-count as though it had been swept is doing the thing it grades
+others for**, so the count above is the sixth sweep's count and is labelled as such.
 
 **No verdict moved at the fourth sweep, and two evidence cells were wrong.** Criterion `11`'s cell
 was comparing a proposals-side figure against a gold-side one and therefore contradicted its own
@@ -54,7 +73,29 @@ replaced by a new one of the same class.
 `bench/results.json` by run id — that is operating rule 1, and this document holds no exceptions to
 it. A figure inside a fenced block is **command output, not a benchmark measurement**: the command
 is printed above it, it re-derives in one line, and it is deliberately not quotable as a gated
-figure. Nothing else appears.
+figure. ~~Nothing else appears.~~
+
+**CORRECTED `2026-08-26`: a third category appears, it is the largest of the three, and it is the
+reason two cells of this table went stale invisibly.** The fourth cold read counted the
+**code-spanned bare numerics outside any fence** on this page — figures with no command above them
+and no run id beside them — against the citations. Re-derived here rather than carried:
+
+```
+python -- fenced blocks stripped, then inline code spans matched against a bare-numeric
+pattern; rendered citations counted as occurrences of "<!--claim:". Command output, not a
+benchmark measurement. Re-run this before quoting either figure; both move on any edit.
+  inline code spans on this page          721
+    of them, a bare numeric and nothing else   291
+  rendered run-id citations                 53
+```
+
+`tools/check_claims.py` masks an inline code span exactly as it masks a fence, so
+every one of them is invisible to the gate. That is how criterion `9`'s evidence cell went on saying
+`13 of 36` for a round after the verdict cell beside it said `12`, and how criterion `3`'s
+trajectory went two rounds stale. **The sentence "nothing else appears" was the strongest claim on
+this page and it was false**; what replaces it is the disclosure that this page's own numbers are
+mostly ungated by construction, which is uncomfortable on a page whose criterion `3` is about
+exactly that.
 
 ---
 
@@ -64,18 +105,24 @@ figure. Nothing else appears.
 |---|---|---|---|---|
 | 1 | The disambiguator can say "I don't know" — abstention exposed, curve published decomposed, **policy confirmed on held-out data** | **met with qualification** — mechanism and publication, not value; **carried, NOT re-derived at the fourth sweep** | `min_margin`, `margin`, `abstained` ship; `disambiguation.sdu21.abstention_curve`; `docs/EVALUATION.md` | An on-by-default `min_margin` proposal with a threshold and a cost model, then D-043's single spend of SDU-21 AD `test.json` |
 | 2 | Every shipped subsystem carries an accuracy number — **RE-SCOPED, see below; the previous amendment is withdrawn** | **partly met** — `align` now carries an accuracy number over about half of each corpus; `synthesize` carries none and is **permanently unmeetable**; **carried, NOT re-derived at the fourth sweep** | `backronym.{med1250,sdu21_ad}.accuracy` and `.{alignment,synthesis}`; `docs/EVALUATION.md`; D-054 as corrected | For `align`, a gold that reaches the undecidable pairs. For `synthesize`, **nothing** — the task has no correct answer for any gold to record |
-| 3 | Every number gated, cited by run id, re-derivable offline from the sdist; **zero un-gated figures in user-facing prose** | **not met — and the evidence got worse, correctly**; re-derived at the fifth sweep, where one cell of this row turned out to be false | `tools/check_claims.py --residue` now counts a deferred ledger and an unexamined residue that no earlier run had ever reported; two of the three named coverage gaps are closed; the ledger has fallen `316` to `262` to `231` to `213` to `201` across five recorded rounds | Migrate the deferred ledger, lowering the baseline in the same commit; widen the scan to `tools/` and `bench/`; widen the unit vocabulary — each one its own measurement |
+| 3 | Every number gated, cited by run id, re-derivable offline from the sdist; **zero un-gated figures in user-facing prose** | **not met — and the evidence got worse, correctly**; ~~re-derived at the fifth sweep~~ **CORRECTED `2026-08-26`: the sixth sweep re-derived this row too and did not update its evidence cell, which is why the cell below was two rounds stale** | `tools/check_claims.py --residue` now counts a deferred ledger and an unexamined residue that no earlier run had ever reported; two of the three named coverage gaps are closed; ~~the ledger has fallen `316` to `262` to `231` to `213` to `201` across five recorded rounds~~ — **live at the seventh round: `316` to `262` to `231` to `213` to `201` to `189` to `189`, the last of those a waiver rather than a payment (D-097)** | Migrate the deferred ledger, lowering the baseline in the same commit; widen the scan to `tools/` and `bench/`; widen the unit vocabulary — each one its own measurement |
 | 4 | `bench/splits.toml` parses, is loaded by a tool, checked in CI for role/task/licence, mutation-tested | **met, and strengthened** | `tools/splits.py --check` in CI, now reporting reserved arms; `Corpus.require_unreserved` refuses a read; mutation-test class in `tests/test_splits_manifest.py` | Nothing. The stale `status` residual is fixed; a new residual of the same class is named below |
 | 5 | At least one non-biomedical annotated corpus registered and reported, **with its short-form recall ceiling in the same table as its recall figure** | **met with qualification** — carried, NOT re-derived at the fourth sweep | SDU@AAAI-22 AE registered, scored, gated; ceiling column present beside the recall figures in D-039 and, as of this round, in `docs/EVALUATION.md` | Nothing for the literal criterion. The corpus is a different *genre*, not a different domain, so the domain-generalisation gap is a separate item and stays open |
 | 6 | Two documented-but-absent extension points exist, or the documentation stops claiming them | **met — carried, NOT re-derived at the third or fourth sweep** | Four injectable collaborators ship (D-035); the `acronymkit.data` entry-point group is deleted (D-038) | Nothing. The standing risk is re-declaring a pack group before a pack exists to load |
 | 7 | No known defect where a report claims clean while data is lost | **met — carried, NOT re-derived at the third or fourth sweep** | All three governed defects re-probed live through the public API and all three are fixed | Nothing for the known set. "Known" is the whole content of the claim |
 | 8 | The do-not list has grown, not shrunk | **met — and for the first time the list has a measured error rate rather than an assumed one**; re-derived at the fifth sweep | Nine audit-derived items carried forward unchanged, one added since, plus a class-level closure and a reservation discipline; `docs/AUDIT-PROHIBITIONS-2026-08.md` audits `55` prohibitions across three strata at seed `20260825`: **nothing lifted**, `13` of the do-not list's `35` figures not true today or unreproducible, two prohibitions stronger than written; D-077 | Nothing for the literal criterion. Nine stated *reasons* need correcting, which is a different outcome from lifting one, and the decision on each is the maintainer's |
-| 9 | **NEW (Mandate II).** Every CI gate has a recorded in-situ mutation test, stored as an artifact | **not met — and the count moved from `0` to `13` of `36` without one new demonstration being taken**; re-derived at the fifth sweep | `.github/gates.toml`, `tools/gates.py --check`, `docs/GATES.md`; D-061, D-079. The register now prints `CARRYING IN-SITU EVIDENCE: 13 of 36`, a `cost_rank` on every gate with the top `3` demonstrated, and a per-round quota stated as a **ceiling on the debt** so that adding gates cannot dilute the count | A push per remaining gate. The thirteen are **every gate this harness could ever mutate**; the other `23` are `8` inline, `13` manual and `2` control refusals. Three of the eight inline refusals fall to one afternoon of extracting heredocs into `tools/` |
+| 9 | **NEW (Mandate II).** Every CI gate has a recorded in-situ mutation test, stored as an artifact | **not met — and at the sixth sweep the count moved DOWN, `13` of `36` to `12` of `36`, the first fall this page has recorded**; re-derived at the fifth and sixth sweeps | `.github/gates.toml`, `tools/gates.py --check`, `docs/GATES.md`; D-061, D-079. The register now prints ~~`CARRYING IN-SITU EVIDENCE: 13 of 36`~~ **`CARRYING IN-SITU EVIDENCE: 12 of 36`, corrected `2026-08-26` — D-090 recorded amending this row's `13 of 36` and amended the verdict cell only, leaving this cell contradicting the verdict beside it for a round**, a `cost_rank` on every gate with the top `3` demonstrated, and a per-round quota stated as a **ceiling on the debt** so that adding gates cannot dilute the count | A push per remaining gate. The thirteen are **every gate this harness could ever mutate**; the other `23` are `8` inline, `13` manual and `2` control refusals. Three of the eight inline refusals fall to one afternoon of extracting heredocs into `tools/`. **That afternoon happened and the costing was wrong about one of the three**: `inline` is now `5`, automated `16`, debt `24` at a ceiling of `24`, `4` gates owed forward, and one gate's evidence withdrawn because its recorded verdict was reachable with the declared defect uncaught. D-087 |
 | 10 | **RENUMBERED — this was "criterion 9, proposed".** The two tasks the README leads with can be adjudicated by a corpus this project did not tune on; or the reason it cannot is a permanent property of the task, with the filling instrument costed | **not met — the row is empty by construction, the price is now known, and it did NOT close by writing the row off** | `headline_capable('extraction')` and `('disambiguation')` both empty, re-probed live at the fourth sweep; `tools/splits.py --check` prints both gaps; D-056's five promotion conditions; D-063; the costing is now published where a user meets it, in `README.md`'s honest scope and `docs/POSITIONING.md` (D-070) | D-056's five conditions in order, the first being a second adjudicator who authored none of the pooled systems. The reason is a **resource** limit, not a property of the task, so the second clause does not apply |
 | 11 | **NEW (Mandate II).** The monoculture is measured, not assumed — union gain from a non-Schwartz-&-Hearst proposer, published, on a named corpus | **met; and the open item in the *interpretation* halved at the fifth sweep** | `monoculture.*` (`103` run ids); `shapecue`, independence measured on two axes; PLOD-CW, `held_out`, uncontaminated; independent union gain `32.04 %` on PLOD-CW against the denominator-comparable MED1250 control `0.23 %` — both `proposals.edges.independent_gain_pct`, corrected at the fourth sweep from a `0.00 %` that is the *gold/pairs* control and belongs beside the gold-reach figures instead; full pairwise matrix in `docs/EVALUATION.md`; D-065 | Nothing for the literal criterion. **The genre half of the confound is now measured** on `1,839` same-article PMC pairs, six ways, all six intervals excluding zero, and it points away from provenance (`genre.pmc_oa.*`, D-075). What is open is the **provenance** half alone, and that still needs a corpus nobody publishes |
 | 12 | **NEW (Mandate II).** The shipped extractor's short-form detection is shown competitive with `predict_all_caps` on held-out data, or the gap is published and explained in the same table as the flagship figure | **met by the first clause**; re-derived at the fifth sweep, and the second clause is now satisfied on `README.md` too, which carried no PLOD span figure at all | `shortform_contest.plod.*` (`14` run ids); on comparable gold the ordering reverses by `10.60` points pooled and `14.86` on test; the qualifier column is in the PLOD table; **the annotation convention is now priced at `26.66` points on its own, and `18.16` is the *net* of that against a `-8.50` admission-rule effect** (`shortform_contest.plod.*.convention`); D-066, D-076 | Nothing for the literal criterion. What it does **not** show is extraction quality: the span scorer cannot tell correct pairing from random pairing, demonstrated at `1,054` wrong pairs |
-| 13 | **NEW (Mandate II).** The deferred ledger has a written policy and a measured trajectory | **met — four observations now, still falling, and the waiver the previous round predicted did not arrive**; re-derived at the fifth sweep | `docs/CLAIMS-LEDGER.md`; `LEDGER_TRAJECTORY`, `MIGRATION_QUOTA = 12`, `RECORD_FILE_FLOOR = 12`, `RECORD_FILE_PIN` and `trajectory_problems()` in `tools/check_claims.py`, mutation-tested red; D-059, D-071 | Nothing for the literal criterion. Four migrations of `54`, `31`, `18` and `12` are a rate and it is decelerating. `docs/DECISIONS.md` is down from `115` to `54` and the recorder is bound by a per-file floor. **The forecast that the `66` remaining held no citable measurement was wrong**: the walk found `3` citations and `9` deletions and paid the floor exactly, because *blocked* had again been a per-record verdict applied per number. `54` remain and the *next* round owes a waiver naming three mechanisms; D-084 |
-| 14 | **NEW (Mandate II).** A second reader exists, in some form, for anything user-facing | **met, and the criterion is less modest and more exposed than it was**; re-derived at the fifth sweep | `docs/SECOND-READER.md` — two triggers, six checks, costed at one agent slot; wired into `CONTRIBUTING.md`; first pass found `15` defects, `6` material, `7` of `15` in files the round never touched; a second pass has now run **as policy**, shipped six fixes, carried the rotation cursor in §8 and found three defects in the policy itself; the trigger is now executable code with a test, the hand-off is a validated ledger, and `disposition = "fixed"` requires a second name; D-060, D-072, D-081 | Nothing for the literal criterion. Nothing enforces it: the enforcing CI job is specified in one paragraph and not built. **And the third read wrote no ledger row**, because the read-only instruction and the ledger requirement could not both be obeyed — so the cursor did not advance and the next reader serves the file the third reader just served |
+| 13 | **NEW (Mandate II).** The deferred ledger has a written policy and a measured trajectory | **met — four observations now, still falling, and the waiver the previous round predicted did not arrive**; re-derived at the fifth sweep | `docs/CLAIMS-LEDGER.md`; `LEDGER_TRAJECTORY`, `MIGRATION_QUOTA = 12`, `RECORD_FILE_FLOOR = 12`, `RECORD_FILE_PIN` and `trajectory_problems()` in `tools/check_claims.py`, mutation-tested red; D-059, D-071 | Nothing for the literal criterion. Four migrations of `54`, `31`, `18` and `12` are a rate and it is decelerating. `docs/DECISIONS.md` is down from `115` to `54` and the recorder is bound by a per-file floor. **The forecast that the `66` remaining held no citable measurement was wrong**: the walk found `3` citations and `9` deletions and paid the floor exactly, because *blocked* had again been a per-record verdict applied per number. `54` remain and the *next* round owes a waiver naming three mechanisms; D-084. **At the sixth sweep the predicted waiver did not arrive for a second consecutive round**: `12` more came out by `3` citations and `9` deletions, `54` → `42`, and *blocked* had again been a per-record verdict applied per number — this time for a reason that can never be discharged. D-091. **At the seventh round the waiver finally arrived, and it is the first this project has written.** `0` migrated, `42` remaining, and the reason is a measurement rather than an opinion: all `42` were resolved against every field in `bench/results.json` and `26` match nothing anywhere while the other `16` match only unrelated quantities in unrelated units. Deletion was walked and refused three times with reasons. **Read the row as a waiver at the end of a burn-down and not one taken to avoid one — the probe is the only thing separating those two objects, and the next round owes the same probe.** D-097 |
+| 14 | **NEW (Mandate II).** A second reader exists, in some form, for anything user-facing | **met, and the criterion is less modest and more exposed than it was**; re-derived at the fifth sweep | `docs/SECOND-READER.md` — two triggers, six checks, costed at one agent slot; wired into `CONTRIBUTING.md`; first pass found `15` defects, `6` material, `7` of `15` in files the round never touched; a second pass has now run **as policy**, shipped six fixes, carried the rotation cursor in §8 and found three defects in the policy itself; the trigger is now executable code with a test, the hand-off is a validated ledger, and `disposition = "fixed"` requires a second name; D-060, D-072, D-081 | Nothing for the literal criterion. Nothing enforces it: the enforcing CI job is specified in one paragraph and not built. **And the third read wrote no ledger row**, because the read-only instruction and the ledger requirement could not both be obeyed — so the cursor did not advance and the next reader serves the file the third reader just served. **At the sixth sweep the two-round survival of a retired sentence in `src/acronymkit/__init__.py` acquired a mechanical answer rather than an attribution**: `PATHSPEC` has `6` entries with none under `src/`, `user_facing_files()` returns `21` paths with `0` under `src/`, and in situ the trigger returns four files and not the source file the round had just changed. D-089. **A fourth read has now run and written no ledger row either — the second consecutive time**, so the cursor has not advanced for two reads, the rotation served the same file twice, and `11` new findings live only in a note that no rule in the policy reaches. `python tools/second_reader.py --check` is green throughout, **and it is green precisely because no row was written**: the gate cannot tell *no cold read happened* from *a cold read happened and could not record it*. The blocking decision is one sentence nobody has taken — whether the read-only boundary is prose or filesystem — and §5.1 says in terms that it is not a filesystem permission. D-096 |
+| 15 | **NEW (Mandate III).** No figure ships in a document unless a committed script regenerates it from `bench/results.json` and CI diffs it (R16) | **not met, not started — and there is no live instance to be not-started about** | `find . \( -name '*.svg' -o -name '*.png' -o -name '*.jpg' -o -name '*.gif' \)` outside `.git/` and `build/` returns `0` files. No figure of any kind ships in this repository, so no unchecked figure exists and no regenerating script does either | A script, a CI diff step and a registered gate — written *before* the first figure, because the rule exists so that the first one cannot ship unchecked. Nothing is owed until somebody wants a chart |
+| 16 | **NEW (Mandate III).** The forward generator's round trip is measured as a verifier of extractor output, with a go/no-go recorded | **met as a measurement, and the answer is no** — re-derived by the recorder from a fresh run of the runner | `roundtrip.{med1250,pmc_oa}.*`, `19` run ids; `bench/run_roundtrip_verifier.py`, `24` tests; the go/no-go and its dependants in D-085. Unpruned recall is 42.09<!--claim:roundtrip.med1250.recall.beam_control_never_cuts.recall_pct:.2f--> % and 51.75<!--claim:roundtrip.pmc_oa.recall.beam_control_never_cuts.recall_pct:.2f--> %, against an aligner that accepts 85.70<!--claim:roundtrip.med1250.ceiling.aligner_accepts_pct:.2f--> % of the same pairs | Nothing for the literal criterion. What is **not** met is gating: the runner is in no CI job and `.github/gates.toml` does not know it exists, so nothing re-derives these figures but a person. **And one half of the go/no-go's dependants was recorded on evidence that did not exist**: D-085 stopped `A2` for two reasons and named the second an absence, when the deciding workstream had already saved `18` run ids into `bench/results.json`. That sentence is retired in place at D-085; the measurement is D-092; **`A5` widens candidate generation and `A2` does not, so A1's NO-GO binds `A5` tightly and binds `A2` only by the letter of a rule whose reason does not reach it.** The decision on `A2` is the maintainer's |
+| `17` | **NEW (Mandate III).** A gated throughput baseline for the governed hot path, published in machine-independent counts with wall-clock unarmed (R17, R18) | **partly met** — one entry point, two real corpora, and the counts re-derived by the recorder | `governed_perf.*`, `10` run ids; `bench/run_governed_perf.py`, `28` tests; `docs/EVALUATION.md`. Tokenizer passes, catalog lookups split by origin, both memo hit rates, provenance records, `_prepare` calls and total Python calls are all gated; wall-clock is fenced with the machine named and never armed | The other three entry points. This decomposes `expand_identifier` alone — `is_compliant` and `to_physical_name` have none, `extract`, `disambiguate` and generation have none, and **memory is not measured at all** |
+| 18 | **NEW (Mandate III).** Every optimisation is proven behaviour-identical byte for byte, forced on and forced off, over the full corpus, by a gate (R19) | **not met, not started** — and no obligation arose, because nothing was optimised | No byte-identity gate exists in `.github/gates.toml`. The one place R19 was applied is to an *instrument*: `bench/run_governed_perf.py`'s ablation stages are proven byte-identical to the shipped path over `421,199` calls per pass with `0` mismatches and three positive controls | The first optimisation, and the gate shipped in the same commit. A rule with no instances is a rule with no evidence that it can fire |
+| 19 | **NEW (Mandate III).** W11 — whether `extract()` may emit a short form with an absent or low-confidence long form — is decided | **not met, not started** | [`docs/notes/w11-emission-model.md`](notes/w11-emission-model.md) opens *"Status: scoping note. No decision, no behaviour change, nothing shipped."* It scopes the question, costs it and gives it a failure mode. Nothing in this phase touched it | A product decision, taken out loud in a record. It bears on criterion `10`: answering it *yes* is the only route by which a span corpus could adjudicate the flagship claim |
+| 20 | **NEW (Mandate III).** The catalog-gap report is shipped **and has been run by a stranger** | **half met, and the half that matters is not** | [`docs/SOURCING.md`](SOURCING.md) ships with an owner, three dated actions, a `2026-11-23` expiry and a stranger-runnable kit. Its own log reads **approaches made: `0`** | One organisation saying yes. This is `U-0` with a delivery date attached, and it is the same people problem — no amount of work inside this repository moves it |
 
 **Two verdicts differed from the standing read at the first sweep.** Criterion 2 was carried as met
 and was not: the backronym subsystem ships in the public API, in the CLI and in the architecture map,
@@ -126,6 +173,18 @@ on this page asserting that genre and provenance cannot be separated were stale 
 separated one of them. Criterion `13`'s predicted waiver did not arrive. Criterion `4`'s fenced
 transcript had gone stale in the direction it exists to warn about: a declared count rose again
 without the gap moving. D-074 to D-084.
+
+**Sixth sweep, after the phase that measured what Mandate III's architecture rests on. Six criteria
+are added, `15` to `20`, and five of the six read *not met*.** No verdict among the original fourteen
+moved. Criterion `9`'s count went **down** — `13` of `36` to `12` of `36`, the first fall this page
+has recorded, because a gate's in-situ evidence was re-checked and **withdrawn** (D-087). Criterion
+`13`'s waiver did not arrive for a second consecutive round (D-091). Criterion `14` acquired a
+mechanical answer to the question it had only had an attribution for: **no second-reader trigger can
+reach a source file at all** (D-089). **Four of the six new criteria are recorded at *not started*
+rather than omitted**, and one of those four — `15` — is recorded with the fact that this tree
+contains **zero** figures of any kind, so the rule it states has nothing to bind. A criterion list
+that only lists what is in progress hides the distance. D-085 to D-091.
+
 
 ---
 
@@ -1135,6 +1194,43 @@ throughout**. Six new findings live in a notes file, outside the schema, outside
 outside every check. Two of them were applied by this sweep, which is the `applied_by` mechanism
 working; the other four are named for their owners. D-081.
 
+**And "anything user-facing" is wider than either trigger reaches — which is how a retired sentence
+shipped for two rounds in the most-read file in the package.** `src/acronymkit/__init__.py`'s module
+docstring is the first prose a reader meets in an editor, it is inside `tools/check_claims.py`'s
+`SCAN_GLOBS`, and [docs/POSITIONING.md](POSITIONING.md) reported it as still opening with near-duplicates
+of two of the three sentences that page retires. **No trigger could have found it.** Trigger A's
+pathspec is six entries and `src/` is not among them; `user_facing_files()` enumerates the root files
+and the Markdown under `docs/` minus the historical and note exclusions, returns `21`, and none of
+them is source, so trigger B cannot serve it either. It was found both times
+by check C5 — following a pointer out of `docs/POSITIONING.md` — and fixed in neither round because
+`owner` read `unowned` and no workstream held the file. Demonstrated in the tree that fixed it rather
+than argued:
+
+```
+python tools/second_reader.py --trigger, in the working tree that rewrote the docstring.
+CPython 3.13.4 on win32; command output, not a benchmark measurement.
+
+  git status --porcelain             ->   M src/acronymkit/__init__.py   (among others)
+  python tools/second_reader.py --trigger
+                                     ->   4 user-facing file(s) changed
+                                          CHANGELOG.md, docs/CLAIMS-LEDGER.md,
+                                          docs/DEFINITION-OF-DONE.md, docs/EVALUATION.md
+                                          -- and NOT the source file it just changed
+```
+
+**The gap is in how work is assigned, and it is not that anybody failed to notice.** D-070 recorded
+the disposition as *blocked on ownership*; the cold-read ledger carries it as `F-2026-08-25-01`,
+`blocked`, whose `blocked_on` says in its own words *"It is not blocked on knowing what to write."*
+Two rounds that fixed harder things left it, because the assignment mechanism has no way to hand out a
+**source** file: the rotation is a list of documents, and each round's file lists are written by hand.
+The docstring is rewritten this round; the coverage hole that hid it is **reported and not fixed**,
+because `tools/second_reader.py` is another workstream's. Widening `user_facing_files()` to reach
+`src/acronymkit/**/*.py` is not a one-line change: `--check` refuses any enumerated file the rotation
+cannot reach, `find src/acronymkit -name '*.py' | wc -l` returns `40`, and the set would turn over in
+`61` rounds instead of `21` — section 3 of that page already prices the current latency as a
+weakness. That is a
+decision about the policy's scope, and it belongs to whoever owns the policy.
+
 **What would close it further.** Nothing for the literal criterion. Nothing enforces it: the enforcing
 CI job is specified in one paragraph and was not built, because it belongs in files nobody owned and
 because a gate never demonstrated failing where it runs is the shape criterion `9` exists to refuse.
@@ -1146,9 +1242,173 @@ distrust. D-060, D-081.
 
 ---
 
+## 15. No figure ships unchecked — **new, Mandate III**
+
+> **15. No figure ships in a document unless a committed script regenerates it from
+> `bench/results.json` and CI diffs it.** A figure inside an image is an unchecked claim: the claims
+> gate cannot read an SVG or a PNG.
+
+**Verdict: not met, not started — and there is no live instance to be not-started about.** That last
+clause is the whole content of this row, and recording it as a bare *not started* would be less true
+than recording it with its firing count.
+
+```
+find . \( -name '*.svg' -o -name '*.png' -o -name '*.jpg' -o -name '*.gif' \) \
+     -not -path './.git/*' -not -path './build/*' | wc -l
+  -- command output, not a benchmark measurement
+  0
+```
+
+**Zero figures ship in this repository.** So no unchecked figure exists, no regenerating script
+exists, and the rule currently binds nothing. The honest reading is that R16 is a **pre-commitment**
+rather than a criterion with evidence behind it: it will first be tested by whoever wants a chart,
+and until then nothing here demonstrates it can fire.
+
+**What would close it.** A script, a CI diff step and a registered gate — written *before* the first
+figure rather than after it, because the rule exists precisely so that the first one cannot ship
+unchecked. Registering the gate is **not free**: criterion `9`'s in-situ debt sits at its ceiling, so
+a thirty-seventh gate with no evidence turns `tools/gates.py --check` red.
+
+---
+
+## 16. The round trip measured as a verifier — **new, Mandate III**
+
+> **16. The forward generator's round trip is measured as a verifier of extractor output, with a
+> go/no-go recorded.**
+
+**Verdict: met as a measurement, and the answer is no.** Re-derived by the recorder from a fresh run
+of the runner rather than read off `bench/results.json`.
+
+Unpruned recall on the true short form is
+42.09<!--claim:roundtrip.med1250.recall.beam_control_never_cuts.recall_pct:.2f--> % on MED1250 and
+51.75<!--claim:roundtrip.pmc_oa.recall.beam_control_never_cuts.recall_pct:.2f--> % on PMC-OA, against
+a Schwartz & Hearst aligner that accepts
+85.70<!--claim:roundtrip.med1250.ceiling.aligner_accepts_pct:.2f--> % and
+90.69<!--claim:roundtrip.pmc_oa.ceiling.aligner_accepts_pct:.2f--> % of the same pairs. **A verifier
+built on it would silently reject roughly two of every five pairs the aligner had right**, and the
+cause is architectural rather than configurational: the generator emits word *prefixes* and the
+aligner places a character anywhere *inside* a word, which is
+442<!--claim:roundtrip.med1250.misses.misses_architectural:,--> of MED1250's `644` misses.
+
+**The go/no-go is recorded in D-085**, with A2 and A5 stopping behind it, and with the one framing
+under which the mechanism survives — a precision filter worth
+25.60<!--claim:roundtrip.med1250.extractor_proposed.high_precision.discrimination_points:.2f--> points
+of discrimination at the cost of half the recall — recorded beside the refusal rather than instead of
+it.
+
+**What would close it further.** Nothing for the literal criterion. What is **not** met is gating:
+`bench/run_roundtrip_verifier.py` appears in no CI job and `.github/gates.toml` does not know it
+exists, so nothing re-derives these figures but a person with the command. Both corpora are declared
+`contaminated = true`, so no figure here may ever be quoted as a headline.
+
+---
+
+## `17`. A gated throughput baseline in machine-independent counts — **new, Mandate III**
+
+> **`17`. The governed hot path carries a gated throughput baseline, published in machine-independent
+> counts, with wall-clock reported as an unarmed note and the machine named.** A performance number
+> without a work count is a null result; a benchmark that got fast because it stopped doing work
+> looks exactly like one that got fast because the work got cheaper.
+
+**Verdict: partly met.** One entry point, two real corpora and one fixture, with the census figures
+re-derived by the recorder from a fresh run.
+
+What is gated: tokenizer passes, catalog lookups **split by origin**, index decisions, both memo hit
+rates, provenance records constructed, class-word lookups, `_prepare` calls, validation calls and
+total Python calls, across four arms. What is fenced and never armed: wall-clock, with the machine
+named — and the fence carries the three-run comparison that motivates the rule, `8,118` / `11,597` /
+`8,895` ns per identifier with **every count identical to the unit**.
+
+The baseline's own headline is that provenance construction is
+70.15<!--claim:governed_perf.socrata.empty.stage_provenance_pct:.2f--> % of the Socrata call and
+larger than the other three cost centres put together on all four arms (D-086).
+
+**What would close it.** The other three entry points. This decomposes `expand_identifier` alone:
+`is_compliant` and `to_physical_name` are three to five times dearer per call by the existing
+`governed.*` runs and have no decomposition, and `extract`, `disambiguate` and generation have
+entirely different hot paths that nothing here touches. **And memory is not measured at all** — the
+gated figure is object constructions counted exactly, not bytes.
+
+**Why this criterion's own number is inside a code span, in three places, and no other criterion's
+is.** `throughput` is one of the claims gate's eleven arming keywords, so a bare `17` sharing a line
+with it is read as a throughput claim of seventeen and lands on the closed value-matched ledger. It
+did, on this page, on the first run after this section was written — three times, once per line
+carrying both. **The gate armed an ordinal.** That is the citation-arms-neighbour class D-071 and
+D-084 each published a workaround for, seen from the other side: there the arming word arrived in a
+citation's field name, here it is in the criterion's own title. The number is an index and not a
+measurement, so silencing it is correct rather than evasive — and it is named here because a code
+span with no explanation beside it is exactly what D-052 says is indistinguishable from hiding.
+
+---
+
+## 18. Byte-identity, not benchmark-equality — **new, Mandate III**
+
+> **18. Every optimisation is proven behaviour-identical, not benchmarked-equal: full corpus, forced
+> on and forced off, byte-identical output including provenance records, gated.** A cache that
+> changes one `entry_id` in ten million is catastrophic for a governance instrument and invisible to
+> a benchmark.
+
+**Verdict: not met, not started — and no obligation arose, because nothing was optimised.** No
+byte-identity gate exists in `.github/gates.toml`, and the phase that measured what to optimise
+deliberately built none of it.
+
+The one place R19 was applied is to an **instrument** rather than to shipped code:
+`bench/run_governed_perf.py`'s ablation stages are proven byte-identical to the shipped path over the
+full corpora — `421,199` `expand_identifier` calls per pass, `0` phrase mismatches, `0` lookup excess
+and `0` class-word excess on all four arms, with three positive controls showing each check can
+report non-zero. That is the discipline this criterion asks for, applied to the measuring device.
+
+**What would close it.** The first optimisation, and its gate, in the same commit. **A rule with no
+instances is a rule with no evidence that it can fire** — which is the objection criterion `9` exists
+to make about CI jobs, arriving here about a rule instead.
+
+---
+
+## 19. W11 decided — **new, Mandate III**
+
+> **19. W11 — whether `extract()` may emit a short form with an absent or low-confidence long form —
+> is decided.**
+
+**Verdict: not met, not started.** [`docs/notes/w11-emission-model.md`](notes/w11-emission-model.md)
+opens with *"Status: scoping note. No decision, no behaviour change, nothing shipped."* It scopes the
+question, costs it and gives it a failure mode; it does not decide it, and nothing in this phase went
+near it.
+
+**Why it is on this list rather than in the standing unknowns.** It is not an unknown — nobody is
+waiting on a corpus, a licence or a stranger. It is an undecided **product** question with an owner
+available, which is a different shape and belongs on the list of things that could be finished.
+
+**What would close it.** A decision taken out loud in a record, either way. It bears on criterion
+`10`: answering it *yes* is the only route by which a span corpus could adjudicate the flagship
+extraction claim, so leaving it open leaves that row empty for a second reason on top of the one
+already recorded.
+
+---
+
+## 20. The catalog-gap report, shipped and run by a stranger — **new, Mandate III**
+
+> **20. The catalog-gap report is shipped **and has been run by a stranger.**
+
+**Verdict: half met, and the half that matters is not.**
+[`docs/SOURCING.md`](SOURCING.md) ships: an owner, three dated actions, a `2026-11-23` expiry, a
+target list with categories, and a stranger-runnable kit that makes the ask cheap to say yes to. Its
+own log, in its own words, reads **approaches made: `0`**.
+
+**This is `U-0` with a delivery date attached.** The standing unknown — *does a governed catalog add
+anything on a real schema?* — is the question the whole governance positioning rests on, and D-074
+established that the only measurement anybody had of it measured a catalog's **cost** rather than its
+**worth**. The report exists so that the ask is cheap. Nobody has made the ask.
+
+**What would close it.** One organisation saying yes. **No amount of work inside this repository
+moves it**, which is why the second clause of the criterion is the one written in bold: shipping the
+report is the part this project controls, and it is the part that does not settle anything.
+
+
+---
+
 ## Standing unknowns
 
-**Things nobody is working on, that are not therefore closed.** The fourteen criteria above are a
+**Things nobody is working on, that are not therefore closed.** The twenty criteria above are a
 bar this project is held to. This section is the other list: questions whose answer is *we do not
 know*, where nobody is scheduled to find out, and where the honest response is to write the question
 down with its price rather than let it lapse into the space between a retracted sentence and the
@@ -1162,18 +1422,45 @@ three below — `U-1` — was already being described as "named in the standing 
 defect as the sentence which created the entry: an appeal to something the repository does not
 contain. `U-0` is referred to in `docs/POSITIONING.md` as "the standing unknown", singular, and
 points at `docs/AUDIT-2026-08.md` rather than here, so it was never a dangling pointer. `U-2` was new
-at the fourth sweep and was found by a gate rather than by a reader.
+at the fourth sweep and was found by a gate rather than by a reader. **`U-3` and `U-4` are both new
+at the sixth round and there are five below, not three** — the count in the sentence above is the
+fifth sweep's and is left standing rather than silently bumped, because a count that is quietly
+corrected each time it goes stale is a count nobody can watch. `U-3` was found by a census, and it is
+the first entry here whose fifth column reads *no instrument is available* rather than *nobody has
+spent the afternoon*. `U-4` was found by building the instrument `U-1` could not have: it is the
+residue an agreement test leaves behind, and its fifth column reads *nobody in this repository* for
+exactly the reason the extraction row of [docs/POSITIONING.md](POSITIONING.md) is empty.
 
 **Nothing has been added to or removed from this table at the fifth sweep, and `U-0`'s cell was
 rewritten rather than ticked.** The measurement that appeared to answer it turned out to answer a
 different question; the unknown is exactly as open as it was, and it now has a plan with an expiry
 date attached to it rather than a closure. D-074, D-078.
 
+**One row was added at the sixth round, and it is an addition rather than a demotion.** `U-3` did
+not come out of the fourteen criteria and nothing above was moved into it; it came out of the census
+of the audit's do-not list, which found `13` of `35` of that list's figures not true of this tree or
+not re-derivable at all, and then found that no check in this repository could have seen any of the
+thirteen. The rule this section states — a later round that demotes a criterion into this table should
+say it did — is met by saying that this is not one.
+
+**A second row was added in the same round, and it was created by an attempt to close `U-1`'s
+neighbour rather than by a sweep.** `U-4` is what is left over after the extraction differential
+(`differential.med1250.*`, `bench/run_scorer_differential.py`,
+[docs/EVALUATION.md](EVALUATION.md#the-differential-that-replaced-the-withdrawn-argument-and-the-half-of-the-hole-it-does-not-reach)):
+the reader now has an outside check and the **convention** the scorer implements still has none,
+because two implementations of a convention agreeing is evidence about the implementations. Also
+not a demotion — nothing above moved into it. **And `U-1` did not move**: it asks whether this
+harness matches a *published evaluation*, and no differential can answer that. Its first column now
+records what did change around it, which is a smaller statement than a tick and is the whole point of
+keeping a row open.
+
 | # | The unknown | Why it is not urgent | What would close it | Who can |
 |---|---|---|---|---|
 | `U-0` | **Does a governed catalog add anything on a real schema?** Carried, not new — ranked first in [docs/AUDIT-2026-08.md](AUDIT-2026-08.md#1-does-a-governed-catalog-add-anything-on-a-real-schema) and it is [reversal one](POSITIONING.md#reversal-one-the-lead-is-wrong-if-a-catalog-is-worth-nothing-on-a-real-schema) of the positioning | **It is urgent, and its evidential status changed at the fifth sweep without the unknown getting any smaller.** The one measurement that appeared to point the other way has been re-run and decomposed, and it measured a catalog's **cost** on the `76.53` % of pairs that needed no catalog rather than a catalog's **worth** (D-074). The evidence against the lead is withdrawn; none for it has been supplied. It is listed here because it is unowned, not because it is small | One real proprietary glossary measured against the schema it governs, catalog against empty catalog, on gold the auditor did not infer from the labels being scored, **and decomposed on the already-unabbreviated line rather than pooled** — a pooled figure on a real schema will be just as unreadable | **Nobody in this repository.** One organisation handing over one glossary. There is now a plan with an owner, three dated actions and a `2026-11-23` expiry ([docs/SOURCING.md](SOURCING.md)), and a stranger-runnable kit that makes the ask cheap to say yes to — and **zero approaches have been made** |
-| `U-1` | **Does this extraction harness match Ab3P's own published evaluation?** The sentence that used to assert it — that this library's reproduction lands within half a point — cited figures that matched neither `bench/results.json` nor the table five lines above it, appealed to a paper nobody here has read, and was **withdrawn** rather than restated at corrected values (`docs/EVALUATION.md`, D-060 for the sweep that found it) | Extraction is a **supporting** number under [docs/POSITIONING.md](POSITIONING.md), and nobody optimises it again. The withdrawal cost the project an argument it never actually had | The paper's figures read **from the paper**, cited with the date somebody read them, and this harness's reproduction compared against them in the same table | **Anybody here.** One afternoon nobody has spent |
+| `U-1` | **Does this extraction harness match Ab3P's own published evaluation?** The sentence that used to assert it — that this library's reproduction lands within half a point — cited figures that matched neither `bench/results.json` nor the table five lines above it, appealed to a paper nobody here has read, and was **withdrawn** rather than restated at corrected values (`docs/EVALUATION.md`, D-060 for the sweep that found it). **Unchanged at the sixth round, and the round that could have been read as closing it says so first.** A differential now compares this harness against the NLM's own checked-in Ab3P output over the same corpus and agrees on 1,053<!--claim:differential.med1250.reference_output.pairs_agreeing:,--> of 1,053<!--claim:differential.med1250.reference_output.reference_pairs_raw:,--> pairs. That is agreement with an *implementation's output*, not with a *published evaluation*, and this row is about the second | Extraction is a **supporting** number under [docs/POSITIONING.md](POSITIONING.md), and nobody optimises it again. The withdrawal cost the project an argument it never actually had | The paper's figures read **from the paper**, cited with the date somebody read them, and this harness's reproduction compared against them in the same table. **No differential substitutes for it**, and the one that shipped is written up as narrowing the surrounding hole rather than closing this one | **Anybody here.** One afternoon nobody has spent |
 | `U-2` | **Is the disambiguation harness validated, or does it only say so?** The bold *Harness validated.* claim in [docs/EVALUATION.md](EVALUATION.md) rests on agreement with a shared task's own baseline scores. Those scores are named in `bench/run_disambiguation.py` with a source and **no read date** anywhere in the tree — found by `tools/check_external.py` in the round that built it, and held in that tool's `UNCITED_LEDGER` with a disposition | Same reason as `U-1`: disambiguation is a supporting number, and the row it validates has [no headline-capable corpus](POSITIONING.md#the-two-rows-that-are-empty-and-what-filling-each-costs) either way | Either a read date recorded against the pinned repository's own reported baseline, which makes the agreement an argument; or the sentence withdrawn the way `U-1`'s was | **Anybody here.** The source is already named; only the date is missing |
+| `U-3` | **Is a prohibition's stated reason still true?** New at the sixth round. Across the audit's do-not list — a census, not a sample — `13` of `35` figures are not true of this tree today or cannot be re-derived at all, `37.1` %; ten stated reasons are corrected in place in [docs/AUDIT-2026-08.md](AUDIT-2026-08.md), and **no prohibition's conclusion fell**. D-077 | **It is un-urgent by construction, which is exactly why it persists.** A live claim is read by somebody; a prohibition is read by nobody, because the direction it closes is closed and work stopped flowing to it. So a wrong reason survives longer inside a do-not list than anywhere else in the tree, and the cost is paid once, by whoever next re-examines it | **Nothing available today, and that is the finding rather than a gap in the search.** Both checks whose shape could apply were run over all `35` figures: `tools/check_claims.py` routes `10` by run id, `tools/check_external.py` routes `0`, and **`0` of the `13` that failed are routable by either** — every figure a gate could see was already true. Closing it needs a third route nobody has built. What exists meanwhile is a convention with a measured effect: the one property separating the surviving figures from the failing ones is being written under a run id | **Anybody here**, and the entry is carried as *no gate is available* rather than as a to-do. A reader who builds a route that catches even one of the thirteen has refuted it, which is the outcome this row is written to invite |
+| `U-4` | **Is the extraction scorer's matching *convention* the right one?** New at the sixth round, and created by the attempt to check the scorer rather than found by a sweep. `bench/scoring.py`'s counts are now re-derived by a second implementation that shares no code with it and agrees on 12<!--claim:differential.med1250.scorer_agreement.verdicts_agreeing_on_counts:,--> of 12<!--claim:differential.med1250.scorer_agreement.verdicts_compared:,--> verdicts over 5,159<!--claim:differential.med1250.scorer_agreement.pairs_scored:,--> pairs. **That is evidence about two implementations and none at all about the convention they both implement**, and no reference scorer for this task exists to adjudicate the convention: the search is counted in `differential.med1250.reference_output` and returned 0<!--claim:differential.med1250.reference_output.pyab3p_scoring_entry_points:,--> evaluation entry points in `pyab3p`, 0<!--claim:differential.med1250.reference_output.ab3p_makefile_scoring_targets:,--> scoring targets in Ab3P upstream, and 0<!--claim:differential.med1250.reference_output.shared_task_scorers_expressing_pair_extraction:,--> of 2<!--claim:differential.med1250.reference_output.shared_task_scorers_in_tree:,--> shared-task scorers in this tree able to express the task | **Two of its live decisions are now priced and both are small.** Corpus-pooled rather than per-document matching moves 0.00<!--claim:differential.med1250.specification.axis_pooling_max_abs_f1_delta:.2f--> points across all twelve cells measured; applying the relaxed convention to the short form as well moves 0.80<!--claim:differential.med1250.specification.axis_relaxed_short_form_max_f1_delta:.2f--> points and moves them **against** this library, over 9<!--claim:differential.med1250.specification.axis_relaxed_short_form_pairs_reclassified.acronymkit:,--> pairs. An unknown whose known live decisions are worth under a point is not an emergency | An adjudicator outside this repository: a published scorer for pair extraction, or a second annotator's reading of what counts as a correct long-form boundary. The same person `U-1`'s neighbour in [docs/POSITIONING.md](POSITIONING.md#extraction--the-instrument-exists-the-adjudicator-does-not) has been waiting for | **Nobody in this repository, and that is the same constraint as the empty extraction row.** The one adjudicator available wrote the extractor. What *is* available here is publishing each undocumented decision with its price, which this round did |
 
 **What this section is not.** It is not a backlog — a backlog implies somebody is about to work on
 it, and the fifth column says who can, which for `U-0` is nobody here. It is not a place to move a
@@ -1194,15 +1481,31 @@ was reported to the owner of that file rather than written. Until it lands, the 
 this check is `tests/test_check_external.py` under `python -m pytest tests` — which is a real gate
 and is not the same as a CI job, and criterion `9` is the criterion that cares about the difference.
 
+**`U-3`'s answer runs the other way, and the contrast is the useful part.** `U-1` and `U-2` are a class
+that turned out to be gateable the moment somebody wrote the check. `U-3` is a class that was probed
+the same way and came back with nothing: the figures a check can route are the figures that were already
+true, and the ones that failed are number-free assertions, quotations of other documents, properties of
+a build environment, or measurements against a resource this project deliberately did not acquire. **A
+figure about a thing you decided not to obtain is a figure nobody can re-derive**, and no gate fixes that.
+The honest register entry is a negative result, and it is carried as one.
+
 ---
 
 ## How this document fails
 
-**Ten of fourteen read met, and that is the highest this page has ever read — in a mandate that also
-measured a `20.8 %` error rate on this project's own reporting.** Put those two facts side by side,
-because a hostile reader will. The defence is that four of the ten closed on criteria that are
-modest about themselves: `11`, `12`, `13` and `14` ask for *measured*, *published*, *has a policy*
-and *exists in some form*, not for *good*.
+**Eleven of twenty read met at the sixth sweep, against ten of fourteen at the fifth — the count rose
+by one and the proportion fell from roughly seven in ten to a little over half.** That is the first
+time six new criteria have arrived without the page reading better for it, and it is stated here
+rather than left to be computed. The defence for the ten that stood is unchanged and is still a
+defence: five of them closed on criteria that are modest about themselves — `11`, `12`, `13`, `14`
+and now `16` ask for *measured*, *published*, *has a policy*, *exists in some form* and *measured,
+with a go/no-go recorded*, not for *good*. **Criterion `16` is the sharpest case: it reads met and
+the thing it measured came back negative.** A criterion that closes on a measurement regardless of
+which way the measurement went is a criterion about diligence, not about the library, and this page
+now contains five of those out of eleven.
+
+**And the round that added six criteria measured a `20.8 %`–`25.0 %` error rate on this project's own
+reporting for a third time.** Put those two facts side by side, because a hostile reader will.
 
 **That count read `9` until the fourth sweep and it was wrong under every rule.** Counting *met with
 qualification* as met gives `10`; refusing to count it gives `8`; `9` is neither. It stood in this
@@ -1213,11 +1516,14 @@ the page that grades the project on exactly that. D-073. The criteria that ask f
 `10` — are all open. **A definition of done whose met-count rises when six new criteria arrive is a
 definition of done scoped by the same people it grades**, and nothing here answers that.
 
-**Two of fourteen were not re-derived at the third sweep, seven at the fourth, five at the fifth.**
-Criteria `1`, `2`, `5`, `6` and `7` carry an earlier sweep's verdict. The head of this page used to say
+**Two of fourteen were not re-derived at the third sweep, seven at the fourth, five at the fifth,
+nine of twenty at the sixth.** Criteria `1`, `2`, `5`, `6`, `7`, `8`, `10`, `11` and `12` carry an
+earlier sweep's verdict, and the first five of those have carried for four sweeps running. The head of this page used to say
 every verdict is re-derived; it no longer does, and the table names them per row. **This is the number
-to watch across sweeps**: twelve of fourteen re-derived, then seven, then nine. The fifth sweep is the
-first time it has gone up, and a reader should hold that lightly — the five now carried have been
+to watch across sweeps**: twelve of fourteen re-derived, then seven, then nine, then eleven of twenty.
+It has gone up twice running as a count and **down as a proportion at the sixth sweep**, from nine in
+fourteen to eleven in twenty, because six new criteria arrived and every one of them was re-derived
+while none of the five long-carried ones was. A reader should hold that lightly — the five now carried have been
 carried for three sweeps running, so the ones still being re-derived are the ones that keep moving, and
 a verdict that never moves is exactly the verdict a stale reading hides in.
 

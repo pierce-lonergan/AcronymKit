@@ -18,6 +18,9 @@ python bench/run_monoculture.py --demo                    # the independence dem
 python bench/run_genre.py --fetch                         # 2,000 pinned PMC OA articles into data/
 python bench/run_genre.py --save --interpreter /path/to/python3.12   # genre against provenance
 
+python bench/run_scorer_differential.py --fetch            # 1.6 MB of Ab3P's own output, once
+python bench/run_scorer_differential.py --save             # the extraction differential
+
 # competitor rows (pyab3p and scispacy need Python <3.13)
 python bench/run_extraction.py --save     --system acronymkit --system abbreviations     --system abbreviation_extractor --system pyab3p     --interpreter /path/to/python3.12
 ```
@@ -200,6 +203,14 @@ Footprint is measured on the installed distribution: unpacked size, cold `import
   urgent** — it is a hole, not an emergency. Leaving it unnamed is how a withdrawn argument quietly
   becomes an argument nobody needed.
 
+  **NARROWED, NOT CLOSED, AND THE DIFFERENCE IS THE WHOLE OF THE NEXT SECTION.** A differential now
+  ships — [below](#the-differential-that-replaced-the-withdrawn-argument-and-the-half-of-the-hole-it-does-not-reach).
+  It adjudicates the **reader** against an artefact this project did not produce and cannot
+  influence. It does **not** adjudicate the scorer against anything external, because no external
+  scorer for this task exists to adjudicate it against, and that was measured rather than assumed.
+  The sentence *"nothing in this repository argues that the extraction reader and scorer are correct
+  rather than merely self-consistent"* is now false of the reader and still true of the scorer.
+
   **And the same shape is still live further down this page.** `tools/check_external.py` — a gate
   written in the round that wrote this paragraph, because nothing in the repository could see an
   appeal to somebody else's numbers at all — fires on the disambiguation section's own
@@ -233,6 +244,247 @@ by this table**: `pyab3p` is smaller, imports faster, has no runtime dependencie
 higher. The honest differentiation is elsewhere — no compiled extension to build or trust, MIT
 throughout with no binary blobs, typed schema-validated output, and a generation/backronym/
 disambiguation surface that none of these three have at all. Speed and size are not the argument.
+
+### The differential that replaced the withdrawn argument, and the half of the hole it does not reach
+
+The withdrawn sentence left the harness **correct by assertion**. This section is what replaced it.
+Runner: `bench/run_scorer_differential.py`. Run ids: `differential.med1250.*`. Read the last
+subsection first if you are only going to read one.
+
+**Two of the five arms do not run without `--interpreter`, and no CI job supplies one.** `pyab3p`
+publishes no wheel past CPython 3.12, so the prediction-level comparison and the mutation evidence
+below were taken on a developer machine — CPython
+3.12.13, recorded in the run entry as `harness_interpreter_version`, under
+`pyab3p` 0.1.1 — and **not** in the environment the gates run in. R11 asks for a demonstration *in
+situ*; this is a demonstration *somewhere*, which is weaker, and saying so is cheaper than the
+alternative. The offline arms — the scorer agreement, the ceiling, the specification axes, and the
+reproduction of `extraction.med1250.pyab3p` from the stored reference output — need no interpreter
+and are pinned by `tests/test_scorer_differential.py`, which does run in CI.
+
+#### There is no reference scorer. That is a measurement, not a shrug
+
+The obvious substitute for an appeal to a paper is to run **the task's own scorer** against ours on
+the same predictions. It does not exist, and here is what was actually opened to establish that:
+
+- **`pyab3p` 0.1.1**, installed under CPython 3.12. Its wheel
+  holds one compiled extension and a `word_data` directory. Its public surface is
+  2<!--claim:differential.med1250.reference_output.pyab3p_public_names:,--> names — `Ab3p` and
+  `AbbrOut` — and `Ab3p` carries
+  1<!--claim:differential.med1250.reference_output.pyab3p_public_methods_on_ab3p:,--> method,
+  `get_abbrs`. Evaluation entry points:
+  0<!--claim:differential.med1250.reference_output.pyab3p_scoring_entry_points:,-->.
+- **Ab3P upstream**, at the commit `tools/fetch_data.py` already pins for `MED1250_labeled`. The
+  `Makefile` has 7<!--claim:differential.med1250.reference_output.ab3p_makefile_recipe_targets:,-->
+  named targets carrying a recipe, of which
+  0<!--claim:differential.med1250.reference_output.ab3p_makefile_scoring_targets:,--> compute a
+  precision, a recall or an F-score. Its `test` target is
+  `./identify_abbr MED1250_unlabeled | diff identify_abbr-out -` — a **reproduction** check against
+  a stored output file. No scoring program is distributed with Ab3P at all.
+- **The two shared-task scorers already in this tree**,
+  2<!--claim:differential.med1250.reference_output.shared_task_scorers_in_tree:,--> of them, of which
+  0<!--claim:differential.med1250.reference_output.shared_task_scorers_expressing_pair_extraction:,-->
+  can express this task. `data/sdu21_ad_scorer.py` aligns one gold label per instance by id, which
+  is classification. `data/sdu22_ae_scorer.py` scores token-index spans and never pairs a short form
+  with a long form — and MED1250's gold carries no offsets anywhere in the file (D-048), so there is
+  nothing to hand it.
+
+**The premise this section was commissioned on is false, and it is worth stating because it is the
+premise anybody would start from.** MED1250 does not ship with Ab3P's evaluation *conventions*. It
+ships beside Ab3P's evaluation *outputs*, which is a different thing and — for one half of the
+harness — a better one.
+
+#### What Ab3P does ship: its own predictions, and this harness reproduces them exactly
+
+`identify_abbr-out` is 1.6 MB of the NLM's own run of Ab3P over MED1250, checked in at the same
+commit as the gold. **Never read by this repository before this round**, which is checkable rather
+than asserted: `git grep identify_abbr` and `git grep MED1250_unlabeled` at the commit preceding this
+work return nothing anywhere in the tree, `tools/fetch_data.py` included. Fetched by the runner,
+pinned by SHA-256, parsed with the same bare-PubMed-ID record rule `bench/corpora.read_med1250` uses,
+and **fetch-only on the MED1250 precedent** — not committed here and not vendored into the wheel.
+Public domain (United States Government Work), the same terms `tools/fetch_data.py` already records
+for the gold, carried in the run entry so the terms are findable from the number that used them.
+
+Driving `pyab3p` through **this repository's reader** and comparing pair for pair:
+
+| | |
+|---|---:|
+| documents compared | 1,252<!--claim:differential.med1250.reference_output.documents_compared:,--> |
+| documents agreeing | 1,252<!--claim:differential.med1250.reference_output.documents_agreeing:,--> |
+| **documents that could have disagreed** | **515<!--claim:differential.med1250.reference_output.documents_discriminating:,-->** |
+| documents where both sides propose nothing | 737<!--claim:differential.med1250.reference_output.documents_vacuous:,--> |
+| pairs in the reference output | 1,053<!--claim:differential.med1250.reference_output.reference_pairs_raw:,--> |
+| pairs agreeing | 1,053<!--claim:differential.med1250.reference_output.pairs_agreeing:,--> |
+| pairs only in the reference | 0<!--claim:differential.med1250.reference_output.pairs_only_in_reference:,--> |
+| pairs only in this harness | 0<!--claim:differential.med1250.reference_output.pairs_only_in_harness:,--> |
+
+**The two zeros in the last rows are doing more work than they look like.** They are the check on
+the *parser*, not on the harness: a parser that dropped predictions would leave
+`pairs only in this harness` positive, because the harness side is produced by running `pyab3p` live
+and owes nothing to the parse; a parser that harvested text as predictions would leave
+`pairs only in the reference` positive. Both are zero, so the reference output is read exactly, in
+both directions.
+
+**Read the third row before the second.** `1,252 of 1,252` is arithmetic over a corpus that is
+mostly empty on both sides;
+737<!--claim:differential.med1250.reference_output.documents_vacuous:,--> of those records agree by
+proposing nothing, and the check discriminates on
+515<!--claim:differential.med1250.reference_output.documents_discriminating:,-->. The pair count is
+the figure with no vacuous half in it.
+
+**This could have failed, and it is not a small thing that it did not.** NLM ran the C++ program
+over `MED1250_unlabeled` **one line at a time**; this harness assembles title and abstract from the
+*labelled* file into one string and hands that to a Python binding of the same code. Nothing
+requires those to agree, and they agree exactly.
+
+**Shown failing, in the environment where it runs** —
+`differential.med1250.reference_output_mutations`, `--interpreter` required. Five perturbations of
+the text this harness hands the extractor, the reference output untouched, each compared the same
+way:
+
+| perturbation | documents differing |
+|---|---:|
+| **control**, unperturbed | **0<!--claim:differential.med1250.reference_output_mutations.documents_differing.control:,-->** |
+| text case-folded | 508<!--claim:differential.med1250.reference_output_mutations.documents_differing.casefold:,--> |
+| brackets removed | 512<!--claim:differential.med1250.reference_output_mutations.documents_differing.brackets_removed:,--> |
+| first half of the text only | 121<!--claim:differential.med1250.reference_output_mutations.documents_differing.first_half:,--> |
+| spaces removed | 515<!--claim:differential.med1250.reference_output_mutations.documents_differing.spaces_removed:,--> |
+| word order reversed | 517<!--claim:differential.med1250.reference_output_mutations.documents_differing.words_reversed:,--> |
+
+5<!--claim:differential.med1250.reference_output_mutations.mutations_detected:,--> of
+5<!--claim:differential.med1250.reference_output_mutations.mutations_run:,--> detected. The
+perturbations are crude by design — the question is whether the comparison is sensitive to its input
+at all, not whether it models a plausible reader bug. **The first version of this evidence was a
+fenced block of numbers produced in a scratch directory**, which is a figure no gate can read; it is
+a committed arm with a run id because R16's objection to a hand-authored chart is the same objection
+to a hand-pasted code block.
+
+**One row exceeds the discriminating count and that is not an error.**
+517<!--claim:differential.med1250.reference_output_mutations.documents_differing.words_reversed:,-->
+is larger than
+515<!--claim:differential.med1250.reference_output_mutations.documents_discriminating:,--> because a
+perturbation can *invent* a definition in a record where both sides originally proposed nothing.
+`documents_discriminating` bounds the records where the comparison could detect a **loss**; it does
+not bound where it can detect a gain.
+
+And the same predictions, scored by `bench/scoring.py`, come to
+96.91<!--claim:differential.med1250.reference_output.exact_precision:.2f--> /
+82.06<!--claim:differential.med1250.reference_output.exact_recall:.2f--> /
+88.87<!--claim:differential.med1250.reference_output.exact_f1:.2f--> exact — reproducing
+`extraction.med1250.pyab3p` in the table above **to the digit**, from predictions this repository
+never generated. `governed_catalog.socrata.scorer_agreement` is the other figure here reproduced by
+something other than the runner that wrote it; whether these two are the only ones has not been
+counted, so the sentence is left at *the other* rather than at *the first*.
+
+#### The scorer, checked against a second implementation — and why that is the weak arm
+
+`bench/scoring.py`'s counts were re-derived by a second scorer written in the runner from the
+*documented* convention, sharing no code with it: character walks instead of regular expressions,
+`Counter` intersection instead of list removal. Over
+6<!--claim:differential.med1250.scorer_agreement.prediction_sets:,--> prediction sets and
+5,159<!--claim:differential.med1250.scorer_agreement.pairs_scored:,--> pairs,
+12<!--claim:differential.med1250.scorer_agreement.verdicts_agreeing_on_counts:,--> of
+12<!--claim:differential.med1250.scorer_agreement.verdicts_compared:,--> verdicts agree on the
+integer TP/FP/FN triple and
+12<!--claim:differential.med1250.scorer_agreement.verdicts_agreeing_on_figures:,--> of
+12<!--claim:differential.med1250.scorer_agreement.verdicts_compared:,--> on the rounded rates.
+8<!--claim:differential.med1250.scorer_agreement.verdicts_from_extractors:,--> of those verdicts
+come from a real extractor; the other four are the `empty` control and the gold fed back, which any
+two scorers agree on trivially and which are named in the entry rather than absorbed into the total.
+
+**This arm is weaker than the one above it and weaker than the precedent it copies, on two counts
+that are recorded in the entry as fields rather than left to this paragraph.**
+`governed_catalog.socrata.scorer_agreement` compared two scorers written by two workstreams in two
+files for two different questions, and only then noticed they had to agree. This one compares a
+scorer against a reimplementation written in the same round, by the same author, *for the purpose of
+agreeing*: `written_by_a_second_author` is `false` in the saved entry. Common-author error — the two
+implementations being wrong in the same way because one person held one wrong idea — is precisely
+what it cannot detect. And agreement between two implementations of a convention is evidence about
+the implementations and **never** about the convention, which is what the withdrawn sentence was
+appealing to the literature about.
+
+`tests/test_scorer_differential.py` mutation-tests it rather than trusting it: four perturbations of
+one documented step each, all asserted to break the agreement. The first version of that fixture
+detected none of them, because no record in it differed in case, and the test passed while measuring
+nothing. That is recorded in the file.
+
+#### What the differential found that nobody was looking for
+
+**The harness cannot score 100, and nothing said so.** Feed the gold back as a prediction set:
+
+| | |
+|---|---:|
+| gold pairs | 1,221<!--claim:differential.med1250.harness_ceiling.gold_pairs:,--> |
+| reachable | 1,199<!--claim:differential.med1250.harness_ceiling.reachable_pairs:,--> |
+| **unreachable by any system** | **22<!--claim:differential.med1250.harness_ceiling.unreachable_pairs:,--> in 22<!--claim:differential.med1250.harness_ceiling.documents_affected:,--> documents** |
+| maximum precision | 100.00<!--claim:differential.med1250.harness_ceiling.max_precision_pct:.2f--> % |
+| **maximum recall** | **98.20<!--claim:differential.med1250.harness_ceiling.max_recall_pct:.2f--> %** |
+| **maximum F1** | **99.09<!--claim:differential.med1250.harness_ceiling.max_f1_pct:.2f--> %** |
+
+`bench/run_extraction.py` collapses repeated pairs within a document for every system alike, and the
+gold is *not* collapsed, so a record that genuinely defines the same pair twice keeps both copies in
+the recall denominator with one of them unreachable. The runner's docstring already called this "a
+handful" and said the cost is "small and shared". Both are true. Neither is a number, and every
+recall figure in the table above is against a ceiling of
+98.20<!--claim:differential.med1250.harness_ceiling.max_recall_pct:.2f--> % rather than against the
+perfect score a reader assumes is up there.
+
+**Two decisions the scorer's own documentation does not state, priced.**
+
+- **Matching is pooled over the whole corpus, not per document.** `bench/scoring.py` accumulates one
+  gold list and one prediction list across every record and matches them multiset-wise at the end,
+  so a prediction in one abstract can consume a gold pair from another. Its docstring reasons about
+  documents throughout and never says this. Cost, measured across every cell of six prediction sets
+  by two conventions:
+  0.00<!--claim:differential.med1250.specification.axis_pooling_max_abs_f1_delta:.2f--> points, the
+  maximum absolute difference over all twelve. A null result with its firing count: the axis was
+  evaluated twelve times and moved nothing.
+- **The relaxed convention reaches the long form only.** The short form is matched under the *exact*
+  convention in both modes — the docstring speaks of the long form throughout and never says what
+  happens to the short one. It costs this library
+  0.80<!--claim:differential.med1250.specification.axis_relaxed_short_form_max_f1_delta:.2f--> points
+  of relaxed F1, over exactly
+  9<!--claim:differential.med1250.specification.axis_relaxed_short_form_pairs_reclassified.acronymkit:,-->
+  pairs. **The class is one thing, and it is the annotator's punctuation rather than ours** — in all
+  nine the gold short form carries edge punctuation and the predicted one does not: gold `.V(E)`,
+  `-SH`, `HRPO-`, `[CK]`, `M.O.I.`, `R.D.T.`, `C.A.H.`, `C.P.H.`, `C.L.H.` against predicted `V(E)`,
+  `SH`, `HRPO`, `CK`, `M.O.I`, `R.D.T`, `C.A.H`, `C.P.H`, `C.L.H`.
+
+  It moves nobody else:
+  0.00<!--claim:differential.med1250.specification.axis_relaxed_short_form_f1_delta_by_system.ab3p_reference_output:.2f-->
+  for the Ab3P reference output,
+  0.00<!--claim:differential.med1250.specification.axis_relaxed_short_form_f1_delta_by_system.abbreviations:.2f-->
+  for `abbreviations` and
+  0.00<!--claim:differential.med1250.specification.axis_relaxed_short_form_f1_delta_by_system.abbreviation_extractor:.2f-->
+  for `abbreviation_extractor`. **The convention as shipped costs us points and costs nobody else
+  any**, which is the direction that makes reporting it cheap — and is exactly why it is worth
+  writing down now rather than after somebody finds a decision that goes the other way.
+
+#### What this establishes and what it does not
+
+| | |
+|---|---|
+| the reader assembles the corpus the way the reference implementation's own run saw it | **established**, against an artefact this project did not produce |
+| the record segmentation matches | **established**, same rule, same 1,252<!--claim:differential.med1250.reference_output.documents_compared:,--> keys in order |
+| the `pyab3p` row is the reference implementation's real score under our scorer | **established**, from predictions we did not generate |
+| `bench/scoring.py` implements the convention its docstring describes | **narrowly supported** — by one same-author reimplementation, mutation-tested |
+| **the convention itself is the right one** | **not established, and not establishable this way** |
+| **this harness matches Ab3P's published evaluation** | **still open — `U-1`, unchanged** |
+
+The last two rows are the point. Two implementations agreeing prove they implement the same
+convention, not that the convention is right — and the convention is the thing the withdrawn
+sentence was appealing to the literature about. `U-1` in
+[docs/DEFINITION-OF-DONE.md](DEFINITION-OF-DONE.md#standing-unknowns) is unchanged in scope and
+closes on the same afternoon it always did: the paper's figures read from the paper, cited with the
+date somebody read them.
+
+**Should every scorer this project ships carry an agreement arm?** The two that now exist —
+`governed_catalog.socrata.scorer_agreement` and `differential.med1250.scorer_agreement` — are not
+equally worth having, and a blanket rule would flatten that. The proposal, recorded so a later round
+can refuse it: **required for a scorer whose output is cited in prose, and required to name its own
+weakness in a field**, because a same-author reimplementation is cheap to produce, always agrees,
+and looks exactly like validation. The cross-workstream form is worth requiring; the same-author
+form is worth publishing and worth never calling validation. Nothing in this repository enforces
+either yet.
 
 ### Three implementations truncate identically
 
@@ -1369,6 +1621,429 @@ the provenance explanation, and the strong reading of the monoculture stays dead
 - **Nothing here changes the extractor.** Knowing where the field's blind spot is does not say what
   to do about it, and this page deliberately stops at the measurement.
 
+## One sense per discourse: the assumption under a document-level `extract()`, measured first
+
+A document-level resolver — one definition anywhere in a document licenses every later occurrence of
+that short form — is the largest single change on the table for `extract()`. It rests on
+one-sense-per-discourse, which is **an assumption and not a law**, and it is a breaking API change
+that would move every recall figure on this page. So the violation rate was measured before anything
+was built on it.
+
+`bench/run_one_sense.py`, over the corpus `bench/run_genre.py` already fetched and pinned —
+`[corpora.pmc_oa_same_article_genre]`, role `single_annotator_reference`, which `headline_capable()`
+excludes for every task. Nothing below is a headline number. The runner is a second file rather than
+an arm of `run_genre.py` because that runner's unit is the **half** — abstract against body — and
+this question has no halves: a violation whose two definitions straddle the cut is exactly what
+cutting the document would hide.
+
+**What would have killed it, written down before the run.** Recorded to a scratch file first and
+reproduced verbatim in the round's report, so that the direction and the magnitudes are both
+falsifiable:
+
+```
+pre-registration -- written before any group was counted, not a benchmark measurement
+
+  A2 dies outright if the genuine-ambiguity violation rate reaches 5 % of short-form
+  groups (K1), or if the error on licensed occurrences reaches 10 % (K2), or if the
+  error floor exceeds the error rate of the mechanism A2 replaces (K3).
+  A2 must be opt-in if the genuine rate lands in [1 %, 5 %) (K4), or if the pooled
+  violation rate reaches 15 % even when almost all of it is surface variation (K5).
+  A2 is clean only if genuine < 1 %, ceiling < 2 % and pooled < 15 % (K6).
+
+  Point predictions: pooled violation rate 2-7 %, central 4 %; surface variants the
+  majority of violations at about 70 %; occurrence-weighted exposure 1.5x to 3x the
+  type rate; between 8 and 20 rostered articles carrying a genuine ambiguity.
+```
+
+### The authors' own rosters answer a different question, and the answer is close to zero
+
+220<!--claim:one_sense.pmc_oa.sample.articles_with_a_roster:,--> of
+1,839<!--claim:one_sense.pmc_oa.sample.articles:,--> articles ship a `<def-list>` roster, declaring
+2,696<!--claim:one_sense.pmc_oa.sample.roster_pairs_declared:,--> pairs. Grouped by short form that
+is 2,695<!--claim:one_sense.pmc_oa.roster.admitted.case_sensitive.short_form_groups:,--> groups, and
+the number carrying two distinct expansions is
+1<!--claim:one_sense.pmc_oa.roster.admitted.case_sensitive.groups_with_two_or_more_expansions:,-->.
+One. It is `MHB`, declared as *Mueller hinton broth* and as *Mueller-Hinton broth* in the same
+glossary, which is a hyphen.
+
+**Do not read that as the violation rate of anything.** A glossary is a curated one-to-one table.
+The roster is the place an author's inconsistency gets *fixed*, not the place it shows, so this
+figure answers *do authors declare two senses* — a question about declaration habits — and it is a
+floor on within-document ambiguity rather than an estimate of one. One event is also not a rate, and
+the pre-registration said in advance that below forty violating groups the counts would be reported
+and the percentage would not be leaned on.
+
+**Two things the roster does show, and neither was on anybody's list.**
+
+**The admission rule this instrument inherited deletes the one genuine collision the rosters hold.**
+Before `roster_pair_admissible` — the rule `bench/run_genre.py` wrote to measure the Schwartz &
+Hearst blind spot — the same rosters hold
+2,840<!--claim:one_sense.pmc_oa.roster.raw.case_sensitive.short_form_groups:,--> groups and
+2<!--claim:one_sense.pmc_oa.roster.raw.case_sensitive.groups_with_two_or_more_expansions:,-->
+collisions under the same case-sensitive key. The one that does not survive admission is `BDNF =`,
+declared in one article as *brain-derived neurotrophic factor* and as *human brain-derived
+neurotrophic factor gene* — a protein against a gene, which is a real second sense — dropped because
+the author's `<term>` carries a trailing `=` and the rule refuses whitespace inside a term. **So the
+surviving population's rate is one hyphen, and the collision with actual content was filtered out by
+a rule written for another question.** A rule cannot be measured through itself, which is why
+`raw_roster` re-walks the XML.
+
+**A case-folded key manufactures ambiguity that the document does not contain.** Fold the short-form
+key and the raw population becomes
+2,837<!--claim:one_sense.pmc_oa.roster.raw.case_folded.short_form_groups:,--> groups with
+4<!--claim:one_sense.pmc_oa.roster.raw.case_folded.groups_with_two_or_more_expansions:,-->
+collisions. The two that appear only under folding are `ms` = *millisecond* against `MS` = *Multiple
+Sclerosis*, and `N` = *Number of patients* against `n` = *Number of patients in a subgroup*. **Neither
+is a violation of one sense per discourse.** They are two short forms each, distinguished by case
+exactly as their authors intended, and a resolver that folded the key would report an ambiguity where
+the document has none. Biology marks case on purpose — `Bdnf` is the mouse gene and `BDNF` the human
+one, which is the same article's third declaration — so **half of the folded rate is an artefact of
+the key.** That is a design constraint on the change, obtained before the change exists.
+
+### What a document-level resolver would actually have to arbitrate
+
+The roster cannot answer A2's question, so the second instrument reads the text. Every definition
+`extract_definitions` offers over the whole document — abstract and body concatenated, `<back>`
+excluded — grouped by short form. It needs no gold, because it is not a recall measurement: **it is
+the population A2 must arbitrate, and a second expansion in it is a decision A2 has to take whether
+or not that expansion is correct.**
+
+Over 1,839<!--claim:one_sense.pmc_oa.resolver.biomedical.documents:,--> documents and
+62,464,536<!--claim:one_sense.pmc_oa.resolver.biomedical.characters:,--> characters, `BIOMEDICAL`
+offers 38,445<!--claim:one_sense.pmc_oa.resolver.biomedical.definition_pairs_offered:,--> definition
+pairs. Restricted to short forms an abbreviation roster rule would admit — the same
+`roster_pair_admissible` term half, so that `i.e`, `e.g`, `set` and every single letter are out —
+that is 25,691<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.short_form_groups:,-->
+groups, of which
+1,471<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.groups_with_two_or_more_expansions:,-->
+carry two or more distinct expansions:
+5.73<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.violation_pct:.2f--> %.
+
+**That rate is a property of the documents and not of the operating point**, which is the strongest
+robustness fact here: `HIGH_PRECISION` gives
+5.75<!--claim:one_sense.pmc_oa.resolver.high_precision.term_shaped.violation_pct:.2f--> % and
+`GENERAL` 5.74<!--claim:one_sense.pmc_oa.resolver.general.term_shaped.violation_pct:.2f--> % over
+their own populations. Drop the roster-shaped restriction and `BIOMEDICAL` rises to
+6.59<!--claim:one_sense.pmc_oa.resolver.biomedical.all.violation_pct:.2f--> % over
+29,619<!--claim:one_sense.pmc_oa.resolver.biomedical.all.short_form_groups:,--> groups, because the
+extra 3,928 keys it admits are `i.e`, `Fig` and single letters — and A2 as specified would key those
+too. 55.85<!--claim:one_sense.pmc_oa.resolver.biomedical.documents_with_a_violation_pct:.2f--> % of
+documents carry at least one.
+
+**The roster's own rate and this one differ by two orders of magnitude, and the bridge between them
+is measured rather than assumed.** Of
+2,694<!--claim:one_sense.pmc_oa.bridge.biomedical.singly_rostered_short_forms:,--> short forms an
+author rostered exactly once, the extractor reaches
+1,714<!--claim:one_sense.pmc_oa.bridge.biomedical.also_defined_in_the_text_by_the_extractor:,--> in
+the same document, and
+406<!--claim:one_sense.pmc_oa.bridge.biomedical.with_an_expansion_the_roster_does_not_carry:,--> of
+those —
+23.69<!--claim:one_sense.pmc_oa.bridge.biomedical.competing_pct_of_reached:.2f--> % — carry an
+expansion the roster does not. A competitor is not proof of a second sense; the extractor has no gold.
+It is proof that **the roster does not settle the question**, which is precisely what the roster's own
+near-zero rate would otherwise be read as doing.
+
+### Surface variation and genuine ambiguity are different problems, and the residual class is neither
+
+Pooling them would be a phrasing tighter than the measurement, so every violating group is put in one
+of three mechanical classes: `surface` (every expansion collapses to one string under a stated ladder
+of Unicode folding, punctuation removal, a crude singulariser, a closed stop-word list, and one pass
+of nested-abbreviation expansion using the document's own unambiguous definitions), `refinement` (one
+expansion is a whole-word subsequence of another), and `distinct` (neither).
+
+| class | groups, `BIOMEDICAL`, roster-shaped | share of violations |
+|---|---:|---:|
+| `surface` | 412<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.class_surface:,--> | 28.01<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.class_surface_pct_of_violations:.2f--> % |
+| `refinement` | 321<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.class_refinement:,--> | 21.82<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.class_refinement_pct_of_violations:.2f--> % |
+| `distinct` | 738<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.class_distinct:,--> | 50.17<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.class_distinct_pct_of_violations:.2f--> % |
+
+**`distinct` is a residual and it is not "genuine ambiguity".** Half the violating population lands
+there and no rule can split it further, which is above the threshold the pre-registration set for
+declaring the decomposition unmeasurable by rule. So it was adjudicated by hand — by **one** annotator,
+who also wrote the ladder — on a seeded sample, and the other two classes were adjudicated too,
+because a ladder that folded a real second sense into `surface` would make every correctness figure
+here too small and a `distinct`-only audit could not see it.
+
+| class sampled | drawn | genuine | one concept written twice | not an expansion at all | unclear |
+|---|---:|---:|---:|---:|---:|
+| `distinct`, frame 738<!--claim:one_sense.pmc_oa.audit.distinct.frame_size:,--> | 120<!--claim:one_sense.pmc_oa.audit.distinct.sample_size:,--> | 5<!--claim:one_sense.pmc_oa.audit.distinct.label_genuine:,--> | 64<!--claim:one_sense.pmc_oa.audit.distinct.label_variant:,--> | 49<!--claim:one_sense.pmc_oa.audit.distinct.label_artefact:,--> | 2<!--claim:one_sense.pmc_oa.audit.distinct.label_unclear:,--> |
+| `refinement`, frame 321<!--claim:one_sense.pmc_oa.audit.refinement.frame_size:,--> | 40<!--claim:one_sense.pmc_oa.audit.refinement.sample_size:,--> | 1<!--claim:one_sense.pmc_oa.audit.refinement.label_genuine:,--> | 33<!--claim:one_sense.pmc_oa.audit.refinement.label_variant:,--> | 6<!--claim:one_sense.pmc_oa.audit.refinement.label_artefact:,--> | 0<!--claim:one_sense.pmc_oa.audit.refinement.label_unclear:,--> |
+| `surface`, frame 412<!--claim:one_sense.pmc_oa.audit.surface.frame_size:,--> | 40<!--claim:one_sense.pmc_oa.audit.surface.sample_size:,--> | 0<!--claim:one_sense.pmc_oa.audit.surface.label_genuine:,--> | 40<!--claim:one_sense.pmc_oa.audit.surface.label_variant:,--> | 0<!--claim:one_sense.pmc_oa.audit.surface.label_artefact:,--> | 0<!--claim:one_sense.pmc_oa.audit.surface.label_unclear:,--> |
+
+**The ladder does not over-fold**, on the evidence available: nothing drawn from `surface` is a second
+sense, and one thing drawn from `refinement` is — `MyHC` standing for the slow-twitch myosin heavy
+chain gene and for the fast-twitch one in the same article.
+
+**And the largest adjudicated share of the residual class is not ambiguity at all.**
+49<!--claim:one_sense.pmc_oa.audit.distinct.label_artefact:,--> of
+120<!--claim:one_sense.pmc_oa.audit.distinct.sample_size:,--> `distinct` groups contain a long form
+that is not an expansion of anything — `STAT1` "defined" as a catalogue number, `SPE` as a supplier's
+name, `OR` as *of urbanization*. Genuine second senses are
+5<!--claim:one_sense.pmc_oa.audit.distinct.label_genuine:,-->.
+
+### A2 priced in A2's own terms: what it buys, what it would get wrong, and against what
+
+Model A2 as specified — commit to the first definition in document order, license every whole-token
+occurrence of that short form at or after it, roster-shaped short forms only, which is the generous
+reading. Then over the whole corpus at `BIOMEDICAL`:
+
+- **What it buys.**
+  247,974<!--claim:one_sense.pmc_oa.a2.biomedical.licensed_occurrences:,--> licensed occurrences, of
+  which
+  212,305<!--claim:one_sense.pmc_oa.a2.biomedical.licensed_occurrences_outside_every_definition_sentence:,-->
+  —
+  85.62<!--claim:one_sense.pmc_oa.a2.biomedical.a2_new_coverage_pct_of_licensed:.2f--> % — sit
+  outside every sentence that carries a definition of their own short form. Those are the occurrences
+  a sentence-scoped extractor reaches none of. A2's coverage is
+  5.95<!--claim:one_sense.pmc_oa.a2.biomedical.a2_new_coverage_multiple_of_current:.2f--> times what
+  the sentence-scoped model resolves.
+- **What it would get wrong, over the whole violating population.** A floor of
+  0.5775<!--claim:one_sense.pmc_oa.a2.biomedical.wrong_floor_correctness_pct_of_licensed:.4f--> % of
+  licensed occurrences — the definition sites of the expansions A2 did *not* commit to, wrong by
+  construction and needing no annotation — and a ceiling of
+  9.62<!--claim:one_sense.pmc_oa.a2.biomedical.wrong_ceiling_correctness_pct_of_licensed:.2f--> %,
+  which assumes every licensed occurrence of every multi-expansion short form except one carries the
+  other reading. No document does that; it is a bound.
+- **What it would get wrong where the ambiguity is real.** Multiply each class by its adjudicated
+  genuine share and the projection is
+  38.8<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups:.1f--> genuinely
+  ambiguous groups —
+  0.151<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups_pct_of_term_shaped_groups:.3f--> %
+  of all roster-shaped groups, exact binomial interval
+  0.040<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups_ci_low_pct_of_term_shaped_groups:.3f-->
+  to
+  0.577<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups_ci_high_pct_of_term_shaped_groups:.3f-->
+  % on the adjudication draw alone. On licensed occurrences the genuine-ambiguity error floor is
+  0.0214<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_wrong_floor_pct_of_licensed:.4f--> %
+  and the ceiling
+  0.355<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_wrong_ceiling_pct_of_licensed:.3f--> %,
+  interval
+  0.095<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_wrong_ceiling_ci_low_pct_of_licensed:.3f-->
+  to
+  1.308<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_wrong_ceiling_ci_high_pct_of_licensed:.3f--> %.
+- **The rate A2 is measured against is zero, and that is the sharpest thing on this page.** The
+  sentence-scoped mechanism A2 replaces does not answer *wrongly* at an out-of-sentence occurrence; it
+  does not answer at all. So A2 does not trade a worse error rate for a better one. **It trades
+  coverage for correctness against a comparator that is right by declining.**
+
+### The finding was on nobody's list: A2's exposure is not ambiguity, it is amplification
+
+One-sense-per-discourse holds on this corpus about as well as its advocates would claim. **What A2
+would actually do is take the extractor's false positives and license them across a whole article.**
+
+Projected the same way, the class whose second expansion is **not an expansion at all** covers
+349.5<!--claim:one_sense.pmc_oa.a2_projected_genuine.artefact.projected_groups:.1f--> groups —
+1.36<!--claim:one_sense.pmc_oa.a2_projected_genuine.artefact.projected_groups_pct_of_term_shaped_groups:.2f--> %
+of roster-shaped groups, interval
+0.989<!--claim:one_sense.pmc_oa.a2_projected_genuine.artefact.projected_groups_ci_low_pct_of_term_shaped_groups:.3f-->
+to
+1.956<!--claim:one_sense.pmc_oa.a2_projected_genuine.artefact.projected_groups_ci_high_pct_of_term_shaped_groups:.3f-->
+%, and
+8,311.1<!--claim:one_sense.pmc_oa.a2_projected_genuine.artefact.projected_licensed_occurrences:,.1f-->
+licensed occurrences,
+3.352<!--claim:one_sense.pmc_oa.a2_projected_genuine.artefact.projected_licensed_occurrences_pct:.3f--> %
+of the total. **That is roughly nine times the genuinely ambiguous class on groups and nine times it
+on occurrences.**
+
+**It is exposure and not error, and the difference is stated because the measurement cannot close
+it.** The label says one of a group's expansions is noise; it does not say *which* one came first, and
+A2 commits to whichever did. The error is somewhere between zero and
+3.211<!--claim:one_sense.pmc_oa.a2_projected_genuine.artefact.projected_wrong_ceiling_pct_of_licensed:.3f--> %
+of licensed occurrences and nothing here locates it. What is not in doubt is the *shape*: today a
+false definition is confined to its sentence, and under A2 it would be asserted for every later
+occurrence in the article, with a provenance record saying where the licence came from. **For a
+governance instrument that is a worse failure than an unresolved occurrence**, and it is the argument
+against A2 that this measurement produces — not the one it was sent to look for.
+
+### The verdict against the pre-registration, including the condition that was badly written
+
+- **K1 does not fire.** Genuine ambiguity is
+  0.151<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups_pct_of_term_shaped_groups:.3f--> %
+  of groups against a `5` % kill line, and the interval's upper end is
+  0.577<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups_ci_high_pct_of_term_shaped_groups:.3f--> %.
+- **K2 does not fire**, on the genuine class: ceiling
+  0.355<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_wrong_ceiling_pct_of_licensed:.3f--> %
+  against a `10` % line. On the *whole* violating population the ceiling is
+  9.62<!--claim:one_sense.pmc_oa.a2.biomedical.wrong_ceiling_correctness_pct_of_licensed:.2f--> %
+  — see the bullet above for the figure that matters — and a reader who applied K2 to the pooled
+  bound would find it inside a point of firing.
+- **K4 and K5 do not fire.** The genuine rate is below `1` %, and the pooled violation rate is
+  5.73<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.violation_pct:.2f--> % against a
+  `15` % line.
+- **K6, the clean-ship condition, is satisfied on its own terms.**
+- **K3 fires, and K3 was a badly written condition.** It said A2 dies if its error floor exceeds the
+  error rate of the mechanism it replaces. The mechanism it replaces turns out to have an error rate
+  of exactly zero *because it declines*, so K3 fires on any error at all and could only have passed
+  if A2 were perfect. **The pre-registration got the direction right and the comparator wrong**, and
+  it is left standing rather than rewritten, because a kill condition edited after the run is not a
+  kill condition.
+
+**Six point predictions, graded, and three of them held.** Grading only the ones that failed would be
+the same selection this page exists to refuse.
+
+1. **The pooled rate: band held, central guess did not.** Predicted `2`–`7` % with a central guess of
+   `4` %; it is
+   5.73<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.violation_pct:.2f--> %.
+2. **"One concept written twice" is the majority of violations: right, at about the predicted size.**
+   Predicted `70` % of violations. The adjudicated projection puts that class at
+   4.167<!--claim:one_sense.pmc_oa.a2_projected_genuine.variant.projected_groups_pct_of_term_shaped_groups:.3f--> %
+   of all roster-shaped groups against a violating population of
+   5.73<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.violation_pct:.2f--> % — about seven
+   in ten. **The mechanical `surface` class alone would have said
+   28.01<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.class_surface_pct_of_violations:.2f--> % and buried this**, which is
+   the reason the ladder's residual class was adjudicated rather than reported as the answer.
+3. **Occurrence weighting raises the rate, by the predicted factor: right.** Predicted strictly higher
+   than the type rate by `1.5`x to `3`x. Licensed occurrences sitting under a multi-expansion short
+   form are
+   13.56<!--claim:one_sense.pmc_oa.a2.biomedical.licensed_occurrences_under_multi_expansion_groups_pct:.2f--> %
+   of all licensed occurrences against a group rate of
+   5.73<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.violation_pct:.2f--> %.
+4. **The genuine-ambiguity error bounds: right, and by more than an order of magnitude.** Predicted
+   floor below `1` % and ceiling below `6` %; measured
+   0.0214<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_wrong_floor_pct_of_licensed:.4f--> %
+   and
+   0.355<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_wrong_ceiling_pct_of_licensed:.3f--> %.
+5. **Rostered articles carrying a genuine ambiguity: wrong.** Predicted between `8` and `20` of the
+   220<!--claim:one_sense.pmc_oa.sample.articles_with_a_roster:,--> rostered articles. The roster
+   carries
+   4<!--claim:one_sense.pmc_oa.roster.raw.case_folded.articles_with_a_violation:,--> collisions of any
+   kind under its most generous keying and
+   1<!--claim:one_sense.pmc_oa.roster.admitted.case_sensitive.articles_with_a_violation:,--> under the
+   shipped rule.
+6. **The concentration of the violating population: wrong by four times.** Predicted that the
+   commonest violating short form would appear in fewer than `6` articles. Across
+   1,163<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.distinct_violating_short_form_types:,-->
+   distinct violating short forms the commonest is `OR`, in
+   25<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.most_frequent_violating_short_form_documents:,-->
+   of them.
+
+**And the prediction the round most wanted to be right about was the furthest out.** The genuine rate
+was predicted at `0.6`–`2.5` % of groups with a central guess of `1.2` %; it is
+0.151<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups_pct_of_term_shaped_groups:.3f--> %
+with an interval whose upper end is
+0.577<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups_ci_high_pct_of_term_shaped_groups:.3f--> %,
+so **the whole predicted band is excluded.** The artefact class, which is what this section ends on,
+appears nowhere in the pre-registration at all.
+
+### The instrument's own defects, measured rather than declared
+
+**The shipped sentence splitter is quadratic in the length of the string it is handed.** This is not a
+side note: A2 is a document-level feature and `Tokenizer.split_sentences` costs `O(n squared)` in
+document size. Doubling the input roughly quadruples the time, at constant sentences-per-character:
+
+```
+bench/results.json, one_sense.pmc_oa.splitter_cost -- WALL CLOCK, UNARMED, one machine
+CPython 3.13.4 on Windows AMD64. Per R18 the characters and sentences are the property of
+the code and are gated; the seconds are the property of this runner and only the RATIO
+between consecutive rows is read. A linear splitter shows a ratio near 2.
+
+   characters   sentences   seconds   ratio to the row above
+        6,700         100    0.0584   --
+       13,400         200    0.2400   4.11
+       26,800         400    0.9530   3.97
+       53,600         800    3.8443   4.03
+```
+
+So this runner splits each **paragraph block** rather than each document, which makes the total linear
+— 329,312<!--claim:one_sense.pmc_oa.sample.sentence_table.paragraph_blocks:,--> splitter calls
+producing 638,975<!--claim:one_sense.pmc_oa.sample.sentence_table.sentences:,--> sentences over the
+corpus — and is *also* the more faithful reading, because the extractor's own candidate window never
+crosses a paragraph break either.
+
+**That substitution was checked against the number it could move, not against an intermediate.** The
+two splits never produce byte-equal span lists, by construction: chunking adds a boundary at every
+blank line. What matters is whether the published coverage figure moves, so it is recomputed both ways
+on a seeded sample of documents short enough for the quadratic arm to finish:
+79.31<!--claim:one_sense.pmc_oa.splitter_agreement.coverage_pct_chunked_split:.2f--> % under the
+chunked split against
+79.26<!--claim:one_sense.pmc_oa.splitter_agreement.coverage_pct_whole_document_split:.2f--> % under
+the whole-document split. **The sample is the short half of the corpus by construction** — the
+whole-document arm is the one that does not finish on a long article — so nothing here says the two
+agree as well on the long half.
+
+**Turning the engine's own sentence capture on changes no pair**, on all
+40<!--claim:one_sense.pmc_oa.splitter_agreement.documents_whose_pair_set_is_identical_with_capture_on:,-->
+sampled documents, so the coverage figure is about the pair set that ships. The engine's attached
+sentence is the one this runner assigns for
+78.64<!--claim:one_sense.pmc_oa.splitter_agreement.definition_sentence_agreement_pct:.2f--> % of
+definitions — the disagreement is the paragraph boundary, and the bullet above is what bounds its
+effect.
+
+### The gate that adjudicates this section, shown failing — and the hole it did not catch
+
+R11 says a gate must be shown capable of failing where it runs. Six runs of
+`python tools/check_claims.py`, one mutation at a time, each restored from bytes read before it and
+md5-verified against a copy held outside the tree:
+
+```
+python tools/check_claims.py, six mutations to the section above, one at a time.
+CPython 3.13.4 on win32; command output, not a benchmark measurement. Failures are
+printed on stderr and carry the file and line; rc and "is the file named" do not move
+with an edit above them.
+
+  rc=0  control, unmutated                                      <file not named>
+  rc=1  A  a cited value edited: 5.73 -> 9.99                    docs/EVALUATION.md named
+  rc=1  B  that citation repointed at run id one_sense.nope.*    docs/EVALUATION.md named
+  rc=1  C  prose line added: "... accuracy reached 99.94 % ..."  docs/EVALUATION.md named
+  rc=0  D  prose line added: "Median latency ... 41 microseconds"  <file not named>
+  rc=0  E  the same cited value put back inside a code span      <file not named>
+  rc=1  F  a class count edited: 738 -> 739                      docs/EVALUATION.md named
+```
+
+**A, B, C and F are the gate working.** A wrong value, a dead run id, a bare accuracy percentage and
+a wrong integer all turn the build red and name the line.
+
+**D is D-060's latency blind spot, reproduced here rather than carried on that record's word.** `latency` is not in the gate's
+arming vocabulary and a spelled-out `microseconds` is not in its unit vocabulary, so an invented
+performance figure on this page would never be seen. That is why the splitter cost above is in a
+fenced block with its provenance printed rather than in prose.
+
+**E is not a reproduction of a known hole. It is a defect this section shipped and then found in
+itself, and it is the most useful thing here.** Every figure in the section was drafted inside
+backticks, because a code span looked like the tidy way to set a number. D-052 says a figure inside a
+code span is invisible to the claims gate, and it is: with the spans in place, editing
+`5.73` to `9.99` left the gate at **rc=0**, and a citation pointing at the wrong field entirely — the
+pooled ceiling `9.62` cited against a run field holding `0.355` — was green. Eighty-eight citations
+were decorative and every gate in the repository was passing. The spans were stripped, the mis-aimed
+citation was repointed, and row E is what the section looked like before that. **A convention adopted
+for typography silenced a gate across a whole section, and nothing but a deliberate mutation could
+have told anybody.** The four figures quoted in this paragraph are code spans on purpose, which is
+D-079's convention for a value quoted as a defect rather than asserted as a measurement — and it is
+the same hole, used deliberately one paragraph after it was used by accident. **Counted rather than
+left to be discovered: twenty-two figures in this section are still inside code spans and the gate
+is silent about every one of them** — the eighteen pre-registered thresholds and predictions,
+quoted from the fenced block above so that the grading below can name them, and the four values
+quoted in this paragraph. Every other figure in the section cites a run
+id, and a mutation to any of them reddens the build and names the line.
+
+### What this does not establish
+
+- **The roster is not a recall corpus and no absolute number off it is a claim about documents.**
+  `bench/splits.toml` says of this corpus that every figure it backs should be a difference between
+  two halves where the authors' declaration habits cancel. The roster figures here are absolute and
+  they are absolute *about the roster*. The resolver figures do not use the roster at all.
+- **One domain, and the convention may be the cause of the result.** Biomedicine rosters its
+  abbreviations. A field whose authors have been made to compile their own abbreviation list has had
+  exactly the intervention that would suppress within-document collisions. Prose nobody rosters — a
+  regulation, a filing, a schema's documentation, which is what this library is *for* — has had no
+  such pass, and **nothing here transfers to it.** The one-sense rate on a governed corpus is
+  unmeasured and this round did not measure it.
+- **The resolver instrument has no gold, and that is deliberate rather than a shortfall.** It measures
+  what A2 must arbitrate, not what is true. It is also why the artefact class is visible at all: a
+  gold-filtered population would have deleted the very failure this section ends on.
+- **The adjudication is one annotator who wrote the ladder being adjudicated**, on
+  200 groups of 1,471<!--claim:one_sense.pmc_oa.resolver.biomedical.term_shaped.groups_with_two_or_more_expansions:,-->, and every interval quoted is the sampling interval on that draw alone. It
+  carries no uncertainty about the annotator and none about the extractor that supplied the
+  population. A second reader would be the single largest improvement available to this section.
+- **The `unclear` bucket is small and it is published rather than absorbed.**
+  2<!--claim:one_sense.pmc_oa.audit.distinct.label_unclear:,--> of
+  120<!--claim:one_sense.pmc_oa.audit.distinct.sample_size:,--> could not be decided from the two
+  strings alone. A reader who moves both into `genuine` moves the projected genuine group count from
+  38.8<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups:.1f--> to about
+  fifty-one, which changes no verdict above.
+- **Nothing here changes `extract()`.** This section measures the assumption a change would rest on
+  and stops.
+
 ## Operating points, not a single setting
 
 At roughly 92 % precision against 76 % recall there is precision available to spend, and a
@@ -2199,6 +2874,407 @@ spread is the honest width of this measurement, and there are two points in it.
 **Nothing here transfers to a schema written in UPPER_SNAKE.** The shape census on the segmentation
 table above holds for this corpus too: it is `snake_lower` and `flat_lower`, and the shape the
 package's own documentation is built around does not appear in it.
+
+## What dominates the governed hot path: provenance, and it is not close
+
+Mandate III lists five optimisations for the governed subsystem — memoisation, lazy provenance, an
+automaton for the tokenizer, free-threading, and a streaming batch API — and then says plainly that
+none of them is worth building until it is known what dominates. **This section is that measurement
+and nothing else. No optimisation was made, and no line of `src/acronymkit/` was touched.**
+
+The runner is [`bench/run_governed_perf.py`](../bench/run_governed_perf.py); the runs are
+`governed_perf.*`; the tests that pin the instrument are `tests/test_governed_perf_runner.py`.
+
+### First: the two corpus sizes this work was handed are claims, and one of them has no corpus
+
+The brief named a Socrata corpus of
+164,652<!--claim:governed_perf.inherited_counts.socrata_pairs_claimed:,--> pairs and an identifier
+corpus of 107,012<!--claim:governed_perf.inherited_counts.identifier_corpus_claimed:,--> names.
+Both come from [`docs/AUDIT-2026-08.md`](AUDIT-2026-08.md), neither population was ever saved, and
+they were quoted onward without either being re-derived. Re-derived here, as
+`governed_perf.inherited_counts`:
+
+- **The Socrata figure does not hold on this tree, and it is short by
+  9,380<!--claim:governed_perf.inherited_counts.socrata_pairs_shortfall:,--> rows.** The cached fetch
+  holds 155,272<!--claim:governed_perf.inherited_counts.socrata_pairs_measured:,--> pairs, of which
+  69,682<!--claim:governed_perf.inherited_counts.socrata_distinct_identifiers:,--> are distinct
+  identifiers. [`docs/SOURCING.md`](SOURCING.md) and D-074 already record the same disagreement from
+  the other direction — the audit's `87.3` share does not reproduce either — so this is the third
+  independent re-derivation of one un-saved population, and all three land away from the audit.
+- **The `107,012`-identifier corpus is not reconstructible here at all**, and that is a stronger
+  statement than "the number is different". The audit says it spanned
+  8<!--claim:governed_perf.inherited_counts.identifier_corpus_sources_claimed:,--> sources including
+  `fhir` and `openfda`;
+  2<!--claim:governed_perf.inherited_counts.identifier_corpus_sources_present:,--> of those eight are
+  in this tree, there is no fetcher for the others anywhere in `tools/`, and no corpus in
+  `bench/splits.toml` is declared at that size. The closest object this repository can build is the
+  union of the two identifier populations it does hold —
+  137,720<!--claim:governed_perf.inherited_counts.identifier_corpus_best_reconstruction:,--> distinct
+  identifiers — which is **a different population, not a reconstruction of that one**.
+
+So the measurements below are taken on the two corpora that exist, at the sizes they actually are,
+and every entry records which cache file it read.
+
+### The distinct ratio, which is the whole ceiling of the memoisation workstream
+
+One command, and it needs no timing at all: `python bench/run_governed_perf.py --only census`. A memo
+cannot be worth more than the share of work that repeats, and the share of work that repeats is a
+property of the corpus rather than of the code.
+
+| | Socrata | SEC XBRL | fixture schema |
+|---|---:|---:|---:|
+| identifiers | 155,272<!--claim:governed_perf.socrata.census.identifiers:,--> | 90,655<!--claim:governed_perf.sec_xbrl.census.identifiers:,--> | 20,000<!--claim:governed_perf.fixture_schema.census.identifiers:,--> |
+| distinct identifiers, share | 44.88<!--claim:governed_perf.socrata.census.distinct_identifiers_pct:.2f--> % | 75.05<!--claim:governed_perf.sec_xbrl.census.distinct_identifiers_pct:.2f--> % | 100.00<!--claim:governed_perf.fixture_schema.census.distinct_identifiers_pct:.2f--> % |
+| token occurrences | 423,544<!--claim:governed_perf.socrata.census.token_occurrences:,--> | 655,281<!--claim:governed_perf.sec_xbrl.census.token_occurrences:,--> | 321,384<!--claim:governed_perf.fixture_schema.census.token_occurrences:,--> |
+| distinct tokens | 24,536<!--claim:governed_perf.socrata.census.distinct_tokens:,--> | 6,601<!--claim:governed_perf.sec_xbrl.census.distinct_tokens:,--> | 117<!--claim:governed_perf.fixture_schema.census.distinct_tokens:,--> |
+| distinct tokens, share of occurrences | 5.79<!--claim:governed_perf.socrata.census.distinct_tokens_pct:.2f--> % | 1.01<!--claim:governed_perf.sec_xbrl.census.distinct_tokens_pct:.2f--> % | 0.04<!--claim:governed_perf.fixture_schema.census.distinct_tokens_pct:.2f--> % |
+| tokens per identifier | 2.728<!--claim:governed_perf.socrata.census.tokens_per_identifier:.3f--> | 7.228<!--claim:governed_perf.sec_xbrl.census.tokens_per_identifier:.3f--> | 16.069<!--claim:governed_perf.fixture_schema.census.tokens_per_identifier:.3f--> |
+| top 5 tokens, share of occurrences | 6.07<!--claim:governed_perf.socrata.census.top5_token_occurrence_pct:.2f--> % | 15.36<!--claim:governed_perf.sec_xbrl.census.top5_token_occurrence_pct:.2f--> % | 23.39<!--claim:governed_perf.fixture_schema.census.top5_token_occurrence_pct:.2f--> % |
+| top 100 tokens, share of occurrences | 37.43<!--claim:governed_perf.socrata.census.top100_token_occurrence_pct:.2f--> % | 66.78<!--claim:governed_perf.sec_xbrl.census.top100_token_occurrence_pct:.2f--> % | 97.43<!--claim:governed_perf.fixture_schema.census.top100_token_occurrence_pct:.2f--> % |
+| tokens seen exactly once, share of occurrences | 2.67<!--claim:governed_perf.socrata.census.token_hapax_pct_of_occurrences:.2f--> % | 0.40<!--claim:governed_perf.sec_xbrl.census.token_hapax_pct_of_occurrences:.2f--> % | 0.00<!--claim:governed_perf.fixture_schema.census.token_hapax_pct_of_occurrences:.2f--> % |
+
+**Schema tokens are heavily repeated and the assumption about *which* tokens repeat is wrong.** The
+premise this workstream was handed is that `ID`, `DT`, `TXN`, `AMT` and `CD` recur across millions of
+columns. On the fixture corpus that is exactly right, because a fixture built out of a governed
+catalog's own vocabulary can hardly do otherwise. **On real portal schemas it is not right.**
+
+The commonest tokens are saved on each census entry as `top_tokens`, and they are printed here rather
+than cited because the claims gate's citation mechanism renders a *number* and cannot carry a string
+— which is worth noticing, since a token list is exactly the kind of evidence that would otherwise go
+unadjudicated:
+
+```
+python bench/run_governed_perf.py --only census   -- command output, not a gated measurement
+                                                     the same strings are saved as top_tokens
+
+  socrata          commonest: 1,age,de,2,p,of,q,total,n,b
+  sec_xbrl         commonest: of,and,stock,in,to,for,shares,from,issued,net
+  fixture_schema   commonest: cd,dt,ts,nbr,am,eff,src,id,seq,chg
+```
+
+Socrata's head is ordinals, a Spanish preposition and single letters; SEC XBRL's is English function
+words inside `CamelCase` element names; only the fixture's looks like the premise. The head is also
+much flatter than the premise: five tokens carry
+6.07<!--claim:governed_perf.socrata.census.top5_token_occurrence_pct:.2f--> % of Socrata's occurrences
+against 23.39<!--claim:governed_perf.fixture_schema.census.top5_token_occurrence_pct:.2f--> % of the
+fixture's.
+
+**That does not kill P2, and the reason is worth stating exactly.** Concentration in the head and
+reuse overall are different quantities, and it is the second one a memo lives on. Only
+5.79<!--claim:governed_perf.socrata.census.distinct_tokens_pct:.2f--> % of Socrata's token
+occurrences are the first sight of a token, so `94.21` % of them are repeats; on SEC XBRL the first
+sight is 1.01<!--claim:governed_perf.sec_xbrl.census.distinct_tokens_pct:.2f--> %. The reuse is
+there. It is spread over a long tail rather than piled on five tokens.
+
+**And the tail is exactly what the shipped memo cannot hold.** `_MEMO_LIMIT` is
+4,096<!--claim:governed_perf.socrata.census.memo_limit:,--> entries and the memo **clears** when it
+fills — it has no eviction order, by a decision the module documents as deliberate. Socrata carries
+5.99<!--claim:governed_perf.socrata.census.distinct_tokens_per_memo_limit:.2f--> times that many
+distinct tokens; SEC XBRL
+1.61<!--claim:governed_perf.sec_xbrl.census.distinct_tokens_per_memo_limit:.2f--> times. The commonest
+4,096 Socrata tokens do carry
+88.32<!--claim:governed_perf.socrata.census.tokens_within_memo_limit_occurrence_pct:.2f--> % of all
+token occurrences, so **the headroom is real and the current structure cannot reach it**: a
+clear-on-full map over a working set six times its size spends the pass refilling. The one arm where
+the shipped memo shows a high hit rate is the fixture arm, whose entire token set is
+117<!--claim:governed_perf.fixture_schema.census.distinct_tokens:,--> items — a hundred and seventeen
+against a limit of four thousand.
+
+### The cost centres, measured by ablation rather than by attribution
+
+`expand_identifier` does four separable things. A profiler can say what each *function* cost; it
+cannot say what each *centre* cost, because a frozen dataclass's generated `__init__` is a code
+object called from the expansion path and attributing it by caller files provenance's cost under
+assembly. So the runner times five nested stages over the same corpus and subtracts: `tokenise`,
+`lookup` (tokenise + the digit rejoin + a memoised `resolve`), `phrase` (+ the long form + the join),
+`class_word` (+ the one provenance field that costs a second index lookup), and `full`
+(`expand_identifier` itself).
+
+**The stages are checked against the shipped path three ways, because a stage that quietly does less
+work is a fiction that looks like a finding.** On every arm: the phrase is byte-identical to
+`expand_identifier(...).phrase` on every identifier
+(0<!--claim:governed_perf.socrata.empty.phrase_mismatches:,--> mismatches over
+155,272<!--claim:governed_perf.socrata.empty.identifiers:,--> Socrata names), the stages take the
+shipped path's `resolve` count exactly
+(0<!--claim:governed_perf.socrata.empty.stage_catalog_lookup_excess:,--> excess lookups), and the
+class-word stage takes the shipped path's `class_word_for` count exactly
+(0<!--claim:governed_perf.socrata.empty.stage_class_word_lookup_excess:,--> excess). The second check
+is not decoration: the first draft of `stage_lookup` resolved every token instead of consulting a
+memo first, so on the arm where the catalog answers it did *more* work than the stage above it and
+the assembly centre came out at `-7.78` points. That failure was loud. The quiet version — a stage
+that skips lookups while agreeing on every phrase — is what the count catches.
+
+### The answer, in one sentence with a number behind it
+
+**Provenance construction dominates on every arm — it is the largest cost centre on all four, and on
+every one of them it is larger than the other three put together: the shipped call builds
+578,816<!--claim:governed_perf.socrata.empty.provenance_records_constructed:,--> frozen records for
+155,272<!--claim:governed_perf.socrata.empty.identifiers:,--> Socrata identifiers —
+3.728<!--claim:governed_perf.socrata.empty.provenance_records_per_identifier:.3f--> per call — and
+removing every one of them without changing a character of the phrase leaves the call roughly two to
+four times faster depending on the arm, the width being what three decompositions of one corpus on
+one machine disagree by.**
+
+The counts behind it, which are properties of the code rather than of this laptop:
+
+| work count, per identifier | Socrata, empty catalog | SEC XBRL, empty catalog | fixture schema, fixture catalog |
+|---|---:|---:|---:|
+| tokenizer passes | 1.000 | 1.000 | 1.000 |
+| catalog lookups | 2.906<!--claim:governed_perf.socrata.empty.catalog_lookups_per_identifier:.3f--> | 7.233<!--claim:governed_perf.sec_xbrl.empty.catalog_lookups_per_identifier:.3f--> | 1.197<!--claim:governed_perf.fixture_schema.fixture.catalog_lookups_per_identifier:.3f--> |
+| provenance records constructed | 3.728<!--claim:governed_perf.socrata.empty.provenance_records_per_identifier:.3f--> | 8.228<!--claim:governed_perf.sec_xbrl.empty.provenance_records_per_identifier:.3f--> | 2.127<!--claim:governed_perf.fixture_schema.fixture.provenance_records_per_identifier:.3f--> |
+| Python-level calls | 139.87<!--claim:governed_perf.socrata.empty.python_calls_per_identifier:.2f--> | 322.41<!--claim:governed_perf.sec_xbrl.empty.python_calls_per_identifier:.2f--> | 186.47<!--claim:governed_perf.fixture_schema.fixture.python_calls_per_identifier:.2f--> |
+| expansion-memo hit rate | 0.00<!--claim:governed_perf.socrata.empty.expansion_memo_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.sec_xbrl.empty.expansion_memo_hit_pct:.2f--> % | 92.98<!--claim:governed_perf.fixture_schema.fixture.expansion_memo_hit_pct:.2f--> % |
+| `resolve`-memo hit rate | 0.00<!--claim:governed_perf.socrata.empty.catalog_memo_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.sec_xbrl.empty.catalog_memo_hit_pct:.2f--> % | 0.01<!--claim:governed_perf.fixture_schema.fixture.catalog_memo_hit_pct:.2f--> % |
+
+Four of those rows are findings on their own.
+
+**Both memo hit rates are zero on every published governed configuration, and that is a derivation
+rather than an accident of these corpora.** Every governed figure this project publishes is taken
+with an **empty** catalog, and `_Memo` records only what the vocabulary answered for — never a miss,
+by a decision its docstring defends at length. An empty catalog answers for nothing, so both maps
+stay empty for the whole pass. The memoisation workstream's benefit on the configuration every
+flagship number is measured in is exactly zero, and its cost — the `get` and the `_memo(policy)`
+call, 874,807<!--claim:governed_perf.socrata.empty.memo_partitions_consulted:,--> of the latter on the
+Socrata pass — is paid in full.
+
+**The `resolve` memo is close to dead on this path even when the catalog does answer.** On the
+fixture arm it serves 3<!--claim:governed_perf.fixture_schema.fixture.catalog_memo_hits:,--> of
+23,934<!--claim:governed_perf.fixture_schema.fixture.catalog_lookups:,--> lookups, because the
+expansion memo in front of it already short-circuits every repeat. Two memos are shipped; on the
+identifier path one of them does essentially all of the work. That does not make the second one
+useless — `expand_token`, the compliance direction and the reverse direction all reach it without
+passing the first — but it does mean an identifier-level memoisation proposal is arguing about a map
+that already has a `92.98` % hit rate in front of it on the only arm where either fires.
+
+**The digit rejoin is a sixteenth of Socrata's catalog lookups and is invisible in every
+existing figure.** `_rejoin_digit_tokens` performs
+27,719<!--claim:governed_perf.socrata.empty.catalog_lookups_from_digit_rejoin:,--> of the
+451,263<!--claim:governed_perf.socrata.empty.catalog_lookups:,--> lookups, against
+382<!--claim:governed_perf.sec_xbrl.empty.catalog_lookups_from_digit_rejoin:,--> on SEC XBRL — a
+corpus-shape effect, not a code effect: Socrata field names are full of ordinals and years and SEC
+element names are not.
+
+**`_scan` still has not met real data.** The reference character-by-character reading of the
+tokenisation rules ran
+0<!--claim:governed_perf.socrata.empty.tokenizer_scans:,--> times across
+155,272<!--claim:governed_perf.socrata.empty.identifiers:,--> Socrata identifiers and
+0<!--claim:governed_perf.sec_xbrl.empty.tokenizer_scans:,--> times across
+90,655<!--claim:governed_perf.sec_xbrl.empty.identifiers:,--> SEC element names, because both corpora
+are entirely ASCII and `split_identifier_parts` takes the regex path. That reproduces
+[`docs/AUDIT-2026-08.md`](AUDIT-2026-08.md)'s question 6 on a population this tree actually holds. An
+automaton workstream aimed at the tokenizer would be optimising a branch that has never executed on
+real input, and would have to displace a path that is already entirely in C.
+
+### The wall-clock, as an unarmed note, with the machine named
+
+Operating rule 18: allocations, catalog lookups and tokenizer passes are properties of the code and
+are gated above; nanoseconds are properties of the runner and are printed here, fenced, so that no
+gate ratchets on them. **This is not a formality.** Across three full runs of this runner on this
+one machine, every count in the tables above was byte-identical and the Socrata arm's wall-clock
+moved by `43` %. The cost-centre shares are derived from wall-clock and inherit that; the runner
+therefore reports a median of three independent decompositions with the spread beside it, and the
+spread is what a reader should take seriously.
+
+**Where a wall-clock share is cited in prose below, the citation is a staleness check and not a
+ratchet.** Nothing turns red if a re-run moves a share; what turns red is this page disagreeing with
+`bench/results.json`. Leaving these figures only inside the fence would have silenced the gate
+completely, which D-052 says is mechanically indistinguishable from hiding them, so the ones that
+carry an argument are cited and the tabular presentation stays here where the machine is named.
+
+```
+python bench/run_governed_perf.py --only arms    -- command output, not a gated measurement
+Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD.
+Median of 3 independent decompositions, 2 timed passes per stage, fastest taken.
+The four centres sum to the whole call; medians of four separate distributions
+need not sum to 100 and these do not.
+
+  arm                                tokenise   catalog  assembly  PROVENANCE   phrase-only
+  socrata,        empty catalog         9.82 %   13.88 %    6.43 %     70.15 %       3.35 x
+                                 spread 8.6-11.7 10.6-14.4 4.3- 8.6   69.4-72.2   3.26-3.60
+  socrata,        fixture catalog       8.15 %   15.95 %    7.74 %     67.56 %       3.08 x
+  sec_xbrl,       empty catalog         6.37 %   12.81 %    7.25 %     73.55 %       3.78 x
+                                 spread 5.2- 7.1  9.7-14.0 6.6-11.5   69.4-76.7   3.27-4.29
+  fixture schema, fixture catalog      23.02 %   16.82 %    3.30 %     49.85 %       1.99 x
+
+  inside the provenance centre, socrata/empty:
+    the class-word lookup                                    4.82 %  (spread 2.7-12.4)
+    constructing and validating the records                 65.33 %  (spread 59.8-66.7)
+
+  throughput and per-call cost, this machine only:
+    socrata,  empty catalog     91,155 identifiers/s     10,970 ns per identifier
+    sec_xbrl, empty catalog     39,150 identifiers/s     25,543 ns per identifier
+
+  the same arm across three full runs of this runner, same tree, same machine:
+    run 1   8,118 ns per identifier    run 2  11,597 ns    run 3   8,895 ns
+    every work count identical in all three, to the unit. That 43 % spread is
+    why the nanoseconds are printed here and the counts are what is gated.
+```
+
+Three readings, and the third is the one that changes the ranking.
+
+**The ordering is stable and the magnitudes are not.** Provenance is the largest centre on all four
+arms and in all three decompositions of each; the spreads of the three small centres overlap each
+other freely, and on the fixture arm a single round put the assembly centre *below zero*. A
+difference of two large similar timings inherits the noise of both. **Take the ordering. Do not
+quote the magnitude of any centre but provenance.**
+
+**Provenance survives a
+92.98<!--claim:governed_perf.fixture_schema.fixture.expansion_memo_hit_pct:.2f--> % memo hit rate.**
+On the fixture arm — the only one where the catalog
+answers and the memo fires — provenance is still
+49.85<!--claim:governed_perf.fixture_schema.fixture.stage_provenance_pct:.2f--> % of the call. The
+expansion memo removes the *token* records; it cannot remove the `IdentifierExpansion`, because every
+identifier is distinct by construction and one record per call is the floor. Memoisation and lazy
+provenance are therefore **not** substitutes: the second still has most of its win after the first
+has taken all of its own.
+
+**Tokenisation is the largest centre on exactly the arm nobody runs.** It is
+23.02<!--claim:governed_perf.fixture_schema.fixture.stage_tokenise_pct:.2f--> % on the fixture arm,
+whose identifiers average
+16.069<!--claim:governed_perf.fixture_schema.census.tokens_per_identifier:.3f--> tokens, against
+2.728<!--claim:governed_perf.socrata.census.tokens_per_identifier:.3f--> on Socrata. Any conclusion
+about the tokenizer drawn from the fixture corpus is a conclusion about a corpus with six times the
+tokens per name.
+
+### The premise underneath the lazy-provenance bet, measured — and it does not hold here
+
+"Every call builds a full record and most callers read only `.phrase`" is one sentence with two
+halves. The first half is measured above. **The second half is a claim about callers, and it had
+never been checked against anything.**
+
+It cannot be checked against strangers: this project has
+[zero confirmed adopters on two independent instruments](POSITIONING.md#reversal-two-adoption-seeking-unblocks-the-day-adoption-becomes-legible).
+It can be checked exactly against the one caller population that exists. `--only callers` parses every
+`expand_identifier` call site in the tree and records which attributes of the result are read,
+recognising three shapes — the field taken straight off the call, a bound name whose attribute reads
+are collected across the enclosing function, and a result that leaves the scope, which is counted
+`unclassified` rather than assigned a convenient answer.
+
+| group | call sites | classified | read only `.phrase` | share |
+|---|---:|---:|---:|---:|
+| `src/acronymkit` | 3<!--claim:governed_perf.caller_census.library_sites:,--> | 3<!--claim:governed_perf.caller_census.library_classified:,--> | 0<!--claim:governed_perf.caller_census.library_phrase_only:,--> | 0.00<!--claim:governed_perf.caller_census.library_phrase_only_pct:.2f--> % |
+| `bench`, `tools`, `examples` | 12<!--claim:governed_perf.caller_census.harness_sites:,--> | 8<!--claim:governed_perf.caller_census.harness_classified:,--> | 6<!--claim:governed_perf.caller_census.harness_phrase_only:,--> | 75.00<!--claim:governed_perf.caller_census.harness_phrase_only_pct:.2f--> % |
+| `tests` | 64<!--claim:governed_perf.caller_census.tests_sites:,--> | 55<!--claim:governed_perf.caller_census.tests_classified:,--> | 19<!--claim:governed_perf.caller_census.tests_phrase_only:,--> | 34.55<!--claim:governed_perf.caller_census.tests_phrase_only_pct:.2f--> % |
+
+**Not one caller inside `src/acronymkit` reads only `.phrase`.** `cli.py` calls `to_dict`, which
+touches every field of every record; `governed/audit.py` reads `is_fully_known` and `tokens`, and
+`is_fully_known` is a property over every token's `is_known`, so it needs the whole record set and a
+thunk would buy nothing. `tools/byoc_eval.py` reads the same three. **Every phrase-only call site in
+this repository is in `bench/`, and every one of them is scoring segmentation** — code whose whole
+purpose is to compare a phrase against a caption.
+
+Three call sites is a tiny population and a biased one. What it is not is nothing, and it points the
+opposite way from the premise: inside this library, an `IdentifierExpansion` is used as a provenance
+record and the phrase is the field a benchmark wants. The runner excludes itself from this census —
+it holds a phrase-only call site of its own, and counting it would push the share up in the
+flattering direction.
+
+### The pre-registered ranking, and how the measurement re-ordered it
+
+Written before any profiler ran, to a scratch file, and reported here unedited. The ranking was
+`lazy provenance > memoisation > streaming batch > automaton > free-threading`, with a numeric
+falsifier attached to each.
+
+| bet | pre-registered | measured | verdict |
+|---|---|---|---|
+| provenance share | `>= 35 %`, falsified below `20 %` | `70.15 %` | direction right, magnitude **under-predicted by half** |
+| phrase-only speed-up | `>= 1.6x`, falsified below `1.25x` | `3.35x` | right, magnitude under-predicted by half |
+| token distinct ratio | `<= 15 %`, falsified above `30 %` | `5.79 %` | right |
+| top-5 token share | `>= 10 %`, falsified below `5 %` | `6.07 %` | **wrong**, and not falsified either |
+| tokenisation share | `<= 25 %`, falsified above `35 %` | `9.82 %` | right |
+| catalog lookup: smallest centre | `<= 10 %`, falsified above `20 %` | `13.88 %`, **second largest** | **falsified** |
+| callers reading only `.phrase` | `>= 60 %`, falsified below `40 %` | `0.00 %` in the library | **falsified, badly** |
+
+**Four things the pre-registration got wrong, and two of them re-order the list.**
+
+1. **Catalog lookup is the second-largest centre, not the smallest.** Assembly is the smallest. The
+   prediction assumed an empty catalog makes lookup nearly free; it does not, because `resolve`
+   normalises its key, consults the policy memo and walks the precedence chain before it can report
+   nothing — `_token_key` runs
+   1,298,351<!--claim:governed_perf.socrata.empty.token_keys_folded:,--> times on the Socrata pass
+   against 423,544<!--claim:governed_perf.socrata.census.token_occurrences:,--> token occurrences,
+   which is three foldings of the same string per token.
+2. **The phrase-only caller does not exist inside this library.** That does not kill lazy provenance
+   — it means the win is available only to callers this project has never seen, and it means the
+   design must keep `is_fully_known` cheap or the library's own audit path gets slower. A
+   lazy-provenance proposal that does not say what happens to `audit_identifiers` is not a proposal.
+3. **The Zipfian schema-token premise is the fixture's distribution, not a schema's.** Every intuition
+   about `ID`/`DT`/`CD` in this project traces to a corpus built out of the fixture catalog's own
+   token pool.
+4. **Memoisation and lazy provenance were ranked as competitors and are not.** Provenance is still
+   half the call after the memo has taken everything it can take.
+
+The list after the measurement:
+
+1. **Lazy provenance** — unchanged at rank one, and by a wider margin than predicted. The one new
+   condition is that it must not make `is_fully_known` or `tokens` more expensive, because those are
+   what this library's own callers read.
+2. **Memoisation** — unchanged at rank two, with its shape changed. The token-level win is real
+   (`88.32` % of Socrata occurrences are inside a 4,096-entry working set) and the shipped
+   clear-on-full map cannot collect it; the ceiling is an eviction policy, not a second memo.
+3. **A streaming batch API** — up from rank three only in the sense that it is now bounded rather
+   than guessed: `_prepare` runs
+   155,272<!--claim:governed_perf.socrata.empty.call_preparations:,--> times on the Socrata pass,
+   exactly once per identifier, out of
+   139.87<!--claim:governed_perf.socrata.empty.python_calls_per_identifier:.2f--> Python calls per
+   identifier. That is `0.7` % of the call graph. **A streaming API cannot be worth more than that
+   unless it changes what is built**, which makes it a delivery mechanism for lazy provenance rather
+   than an optimisation in its own right.
+4. **An automaton** — down, and close to dead. Tokenisation is
+   9.82<!--claim:governed_perf.socrata.empty.stage_tokenise_pct:.2f--> % of the Socrata call, the
+   path it would replace is already a regex in C, and the
+   character-by-character branch it would compete with executed
+   0<!--claim:governed_perf.socrata.empty.tokenizer_scans:,--> times on either real corpus.
+5. **Free-threading** — unchanged at last, and this measurement says nothing about it. Nothing here
+   is a serialisation point that a thread count would relieve, and the one shared mutable structure
+   is the memo, which is a correctness question rather than a throughput one. Recorded as
+   unmeasured.
+
+### How this fails
+
+**Both corpora are schema corpora, and nothing here describes a prose caller.** `extract`,
+`disambiguate` and the generation path have entirely different hot paths, and no figure in this
+section may be quoted about any of them. The governed subsystem is what was measured because it is
+the half [`docs/POSITIONING.md`](POSITIONING.md) leads with.
+
+**The only arm where a catalog answers is a fixture.** No public catalog exists for Socrata or SEC
+XBRL — that is the standing unknown this project has carried for four phases — so the arm with a
+92.98<!--claim:governed_perf.fixture_schema.fixture.expansion_memo_hit_pct:.2f--> % memo hit rate is a
+synthetic corpus drawn from the fixture catalog's own token pool, and the arm with real names has a
+memo hit rate of zero because the catalog is empty. **There is no measurement anywhere in this
+section of the hot path a real governed vocabulary would produce**, and the distance between the two
+arms is large: the fixture arm's provenance share is twenty points lower than Socrata's. A reader who
+takes the fixture arm as the governed case is reading a corpus built to make the memo look good.
+
+**The counting mechanism is a profiler and it is not free.** `cProfile` costs
+3.362<!--claim:governed_perf.profiler_overhead.profiler_cost_ratio:.3f--> times wall-clock on this
+machine over 20,000<!--claim:governed_perf.profiler_overhead.identifiers:,--> identifiers. It cannot
+perturb a *count* — that is why the counts are what is gated and the timings are taken in a separate
+unprofiled pass — but a reader should know the counts and the timings come from different passes over
+the same corpus rather than from one instrumented run. `tracemalloc` was considered and rejected:
+it traces live blocks rather than allocation events, so it answers a different question from "how
+many allocations", and what it reports over a streaming pass is a property of the collector's
+schedule.
+
+**"Allocations" here means object constructions, counted exactly, not bytes.** The gated figure is
+`__post_init__` calls — one per `TokenExpansion` and one per `IdentifierExpansion`, which is the
+number a lazy-provenance design would move. Arena-level allocation counts are not measured, and a
+design that reduced records while raising bytes would not be visible in these numbers.
+
+**The four centres are a decomposition of `expand_identifier` and not of a pipeline.** A caller that
+also runs `is_compliant` or `to_physical_name` pays costs nothing here measures; `bench/run_governed.py`
+records those verbs as three to five times dearer than `expand_identifier` per call, and no
+decomposition of them exists.
+
+**The caller census counts call sites, not calls.** A site inside a loop over ten million columns and
+a site in a one-shot CLI command weigh the same. The population is eleven classified non-test sites
+in one repository, which is the whole of what can be said about callers today and is not a
+measurement of demand.
+
+**The wall-clock was taken on a shared, loaded developer machine.** Another workstream was running in
+this checkout throughout, which is the likeliest cause of the `43` % swing between runs; the spreads
+published above are therefore an upper bound on the noise of a quiet machine rather than an estimate
+of it, and no figure in the fenced block is a ratchet.
 
 ## The backronym subsystem: an accuracy number for `align`, none for `synthesize`
 

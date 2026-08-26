@@ -106,21 +106,14 @@ jobs:
       - name: Assert committed n-gram models match the lexicons
         run: python tools/build_ngram_model.py --check
       - name: Assert the bundled schema copy matches the canonical one
-        run: |
-          python - <<'PY'
-          import hashlib, pathlib, sys
-          canonical = pathlib.Path("schemas/acronym-engine-result.schema.json")
-          bundled = pathlib.Path("src/acronymkit/resources/acronym-engine-result.schema.json")
-          digests = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in (canonical, bundled)}
-          if len(set(digests.values())) != 1:
-              for path, digest in digests.items():
-                  print(f"{digest}  {path}")
-              sys.exit(
-                  "schemas/ and the bundled resource copy have diverged. "
-                  f"Run: cp {canonical} {bundled}"
-              )
-          print(f"schema copies match ({digests[canonical][:16]})")
-          PY
+        # EXTRACTED FROM A HEREDOC, AND THE EXTRACTION IS THE POINT.
+        # While this was six lines of Python inside this file there was no
+        # command a mutation harness could invoke, so `.github/gates.toml`
+        # carried `kind = "inline"` against it and the gate had never been shown
+        # able to fail. `tools/gate_schema_copies.py` is the same six lines with
+        # a name, and `python tools/gates.py --mutate schema_copies_match` now
+        # runs it against a one-byte divergence.
+        run: python tools/gate_schema_copies.py
 
   test:
     name: Test (${{ matrix.os }}, py${{ matrix.python-version }})
@@ -204,27 +197,19 @@ jobs:
       - name: Install base package only (no extras)
         run: python -m pip install -e "."
       - name: Import and run without click, spaCy, NLTK or onnxruntime present
-        run: |
-          python - <<'PY'
-          import sys
-          from acronymkit import AcronymEngine, Config
-          from acronymkit.enums import EngineTier
-
-          engine = AcronymEngine(Config(engine_tier=EngineTier.ZERO_DEPENDENCY))
-          result = engine.generate("Portable Document Format")
-          print(result.primary_acronym, result.score)
-          assert result.primary_acronym == "PDF", result.primary_acronym
-
-          pairs = engine.extract_definitions(
-              "The National Aeronautics and Space Administration (NASA) launched it."
-          )
-          assert pairs and pairs[0].short_form == "NASA", pairs
-
-          leaked = sorted(m for m in sys.modules if m.split(".")[0] in
-                          {"spacy", "nltk", "click", "onnxruntime", "transformers", "numpy"})
-          assert not leaked, f"Tier 0 pulled in optional dependencies: {leaked}"
-          print("Tier 0 purity OK")
-          PY
+        # EXTRACTED FROM A HEREDOC. See the note on the resources job's schema
+        # step: a gate whose implementation is a heredoc has no command a
+        # mutation harness can invoke, so it could only ever run a copy of the
+        # gate, and D-018 settled that a copy may not stand in for the thing.
+        #
+        # `tools/gate_tier_zero.py` asserts exactly what the heredoc asserted.
+        # Its registered mutation is an eager `import click` at module scope in
+        # `src/acronymkit/__init__.py`, and it fires through a DIFFERENT half of
+        # the gate here than on a developer machine -- no extras are installed
+        # on this runner, so the import raises rather than leaking. The script
+        # routes both through one failure marker so the verdict does not depend
+        # on which machine ran it.
+        run: python tools/gate_tier_zero.py
 
   air-gap:
     name: No network, and a build that fails if that changes
@@ -530,79 +515,19 @@ jobs:
         # what is being measured is what a user actually installs.
         run: python -m pip install .
       - name: Measure cold import in a subprocess and enforce the ceiling
-        run: |
-          python - <<'PY'
-          import json
-          import statistics
-          import subprocess
-          import sys
-
-          # Why 30 ms.
-          #
-          # `import acronymkit` measures 2.3 ms on the development box
-          # (bench/results.json, micro.import.cold_import_ms), nearly all of it
-          # `typing`; the package __init__ is a lookup table and two functions.
-          # The regression this gate exists to catch is the Pydantic DTO layer
-          # being re-exported eagerly again, which measures 128.1 ms on that
-          # same box (micro.import.cold_import_engine_ms) and would be worse on
-          # a shared runner.
-          #
-          # So the ceiling only has to separate ~2 ms from ~130 ms, and 30 ms
-          # sits in the middle of that two-order-of-magnitude gap: 13x headroom
-          # over what we achieve -- enough to absorb a slow runner, a cold page
-          # cache and first-import bytecode compilation -- and still 4x below
-          # the regression. It is deliberately *not* a certification of the
-          # measured figure; that is bench/run_micro.py's job, and its numbers
-          # live in bench/results.json where claims can cite them.
-          #
-          # If this ever fires, read the median printed below before touching
-          # the ceiling: a real regression lands near 130 ms, not near 31.
-          CEILING_MS = 30.0
-          REPEATS = 9
-
-          timed = (
-              "import time;"
-              "t = time.perf_counter();"
-              "import acronymkit;"
-              "print(time.perf_counter() - t)"
-          )
-          samples = []
-          for _ in range(REPEATS):
-              out = subprocess.run(
-                  [sys.executable, "-c", timed], capture_output=True, text=True, check=True
-              )
-              samples.append(float(out.stdout.strip()) * 1000)
-          samples.sort()
-          median = statistics.median(samples)
-          print("samples (ms): " + ", ".join(f"{s:.2f}" for s in samples))
-          print(f"median {median:.2f} ms, ceiling {CEILING_MS:.0f} ms")
-
-          # The structural half of the gate, which cannot be flaky: a bare
-          # import must not have built a single Pydantic schema.
-          probe = (
-              "import sys, json;"
-              "import acronymkit;"
-              "print(json.dumps(sorted(m for m in sys.modules"
-              " if m == 'pydantic' or m.startswith('acronymkit.'))))"
-          )
-          out = subprocess.run(
-              [sys.executable, "-c", probe], capture_output=True, text=True, check=True
-          )
-          eager = json.loads(out.stdout.strip())
-          print(f"bound by a bare import: {eager}")
-
-          if eager:
-              sys.exit(
-                  f"`import acronymkit` eagerly bound {eager}. The package __init__ must "
-                  "resolve its re-exports lazily; see its Import policy docstring."
-              )
-          if median > CEILING_MS:
-              sys.exit(
-                  f"cold import regressed to {median:.2f} ms, over the {CEILING_MS:.0f} ms "
-                  "ceiling. Something was added to acronymkit/__init__.py at module scope."
-              )
-          print("cold import OK")
-          PY
+        # EXTRACTED FROM A HEREDOC, WITH THE CEILING, THE REPEAT COUNT AND BOTH
+        # HALVES MOVED UNCHANGED. A commit that both moves a gate and alters it
+        # cannot say which of the two an altered verdict came from, so the
+        # derivation of the 30 ms ceiling travelled with the code and is now in
+        # `tools/gate_import_ceiling.py`'s module docstring.
+        #
+        # ONE DIVERGENCE IS REGISTERED RATHER THAN FIXED IN PASSING. Only the
+        # STRUCTURAL half can be demonstrated by mutation: no edit to this tree
+        # reliably takes a 2 ms import past 30 ms without breaking the structural
+        # half first. R18 would have the wall-clock half be an unarmed note with
+        # the machine named; changing that is a change to what CI enforces and
+        # belongs in a commit that argues for it.
+        run: python tools/gate_import_ceiling.py
 
   installed-suite:
     name: The suite runs from the installed distribution
@@ -641,7 +566,8 @@ jobs:
     # that cannot collect at all.
     #
     # `e` is the one to read twice. It is the *same defect as `d`*, in a file
-    # that is already on EXPECTED_NON_PASSING below, and it produced a log
+    # that is already on EXPECTED_NON_PASSING (now in
+    # `tools/gate_installed_suite.py`), and it produced a log
     # identical to a clean run -- the same pass, skip, failure and error counts,
     # and the same eight entries "accounted for exactly". While a file is on
     # that list this job is blind to any new unshipped-path load inside it,
@@ -805,12 +731,13 @@ jobs:
         #   test_splits_manifest.py,               script at import, and
         #   test_build_gold_corpus.py              `tools/` is not shipped
         #
-        # plus the six checkout-only tests enumerated in EXPECTED_NON_PASSING.
+        # plus the six checkout-only tests enumerated in EXPECTED_NON_PASSING,
+        # which lives in `tools/gate_installed_suite.py` and is invoked below.
         #
         # CORRECTED IN PLACE, AND THE CORRECTION IS THE INTERESTING PART.
         # That row read `never collect` for the first two files, which is what
-        # they did until the round that shipped the note on EXPECTED_NON_PASSING
-        # below: a module body runs at import, so a `skipif` mark could not save
+        # they did until the round that shipped the note on EXPECTED_NON_PASSING:
+        # a module body runs at import, so a `skipif` mark could not save
         # them and the file ERRORED rather than skipping. All three now call
         # `pytest.skip(..., allow_module_level=True)` on one named condition,
         # before the load. The note below was rewritten when that happened and
@@ -846,129 +773,23 @@ jobs:
             > "$RUNNER_TEMP/pytest.log" 2>&1
           set -e
           cat "$RUNNER_TEMP/pytest.log"
-          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
-          import os
-          import pathlib
-          import re
-          import sys
-
-          # Tests that CANNOT run from an installed package, and why.
+          # THE ADJUDICATOR IS A SCRIPT, AND THE HARNESS THAT REPRODUCES THIS
+          # JOB NOW IMPORTS IT RATHER THAN RE-IMPLEMENTING IT.
           #
-          # This is not a list of things that broke. It is the complete set of
-          # places where this suite reaches for a source checkout, and the job
-          # asserts it EXACTLY: an entry that starts passing fails this job just
-          # as loudly as a test that starts failing. The list cannot rot into a
-          # blanket exemption, and it cannot be grown by accident.
+          # `EXPECTED_NON_PASSING`, `PASS_FLOOR` and the log parser used to live
+          # in a heredoc here AND in a second copy inside
+          # `tools/gate_packaging_mutation.py`, so the packaging mutation job
+          # could reproduce this step. A harness that re-implements a gate is
+          # testing its own copy, and the drift detector that existed for it
+          # (`check_expected_non_passing_is_current`) only WARNED. There is one
+          # implementation now and nothing left to drift.
           #
-          # Every entry is a missing guard in the TEST, not a defect in the
-          # package. The fix for any of them is the `skipif` its neighbours
-          # already carry, and then deleting the line here. Nothing in this job
-          # is ever a reason to change src/.
-          EXPECTED_NON_PASSING = {
-              # THE TWO FILE-KEYED ENTRIES ARE GONE, AND THAT IS THE POINT OF
-              # THIS BLOCK'S HISTORY. `tests/test_check_claims.py` and
-              # `tests/test_splits_manifest.py` sat here because each executes a
-              # `tools/` script at module level, so the file failed to COLLECT
-              # rather than skipping -- `pytest.mark.skipif` runs at collection,
-              # the module body at import. The note that stood here said what
-              # that cost: WHILE A FILE IS LISTED, THIS JOB CANNOT SEE A SECOND
-              # DEFECT ANYWHERE IN IT. Measured, by reintroducing the
-              # `bench/corpora.py` module-level load into
-              # tests/test_splits_manifest.py -- the fifth historical breakage,
-              # exactly -- and getting a run identical to a clean one. It closed
-              # by naming that "the argument for shrinking the list".
-              #
-              # Both now carry `pytest.skip(..., allow_module_level=True)` on
-              # the one condition, placed BEFORE the load, so the module skips
-              # instead of erroring and any OTHER error in either file reaches
-              # this job. `tests/test_build_gold_corpus.py` was written with the
-              # same guard rather than added here. Verified locally by running
-              # the suite with `tools/` and `bench/` both moved aside: those
-              # files skip and nothing else changes.
-              #
-              # The remaining entries are node-keyed, not file-keyed, so they do
-              # not carry the blind spot the two deleted names did.
-              #
-              # These read the source text of `src/acronymkit/__init__.py` and
-              # parse it with `ast`, to check the lazy export table against the
-              # TYPE_CHECKING block. An installed package has no source tree to
-              # read, and the check is a static one that belongs to a checkout.
-              "tests/test_package.py::test_the_lazy_path_and_the_eager_path_expose_identical_names",
-              "tests/test_package.py::test_every_lazy_export_is_the_object_its_own_module_defines",
-              # `serialization.SCHEMA_PATH` is `<package>/../../schemas/...`,
-              # which names the checkout copy by construction. That module's own
-              # docstring says of it: "In an installed wheel this path does not
-              # exist, and that is now unremarkable". These four assert on it
-              # anyway, two of them through a fixture that rewrites the file.
-              "tests/test_serialization.py::test_schema_path_points_at_the_checkout_copy",
-              "tests/test_serialization.py::test_the_checkout_and_bundled_schema_copies_are_semantically_equal",
-              "tests/test_serialization.py::test_load_schema_ignores_a_decoy_planted_at_the_schema_directory",
-              "tests/test_serialization.py::test_validation_still_works_beside_a_hijacked_schema_directory",
-          }
-
-          # A floor, not a target. It exists so this job cannot go green after
-          # something quietly stops the suite from collecting -- a green job
-          # that runs eleven tests would satisfy every other assertion here.
-          # 4,218 passed locally. Never lower this to make a red run green.
-          PASS_FLOOR = 4_000
-
-          log = pathlib.Path(os.environ["RUNNER_TEMP"], "pytest.log").read_text(
-              encoding="utf-8", errors="replace"
-          )
-
-          observed = set()
-          for line in log.splitlines():
-              if not line.startswith(("FAILED ", "ERROR ")):
-                  continue
-              # `FAILED <nodeid> - <reason>` / `ERROR <nodeid>` / `ERROR <file> - <exc>`
-              nodeid = line.split(" ", 1)[1].split(" - ", 1)[0].strip()
-              observed.add(nodeid.replace("\\", "/"))
-
-          body = [line for line in log.splitlines() if line.strip()]
-          summary = body[-1].strip().strip("=").strip() if body else ""
-          counts = {word: int(n) for n, word in re.findall(r"(\d+) (\w+)", summary)}
-          passed = counts.get("passed", 0)
-          skipped = counts.get("skipped", 0)
-
-          print(f"summary: {summary}")
-          print(f"skipped {skipped}; skip reasons, as reported:")
-          for line in log.splitlines():
-              if line.startswith("SKIPPED "):
-                  print(f"  {line}")
-
-          problems = []
-          unexpected = sorted(observed - EXPECTED_NON_PASSING)
-          if unexpected:
-              problems.append(
-                  "these failed against the INSTALLED distribution and pass in a checkout:\n  "
-                  + "\n  ".join(unexpected)
-                  + "\n\nThat is the whole point of this job. Either the artifact does not ship "
-                  "what the package needs, or a test reaches outside it. Fix the artifact or "
-                  "guard the test -- adding a name to EXPECTED_NON_PASSING is only correct when "
-                  "the test structurally cannot run without a source checkout, and the comment "
-                  "beside it has to say which structure."
-              )
-          stale = sorted(EXPECTED_NON_PASSING - observed)
-          if stale:
-              problems.append(
-                  "these are listed as unable to run from an installed package, and just ran:\n  "
-                  + "\n  ".join(stale)
-                  + "\n\nGood news, and the list is now wrong. Delete those lines from "
-                  "EXPECTED_NON_PASSING in .github/workflows/ci.yml."
-              )
-          if passed < PASS_FLOOR:
-              problems.append(
-                  f"only {passed} tests passed, under the {PASS_FLOOR} floor. Something stopped "
-                  "the suite collecting; the exclusions above are not the explanation and the "
-                  "floor is not the thing to change."
-              )
-          if problems:
-              sys.exit("\n\n".join(problems))
-          print(
-              f"OK: {passed} tests passed from the installed distribution, {skipped} skipped, "
-              f"{len(EXPECTED_NON_PASSING)} checkout-only entries accounted for exactly."
-          )
-          PY
+          # Run with the RUNNER's python, not the venv's: the script is
+          # standard-library only, and invoking it with the venv interpreter
+          # would put `$GITHUB_WORKSPACE/tools` on that interpreter's sys.path
+          # -- a source directory, in the one job whose whole premise is that no
+          # source directory is reachable.
+          python "$GITHUB_WORKSPACE/tools/gate_installed_suite.py" "$RUNNER_TEMP/pytest.log"
 
   build:
     name: Build distribution
@@ -1128,16 +949,18 @@ jobs:
         # AST guard for two of them and was retired against this step, on the
         # evidence that deleting the guard from the extracted tree left both
         # cases failing here anyway, by import rather than by pattern. The `test
-        # -f` lines below are a list of names and are the wrong shape, but
-        # `data/LICENSES.md` is held by one of them and by nothing else in this
-        # file: deleting that line removes the only check on it.
+        # -f` lines are now `tools/gate_sdist_files.py`; they are still a list
+        # of names and still the wrong shape, but `data/LICENSES.md` is held by
+        # one of them and by nothing else in this repository: deleting that
+        # entry removes the only check on it.
         run: |
           mkdir -p /tmp/sdist && tar -xzf dist/*.tar.gz -C /tmp/sdist --strip-components=1
-          test -f /tmp/sdist/tests/conftest.py || { echo "conftest.py missing from sdist"; exit 1; }
-          test -f /tmp/sdist/schemas/acronym-engine-result.schema.json || { echo "schemas/ missing from sdist"; exit 1; }
-          test -f /tmp/sdist/bench/results.json || { echo "bench/results.json missing from sdist: the shipped docs make claims the shipped checker then cannot back"; exit 1; }
-          test -f /tmp/sdist/data/LICENSES.md || { echo "data/LICENSES.md missing from sdist: README.md and SECURITY.md link to it as the evidence for the pinned-and-checksummed asset claim, so without it that link resolves to nothing for anyone holding a distribution"; exit 1; }
-          test -f /tmp/sdist/tests/airgap_socket_guard.py || { echo "tests/airgap_socket_guard.py missing from sdist: the point of shipping the air-gap proof is that an enterprise can re-run it in their own environment"; exit 1; }
+          # THE FILE LIST IS A SCRIPT, FOR THE SAME REASON THE ADJUDICATOR IN
+          # `installed-suite` IS. `tools/gate_packaging_mutation.py` carried a
+          # copy of these five names so it could reproduce this step; it imports
+          # them now. The list is still a list of names and that is still the
+          # wrong shape -- what catches the rest is the pytest run below.
+          python tools/gate_sdist_files.py /tmp/sdist
           cd /tmp/sdist && python -m pip install --quiet ".[dev]" && python -m pytest -q -x
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

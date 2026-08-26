@@ -236,6 +236,8 @@ MUTATION_FIELDS = (
     "expect",
     "artifact",
     "edits",
+    "setup",
+    "expect_failure_matching",
     "verified_locally_on",
     "verified_in_situ_on",
     "verified_in_situ_run",
@@ -318,6 +320,20 @@ class InSituRound:
         commit: The commit that run was taken on, so a reader can check that
             the gate demonstrated there is the gate shipping here.
         waiver: Why this round is allowed to miss :data:`IN_SITU_QUOTA`.
+        withdrawn_gates: Gates whose in-situ evidence this round RETIRED, by
+            name. A count that can only rise is not a measurement, and until
+            this field existed the debt rule made retirement impossible: the
+            debt-may-not-rise rule fired first and was declared not waivable, so
+            "we found our evidence is weaker than we thought" could not be
+            said. Every name here is checked against the live register.
+        owed_forward: Gates this round ADDED, or un-refused, that carry no
+            evidence and whose demonstration the next CI run is expected to
+            take. ``docs/GATES.md`` already described a waiver for exactly this
+            case -- *"a round that adds an `automated` gate it could not run in
+            CI in the same commit"* -- and that waiver was UNREACHABLE, because
+            adding such a gate raises the debt and the rise was refused before
+            any waiver was consulted. This is the attribution that makes it
+            reachable, and :func:`in_situ_problems` puts a due date on it.
         note: What moved, and what it cost.
     """
 
@@ -327,12 +343,19 @@ class InSituRound:
     run: str = ""
     commit: str = ""
     waiver: str = ""
+    withdrawn_gates: Tuple[str, ...] = ()
+    owed_forward: int = 0
     note: str = ""
 
     @property
     def uncovered(self) -> int:
         """Gates carrying no in-situ evidence. The quantity the quota is on."""
         return self.gates - self.in_situ
+
+    @property
+    def attributed(self) -> int:
+        """How much debt rise this round has an accounting for."""
+        return len(self.withdrawn_gates) + self.owed_forward
 
 
 #: Where the in-situ count has been, newest **last**.
@@ -368,6 +391,39 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
             "that remain are the 8 inline, 13 manual and 2 control refusals, none of which "
             "this harness can mutate; the next payment is the heredoc extraction that would "
             "close three of the eight at once."
+        ),
+    ),
+    InSituRound(
+        label="M3-PA (the heredoc extraction)",
+        gates=36,
+        in_situ=12,
+        withdrawn_gates=("suite",),
+        owed_forward=4,
+        waiver=(
+            "THE DEBT ROSE BY ONE AND THE COUNT FELL BY ONE, AND BOTH ARE THE POINT OF THE "
+            "ROUND. Three inline gates -- schema_copies_match, tier_zero_purity, "
+            "import_ceiling -- were extracted into tools/ scripts and are now `automated`, so "
+            "the set this harness can mutate went from 13 to 16. None of the three can carry "
+            "in-situ evidence in the commit that creates them, because the CI run that would "
+            "take it happens after the push; that is the case docs/GATES.md already described "
+            "a waiver for, and the waiver was UNREACHABLE until this round because the "
+            "debt-may-not-rise rule fired first and was declared not waivable. "
+            "gates.suite's evidence is WITHDRAWN: its recorded verdict was measured to be "
+            "reachable with the declared defect uncaught, through the probe's own side effect "
+            "on the register anchor, so the harness could not have returned INERT for any "
+            "tree. Four gates are owed forward and gate-mutation.yml triggers on every path "
+            "this commit touches, so the run that owes them is the one that lands it."
+        ),
+        note=(
+            "Extraction, not harvest. `demonstrable by this harness` 13 -> 16, `inline` 8 -> "
+            "5, in-situ 13 -> 12, debt 23 -> 24. The five inline gates that remain are NOT "
+            "another afternoon: airgap_public_api_probe is a 150-line probe inside a network "
+            "namespace, and wheel_budget, wheel_resources and installed_wheel_smoke all need "
+            "a built wheel that exists only mid-job, so extracting them buys a script and no "
+            "demonstration. import_ceiling is the measured refutation of this register's own "
+            "costing: extraction alone left it inert in its own environment, because that job "
+            "installs non-editably, and it needed a new `setup` field to be demonstrable at "
+            "all."
         ),
     ),
 )
@@ -501,6 +557,8 @@ class Mutation:
     expect: str = "fail"
     artifact: str = ""
     edits: Tuple[Edit, ...] = ()
+    setup: str = ""
+    expect_failure_matching: str = ""
     verified_locally_on: Optional[_datetime.date] = None
     verified_in_situ_on: Optional[_datetime.date] = None
     verified_in_situ_run: str = ""
@@ -687,6 +745,8 @@ def _mutation(raw: Mapping[str, Any], where: str) -> Mutation:
         expect=str(raw.get("expect", "fail")),
         artifact=str(raw.get("artifact", "")),
         edits=tuple(_edit(item, f"{where}.edits[{n}]") for n, item in enumerate(edits)),
+        setup=str(raw.get("setup", "")).strip(),
+        expect_failure_matching=str(raw.get("expect_failure_matching", "")).strip(),
         verified_locally_on=_as_date(raw.get("verified_locally_on"), where),
         verified_in_situ_on=_as_date(raw.get("verified_in_situ_on"), where),
         verified_in_situ_run=str(raw.get("verified_in_situ_run", "")),
@@ -936,6 +996,31 @@ def validate(
                     f"{where}.mutation: `reason` explains a refusal and this mutation is not "
                     "one. Put the explanation in `note`."
                 )
+            # -- THE VERDICT MUST REST ON A NAMED LINE, NOT ON A RETURN CODE --
+            #
+            # ``gates.suite`` is why this rule exists and it is worth reading in
+            # full. Its probe edits ``tests/test_splits_manifest.py``, which is
+            # also the file its own register entry anchors on -- so while the
+            # mutation is applied, ``tests/test_gate_manifest.py`` correctly
+            # reports that the anchor no longer matches, and the suite goes red
+            # on THAT whether or not the D-058 defect is caught. Measured on
+            # 2026-08-25: with the mutation applied and ``data/`` present, the
+            # only failing test is the anchor check. ``rc != 0`` was therefore
+            # satisfiable in BOTH environments by the probe's own side effect,
+            # which made this gate's automated verdict carry no information at
+            # all -- a check that could not fail, inside the harness built to
+            # catalogue checks that cannot fail.
+            #
+            # ``docs/GATES.md`` already said "take the evidence from the line,
+            # not from the verdict". Nothing enforced it. This does.
+            if mutation.expect == "fail" and not mutation.expect_failure_matching:
+                problems.append(
+                    f'{where}.mutation: kind `automated` with `expect = "fail"` requires '
+                    "`expect_failure_matching`, a substring the gate's own output must "
+                    "contain when the mutation is applied. A non-zero exit is not on its own "
+                    "attributable: a broken checkout, a missing dependency or the probe's own "
+                    "side effect all produce one and all read as a successful demonstration."
+                )
         else:
             if not mutation.reason:
                 problems.append(
@@ -946,6 +1031,17 @@ def validate(
                 problems.append(
                     f"{where}.mutation: kind {mutation.kind!r} declares edits it will never apply"
                 )
+            for field_name in ("setup", "expect_failure_matching"):
+                if getattr(mutation, field_name):
+                    problems.append(
+                        f"{where}.mutation: kind {mutation.kind!r} declares `{field_name}`, "
+                        "which only a mutation this harness runs can use."
+                    )
+        if mutation.expect == "pass" and mutation.expect_failure_matching:
+            problems.append(
+                f'{where}.mutation: `expect_failure_matching` with `expect = "pass"`. '
+                "A mutation that must NOT be detected has no failure output to match."
+            )
         if mutation.expect not in ("fail", "pass"):
             problems.append(f"{where}.mutation: expect must be `fail` or `pass`")
         if mutation.artifact:
@@ -1147,17 +1243,52 @@ def in_situ_problems(
 
     for previous, entry in zip(trajectory, trajectory[1:]):
         where = f"  IN_SITU_TRAJECTORY[{entry.label!r}]\n    "
+        # NAMING A WITHDRAWAL COMES FIRST, before the arithmetic rules, because
+        # "you retired evidence and did not say for which gate" is a more
+        # useful sentence than "the debt rose" -- and the debt rule below
+        # `continue`s, so anything after it would never be reached in exactly
+        # the case this is about.
+        fell = previous.in_situ - entry.in_situ
+        if fell > 0 and len(entry.withdrawn_gates) < fell and entry.gates >= previous.gates:
+            problems.append(
+                where + f"in-situ evidence fell by {fell} and only "
+                f"{len(entry.withdrawn_gates)} gate(s) are named in `withdrawn_gates`. "
+                "Retiring a demonstration is a per-gate decision and the gate gets named, "
+                "the way a deleted gate does -- arithmetic cannot tell a withdrawal from a "
+                "loss."
+            )
         rise = entry.uncovered - previous.uncovered
-        if rise > 0:
+        if rise > 0 and rise > entry.attributed:
             problems.append(
                 where + f"the in-situ debt ROSE from {previous.uncovered} to {entry.uncovered} "
                 f"({previous.gates} gates and {previous.in_situ} demonstrated, then "
-                f"{entry.gates} and {entry.in_situ}). A round that adds gates without adding "
+                f"{entry.gates} and {entry.in_situ}), and only {entry.attributed} of that "
+                f"rise is accounted for ({len(entry.withdrawn_gates)} withdrawn, "
+                f"{entry.owed_forward} owed forward). A round that adds gates without adding "
                 "evidence may not satisfy this quota: the count would go backwards while the "
                 "coverage number looked healthy. Demonstrate the new gate, or pay for it by "
                 "demonstrating another."
             )
             continue
+        if rise > 0 and not entry.waiver:
+            problems.append(
+                where + f"the in-situ debt rose by {rise} with an attribution "
+                f"({len(entry.withdrawn_gates)} withdrawn, {entry.owed_forward} owed forward) "
+                "and no waiver. The attribution says WHAT rose; the waiver is where somebody "
+                "says why that was the right thing to do."
+            )
+        # THE DUE DATE. `owed_forward` is a promise that the next CI run takes
+        # the evidence. A promise nothing checks is the shape this whole
+        # register exists to catalogue, so the round after one that made the
+        # promise has to show it kept -- or say why not.
+        paid = previous.uncovered - entry.uncovered
+        if previous.owed_forward and paid < previous.owed_forward and not entry.waiver:
+            problems.append(
+                where + f"the previous round ({previous.label!r}) owed {previous.owed_forward} "
+                f"gate(s) forward and this one cut the debt by {paid}. Demonstrate them, "
+                "withdraw them, or write down in `waiver` why the run that was going to "
+                "take that evidence did not."
+            )
         if entry.gates < previous.gates and not entry.waiver:
             # DELETING A GATE PAYS THE QUOTA EXACTLY AS DEMONSTRATING ONE DOES,
             # because both lower `gates - in_situ`. Nothing in arithmetic can
@@ -1169,7 +1300,7 @@ def in_situ_problems(
                 "demonstrating one does, and the arithmetic cannot tell those apart. Name the "
                 "gate that left and why it left."
             )
-        if entry.in_situ < previous.in_situ and not entry.waiver:
+        if fell > 0 and not entry.waiver:
             problems.append(
                 where + f"in-situ evidence fell from {previous.in_situ} to {entry.in_situ} "
                 "with no waiver. Evidence is deleted when a gate is deleted or a "
@@ -1207,8 +1338,30 @@ def in_situ_problems(
             "nobody can audit."
         )
 
+    for name in last.withdrawn_gates:
+        gate = manifest.gates.get(name)
+        if gate is None:
+            problems.append(
+                f"  IN_SITU_TRAJECTORY[{last.label!r}] withdraws evidence for {name!r}, which "
+                "is not a gate in this register."
+            )
+        elif gate.mutation.has_in_situ_evidence:
+            problems.append(
+                f"  IN_SITU_TRAJECTORY[{last.label!r}] says {name!r}'s evidence was withdrawn "
+                "and the register still carries a verified_in_situ_run for it. Delete the "
+                "evidence or delete the withdrawal; one of the two is wrong."
+            )
+
     for gate in manifest.by_cost():
         if gate.cost_rank <= top_ranks and not gate.mutation.has_in_situ_evidence:
+            # A WITHDRAWAL AT THE TOP OF THE RANKING IS THE CASE THIS RULE WAS
+            # HARDEST ON AND IS EXACTLY WHERE WITHDRAWAL MATTERS MOST. The rule
+            # exists so nobody demonstrates the easy gates and calls it
+            # coverage; it should not also mean that finding the top gate's
+            # evidence unsound is unsayable. Naming it in `withdrawn_gates`
+            # says it out loud, and `owed_forward` puts a due date on it.
+            if gate.name in last.withdrawn_gates and last.owed_forward:
+                continue
             problems.append(
                 f"  gates.{gate.name} ranks {gate.cost_rank} of {live_gates} by cost-if-inert "
                 "and carries no in-situ evidence.\n"
@@ -1240,6 +1393,8 @@ def in_situ_line(manifest: GateManifest, trajectory: Sequence[InSituRound]) -> s
         f"in-situ quota: debt {live}, ceiling {last.uncovered} | "
         f"{len(trajectory)} round(s) | {last.label} cut {moved}"
         + (f" (run {last.run} at {last.commit})" if last.run else "")
+        + (f", withdrew {list(last.withdrawn_gates)}" if last.withdrawn_gates else "")
+        + (f", owes {last.owed_forward} forward" if last.owed_forward else "")
         + f" | quota {IN_SITU_QUOTA} per round, top {TOP_RANKS_REQUIRING_IN_SITU} of the "
         "ranking must be demonstrated"
     )
@@ -1277,6 +1432,116 @@ def assert_environment(env: Environment, root: Path = REPO_ROOT) -> List[str]:
                 "tautology here, which is exactly the state R11 exists to make visible."
             )
     return problems
+
+
+@dataclass(frozen=True)
+class EvidenceProvenance:
+    """Whether a gate's recorded demonstration still describes the gate."""
+
+    gate: str
+    commit: str
+    depends_on: Tuple[str, ...]
+    changed: Tuple[str, ...]
+    unbounded: bool
+    error: str = ""
+
+    @property
+    def state(self) -> str:
+        if self.error:
+            return "unknown"
+        if self.changed:
+            return "predates a change"
+        return "describes HEAD"
+
+
+def evidence_dependencies(gate: Gate, manifest: GateManifest) -> Tuple[Tuple[str, ...], bool]:
+    """Repo paths a gate's demonstration rests on, and whether that set is closed.
+
+    Three sources, and each one is a way the recorded demonstration can stop
+    describing the shipped gate:
+
+    * **the files its mutation edits** -- the defect it was shown to catch;
+    * **the file its command runs** -- the gate's own implementation, wherever
+      the command names one; and
+    * **the workflow its environment lives in** -- the step it *is*.
+
+    The second is the one that does not always close. ``python -m pytest`` and
+    ``python -m mypy`` name no file, so their dependency set is the whole tree
+    and no useful diff can be taken over it. That is returned as ``unbounded``
+    rather than as an empty set, because an empty set would read as *nothing
+    this gate depends on has changed* -- the flattering answer, and the false
+    one.
+    """
+    paths: List[str] = [edit.file for edit in gate.mutation.edits]
+    home = manifest.environments.get(gate.environment)
+    if home is not None and home.workflow != "local":
+        paths.append(f".github/workflows/{home.workflow}")
+    named_a_file = False
+    for token in gate.command.split():
+        token = token.strip('"')
+        if "/" in token and (REPO_ROOT / token).is_file():
+            paths.append(token)
+            named_a_file = True
+    return tuple(sorted(set(paths))), not named_a_file
+
+
+def evidence_provenance(manifest: GateManifest, root: Path = REPO_ROOT) -> List[EvidenceProvenance]:
+    """For every gate carrying evidence, what has changed under it since.
+
+    **This replaces a proof that has expired.** All thirteen demonstrations in
+    this register were licensed by one sentence in ``docs/GATES.md``: that
+    ``git diff <harvest commit> HEAD`` over eight paths was *empty*. That proof
+    was true when it was written and it is a proof that cannot stay true -- it
+    fails on the next commit to any of those paths, and it failed on the very
+    next one. A proof with a one-commit lifetime is not a mechanism.
+
+    So the question is asked per gate and per commit instead, and the answer is
+    computed rather than asserted. It is a **note, never a failure**: a change
+    to a file a gate is made of does not establish that the gate stopped
+    catching anything, and a rule that reddened the build on the passage of
+    ordinary commits would be deleted within a week. What it does establish is
+    which evidence is worth re-taking, which is the question a reader with one
+    afternoon actually has.
+    """
+    # ONE `git diff` PER DISTINCT COMMIT, not one per gate. Thirteen
+    # subprocesses on every `--check` is a cost the lint job pays on every push,
+    # and a shallow checkout (`actions/checkout` fetches depth 1 by default)
+    # makes every one of them fail identically. Failing once is enough.
+    per_commit: Dict[str, Tuple[Optional[frozenset], str]] = {}
+
+    def changed_since(commit: str) -> Tuple[Optional[frozenset], str]:
+        if commit not in per_commit:
+            done = subprocess.run(
+                ["git", "diff", "--name-only", commit, "HEAD"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                errors="replace",
+            )
+            if done.returncode != 0:
+                tail = done.stderr.strip().splitlines()
+                per_commit[commit] = (None, tail[-1] if tail else "git diff failed")
+            else:
+                per_commit[commit] = (frozenset(filter(None, done.stdout.split())), "")
+        return per_commit[commit]
+
+    records: List[EvidenceProvenance] = []
+    for gate in sorted(manifest.with_in_situ_evidence(), key=lambda g: g.cost_rank):
+        commit = gate.mutation.verified_in_situ_commit
+        depends_on, unbounded = evidence_dependencies(gate, manifest)
+        moved, error = changed_since(commit)
+        changed = () if moved is None else tuple(sorted(set(depends_on) & moved))
+        records.append(
+            EvidenceProvenance(
+                gate=gate.name,
+                commit=commit,
+                depends_on=depends_on,
+                changed=changed,
+                unbounded=unbounded,
+                error=error,
+            )
+        )
+    return records
 
 
 def stale_notes(manifest: GateManifest, today: Optional[_datetime.date] = None) -> List[str]:
@@ -1318,8 +1583,13 @@ class MutationOutcome:
         return self.verdict in ("demonstrated", "skipped")
 
 
-def _apply(edit: Edit, root: Path) -> Tuple[Path, Optional[bytes]]:
-    """Apply one edit; return the file and its previous bytes (``None`` if new)."""
+def _apply(edit: Edit, root: Path) -> Tuple[Path, Optional[bytes], Optional[bytes]]:
+    """Apply one edit; return ``(file, bytes before, bytes after)``.
+
+    ``None`` for *before* means the file did not exist; ``None`` for *after*
+    means the edit removed it. The *after* bytes are what :func:`_restore` uses
+    to tell "this file is as I left it" from "something else wrote it".
+    """
     target = root / edit.file
     before: Optional[bytes] = target.read_bytes() if target.is_file() else None
     if edit.operation == "create":
@@ -1347,16 +1617,37 @@ def _apply(edit: Edit, root: Path) -> Tuple[Path, Optional[bytes]]:
         target.write_text("".join(kept), encoding="utf-8")
     else:  # pragma: no cover - _edit() refuses this
         raise GatesError(f"{edit.file}: no operation declared")
-    return target, before
+    after: Optional[bytes] = target.read_bytes() if target.is_file() else None
+    return target, before, after
 
 
-def _restore(saved: Iterable[Tuple[Path, Optional[bytes]]]) -> None:
-    for target, before in reversed(list(saved)):
+def _restore(saved: Iterable[Tuple[Path, Optional[bytes], Optional[bytes]]]) -> List[str]:
+    """Put every touched file back, and report anything that moved under us.
+
+    **The report is not fussiness.** This repository is edited by several agents
+    at once, and one of the declared mutations DELETES ``bench/results.json`` --
+    the file every published claim is verified against -- for the duration of a
+    gate run. If another process writes it inside that window, the restore
+    silently overwrites their work with bytes read before it happened. The
+    window cannot be closed from here; what can be done is to notice, so a lost
+    update is a printed sentence rather than a mystery.
+    """
+    notes: List[str] = []
+    for target, before, after in reversed(list(saved)):
+        current: Optional[bytes] = target.read_bytes() if target.is_file() else None
+        if current != after:
+            notes.append(
+                f"{target}: is not as the mutation left it. Something else wrote or removed "
+                "this file while the gate was running, and the restore below overwrites that "
+                "with the bytes read beforehand -- so if another process was writing, its "
+                "write is lost and this run's verdict is not attributable to the mutation."
+            )
         if before is None:
             if target.exists():
                 target.unlink()
-        else:
-            target.write_bytes(before)
+            continue
+        target.write_bytes(before)
+    return notes
 
 
 def run_gate_command(command: str, root: Path = REPO_ROOT) -> Tuple[int, str]:
@@ -1372,6 +1663,27 @@ def run_gate_command(command: str, root: Path = REPO_ROOT) -> Tuple[int, str]:
         argv[0] = sys.executable
     done = subprocess.run(argv, cwd=str(root), capture_output=True, text=True, errors="replace")
     return done.returncode, (done.stdout + done.stderr)
+
+
+def _run_setup(gate: Gate, root: Path) -> Tuple[int, str]:
+    """Run a mutation's declared ``setup`` command, if it has one.
+
+    **Why a gate would need one, stated on the only gate that does.**
+    ``ci.yml``'s ``import-time`` job installs the package NON-EDITABLY, on
+    purpose: *"an editable install adds a path finder of its own, and what is
+    being measured is what a user actually installs."* So an edit to
+    ``src/acronymkit/__init__.py`` does not reach the interpreter that job
+    measures, and the mutation would be inert there **by construction** -- not
+    because the gate is blind, but because the harness never touched what the
+    gate looks at. Without a re-install the demonstration would be a tautology
+    in the other direction.
+
+    It runs before the mutated command AND before the restored command, because
+    the installed copy has to be put back too.
+    """
+    if not gate.mutation.setup:
+        return 0, ""
+    return run_gate_command(gate.mutation.setup, root)
 
 
 def mutate(
@@ -1394,27 +1706,53 @@ def mutate(
         outcome.detail = gate.mutation.reason
         return outcome
     started = time.time()
-    saved: List[Tuple[Path, Optional[bytes]]] = []
+    saved: List[Tuple[Path, Optional[bytes], Optional[bytes]]] = []
+    restore_notes: List[str] = []
     try:
         for edit in gate.mutation.edits:
             saved.append(_apply(edit, root))
         outcome.applied = True
+        setup_rc, setup_output = _run_setup(gate, root)
+        if setup_rc != 0:
+            outcome.mutated_rc = None
+            outcome.mutated_output = setup_output[-8000:]
+            outcome.verdict = "UNRESTORED"
+            outcome.detail = (
+                f"the mutation's `setup` command exited {setup_rc}, so the gate never ran "
+                "against the mutated tree and nothing here is a verdict about the gate."
+            )
+            return outcome
         rc, output = run_gate_command(gate.command, root)
         outcome.mutated_rc = rc
         outcome.mutated_output = output[-8000:]
     finally:
-        _restore(saved)
+        restore_notes = _restore(saved)
+    for note in restore_notes:
+        print(f"  restore note: {note}")
+    _run_setup(gate, root)
     restored_rc, _ = run_gate_command(gate.command, root)
     outcome.restored_rc = restored_rc
     outcome.seconds = round(time.time() - started, 1)
 
     wanted_failure = gate.mutation.expect == "fail"
     failed = (outcome.mutated_rc or 0) != 0
+    marker = gate.mutation.expect_failure_matching
     if failed != wanted_failure:
         outcome.verdict = "INERT"
         outcome.detail = (
             f"the mutation was applied and the gate exited {outcome.mutated_rc}. "
             f"Expected {gate.mutation.expect}. This gate cannot fail here on this defect."
+        )
+    elif wanted_failure and marker and marker not in outcome.mutated_output:
+        # THE VERDICT RESTS ON THE NAMED LINE, NOT ON THE RETURN CODE.
+        # `gates.suite` is the case this exists for: its probe reddens the suite
+        # through a side effect of its own, so `rc=1` was reachable with the
+        # declared defect uncaught. See the same note in `validate`.
+        outcome.verdict = "INERT"
+        outcome.detail = (
+            f"the gate exited {outcome.mutated_rc}, but its output does not contain "
+            f"{marker!r}. Something here failed; it was not this gate catching this "
+            "defect, and a return code cannot tell those apart."
         )
     elif restored_rc != 0:
         outcome.verdict = "UNRESTORED"
@@ -1433,7 +1771,9 @@ def mutate(
         path.write_text(
             f"gate:      {gate.name}\n"
             f"command:   {gate.command}\n"
+            f"setup:     {gate.mutation.setup or '-'}\n"
             f"expect:    {gate.mutation.expect}\n"
+            f"must say:  {gate.mutation.expect_failure_matching or '-'}\n"
             f"verdict:   {outcome.verdict}\n"
             f"mutated:   rc={outcome.mutated_rc}\n"
             f"restored:  rc={outcome.restored_rc}\n"
@@ -1474,10 +1814,41 @@ def _summary_lines(manifest: GateManifest) -> List[str]:
     ]
 
 
+def _cmd_provenance(manifest: GateManifest) -> int:
+    """Which recorded demonstrations still describe the gate they name."""
+    records = evidence_provenance(manifest)
+    print(
+        "recorded in-situ evidence, and what has changed under it since the commit it was\n"
+        "taken on. A NOTE, never a failure: a changed file does not establish that a gate\n"
+        "stopped catching anything, it establishes which evidence is worth re-taking.\n"
+    )
+    print(f"{'gate':<34} {'at':<9} {'state':<18} changed under it")
+    for record in records:
+        detail = ", ".join(record.changed[:3]) or ("-" if not record.error else record.error)
+        if record.unbounded:
+            detail += "  [command names no file; dependency set is the whole tree]"
+        print(f"{record.gate:<34} {record.commit:<9} {record.state:<18} {detail}")
+    stale = [r for r in records if r.changed]
+    print(
+        f"\n{len(stale)} of {len(records)} gate(s) carry evidence taken before a change to a "
+        "file the gate is made of."
+    )
+    return 0
+
+
 def _cmd_check(manifest: GateManifest) -> int:
     problems = validate(manifest)
     for note in stale_notes(manifest):
         print(f"note: {note}")
+    if manifest.path == GATES_PATH:
+        records = evidence_provenance(manifest)
+        stale = [r for r in records if r.changed]
+        if records:
+            print(
+                f"note: evidence provenance -- {len(stale)} of {len(records)} demonstrated "
+                "gate(s) carry evidence taken before a change to a file the gate is made of; "
+                "`--evidence-provenance` says which"
+            )
     if problems:
         print(f"{manifest.path}: {len(problems)} problem(s)")
         for problem in problems:
@@ -1561,6 +1932,8 @@ def _cmd_json(manifest: GateManifest) -> int:
                 "cost_if_inert": gate.cost_if_inert,
                 "mutation_kind": gate.mutation.kind,
                 "artifact": gate.mutation.artifact,
+                "expect_failure_matching": gate.mutation.expect_failure_matching,
+                "setup": gate.mutation.setup,
                 "verified_locally_on": str(gate.mutation.verified_locally_on or ""),
                 "verified_in_situ_on": str(gate.mutation.verified_in_situ_on or ""),
                 "verified_in_situ_run": gate.mutation.verified_in_situ_run,
@@ -1577,6 +1950,8 @@ def _cmd_json(manifest: GateManifest) -> int:
                 "run": entry.run,
                 "commit": entry.commit,
                 "waiver": entry.waiver,
+                "withdrawn_gates": list(entry.withdrawn_gates),
+                "owed_forward": entry.owed_forward,
             }
             for entry in IN_SITU_TRAJECTORY
         ],
@@ -1632,6 +2007,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="every gate ordered by what it costs if it silently stops working",
     )
     parser.add_argument("--json", action="store_true", help="print the register as JSON")
+    parser.add_argument(
+        "--evidence-provenance",
+        action="store_true",
+        help="which recorded demonstrations predate a change to the gate they describe",
+    )
     parser.add_argument("--mutate", action="append", default=[], metavar="GATE")
     parser.add_argument("--mutate-environment", metavar="ENV")
     parser.add_argument(
@@ -1684,6 +2064,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_list(manifest)
     if args.ranking:
         return _cmd_ranking(manifest)
+    if args.evidence_provenance:
+        return _cmd_provenance(manifest)
     if args.json:
         return _cmd_json(manifest)
     return _cmd_check(manifest)

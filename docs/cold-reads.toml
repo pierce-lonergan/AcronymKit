@@ -142,7 +142,10 @@ The probe's own list, in .github/workflows/ci.yml under `invocations = [`, names
 Re-derived on 2026-08-25 from the two files, not carried from D-072.
 """
 owner = "unowned"
-disposition = "open"
+disposition = "fixed"
+applied_by = "operator, mandate III phase A salvage"
+applied_in = "2026-08-26"
+reason = "docs/OFFLINE.md now says the probe drives 13 of 16 and names the three it does not."
 
 [[findings]]
 id = "F-2026-08-24-02"
@@ -157,7 +160,10 @@ the same file, which is why it is a separate entry: a fix that repairs one line
 and not the other leaves the page half true, and the ledger should say so.
 """
 owner = "unowned"
-disposition = "open"
+disposition = "fixed"
+applied_by = "operator, mandate III phase A salvage"
+applied_in = "2026-08-26"
+reason = "The second copy in the same file, corrected in the same commit as the first -- which is the whole reason it was a separate entry."
 
 [[findings]]
 id = "F-2026-08-24-03"
@@ -172,7 +178,10 @@ grep -c '\\.command(' src/acronymkit/cli.py  ->  16, against 13 driven
 This is the third place, in a second file, one round after it was written down.
 """
 owner = "unowned"
-disposition = "open"
+disposition = "fixed"
+applied_by = "operator, mandate III phase A salvage"
+applied_in = "2026-08-26"
+reason = "docs/ENTERPRISE.md's third copy, corrected in the same commit as the other two."
 
 [[findings]]
 id = "F-2026-08-24-04"
@@ -188,7 +197,10 @@ is counting something it does not name; both are defects and the page picks
 neither.
 """
 owner = "unowned"
-disposition = "open"
+disposition = "fixed"
+applied_by = "operator, mandate III phase A salvage"
+applied_in = "2026-08-26"
+reason = "docs/OFFLINE.md no longer says 'All 27 shipped modules'; it says the 27 that existed when the scan ran, against 40 today."
 
 [[findings]]
 id = "F-2026-08-24-05"
@@ -207,7 +219,10 @@ leading with. This file is also where the rotation cursor now points, so the
 next cold read serves the page this finding is in.
 """
 owner = "unowned"
-disposition = "open"
+disposition = "fixed"
+applied_by = "operator, mandate III phase A salvage"
+applied_in = "2026-08-26"
+reason = "docs/SUPPORT_MATRIX.md's CLI row names all sixteen, including the seven governed subcommands the exhaustive word had omitted."
 
 [[findings]]
 id = "F-2026-08-25-01"
@@ -222,7 +237,10 @@ of the three sentences docs/POSITIONING.md quotes verbatim as retired, and this
 file is inside tools/check_claims.py's SCAN_GLOBS. Re-checked 2026-08-25.
 """
 owner = "unowned"
-disposition = "blocked"
+disposition = "fixed"
+applied_by = "operator, mandate III phase A salvage"
+applied_in = "2026-08-26"
+reason = "The module docstring was rewritten onto the governance positioning, and cold-read-4's F-4-4 corrected the one sentence in it that was still a false phrasing."
 blocked_on = """
 Ownership. D-070's own How it fails records the disposition as blocked on
 ownership: it is one edit in a source file, and it has survived two workstreams
@@ -250,4 +268,29 @@ is real; it holds for the copyright SIGN and the CJK compatibility square, and
 the entry above is the corrected command.
 """
 owner = "unowned"
-disposition = "open"
+disposition = "fixed"
+applied_by = "operator, mandate III phase A salvage"
+applied_in = "2026-08-26"
+reason = "docs/GOVERNED_NAMING.md's 'Length is a flag' row no longer denies the exception. THE CODE DEFECT IS NOT FIXED: normalize() still drops an unaccountable character silently. The row now says so; a fix is a behaviour change owing an R19 byte-identity gate."
+
+[[reads]]
+id = "2026-08-26"
+reader = "cold-read-4"
+rotation_served = "docs/SUPPORT_MATRIX.md"
+cursor_after = "docs/GATES.md"
+covered = [
+  "CHANGELOG.md", "docs/CLAIMS-LEDGER.md", "docs/DEFINITION-OF-DONE.md",
+  "docs/EVALUATION.md", "docs/GATES.md", "docs/SECOND-READER.md",
+  "docs/SUPPORT_MATRIX.md", "src/acronymkit/__init__.py",
+]
+note = """
+Second execution under the read-only rule and the second in which the reader could not
+write this file, so trigger B served docs/SUPPORT_MATRIX.md for the second consecutive
+read -- the stall cold-read-3 predicted, now observed. Written by a second party from
+docs/notes/cold-read-4-findings.md.
+
+src/acronymkit/__init__.py is listed under `covered` although no trigger reaches it: the
+brief pointed at it, which is the third consecutive round in which this file arrived by
+pointer-chase rather than by mechanism. Section 4 of the findings note takes a position
+on whether the rotation should cover it, and the position is yes.
+"""

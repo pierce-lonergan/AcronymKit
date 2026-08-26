@@ -110,21 +110,39 @@
 # which is precisely the evidence R11 says does not count, and `--check` printed
 # `0 of 36` on every CI run so it could not be quietly read past.
 #
-# IT IS NOW 13 OF 36, AND THE EVIDENCE WAS NOT NEW WORK. `gate-mutation.yml`
-# HAD run -- once, on 2026-08-25, green, with all five artifact bundles
-# uploaded -- and nothing in this repository had ever looked at it. All 13
-# automated gates came back `demonstrated` on ubuntu-latest under CPython
-# 3.12. Each one now carries the date, the run id AND the commit, because a run
-# id says a demonstration happened and only the commit says which gate was
+# IT WENT TO 13 OF 36 WHEN THE FIRST CI RUN WAS FINALLY HARVESTED, AND IT IS
+# NOW 12. `gate-mutation.yml` HAD run -- once, on 2026-08-25, green, with all
+# five artifact bundles uploaded -- and nothing in this repository had looked at
+# it. All 13 automated gates came back `demonstrated` on ubuntu-latest under
+# CPython 3.12. Each one carries the date, the run id AND the commit, because a
+# run id says a demonstration happened and only the commit says which gate was
 # demonstrated.
 #
-# The 23 that remain are the 8 inline, 13 manual and 2 control refusals. None of
-# them is a gate this harness can mutate, so the next payment is not more of the
-# same: it is the heredoc extraction that would close three of the eight at
-# once. `IN_SITU_TRAJECTORY` in `tools/gates.py` is the ledger, and its quota is
-# a CEILING ON THE DEBT rather than a floor on the coverage count -- because a
-# floor is satisfied by a round that adds five gates and demonstrates none,
-# while `13 of 36` quietly becomes `13 of 41`.
+# THEN ONE WAS WITHDRAWN. `gates.suite` recorded evidence on the strength of a
+# verdict the harness computed from a return code, and that return code was
+# measured to be reachable WITH THE DECLARED DEFECT UNCAUGHT -- the probe edits
+# the file this register anchors on, so the suite reddens on the anchor check by
+# itself, in both environments. `mutation.expect_failure_matching` is the rule
+# that fixes it: a non-zero exit now counts only when the gate's own output
+# contains a named line. `gates.suite`'s demonstration must be RE-TAKEN under
+# that rule, so its evidence is gone and the round that removed it names it in
+# `withdrawn_gates`. A count that can only rise is not a measurement.
+#
+# THE HEREDOC EXTRACTION IS THE OTHER HALF. `schema_copies_match`,
+# `tier_zero_purity` and `import_ceiling` were `inline` refusals; they are now
+# `tools/gate_*.py` scripts that ci.yml invokes and this harness mutates, so
+# `automated` is 16 and `inline` is 5. None of the three can carry in-situ
+# evidence in the commit that creates them, which is why the round declares
+# `owed_forward = 4` -- the fourth is `suite`.
+#
+# The 20 that remain are the 5 inline, 13 manual and 2 control refusals. None of
+# them is a gate this harness can mutate. `IN_SITU_TRAJECTORY` in
+# `tools/gates.py` is the ledger, and its quota is a CEILING ON THE DEBT rather
+# than a floor on the coverage count -- because a floor is satisfied by a round
+# that adds five gates and demonstrates none, while `13 of 36` quietly becomes
+# `13 of 41`. The ceiling is waivable ONLY against an attribution, and the
+# reason is that the unwaivable version made a withdrawal impossible to express
+# and made docs/GATES.md's own documented waiver unreachable.
 
 [manifest]
 schema_version = 1
@@ -383,6 +401,39 @@ job, and giving it one would be a second register entry for the same two
 mutations.
 """
 
+[environments.mutation_zero_dependency]
+workflow = "gate-mutation.yml"
+job = "zero-dependency-gates"
+runs_on = "ubuntu-latest"
+no_gates_reason = """
+A mutation runner for `environments.zero_dependency`, whose gate is registered
+there. It carries no gate of its own, on the precedent of
+`environments.mutation_resources`: giving it one would be a second register
+entry for the same mutation.
+
+AND THERE IS A SECOND REASON HERE, WHICH IS A LIMIT RATHER THAN A PREFERENCE.
+`lint-gates` and `test-gates` do carry a gate, because their premise is a set
+of PATHS and `tools/gates.py --assert-environment` can check paths. This job's
+premise is that NO OPTIONAL DEPENDENCY IS INSTALLED, which is a property of the
+interpreter and not of the tree, and `--assert-environment` cannot see it. A
+gate registered for a premise its own command cannot observe would be exactly
+the shape this register exists to catalogue, so it is refused and the hole is
+written down instead.
+"""
+
+[environments.mutation_import_time]
+workflow = "gate-mutation.yml"
+job = "import-time-gates"
+runs_on = "ubuntu-latest"
+no_gates_reason = """
+A mutation runner for `environments.import_time`; same disposition as
+`environments.mutation_zero_dependency` above, and the same unobservable
+premise -- this one adds that the install must be NON-EDITABLE, which is a
+property of how pip was invoked and leaves no path in the tree to assert on.
+`gates.import_ceiling.mutation.setup` is what makes the mutation reach the
+installed copy at all.
+"""
+
 [environments.mutation_report]
 workflow = "gate-mutation.yml"
 job = "report"
@@ -433,6 +484,7 @@ bench/results.json, the file every published claim is verified against.
 [gates.ruff.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = '_gate_probe_ruff.py'
 artifact = "lint/ruff.log"
 verified_locally_on = 2026-08-24
 verified_in_situ_on = 2026-08-25
@@ -469,6 +521,7 @@ review, and this gate has never been the thing that catches a bad change.
 [gates.ruff_format.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = '_gate_probe_format.py'
 artifact = "lint/ruff-format.log"
 verified_locally_on = 2026-08-24
 verified_in_situ_on = 2026-08-25
@@ -513,6 +566,7 @@ did not reproduce locally because the resolved click there was 8.1.8.
 [gates.mypy.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = 'Unexpected keyword argument "newline" for "write_text"'
 artifact = "lint/mypy.log"
 verified_locally_on = 2026-08-24
 verified_in_situ_on = 2026-08-25
@@ -551,6 +605,7 @@ role; a malformed reservation.
 [gates.splits_manifest.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = 'points at a badge host'
 artifact = "lint/splits.log"
 verified_locally_on = 2026-08-24
 verified_in_situ_on = 2026-08-25
@@ -593,6 +648,7 @@ See gates.claims_in_sdist.
 [gates.claims.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = 'unbacked claim(s):'
 artifact = "lint/claims.log"
 verified_locally_on = 2026-08-24
 verified_in_situ_on = 2026-08-25
@@ -630,6 +686,7 @@ does not exist; two gates writing one artifact path.
 [gates.gate_manifest.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = "job 'unregistered-probe' is not declared"
 artifact = "lint/gate-manifest.log"
 verified_locally_on = 2026-08-24
 verified_in_situ_on = 2026-08-25
@@ -667,6 +724,7 @@ detects = "A bundled resource that is malformed, empty, or absent."
 [gates.resource_formats.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = 'file is missing and --require was given'
 artifact = "resources/formats.log"
 verified_locally_on = 2026-08-24
 verified_in_situ_on = 2026-08-25
@@ -694,6 +752,7 @@ detects = "A committed n-gram model that no longer derives from the committed le
 [gates.ngram_matches_lexicon.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = 'ngram_en.json DRIFT'
 artifact = "resources/ngram.log"
 verified_locally_on = 2026-08-24
 verified_in_situ_on = 2026-08-25
@@ -706,6 +765,7 @@ edits = [
 [gates.schema_copies_match]
 environment = "resources"
 step = "Assert the bundled schema copy matches the canonical one"
+command = "python tools/gate_schema_copies.py"
 defect_class = "artifact_contents"
 cost_rank = 6
 blast_radius = "installed_behaviour"
@@ -721,15 +781,37 @@ bundled into the wheel. Two copies of one contract is how a shipped validator
 comes to accept what the documented schema rejects.
 """
 [gates.schema_copies_match.mutation]
-kind = "inline"
-reason = """
-The gate is a heredoc inside ci.yml with no command a runner can invoke, so
-this harness could only run a COPY of it -- and D-018 settled that a pattern
-describing the bug cannot be used to test for the bug. Extracting it into
-`tools/` the way `tools/splits.py` was extracted is the fix; it is six lines of
-Python and it is not done, because moving a working gate is a change to a check
-and belongs in a commit that says so.
+kind = "automated"
+expect = "fail"
+expect_failure_matching = "SCHEMA COPIES DIVERGED"
+artifact = "resources/schema_copies.log"
+verified_locally_on = 2026-08-25
+note = """
+EXTRACTED. This was `kind = "inline"` and the refusal read: "the gate is a
+heredoc inside ci.yml with no command a runner can invoke, so this harness could
+only run a COPY of it". `tools/gate_schema_copies.py` is that heredoc with a
+name; ci.yml invokes it and so does this mutation.
+
+THE EXTRACTION FIRED THE GATE ON ITS FIRST INVOCATION, on the developer machine,
+against an UNMUTATED tree. `.gitattributes` declares `*.json text eol=lf` and
+says in its own comment that the reason is "the CI job that asserts the two
+copies of the interchange schema are identical"; `git ls-files --eol` reported
+`w/crlf` for schemas/acronym-engine-result.schema.json and `w/lf` for the
+bundled copy, so the two differed by 161 bytes of line ending and this gate was
+RED in that working tree. Nothing could observe it, because there was no command
+to run. `git status` stayed clean throughout, because git compares normalised
+content. Repaired by rewriting the working copy to LF, which is byte-identical
+to HEAD -- a working-tree repair, not a commit.
+
+The mutation is ONE APPENDED NEWLINE. That is deliberate rather than minimal for
+its own sake: `tests/test_serialization.py` already asserts the two copies are
+SEMANTICALLY equal, and a trailing newline passes that test and fails this gate.
+The one-byte divergence is exactly the coverage this gate has that the test does
+not.
 """
+edits = [
+  { file = "src/acronymkit/resources/acronym-engine-result.schema.json", append = "\n" },
+]
 
 
 # ===========================================================================
@@ -760,11 +842,44 @@ on every runner.
 [gates.suite.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = 'test_the_reader_that_would_spend_the_allocated_arm_is_wired'
 artifact = "test/suite.log"
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
 note = """
+THE IN-SITU EVIDENCE FOR THIS GATE WAS WITHDRAWN ON 2026-08-25, AND THE REASON
+IS A MEASUREMENT RATHER THAN A DOUBT.
+
+It carried `verified_in_situ_on = 2026-08-25`, run 32808357572 at 3173126. That
+record rested on the harness's verdict, and the harness decided `demonstrated`
+from a return code. Re-measured on this tree, with `data/` PRESENT -- the
+condition under which this register predicts the gate is INERT -- the mutation
+was applied and pytest run over the two files that can react to it:
+
+    tests/test_splits_manifest.py, tests/test_gate_manifest.py     rc=1
+    FAILED tests/test_gate_manifest.py::TestTheRegisterThisRepositoryShips::
+           test_it_validates
+    (tests/test_splits_manifest.py: no failure -- the D-058 defect is not caught
+     here, exactly as predicted)
+
+So `rc != 0` is reachable with the declared defect UNCAUGHT, in both
+environments, through the probe's own side effect on the register anchor. This
+gate's automated verdict carried no information at all: it could not have come
+back INERT for any tree. A check that cannot fail, inside the harness built to
+catalogue checks that cannot fail.
+
+The named FAILED line in the captured artifact is still the evidence it always
+was -- but nothing in this repository can check it, and the only record of it is
+a transcription in docs/GATES.md. `expect_failure_matching` above is the rule
+that makes the line the verdict from now on, and it flips this gate's local
+verdict from DEMONSTRATED (false) to INERT (correct, on a machine holding
+`data/`) -- measured, two full suite runs, 2026-08-25. The in-situ demonstration
+has to be RE-TAKEN under the rule rather than re-read. `gate-mutation.yml` triggers on every path this
+commit touches, so the run that re-takes it is the one that lands this work.
+
+WHAT WAS *NOT* DONE: the confound itself. Removing it needs a probe that does not
+edit a file the register anchors on, and the D-058 defect lives in that file.
+Naming the line is the fix that works without moving the defect.
+
+--------------------------------------------------------------------------------
 THE MOST IMPORTANT MUTATION IN THIS FILE, AND THE ONE THAT IS EXPECTED TO COME
 BACK `INERT` LOCALLY. It restores D-058's cause one exactly: a control asserting
 on the path `_sdu22_ae_source` returns, instead of on the filename both
@@ -851,6 +966,7 @@ workstream's file.
 [gates.test_environment_control.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = "declares it HOLDS 'bench/splits.toml'"
 artifact = "test/environment-control.log"
 verified_in_situ_on = 2026-08-25
 verified_in_situ_run = "32808357572"
@@ -873,6 +989,7 @@ edits = [
 [gates.tier_zero_purity]
 environment = "zero_dependency"
 step = "Import and run without click, spaCy, NLTK or onnxruntime present"
+command = "python tools/gate_tier_zero.py"
 defect_class = "behaviour"
 cost_rank = 13
 blast_radius = "installed_behaviour"
@@ -888,13 +1005,40 @@ Tier 0 pulling an optional dependency into sys.modules, and Tier 0 failing to
 generate or extract at all with no extras installed.
 """
 [gates.tier_zero_purity.mutation]
-kind = "inline"
-reason = """
-A heredoc in ci.yml; see gates.schema_copies_match. The mutation is obvious and
-cheap once the probe is a script -- an eager `import click` in
-`src/acronymkit/__init__.py` -- and it cannot be run against the gate as it
-stands without copying the gate.
+kind = "automated"
+expect = "fail"
+expect_failure_matching = "TIER 0 PURITY FAILED"
+artifact = "zero_dependency/tier_zero.log"
+verified_locally_on = 2026-08-25
+note = """
+EXTRACTED, and the mutation is the one the previous refusal named: an eager
+`import click` at module scope in `src/acronymkit/__init__.py`.
+
+THE SAME DEFECT FIRES A DIFFERENT HALF OF THIS GATE IN EACH ENVIRONMENT, and
+that is why `expect_failure_matching` is a marker the script prints rather than
+a message either half produces. On a developer machine `click` is installed, the
+import succeeds, and the sys.modules leak assertion fires. On `ci.yml`'s
+`zero-dependency` runner nothing optional is installed, so the import RAISES and
+the "Tier 0 must run at all" assertion fires. Both are this gate detecting this
+defect; neither message is the other's.
+
+WHERE `verified_locally_on` CAME FROM, because it is narrower than it looks.
+Against the ambient interpreter of the machine that recorded it, this mutation
+came back INERT -- `acronymkit` happened to be installed NON-editably there, so
+the edit to `src/` never reached the import. The DEMONSTRATED run is against a
+venv built the way `ci.yml`'s zero-dependency job builds one (`pip install -e
+"."`, no extras), where the mutation raises `ModuleNotFoundError: No module
+named 'click'` and the marker is printed. Neither run is R11 evidence.
+
+WHAT THIS GATE CANNOT DISTINGUISH, named rather than left to be discovered: a
+leak caused by the package and a leak caused by the ENVIRONMENT having click
+installed produce the same failure. The job's `pip install -e "."` is the only
+thing holding that premise, and `--assert-environment` checks path globs, so
+nothing here can assert it.
 """
+edits = [
+  { file = "src/acronymkit/__init__.py", find = "from __future__ import annotations", replace = "from __future__ import annotations\n\nimport click  # noqa: F401  -- gates.tier_zero_purity mutation probe" },
+]
 
 [gates.airgap_namespace_control]
 environment = "air_gap"
@@ -1030,6 +1174,7 @@ enough that extracting it is a real piece of work rather than a tidy-up.
 [gates.import_ceiling]
 environment = "import_time"
 step = "Measure cold import in a subprocess and enforce the ceiling"
+command = "python tools/gate_import_ceiling.py"
 defect_class = "budget"
 cost_rank = 8
 blast_radius = "installed_behaviour"
@@ -1050,13 +1195,42 @@ It is deliberately NOT a certification of the measured figure. D-013's
 2.3/128.1/196.0 triple is bench/run_micro.py's job and is gated there.
 """
 [gates.import_ceiling.mutation]
-kind = "inline"
-reason = """
-A heredoc in ci.yml. The mutation that matters is one line -- an eager
-`import pydantic` at module scope in `src/acronymkit/__init__.py`, which the
-structural half must reject -- and it is blocked on the same extraction as
-gates.schema_copies_match and gates.tier_zero_purity. Three gates, one fix.
+kind = "automated"
+expect = "fail"
+expect_failure_matching = "IMPORT CEILING FAILED"
+artifact = "import_time/import_ceiling.log"
+setup = "python -m pip install --quiet --no-deps --force-reinstall ."
+verified_locally_on = 2026-08-25
+note = """
+EXTRACTED, AND THE EXTRACTION ALONE WAS NOT ENOUGH -- WHICH REFUTES THIS
+REGISTER'S OWN COSTING OF IT. Both this entry and docs/GATES.md said three
+inline gates "go together in one afternoon" and that this one was "blocked on
+the same extraction" as the other two. Measured: it is not. `ci.yml`'s
+`import-time` job installs the package NON-EDITABLY, on purpose -- "an editable
+install adds a path finder of its own, and what is being measured is what a user
+actually installs" -- so an edit to `src/acronymkit/__init__.py` never reaches
+the interpreter this gate measures. The mutation would have been INERT in this
+gate's own environment by construction, and would have read as the gate being
+blind when the harness had simply not touched what the gate looks at.
+
+`setup` above is the fix, and it is a new field this round added for exactly one
+gate. It re-installs the mutated source the way the job installs it, before the
+gate runs, and again after the restore.
+
+THE MUTATION IS NOT THE ONE THE OLD REFUSAL NAMED. It said `import pydantic`.
+Pydantic is not installed in a base-only environment, so that import would raise
+and the gate would exit non-zero for a reason it does not describe -- a false
+demonstration. An eager `from . import enums` binds `acronymkit.enums`, which the
+structural half rejects by name, and it needs nothing installed.
+
+ONLY THE STRUCTURAL HALF IS DEMONSTRATED. No edit to this tree reliably takes a
+~2 ms import past the 30 ms ceiling without breaking the structural half first,
+so the wall-clock half of this gate has never been shown able to fail and is not
+claimed to have been.
 """
+edits = [
+  { file = "src/acronymkit/__init__.py", find = "from __future__ import annotations", replace = "from __future__ import annotations\n\nfrom . import enums as _gate_probe_eager  # noqa: F401  -- gates.import_ceiling probe" },
+]
 
 
 # ===========================================================================
@@ -1439,6 +1613,7 @@ worthless.
 [gates.control_always_red.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = 'this_key_is_never_allowed'
 artifact = "controls/always-red.log"
 verified_locally_on = 2026-08-24
 verified_in_situ_on = 2026-08-25
@@ -1508,6 +1683,7 @@ about the gate it names, and that is the whole content of R11.
 [gates.harness_lint_environment.mutation]
 kind = "automated"
 expect = "fail"
+expect_failure_matching = "declares it HOLDS 'bench/results.json'"
 artifact = "harness/lint-environment.log"
 verified_in_situ_on = 2026-08-25
 verified_in_situ_run = "32808357572"

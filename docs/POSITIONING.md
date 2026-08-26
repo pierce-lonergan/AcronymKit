@@ -49,9 +49,17 @@ this design costs, and it is in the same table as the first —
 were all taken before their corpora were declared, and none has been re-measured since, so they are
 measured-before-declared rather than held out.
 
-Everything else this package does is a **supporting** number. Supporting does not mean hidden: each
-one keeps its losing comparison in the same table, which is the whole of what a governance instrument
-can offer about itself.
+Everything else this package does is a **supporting** number. Supporting does not mean hidden:
+**where a losing comparison exists it sits in the same table as the figure it loses to**, which is
+the whole of what a governance instrument can offer about itself.
+
+This sentence used to read *each one keeps its losing comparison*, and that counted four capabilities
+and was true of two. Extraction is beaten by two compiled systems and disambiguation loses to a
+trivial frequency baseline, both in their own tables. **Generation has no external comparison to
+lose** — nothing else in the category generates, which is a fact about the category and not a
+distinction this package earned — and **backronym synthesis has no figure at all**, marked
+permanently unmeetable because scoring one needs a judgement no corpus records. An exhaustive word
+over an enumeration is a claim, and this one was checked by counting both sides.
 
 ---
 

@@ -157,6 +157,64 @@ jobs:
           path: artifacts/
           if-no-files-found: error
 
+  zero-dependency-gates:
+    name: Mutate ci.yml's zero-dependency gate, in that environment
+    runs-on: ubuntu-latest
+    needs: [controls]
+    # THE INSTALL MODE IS THE ENVIRONMENT, AND FOR THIS GATE IT IS THE WHOLE
+    # PREMISE. `ci.yml`'s `zero-dependency` job installs `-e "."` with no
+    # extras. Both halves matter here: EDITABLE, so an edit to
+    # `src/acronymkit/__init__.py` reaches the interpreter the gate measures --
+    # measured, on a developer machine where acronymkit happened to be
+    # installed NON-editably, the same mutation came back INERT because the
+    # harness had not touched what the gate looks at -- and NO EXTRAS, because
+    # the registered mutation is an eager `import click` and it fires the
+    # gate's "Tier 0 must run at all" half here rather than its leak half.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Install base package only (no extras), editable
+        run: python -m pip install -e "."
+      - name: Mutate every automated gate of ci.yml's zero-dependency job
+        run: python tools/gates.py --mutate-environment zero_dependency --artifacts artifacts
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: gate-mutation-zero-dependency
+          path: artifacts/
+          if-no-files-found: error
+
+  import-time-gates:
+    name: Mutate ci.yml's import-time gate, in that environment
+    runs-on: ubuntu-latest
+    needs: [controls]
+    # NOT EDITABLE, DELIBERATELY, AND THAT IS WHY THIS GATE NEEDED A NEW FIELD.
+    # `ci.yml`'s `import-time` job installs `python -m pip install .` because
+    # "an editable install adds a path finder of its own, and what is being
+    # measured is what a user actually installs". So a source edit does not
+    # reach this gate at all, and the mutation would have been inert here BY
+    # CONSTRUCTION -- reading as a blind gate when the harness had simply not
+    # touched what the gate looks at. `gates.import_ceiling.mutation.setup`
+    # re-installs the mutated source the way this job installs it, before the
+    # gate runs and again after the restore.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Install base package only (no extras), not editable
+        run: python -m pip install .
+      - name: Mutate every automated gate of ci.yml's import-time job
+        run: python tools/gates.py --mutate-environment import_time --artifacts artifacts
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: gate-mutation-import-time
+          path: artifacts/
+          if-no-files-found: error
+
   test-gates:
     name: Mutate ci.yml's test job on one cell
     runs-on: ubuntu-latest
@@ -266,10 +324,24 @@ jobs:
   report:
     name: The register, and how much of it is demonstrated
     runs-on: ubuntu-latest
-    needs: [controls, lint-gates, resource-gates, test-gates, packaging-gates]
+    needs:
+      [
+        controls,
+        lint-gates,
+        resource-gates,
+        test-gates,
+        zero-dependency-gates,
+        import-time-gates,
+        packaging-gates,
+      ]
     if: always()
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # `--evidence-provenance` asks git what changed between the commit a
+          # demonstration was taken on and HEAD. A depth-1 checkout cannot
+          # answer that for any commit, so every row would read `unknown`.
+          fetch-depth: 0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
@@ -279,6 +351,17 @@ jobs:
         # written it was ZERO, and a register that only reports its good totals
         # is the document this repository keeps finding stale.
         run: python tools/gates.py --list
+
+      - name: Which recorded evidence predates a change to the gate it describes
+        # THE PROOF THAT LICENSED THE FIRST HARVEST HAD A ONE-COMMIT LIFETIME.
+        # All thirteen demonstrations rested on one sentence in docs/GATES.md:
+        # that `git diff <harvest commit> HEAD` over eight paths was EMPTY. It
+        # was true when written and false on the next commit. This computes the
+        # same question per gate instead, and prints it whether it flatters or
+        # not. It needs history: `actions/checkout` fetches depth 1 by default,
+        # so without the line below every row reads `unknown`, which is honest
+        # and useless.
+        run: python tools/gates.py --evidence-provenance
 
       - name: Print the cost ranking, worst first
         # WHICH GATE TO FIX, not how many are unfixed. A count told a reader

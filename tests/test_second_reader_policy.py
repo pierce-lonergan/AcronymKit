@@ -80,6 +80,8 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 import pytest
 
+NL = chr(10)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOADER = REPO_ROOT / "tools" / "second_reader.py"
 POLICY = REPO_ROOT / "docs" / "SECOND-READER.md"
@@ -1100,7 +1102,52 @@ def test_every_command_the_policy_page_tells_a_reader_to_run_exits_zero() -> Non
 
 @needs_parser
 @needs_ledger
-def test_the_open_command_prints_the_apply_worklist(capsys: pytest.CaptureFixture[str]) -> None:
-    assert sr.main(["--open", "--ledger", str(LEDGER)]) == 0
+def test_the_open_command_prints_the_apply_worklist(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    """``--open`` must print a worklist when there is one and say so when there is not.
+
+    This test used to assert the worklist header against the **live** ledger,
+    which passed only while a backlog existed. It went red the first time the
+    backlog was actually cleared -- a test that fails when the thing it guards
+    starts working, which is the same family as a check that cannot fail where it
+    runs, inverted. Both branches are now driven from fixtures, so the live
+    ledger's state is not part of the assertion.
+    """
+    # The empty branch: whatever the live ledger holds, an all-fixed ledger says so.
+    empty = tmp_path / "none.toml"
+    empty.write_text(
+        LEDGER.read_text(encoding="utf-8").replace(
+            'disposition = "open"', 'disposition = "permanent"'
+        ),
+        encoding="utf-8",
+    )
+    assert sr.main(["--open", "--ledger", str(empty)]) == 0
+    assert "no open findings" in capsys.readouterr().out
+
+    # The populated branch. Splicing the live ledger was tried first and made
+    # invalid TOML: a line filter aimed at one finding reaches every finding.
+    # APPENDING one synthetic finding cannot corrupt what is already there, and
+    # it is the only shape that stays valid however the real ledger grows.
+    populated = tmp_path / "one.toml"
+    synthetic = NL.join(
+        [
+            "",
+            "[[findings]]",
+            'id = "F-fixture-01"',
+            'raised_in = "2026-08-26"',
+            'reviewed_in = "2026-08-26"',
+            'file = "docs/EVALUATION.md"',
+            "line = 1",
+            'quote = "a sentence that exists only in this fixture"',
+            'refutation = "synthetic; this finding is constructed by a test"',
+            'owner = "unowned"',
+            'disposition = "open"',
+            "",
+        ]
+    )
+    populated.write_text(LEDGER.read_text(encoding="utf-8") + synthetic, encoding="utf-8")
+    assert sr.main(["--open", "--ledger", str(populated)]) == 0
     printed = capsys.readouterr().out
     assert "open finding(s) -- the apply worklist" in printed
+    assert "F-fixture-01" in printed, "the worklist must name the finding, not just count it"

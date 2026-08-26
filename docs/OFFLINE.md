@@ -22,7 +22,7 @@ network-reachable code path; it inherits two from its environment, one of which 
 (`pydantic`'s entry-point plugin loader — close it with `PYDANTIC_DISABLE_PLUGINS=1`). The claim is a
 build gate rather than a promise: the `air-gap` job in CI installs from a local wheelhouse with no
 index, runs the whole suite with every socket primitive patched to raise, and then drives the entire
-public API and every CLI subcommand inside a routeless network namespace, with a positive control that
+public API and the CLI subcommands the probe drives — `13` of the `16` the CLI declares. `normalize-name`, `governed-batch` and `governed-audit` are **not** driven, and all three are on the governed half this library now leads with; the sentence used to say *every* subcommand, inside a routeless network namespace, with a positive control that
 fails the job if the namespace is not really empty. To verify it yourself in about twenty minutes, read
 that job and run the four commands in [section 8](#8-how-to-verify-it-yourself) — the shortest are
 `PYTHONPATH=tests python -m pytest -p airgap_socket_guard -v` and `acronymkit doctor --offline`, which
@@ -50,7 +50,7 @@ import table in section 3 — and both are called out where they apply.
 Three independent methods on the measurement host, each with a positive control, and a fourth that runs
 in CI on every push:
 
-**Bytecode scan.** All 27 shipped modules under `src/acronymkit/` were compiled and every code object
+**Bytecode scan.** The `27` modules under `src/acronymkit/` that existed when this scan was run were compiled and every code object
 reached from each module — 573 in total, including nested functions, comprehensions and class bodies —
 had its `co_names`, `co_varnames`, `co_freevars` and string constants intersected with a set of 42
 network primitives (the stdlib socket/ssl/select/asyncio/http/urllib/ftplib/smtplib/poplib/imaplib/
@@ -147,7 +147,7 @@ own `socketpair` code object, with loopback as the only reachable address.
 **In CI, on every push.** The `air-gap` job in `.github/workflows/ci.yml` ("No network, and a build
 that fails if that changes") runs three mechanisms that do not subsume one another: an install from a
 local wheelhouse with `--no-index`, so the artifact is proven usable by someone who has no package
-index; the full suite under the guard above; and the whole public API plus every CLI subcommand inside
+index; the full suite under the guard above; and the whole public API plus the CLI subcommands the probe drives — `13` of the `16` the CLI declares. `normalize-name`, `governed-batch` and `governed-audit` are **not** driven, and all three are on the governed half this library now leads with; the sentence used to say *every* subcommand, inside
 `unshare -n`, a real network namespace with no route, running unprivileged with `HOME=/nonexistent`.
 The namespace step is the one that closes the audit-hook gap described below, because it blocks a C
 extension that opens a socket without asking Python first. The job also runs its own positive control

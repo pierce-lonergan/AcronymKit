@@ -10,11 +10,26 @@ extract it, install it, lay out a directory that is not a checkout, then run a
 suite and parse its log. There is no single command a mutation harness can
 invoke, so this script **reproduces** the sequences.
 
-**A reproduction is not the gate, and that is the honest cost of covering these
-at all.** ``.github/gates.toml`` records it against every gate this script
-touches. The two can drift -- somebody edits ``ci.yml`` and not this file -- and
-nothing will say so. The alternative on offer was covering the five historical
-breakages with nothing, which is where they were.
+**A reproduction is not the gate**, and that cost used to be paid in full: this
+file carried its own copy of ``EXPECTED_NON_PASSING``, its own ``PASS_FLOOR``,
+its own log parser and its own ``test -f`` list, and the guard that was supposed
+to make those copies safe printed a ``WARNING:`` and carried on.
+
+**The two ASSERTIONS are now invoked rather than reproduced.**
+``tools/gate_installed_suite.py`` and ``tools/gate_sdist_files.py`` are the
+single implementations; ``ci.yml`` runs them and this file imports them. There
+is nothing left for them to drift from.
+
+**The SEQUENCE around them is still reproduced, and that is refused rather than
+hidden.** ``installed-suite``'s sequence spans ``$RUNNER_TEMP``,
+``$GITHUB_WORKSPACE`` and a virtual environment the workflow creates; a job's
+``run:`` block is not addressable from outside the workflow at all, so there is
+no way to invoke it from here. What is checkable is that every command this file
+copies still appears in the file it was copied from, and
+:func:`sequence_drift` asserts exactly that -- fatally, before any case runs,
+because a table produced by a reproduction of the wrong sequence gets quoted
+onward. :data:`KNOWN_DIVERGENCES` names the places the reproduction is
+deliberately not identical.
 
 What it measures
 ----------------
@@ -66,7 +81,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -77,39 +91,43 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+TOOLS = Path(__file__).resolve().parent
 
-#: Exactly the ``EXPECTED_NON_PASSING`` set in ``.github/workflows/ci.yml``.
+
+def _sibling(name: str) -> Any:
+    """Load a sibling ``tools/`` script by path.
+
+    ``tools/`` is a directory of scripts and must not become a package: making
+    it importable for one caller's convenience would change the shape of the
+    thing under test. Same mechanism as ``tests/test_gate_manifest.py``.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(f"_{name}_under_test", TOOLS / f"{name}.py")
+    if spec is None or spec.loader is None:  # pragma: no cover - unreachable in a checkout
+        raise SystemExit(f"cannot load tools/{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+#: THE TWO ASSERTIONS ARE INVOKED, NOT REPRODUCED, AND THAT IS THE CHANGE.
 #:
-#: Duplicated here rather than parsed out of the workflow, and the duplication is
-#: declared rather than hidden: parsing a Python set literal out of a heredoc
-#: inside a YAML string would be a third parser of the same thing.
-#: :func:`check_expected_non_passing_is_current` re-reads the workflow and fails
-#: if the two have drifted, which is the guard that makes the copy safe.
-EXPECTED_NON_PASSING = {
-    "tests/test_package.py::test_the_lazy_path_and_the_eager_path_expose_identical_names",
-    "tests/test_package.py::test_every_lazy_export_is_the_object_its_own_module_defines",
-    "tests/test_serialization.py::test_schema_path_points_at_the_checkout_copy",
-    "tests/test_serialization.py::test_the_checkout_and_bundled_schema_copies_are_semantically_equal",
-    "tests/test_serialization.py::test_load_schema_ignores_a_decoy_planted_at_the_schema_directory",
-    "tests/test_serialization.py::test_validation_still_works_beside_a_hijacked_schema_directory",
-}
+#: This file used to carry its own copy of ``EXPECTED_NON_PASSING``, its own
+#: ``PASS_FLOOR``, its own log parser and its own ``test -f`` list, so it could
+#: reproduce two of ``ci.yml``'s gates. A harness that re-implements a gate is
+#: testing its own copy -- and the guard that was supposed to make the copy safe
+#: (``check_expected_non_passing_is_current``) only ever printed a WARNING.
+#:
+#: Both are now single implementations that ``ci.yml`` runs and this file
+#: imports. There is nothing left for them to drift from.
+_installed_suite = _sibling("gate_installed_suite")
+_sdist_files = _sibling("gate_sdist_files")
 
-#: The floor from the same job. A green run of eleven tests satisfies every
-#: other assertion there, so the floor is what stops a collection failure
-#: reading as a pass.
-PASS_FLOOR = 4_000
-
-#: The ``test -f`` lines of ``build``'s sdist step, as paths in the extracted
-#: tree. ``data/LICENSES.md`` is held by one of these and by nothing else in the
-#: repository -- measured, not assumed: the extracted-tree suite passes with it
-#: gone, because no test reads it.
-TEST_F_LINES = (
-    "tests/conftest.py",
-    "schemas/acronym-engine-result.schema.json",
-    "bench/results.json",
-    "data/LICENSES.md",
-    "tests/airgap_socket_guard.py",
-)
+EXPECTED_NON_PASSING = set(_installed_suite.EXPECTED_NON_PASSING)
+PASS_FLOOR = _installed_suite.PASS_FLOOR
+TEST_F_LINES = tuple(name for name, _why in _sdist_files.REQUIRED)
 
 
 def _drop_manifest_line(tree: Path, needle: str) -> None:
@@ -174,29 +192,77 @@ BREAKAGES: Dict[str, Tuple[str, str, Mutator]] = {
 }
 
 
-def check_expected_non_passing_is_current(root: Path = REPO_ROOT) -> List[str]:
-    """Compare the copy above against ``ci.yml``, and report any drift.
+#: THE RESIDUE, DECLARED. Every literal this file's reproduction depends on,
+#: paired with what it reproduces. :func:`sequence_drift` requires each to be
+#: present in ``ci.yml``; a rename or a flag change there reddens this run
+#: instead of silently making the reproduction describe a sequence CI no longer
+#: performs.
+#:
+#: This is the WEAKER half of the fix and it is labelled as such. The two
+#: assertions above are invoked. The multi-step sequence around them cannot be:
+#: it spans ``$RUNNER_TEMP``, ``$GITHUB_WORKSPACE`` and a virtual environment
+#: the workflow creates, none of which exists outside a runner, and a job's
+#: ``run:`` block is not addressable from outside the workflow at all. So the
+#: sequence stays reproduced, and what is checkable about it is that every
+#: command it copies still appears in the file it was copied from.
+SEQUENCE_FRAGMENTS: Tuple[Tuple[str, str], ...] = (
+    ("python -m build --sdist", "the sdist build in installed-suite"),
+    ("python -m build\n", "the sdist+wheel build in build"),
+    ("--strip-components=1", "how both jobs extract the sdist"),
+    ("python -m pytest -q -x", "build's extracted-tree suite"),
+    (
+        "--continue-on-collection-errors --tb=short -rfEs",
+        "installed-suite's pytest invocation",
+    ),
+    ('COLUMNS: "200"', "the terminal width the log parser depends on"),
+    ('cp -r "$RUNNER_TEMP/sdist/tests" "$RUNNER_TEMP/run/tests"', "the run-directory layout"),
+    ('cp "$RUNNER_TEMP/sdist/pyproject.toml"', "pytest configuration travelling with the tests"),
+    ('test ! -e "$RUNNER_TEMP/run/src"', "the assertion that no source tree is reachable"),
+    ("tools/gate_installed_suite.py", "the adjudicator this file imports"),
+    ("tools/gate_sdist_files.py", "the file list this file imports"),
+)
 
-    The list in this file is a copy, and a copy of a gate's data is exactly the
-    shape that goes stale. So it is checked rather than trusted: the node ids in
-    the workflow's ``EXPECTED_NON_PASSING`` block are read back out of the file
-    and compared. A mismatch is reported and does not stop the run -- the run is
-    still informative, and a harness that refuses to start because a list moved
-    is a harness people delete.
+#: DIVERGENCES THIS FILE KNOWS IT HAS, written down because an undeclared
+#: divergence is what cost the whole of run 32808357572. Each is a place the
+#: reproduction is deliberately not identical to the job, with the reason.
+KNOWN_DIVERGENCES: Tuple[str, ...] = (
+    "installs the sdist with `--no-deps --force-reinstall` into the AMBIENT "
+    "interpreter; `installed-suite` installs `${sdist}[dev]` into a fresh venv. "
+    "A venv per case would multiply a six-case run by a full dependency resolve, "
+    "and the measurement is about which files the artifact carries.",
+    "adds `-p no:cacheprovider` to the extracted-tree run, which `build` does not, "
+    "so six cases do not write six `.pytest_cache` directories into scratch trees.",
+    "runs in a temp directory rather than under `$RUNNER_TEMP`, and copies the run "
+    "directory with `shutil` rather than `cp -r`.",
+    "does not re-run `build`'s wheel steps at all: `wheel_budget`, `wheel_resources` "
+    "and `installed_wheel_smoke` are outside this harness and remain `inline`.",
+)
+
+
+def sequence_drift(root: Path = REPO_ROOT) -> List[str]:
+    """Every command this file reproduces that ``ci.yml`` no longer contains.
+
+    **This is the check that replaces a comment.** The previous guard here
+    compared one copied list against the workflow and printed a WARNING if they
+    disagreed; a warning in a log nobody reads is how a reproduction drifts for
+    a whole phase. The two copied *lists* are gone -- they are imported now --
+    and what is left is the sequence, which cannot be invoked from outside the
+    workflow. So the sequence's literals are asserted instead, and a miss is a
+    non-zero exit rather than a line of output.
     """
     workflow = root / ".github" / "workflows" / "ci.yml"
+    if not workflow.is_file():
+        return [f"{workflow} does not exist; the reproduction cannot be checked at all"]
     text = workflow.read_text(encoding="utf-8")
-    block = re.search(r"EXPECTED_NON_PASSING = \{(.*?)\n          \}", text, re.S)
-    if block is None:
-        return ["could not find EXPECTED_NON_PASSING in .github/workflows/ci.yml"]
-    found = set(re.findall(r'"(tests/[^"]+::[^"]+)"', block.group(1)))
     problems = []
-    if found != EXPECTED_NON_PASSING:
-        problems.append(
-            "EXPECTED_NON_PASSING has drifted from the copy in this file.\n"
-            f"  only in ci.yml:    {sorted(found - EXPECTED_NON_PASSING)}\n"
-            f"  only in this file: {sorted(EXPECTED_NON_PASSING - found)}"
-        )
+    for fragment, what in SEQUENCE_FRAGMENTS:
+        if fragment not in text:
+            problems.append(
+                f"ci.yml no longer contains {fragment!r} ({what}). This file REPRODUCES that "
+                "sequence and can only be reproducing something else now. Re-derive the "
+                "reproduction from the workflow, or update SEQUENCE_FRAGMENTS and say what "
+                "moved."
+            )
     return problems
 
 
@@ -211,35 +277,16 @@ def _run(argv: Sequence[str], cwd: Path) -> Tuple[int, str]:
     return done.returncode, done.stdout + done.stderr
 
 
-def _summarise(log: str) -> Dict[str, Any]:
-    body = [line for line in log.splitlines() if line.strip()]
-    summary = body[-1].strip().strip("=").strip() if body else ""
-    counts = {word: int(n) for n, word in re.findall(r"(\d+) (\w+)", summary)}
-    observed = set()
-    for line in log.splitlines():
-        if line.startswith(("FAILED ", "ERROR ")):
-            nodeid = line.split(" ", 1)[1].split(" - ", 1)[0].strip()
-            observed.add(nodeid.replace("\\", "/"))
-    return {"summary": summary, "counts": counts, "observed": sorted(observed)}
-
-
 def _installed_suite_gate(log: str) -> Dict[str, Any]:
-    """The literal gate from ``ci.yml``'s installed-suite job, applied to a log."""
-    got = _summarise(log)
-    observed = set(got["observed"])
-    problems: List[str] = []
-    unexpected = sorted(observed - EXPECTED_NON_PASSING)
-    if unexpected:
-        problems.append(f"unexpected non-passing: {unexpected}")
-    stale = sorted(EXPECTED_NON_PASSING - observed)
-    if stale:
-        problems.append(f"stale EXPECTED_NON_PASSING entries: {stale}")
-    passed = int(got["counts"].get("passed", 0))
-    if passed < PASS_FLOOR:
-        problems.append(f"only {passed} passed, under the {PASS_FLOOR} floor")
-    got["gate_rc"] = 1 if problems else 0
-    got["problems"] = problems
-    return got
+    """The gate from ``ci.yml``'s installed-suite job, INVOKED rather than copied.
+
+    One line, and the line is the point: ``tools/gate_installed_suite.py`` is
+    what the job runs, so what is applied to this log is the gate and not a
+    re-implementation of it.
+    """
+    verdict = dict(_installed_suite.adjudicate(log))
+    verdict["gate_rc"] = verdict.pop("rc")
+    return verdict
 
 
 def _extract(
@@ -338,8 +385,9 @@ def measure_one(case: str, base: Path, work: Path, python: str) -> Dict[str, Any
     shutil.rmtree(extracted, ignore_errors=True)
     _extract_sdist(sdist, extracted)
 
-    missing = [name for name in TEST_F_LINES if not (extracted / name).is_file()]
-    record["test_f"] = {"missing": missing, "rc": 1 if missing else 0}
+    # INVOKED, not copied: `tools/gate_sdist_files.py` is what `build` runs.
+    absent = _sdist_files.missing(extracted)
+    record["test_f"] = {"missing": [name for name, _why in absent], "rc": 1 if absent else 0}
 
     rc, out = _run([python, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider"], extracted)
     record["extracted_tree"] = {"rc": rc, "tail": out[-4000:]}
@@ -391,16 +439,43 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--work", type=Path, default=None, help="working root (default: a temp dir)"
     )
+    parser.add_argument(
+        "--check-drift",
+        action="store_true",
+        help="only check this file's reproduction against ci.yml, and exit",
+    )
     args = parser.parse_args(argv)
+
+    # THE DRIFT CHECK RUNS FIRST AND IS FATAL, WHICH IT WAS NOT BEFORE.
+    #
+    # `check_expected_non_passing_is_current()` printed `WARNING:` and carried
+    # on, on the reasoning that "a harness that refuses to start because a list
+    # moved is a harness people delete". That reasoning is wrong in the one
+    # direction that matters: a reproduction that no longer reproduces the gate
+    # produces a coverage TABLE, and the table is quoted onward. A number about
+    # the wrong sequence is worse than no number.
+    drift = sequence_drift()
+    if drift:
+        print(f"{len(drift)} drift(s) between this reproduction and ci.yml:", file=sys.stderr)
+        for problem in drift:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+    print(
+        f"reproduction check: {len(SEQUENCE_FRAGMENTS)} sequence fragment(s) still present in "
+        f"ci.yml; {len(KNOWN_DIVERGENCES)} divergence(s) declared; the two ASSERTIONS "
+        "(EXPECTED_NON_PASSING/PASS_FLOOR and the sdist file list) are imported from the "
+        "scripts ci.yml runs, not copied"
+    )
+    for divergence in KNOWN_DIVERGENCES:
+        print(f"  declared divergence: {divergence}")
+    if args.check_drift:
+        return 0
 
     cases = ["control"] + (args.only.split(",") if args.only else list(BREAKAGES))
     unknown = [c for c in cases if c != "control" and c not in BREAKAGES]
     if unknown:
         print(f"no such breakage: {unknown}", file=sys.stderr)
         return 1
-
-    for problem in check_expected_non_passing_is_current():
-        print(f"WARNING: {problem}")
 
     args.out.mkdir(parents=True, exist_ok=True)
     temp = None

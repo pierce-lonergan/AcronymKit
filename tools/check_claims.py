@@ -426,7 +426,19 @@ DEFERRED_BASELINE: Dict[str, int] = {
     # endpoint whose twin sentence lives in README.md. The next bound round owes
     # a waiver naming four mechanisms; see D-084 and
     # LEDGER_TRAJECTORY["M2-P6 (the walk)"].
-    "docs/DECISIONS.md": 54,
+    #
+    # Lowered again from 54 by the round that walked it a second time: 3 citations
+    # and 9 deletions, still none by fencing, and again NO waiver -- the forecast
+    # above was wrong for the same reason it had already been wrong three times.
+    # The three citations are the whole "after" column of D-013's before/after
+    # table, whose blocked verdict ("a table cannot have one live column and one
+    # frozen one") names a property that can never be discharged: the before
+    # column describes eager re-exports that no longer exist and no runner can
+    # ever regenerate it. What is left is 42, counted per record against the
+    # file's own boundaries: 29 in D-023, 5 each in D-048 and D-013, and 1 each in
+    # D-051, D-026 and D-007. Three numbers were walked and REFUSED with reasons.
+    # See docs/DECISIONS.md D-091 and LEDGER_TRAJECTORY["M3-PA (the second walk)"].
+    "docs/DECISIONS.md": 42,
     "docs/DEFINITION-OF-DONE.md": 1,
     "docs/EVALUATION.md": 10,
     "docs/OFFLINE.md": 3,
@@ -2435,6 +2447,92 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
             "took. The next bound round owes a waiver naming four mechanisms."
         ),
     ),
+    LedgerRound(
+        label="M3-PA (the second walk)",
+        deferred=189,
+        value_matched=64,
+        by_citation=3,
+        by_deletion=9,
+        from_record_file=12,
+        note=(
+            "the second consecutive round to pay the floor exactly and take no waiver, against a "
+            "forecast in D-084 that one would be needed. All 12 came out of docs/DECISIONS.md; none "
+            "by fencing. THREE BY CITATION, and they are the whole 'after' column of D-013's "
+            "before/after table: 2.3 against micro.import.cold_import_ms, 128.1 against "
+            "cold_import_engine_ms and 196.0 against cold_first_result_ms. That record's residue was "
+            "called blocked because 'a before/after table cannot have one live column and one frozen "
+            "one' -- the FOURTH time a per-record verdict has been too wide per number, and the first "
+            "where the stated reason can NEVER become false: the before column describes eager "
+            "re-exports that no longer exist, so no runner can ever regenerate it, and the verdict "
+            "treated a permanent property as a reason not to check the checkable half. NINE BY "
+            "DELETION under D-084's published rule plus one stated extension: 6 are arithmetic over "
+            "two numbers the reader still has (D-023's 21.6, 63.0 and 15.4, each a percentage of the "
+            "139.60 ms on the table's own first row; and 22.4, 29.4 and 1.6, each a delta between two "
+            "figures on its own line); 3 are CLAUSE FOUR, NEW AND NAMED SO A LATER ROUND CAN HOLD "
+            "THIS ONE TO IT -- a verbatim restatement of a figure elsewhere in the same record where "
+            "the original stays (D-023's second 56.80, D-048's second 16.59 in a sentence that "
+            "disclaims it, D-013's second 3.6). Clause four is weaker than clause one and implied by "
+            "it: a restatement asks the reader to do nothing where clause one asks them to divide. "
+            "--render --dry-run reports 'up to date', so all three citations render to the text "
+            "already on the page. THREE NUMBERS WERE WALKED AND REFUSED WITH REASONS: D-023's title "
+            "84.6, deletable under clause one and refused because it has five twins outside this file "
+            "and would retitle a record; D-026's 44, clause three exactly and refused because "
+            "removing it requires rewriting the sentence; and the upper endpoints of two ranges "
+            "(D-007's 100, D-048's 31) whose lower endpoints carry no unit and are invisible to the "
+            "gate, which is a one-sided arming rule and not a property of those sentences. 7 records "
+            "were added, the pin went red at 91 against 84, and this row plus a pin re-taken at 91 is "
+            "what closes it. THE RATE HAS NOW SAT ON THE FLOOR FOR TWO CONSECUTIVE ROUNDS, which is "
+            "what a floor looks like when it becomes a target; the next round should be read with "
+            "that in mind. See docs/DECISIONS.md D-091."
+        ),
+    ),
+    LedgerRound(
+        label="M3-PB (the salvage)",
+        deferred=189,
+        value_matched=64,
+        note=(
+            "the round that added six records salvaging three workstreams whose reports died before "
+            "reaching the recorder (docs/DECISIONS.md D-092 through D-097). It migrated NOTHING and "
+            "took the FIRST WAIVER this project has written, three rounds after D-084 forecast one "
+            "and one round after D-091 warned that two payments of exactly 12 look like a floor "
+            "becoming a target. THE WAIVER IS A MEASUREMENT AND NOT AN OPINION: every one of the 42 "
+            "numbers left in docs/DECISIONS.md was resolved against every field in "
+            "bench/results.json at the precision written. 26 match nothing anywhere; the other 16 "
+            "match Jaccard indices between proposer vertex sets, false-positive counts, gate "
+            "precisions, an elapsed-seconds field and percent-of-gold figures. NOT ONE of the 16 is "
+            "a measurement of the thing its sentence is about -- a millisecond matched a Jaccard -- "
+            "which is what 'gate-able' has meant all along and is the first time the whole bucket "
+            "was resolved to field names rather than to a count. DELETION WAS WALKED AND REFUSED "
+            "WITH REASONS, all three named in D-097 so a later round can hold this one to them: "
+            "D-023's table total is clause one in spirit and deleting it leaves an empty cell in a "
+            "rendered table; two surviving clause-four restatements are each the grammatical "
+            "subject of their sentence, so removing them rewords a closed record, which the rule "
+            "does not license; and D-007's and D-048's range endpoints are the upper half of a "
+            "range whose lower half carries no unit, which is a one-sided arming rule and the only "
+            "item on the list whose fix is a change to the gate rather than to the prose. THIS IS A "
+            "WAIVER TAKEN AT THE END OF A BURN-DOWN AND NOT ONE TAKEN TO AVOID ONE, and the probe "
+            "is the only thing that separates those two objects; the next round owes the same probe "
+            "before it may take the same waiver. 73 of 115 in five bound rounds. The residue "
+            "becomes citable the moment somebody writes a runner that saves an import attribution, "
+            "which is 29 of the 42 in one record. 6 records were added, the pin went red at 97 "
+            "against 91, and this row plus a pin re-taken at 97 is what closes it."
+        ),
+        waiver=(
+            "Nothing in the 42 numbers remaining in docs/DECISIONS.md is citable or deletable under "
+            "any rule this project has written. Citation: a probe over all 42 against every field "
+            "in bench/results.json found 26 with no value match anywhere and 16 whose only matches "
+            "are measurements of unrelated quantities in unrelated units -- the residue is "
+            "milliseconds and microseconds of an import attribution that NO RUNNER SAVES, and the "
+            "matches are Jaccards, F1s and false-positive counts. Deletion: all four published "
+            "clauses were walked and the reachable instances were taken by M2-P6 and M3-PA; the "
+            "three that remain each require rewording a closed record or leaving a malformed table "
+            "or range, and the rule licenses deleting a number rather than rewriting a record. See "
+            "docs/DECISIONS.md D-097 for the probe, the three refusals with their reasons, and this "
+            "waiver's own failure modes -- including that a waiver is free text nothing grades, "
+            "which docs/CLAIMS-LEDGER.md section 2 names as the mechanism by which a first "
+            "inconvenient round becomes a permanent exemption."
+        ),
+    ),
 )
 
 #: How many records :data:`RECORD_FILE` held when the newest round was appended.
@@ -2460,7 +2558,7 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
 #: the gate reads, and ``label`` puts the words "which round paid for this"
 #: into the diff. It is a deterrent, not a mechanism, and calling it a mechanism
 #: would be the same overclaim this policy exists to stop.
-RECORD_FILE_PIN = RecordPin(label="M2-P6 (the walk)", records=84)
+RECORD_FILE_PIN = RecordPin(label="M3-PB (the salvage)", records=97)
 
 
 def count_records(text: str) -> int:

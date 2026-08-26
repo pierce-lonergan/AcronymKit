@@ -1,13 +1,51 @@
-"""acronymkit — bi-directional, multi-tiered acronym engine.
+"""acronymkit — a governance instrument for names somebody else owns.
 
-One library for the three things production systems do with acronyms:
-*generate* them from a phrase, *extract* the ones a document already defines,
-and *disambiguate* the ones it does not. Ranking is a single explicit objective
-function, ``S(A, T) = alpha * SUM omega + beta * Phi(A) + gamma * Lambda(A)
-- delta * Psi(T, A)``, and every result carries the term-by-term breakdown that
-produced it.
+The subject this package is built around is a name it does not control: a
+schema column, a data-standard identifier, a token from a vocabulary the caller
+supplies and this library may not extend. Its first obligation on that subject
+is to report *unknown* rather than to return a plausible answer, because an
+unknown reported as unknown is recoverable and an unknown quietly guessed is
+not. :mod:`acronymkit.governed` is where that obligation is the design rather
+than a setting: expansion is a lookup against the catalog **you** supply, every
+resolved token records the row that resolved it, and ``is_fully_known`` is
+false the moment one token went unresolved or one character went unaccounted
+for.
 
-Example:
+    >>> from acronymkit import GovernedDictionary, expand_identifier
+    >>> catalog = GovernedDictionary.from_mapping(
+    ...     {"TXN": "Transaction", "ID": "Identifier"}
+    ... )
+    >>> expand_identifier("TXN_ID", catalog).phrase
+    'Transaction Identifier'
+    >>> expand_identifier("TXN_KYC_ID", catalog).is_fully_known
+    False
+    >>> [t.raw for t in expand_identifier("TXN_KYC_ID", catalog).unknown_tokens]
+    ['KYC']
+
+**Read the flag; the phrase alone will not tell you.** Under the default
+:class:`~acronymkit.governed.enums.UnknownPolicy` that second call still returns
+a phrase — ``'Transaction Kyc Identifier'`` — with the unrecognised token
+title-cased, ``is_known=False`` and confidence ``0.0``. The refusal is reported
+*beside* the answer rather than instead of it, so a caller that reads only
+``phrase`` gets a governed-looking string for a token no catalog approved.
+``UnknownPolicy.REJECT`` raises instead, and it is opt-in. The default is a
+worklist rather than a guess, and only for a caller who reads it.
+
+``normalize_name`` is :func:`acronymkit.governed.compliance.normalize` under a
+qualified name, and the rename is not cosmetic: this package already has a
+:func:`acronymkit.tokenizer.normalize`, which NFKC-composes and case-folds
+arbitrary text. Read inside its own module the bare verb is unambiguous; read
+at the top of the package it would be one of two unrelated normalisations with
+no way to tell which. The defining module keeps the short name; the export says
+what it normalises. See :data:`_EXPORT_ALIASES`.
+
+The supporting capabilities
+---------------------------
+Generation, backronym synthesis, extraction and contextual disambiguation ship
+in the same typed package, and none of them leads. *Generate* an acronym from a
+phrase, *extract* the pairs a document already defines, *disambiguate* the ones
+it does not:
+
     >>> from acronymkit import AcronymEngine, Config
     >>> engine = AcronymEngine(Config(max_candidates=5))
     >>> engine.generate("Portable Document Format").primary_acronym
@@ -23,28 +61,26 @@ Example:
     >>> (pair.short_form, pair.long_form)
     ('WHO', 'World Health Organization')
 
-Governed naming
----------------
-:mod:`acronymkit.governed` is a separate capability with its own entry points,
-re-exported here for reach. It answers the schema-governance question rather
-than the linguistic one: given a bare column token and a vocabulary somebody
-has already written down, say what the token means, deterministically, and
-record which catalog row said so.
+Each of these is measured wherever a corpus exists that can measure it, and
+where a losing comparison exists it is kept in the same table as its own figure.
+That is true of two of the four. Extraction is beaten on the corpus it is scored
+on by two compiled systems, and disambiguation loses to a trivial frequency
+baseline; both are published rather than tuned away. Generation has no external
+comparison to lose -- nothing else in the category generates -- and backronym
+*synthesis* has no accuracy figure at all, because scoring one needs a judgement
+no corpus records; that half is marked permanently unmeetable rather than left
+open. An earlier version of this paragraph said *each* keeps its losing
+comparison, which counted four and was true of two. Neither extraction nor disambiguation has a
+corpus registered here that could adjudicate a *headline* number at all;
+``python tools/splits.py --check`` prints both empty rows rather than leaving
+them to be inferred from their absence. The figures, each beside the comparison
+it loses, are in ``docs/EVALUATION.md``. ``docs/POSITIONING.md`` states the
+commitment this package is under, what it costs, and what would reverse it.
 
-    >>> from acronymkit import GovernedDictionary, expand_identifier
-    >>> catalog = GovernedDictionary.from_mapping(
-    ...     {"TXN": "Transaction", "ID": "Identifier"}
-    ... )
-    >>> expand_identifier("TXN_ID", catalog).phrase
-    'Transaction Identifier'
-
-``normalize_name`` is :func:`acronymkit.governed.compliance.normalize` under a
-qualified name, and the rename is not cosmetic: this package already has a
-:func:`acronymkit.tokenizer.normalize`, which NFKC-composes and case-folds
-arbitrary text. Read inside its own module the bare verb is unambiguous; read
-at the top of the package it would be one of two unrelated normalisations with
-no way to tell which. The defining module keeps the short name; the export says
-what it normalises. See :data:`_EXPORT_ALIASES`.
+Ranking, for generation, is a single explicit objective function,
+``S(A, T) = alpha * SUM omega + beta * Phi(A) + gamma * Lambda(A)
+- delta * Psi(T, A)``, and every result carries the term-by-term breakdown that
+produced it.
 
 Import policy
 -------------

@@ -76,9 +76,12 @@ command and this file's constants. It cannot tell a true finding from an
 invented one, and section 7 of the policy already says the only defence is that
 each finding ships the command that refutes it.
 
-**The ledger is not in the sdist.** ``MANIFEST.in`` ships ``docs/*.md``, so
-``docs/cold-reads.toml`` is absent from a distribution exactly as
-``.github/gates.toml`` is. ``--check`` fails loudly there rather than passing
+**Corrected 2026-08-26: the ledger IS in the sdist.** This said ``MANIFEST.in``
+ships ``docs/*.md`` so ``docs/cold-reads.toml`` is absent from a distribution
+exactly as ``.github/gates.toml`` is. ``387f739`` added explicit ``include``
+lines for both, and both are present in a tarball built from this tree. This was
+the third copy of one false sentence and **the only one no second-reader trigger
+can reach**, because ``PATHSPEC`` does not cover ``tools/``. ``--check`` fails loudly there rather than passing
 vacuously, which means this gate belongs to a checkout environment; it is
 reported as such in the gate register rather than assumed.
 

@@ -4,15 +4,25 @@
 Why this exists
 ---------------
 D-068 measured, for the first time, how often this project's own reporting is
-wrong: ``5`` of ``24`` sampled incidental claims were not true, and the subset
-that needed a derivation rather than a lookup failed at ``36.4 %``.
+wrong: ``5`` of ``24`` sampled incidental claims were not true. A second round
+measured the same rate on the same split (D-082), so that headline now has two
+observations behind it.
 
-The do-not list is almost entirely derivation-requiring claims. "Covers
-``1.124 %`` of real token occurrences", "measured sense coverage is ``4.72 %``",
-"a *perfect* selector is worth about a point and a half" -- each is a number
-somebody computed once, wrote down once, and nobody has recomputed since,
-because the direction it closed is closed and nobody looks at closed
-directions. **A wrongly-closed direction costs more than an open one.**
+**The decomposition that used to justify this module is retired**, and it is
+named here rather than deleted so that nobody re-derives it. It read: *the
+subset that needed a derivation rather than a lookup failed at* ``36.4 %``.
+D-082 re-took it and the ratio inverted, ``4.7x`` to ``0.75x``. One round of a
+ratio is not a finding, so this module does not rest on one;
+``docs/CLAIMS-LEDGER.md`` section 6 carries the retirement and what a third
+round would need to establish the decomposition.
+
+What it rests on instead needs no rate at all. A live claim is read by somebody.
+A prohibition is read by nobody, because the direction it closes is closed and
+the whole point of closing a direction is that work stops flowing to it.
+"Covers ``1.124 %`` of real token occurrences", "measured sense coverage is
+``4.72 %``", "a *perfect* selector is worth about a point and a half" -- each is
+a number somebody computed once, wrote down once, and nobody has recomputed
+since. **A wrongly-closed direction costs more than an open one.**
 
 So this module does to the prohibitions what R15's sampler does to a round's
 reporting: it states the denominator, draws a seeded sample, and hands the

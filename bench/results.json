@@ -671,6 +671,147 @@
       "exact_recall": 72.97,
       "split_seed": 20260809
     },
+    "differential.med1250.harness_ceiling": {
+      "arm": "harness_ceiling",
+      "corpus": "med1250",
+      "documents_affected": 22,
+      "gold_pairs": 1221,
+      "max_f1_pct": 99.09,
+      "max_precision_pct": 100.0,
+      "max_recall_pct": 98.2,
+      "measured_on": "2026-08-25",
+      "reachable_pairs": 1199,
+      "system": "gold_as_prediction",
+      "unreachable_pairs": 22
+    },
+    "differential.med1250.reference_output": {
+      "ab3p_commit": "41130cddfcba1449ba612905d4a51274f8f565a8",
+      "ab3p_makefile_recipe_targets": 7,
+      "ab3p_makefile_scoring_targets": 0,
+      "arm": "reference_output",
+      "attribution": "Sohn S, Comeau DC, Kim W, Wilbur WJ. Abbreviation definition identification based on automatic precision estimates. BMC Bioinformatics. 2008;9:402. National Library of Medicine.",
+      "corpus": "med1250",
+      "documents": 1252,
+      "documents_agreeing": 1252,
+      "documents_compared": 1252,
+      "documents_disagreeing": 0,
+      "documents_discriminating": 515,
+      "documents_vacuous": 737,
+      "exact_f1": 88.87,
+      "exact_precision": 96.91,
+      "exact_recall": 82.06,
+      "gated_run_id": "extraction.med1250.pyab3p",
+      "harness_comparison": "run",
+      "harness_interpreter_version": "3.12.13",
+      "harness_pairs_raw": 1053,
+      "licence": "Public domain (United States Government Work)",
+      "licence_url": "https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/README.md",
+      "measured_on": "2026-08-25",
+      "pairs_agreeing": 1053,
+      "pairs_only_in_harness": 0,
+      "pairs_only_in_reference": 0,
+      "pyab3p_public_methods_on_ab3p": 1,
+      "pyab3p_public_names": 2,
+      "pyab3p_scoring_entry_points": 0,
+      "reference_pairs_raw": 1053,
+      "reference_pairs_scored": 1034,
+      "reference_records": 1252,
+      "reference_records_match_reader": true,
+      "relaxed_f1": 89.05,
+      "relaxed_precision": 97.1,
+      "relaxed_recall": 82.23,
+      "reproduces_gated_row": true,
+      "sha256": "c4b85fa6e30658a430a4910fa8038a6dec59c2072d58dd60d9b1ddbe6c365dbd",
+      "shared_task_scorers_expressing_pair_extraction": 0,
+      "shared_task_scorers_in_tree": 2,
+      "source": "https://raw.githubusercontent.com/ncbi-nlp/Ab3P/41130cddfcba1449ba612905d4a51274f8f565a8/identify_abbr-out",
+      "vendored": false
+    },
+    "differential.med1250.reference_output_mutations": {
+      "arm": "reference_output_mutations",
+      "corpus": "med1250",
+      "documents": 1252,
+      "documents_differing": {
+        "brackets_removed": 512,
+        "casefold": 508,
+        "control": 0,
+        "first_half": 121,
+        "spaces_removed": 515,
+        "words_reversed": 517
+      },
+      "documents_discriminating": 515,
+      "harness_interpreter_version": "3.12.13",
+      "measured_on": "2026-08-25",
+      "mutations_detected": 5,
+      "mutations_run": 5,
+      "system": "pyab3p under a mutated reader, against the NLM reference output"
+    },
+    "differential.med1250.scorer_agreement": {
+      "arm": "scorer_agreement",
+      "corpus": "med1250",
+      "disagreements": [],
+      "document_scorings_per_scorer": 15024,
+      "measured_on": "2026-08-25",
+      "pairs_scored": 5159,
+      "prediction_sets": 6,
+      "shares_code_with_scorer_under_test": false,
+      "synthetic_prediction_sets": [
+        "empty",
+        "gold_as_prediction"
+      ],
+      "system": "bench.scoring._count against run_scorer_differential.independent_counts",
+      "systems": [
+        "ab3p_reference_output",
+        "abbreviation_extractor",
+        "abbreviations",
+        "acronymkit",
+        "empty",
+        "gold_as_prediction"
+      ],
+      "verdicts_agreeing_on_counts": 12,
+      "verdicts_agreeing_on_figures": 12,
+      "verdicts_compared": 12,
+      "verdicts_disagreeing": 0,
+      "verdicts_from_extractors": 8,
+      "written_by_a_second_author": false
+    },
+    "differential.med1250.specification": {
+      "arm": "specification",
+      "axis_pooling_f1_delta_by_cell": {
+        "ab3p_reference_output/exact": 0.0,
+        "ab3p_reference_output/relaxed": 0.0,
+        "abbreviation_extractor/exact": 0.0,
+        "abbreviation_extractor/relaxed": 0.0,
+        "abbreviations/exact": 0.0,
+        "abbreviations/relaxed": 0.0,
+        "acronymkit/exact": 0.0,
+        "acronymkit/relaxed": 0.0,
+        "empty/exact": 0.0,
+        "empty/relaxed": 0.0,
+        "gold_as_prediction/exact": 0.0,
+        "gold_as_prediction/relaxed": 0.0
+      },
+      "axis_pooling_max_abs_f1_delta": 0.0,
+      "axis_relaxed_short_form_f1_delta_by_system": {
+        "ab3p_reference_output": 0.0,
+        "abbreviation_extractor": 0.0,
+        "abbreviations": 0.0,
+        "acronymkit": 0.8,
+        "empty": 0.0,
+        "gold_as_prediction": 0.0
+      },
+      "axis_relaxed_short_form_max_f1_delta": 0.8,
+      "axis_relaxed_short_form_pairs_reclassified": {
+        "ab3p_reference_output": 0,
+        "abbreviation_extractor": 0,
+        "abbreviations": 0,
+        "acronymkit": 9,
+        "empty": 0,
+        "gold_as_prediction": 0
+      },
+      "corpus": "med1250",
+      "measured_on": "2026-08-25"
+    },
     "disambiguation.sdu21.abstention_curve": {
       "arities_most_frequent_still_wins_at_reference_gate": [
         "3",
@@ -7497,6 +7638,403 @@
         "pairs": 495
       },
       "unscorable_stream_skew": 0
+    },
+    "governed_perf.caller_census": {
+      "excludes": "run_governed_perf.py",
+      "harness_classified": 8,
+      "harness_phrase_only": 6,
+      "harness_phrase_only_pct": 75.0,
+      "harness_provenance_reading": 2,
+      "harness_sites": 12,
+      "harness_unclassified": 4,
+      "library_classified": 3,
+      "library_phrase_only": 0,
+      "library_phrase_only_pct": 0.0,
+      "library_provenance_reading": 3,
+      "library_sites": 3,
+      "library_unclassified": 0,
+      "tests_classified": 55,
+      "tests_phrase_only": 19,
+      "tests_phrase_only_pct": 34.55,
+      "tests_provenance_reading": 36,
+      "tests_sites": 64,
+      "tests_unclassified": 9
+    },
+    "governed_perf.fixture_schema.census": {
+      "corpus": "fixture_schema",
+      "distinct_identifiers": 20000,
+      "distinct_identifiers_pct": 100.0,
+      "distinct_tokens": 117,
+      "distinct_tokens_pct": 0.04,
+      "distinct_tokens_per_memo_limit": 0.03,
+      "fetched_on": "n/a",
+      "identifier_hapax": 20000,
+      "identifier_hapax_pct_of_distinct": 100.0,
+      "identifiers": 20000,
+      "memo_limit": 4096,
+      "source": "bench fixture pool, seed 0",
+      "token_hapax": 0,
+      "token_hapax_pct_of_distinct": 0.0,
+      "token_hapax_pct_of_occurrences": 0.0,
+      "token_occurrences": 321384,
+      "tokens_per_identifier": 16.069,
+      "tokens_within_memo_limit_occurrence_pct": 100.0,
+      "top100_token_occurrence_pct": 97.43,
+      "top1_token_occurrence_pct": 7.96,
+      "top20_token_occurrence_pct": 56.83,
+      "top5_token_occurrence_pct": 23.39,
+      "top_tokens": "cd,dt,ts,nbr,am,eff,src,id,seq,chg"
+    },
+    "governed_perf.fixture_schema.fixture": {
+      "call_preparations": 20000,
+      "catalog": "fixture",
+      "catalog_index_decisions": 23931,
+      "catalog_lookups": 23934,
+      "catalog_lookups_from_digit_rejoin": 1385,
+      "catalog_lookups_from_token_path": 22549,
+      "catalog_lookups_per_identifier": 1.197,
+      "catalog_memo_hit_pct": 0.01,
+      "catalog_memo_hits": 3,
+      "class_word_lookups": 22575,
+      "confidence_validations": 22549,
+      "corpus": "fixture_schema",
+      "decomposition_rounds": 3,
+      "distinct_identifiers": 20000,
+      "distinct_identifiers_pct": 100.0,
+      "expansion_memo_hit_pct": 92.98,
+      "expansion_memo_hits": 298832,
+      "full_ns": 271519300.0,
+      "full_ns_max": 290702400.0,
+      "full_ns_min": 209333900.0,
+      "identifier_expansions_constructed": 20000,
+      "identifiers": 20000,
+      "identifiers_per_second": 73660,
+      "machine": "Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "memo_partitions_consulted": 345315,
+      "ns_per_identifier": 13576.0,
+      "phrase_mismatches": 0,
+      "phrase_only_speedup": 1.994,
+      "phrase_only_speedup_max": 1.996,
+      "phrase_only_speedup_min": 1.981,
+      "provenance_records_constructed": 42549,
+      "provenance_records_per_identifier": 2.127,
+      "python_calls_per_identifier": 186.47,
+      "python_calls_total": 3729363,
+      "sequence_validations": 42549,
+      "source": "bench fixture pool, seed 0",
+      "stage_assembly_pct": 3.3,
+      "stage_assembly_pct_max": 13.0,
+      "stage_assembly_pct_min": -3.06,
+      "stage_catalog_lookup_excess": 0,
+      "stage_catalog_lookups": 23934,
+      "stage_catalog_pct": 16.82,
+      "stage_catalog_pct_max": 24.16,
+      "stage_catalog_pct_min": 14.37,
+      "stage_class_word_lookup_excess": 0,
+      "stage_class_word_lookups": 22575,
+      "stage_provenance_class_word_pct": 2.23,
+      "stage_provenance_class_word_pct_max": 4.65,
+      "stage_provenance_class_word_pct_min": -10.15,
+      "stage_provenance_pct": 49.85,
+      "stage_provenance_pct_max": 49.9,
+      "stage_provenance_pct_min": 49.52,
+      "stage_provenance_records_pct": 47.62,
+      "stage_provenance_records_pct_max": 60.05,
+      "stage_provenance_records_pct_min": 44.87,
+      "stage_repeats": 2,
+      "stage_tokenise_pct": 23.02,
+      "stage_tokenise_pct_max": 36.39,
+      "stage_tokenise_pct_min": 22.73,
+      "stage_tokenizer_pass_excess": 0,
+      "stage_tokenizer_passes": 20000,
+      "title_casings": 22445,
+      "token_expands": 321381,
+      "token_expansions_constructed": 22549,
+      "token_keys_folded": 69084,
+      "token_passthroughs": 22445,
+      "tokenizer_passes": 20000,
+      "tokenizer_scans": 0
+    },
+    "governed_perf.inherited_counts": {
+      "identifier_corpus_best_reconstruction": 137720,
+      "identifier_corpus_claimed": 107012,
+      "identifier_corpus_reconstruction_pct": 128.7,
+      "identifier_corpus_sources_claimed": 8,
+      "identifier_corpus_sources_present": 2,
+      "sec_xbrl_distinct_identifiers": 68038,
+      "sec_xbrl_rows": 90655,
+      "socrata_distinct_identifiers": 69682,
+      "socrata_pairs_claimed": 164652,
+      "socrata_pairs_measured": 155272,
+      "socrata_pairs_shortfall": 9380,
+      "socrata_pairs_shortfall_pct": 5.7
+    },
+    "governed_perf.profiler_overhead": {
+      "identifiers": 20000,
+      "machine": "Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "profiled_ns": 919308800,
+      "profiler_cost_ratio": 3.362,
+      "unprofiled_ns": 273438000
+    },
+    "governed_perf.sec_xbrl.census": {
+      "corpus": "sec_xbrl",
+      "distinct_identifiers": 68038,
+      "distinct_identifiers_pct": 75.05,
+      "distinct_tokens": 6601,
+      "distinct_tokens_pct": 1.01,
+      "distinct_tokens_per_memo_limit": 1.61,
+      "fetched_on": "2026-08-23",
+      "identifier_hapax": 56646,
+      "identifier_hapax_pct_of_distinct": 83.26,
+      "identifiers": 90655,
+      "memo_limit": 4096,
+      "source": "sec_xbrl_2025q1.json",
+      "token_hapax": 2603,
+      "token_hapax_pct_of_distinct": 39.43,
+      "token_hapax_pct_of_occurrences": 0.4,
+      "token_occurrences": 655281,
+      "tokens_per_identifier": 7.228,
+      "tokens_within_memo_limit_occurrence_pct": 99.62,
+      "top100_token_occurrence_pct": 66.78,
+      "top1_token_occurrence_pct": 5.25,
+      "top20_token_occurrence_pct": 34.49,
+      "top5_token_occurrence_pct": 15.36,
+      "top_tokens": "of,and,stock,in,to,for,shares,from,issued,net"
+    },
+    "governed_perf.sec_xbrl.empty": {
+      "call_preparations": 90655,
+      "catalog": "empty",
+      "catalog_index_decisions": 655663,
+      "catalog_lookups": 655663,
+      "catalog_lookups_from_digit_rejoin": 382,
+      "catalog_lookups_from_token_path": 655281,
+      "catalog_lookups_per_identifier": 7.233,
+      "catalog_memo_hit_pct": 0.0,
+      "catalog_memo_hits": 0,
+      "class_word_lookups": 655281,
+      "confidence_validations": 655281,
+      "corpus": "sec_xbrl",
+      "decomposition_rounds": 3,
+      "distinct_identifiers": 68038,
+      "distinct_identifiers_pct": 75.05,
+      "expansion_memo_hit_pct": 0.0,
+      "expansion_memo_hits": 0,
+      "full_ns": 2315609900.0,
+      "full_ns_max": 2401168300.0,
+      "full_ns_min": 2223350500.0,
+      "identifier_expansions_constructed": 90655,
+      "identifiers": 90655,
+      "identifiers_per_second": 39150,
+      "machine": "Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "memo_partitions_consulted": 1310944,
+      "ns_per_identifier": 25543.1,
+      "phrase_mismatches": 0,
+      "phrase_only_speedup": 3.781,
+      "phrase_only_speedup_max": 4.29,
+      "phrase_only_speedup_min": 3.265,
+      "provenance_records_constructed": 745936,
+      "provenance_records_per_identifier": 8.228,
+      "python_calls_per_identifier": 322.41,
+      "python_calls_total": 29227773,
+      "sequence_validations": 745936,
+      "source": "sec_xbrl_2025q1.json",
+      "stage_assembly_pct": 7.25,
+      "stage_assembly_pct_max": 11.5,
+      "stage_assembly_pct_min": 6.56,
+      "stage_catalog_lookup_excess": 0,
+      "stage_catalog_lookups": 655663,
+      "stage_catalog_pct": 12.81,
+      "stage_catalog_pct_max": 13.97,
+      "stage_catalog_pct_min": 9.69,
+      "stage_class_word_lookup_excess": 0,
+      "stage_class_word_lookups": 655281,
+      "stage_provenance_class_word_pct": 6.76,
+      "stage_provenance_class_word_pct_max": 7.56,
+      "stage_provenance_class_word_pct_min": 5.68,
+      "stage_provenance_pct": 73.55,
+      "stage_provenance_pct_max": 76.69,
+      "stage_provenance_pct_min": 69.37,
+      "stage_provenance_records_pct": 66.8,
+      "stage_provenance_records_pct_max": 69.13,
+      "stage_provenance_records_pct_min": 63.7,
+      "stage_repeats": 2,
+      "stage_tokenise_pct": 6.37,
+      "stage_tokenise_pct_max": 7.07,
+      "stage_tokenise_pct_min": 5.16,
+      "stage_tokenizer_pass_excess": 0,
+      "stage_tokenizer_passes": 90655,
+      "title_casings": 655281,
+      "token_expands": 655281,
+      "token_expansions_constructed": 655281,
+      "token_keys_folded": 1966225,
+      "token_passthroughs": 655281,
+      "tokenizer_passes": 90655,
+      "tokenizer_scans": 0
+    },
+    "governed_perf.socrata.census": {
+      "corpus": "socrata",
+      "distinct_identifiers": 69682,
+      "distinct_identifiers_pct": 44.88,
+      "distinct_tokens": 24536,
+      "distinct_tokens_pct": 5.79,
+      "distinct_tokens_per_memo_limit": 5.99,
+      "fetched_on": "2026-08-23",
+      "identifier_hapax": 54366,
+      "identifier_hapax_pct_of_distinct": 78.02,
+      "identifiers": 155272,
+      "memo_limit": 4096,
+      "source": "socrata_80pages_v2.json",
+      "token_hapax": 11318,
+      "token_hapax_pct_of_distinct": 46.13,
+      "token_hapax_pct_of_occurrences": 2.67,
+      "token_occurrences": 423544,
+      "tokens_per_identifier": 2.728,
+      "tokens_within_memo_limit_occurrence_pct": 88.32,
+      "top100_token_occurrence_pct": 37.43,
+      "top1_token_occurrence_pct": 1.61,
+      "top20_token_occurrence_pct": 16.66,
+      "top5_token_occurrence_pct": 6.07,
+      "top_tokens": "1,age,de,2,p,of,q,total,n,b"
+    },
+    "governed_perf.socrata.empty": {
+      "call_preparations": 155272,
+      "catalog": "empty",
+      "catalog_index_decisions": 451263,
+      "catalog_lookups": 451263,
+      "catalog_lookups_from_digit_rejoin": 27719,
+      "catalog_lookups_from_token_path": 423544,
+      "catalog_lookups_per_identifier": 2.906,
+      "catalog_memo_hit_pct": 0.0,
+      "catalog_memo_hits": 0,
+      "class_word_lookups": 423544,
+      "confidence_validations": 423544,
+      "corpus": "socrata",
+      "decomposition_rounds": 3,
+      "distinct_identifiers": 69682,
+      "distinct_identifiers_pct": 44.88,
+      "expansion_memo_hit_pct": 0.0,
+      "expansion_memo_hits": 0,
+      "full_ns": 1703391000.0,
+      "full_ns_max": 1713600100.0,
+      "full_ns_min": 1596039400.0,
+      "identifier_expansions_constructed": 155272,
+      "identifiers": 155272,
+      "identifiers_per_second": 91155,
+      "machine": "Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "memo_partitions_consulted": 874807,
+      "ns_per_identifier": 10970.4,
+      "phrase_mismatches": 0,
+      "phrase_only_speedup": 3.35,
+      "phrase_only_speedup_max": 3.595,
+      "phrase_only_speedup_min": 3.263,
+      "provenance_records_constructed": 578816,
+      "provenance_records_per_identifier": 3.728,
+      "python_calls_per_identifier": 139.87,
+      "python_calls_total": 21717409,
+      "sequence_validations": 578816,
+      "source": "socrata_80pages_v2.json",
+      "stage_assembly_pct": 6.43,
+      "stage_assembly_pct_max": 8.64,
+      "stage_assembly_pct_min": 4.28,
+      "stage_catalog_lookup_excess": 0,
+      "stage_catalog_lookups": 451263,
+      "stage_catalog_pct": 13.88,
+      "stage_catalog_pct_max": 14.4,
+      "stage_catalog_pct_min": 10.57,
+      "stage_class_word_lookup_excess": 0,
+      "stage_class_word_lookups": 423544,
+      "stage_provenance_class_word_pct": 4.82,
+      "stage_provenance_class_word_pct_max": 12.42,
+      "stage_provenance_class_word_pct_min": 2.7,
+      "stage_provenance_pct": 70.15,
+      "stage_provenance_pct_max": 72.18,
+      "stage_provenance_pct_min": 69.36,
+      "stage_provenance_records_pct": 65.33,
+      "stage_provenance_records_pct_max": 66.66,
+      "stage_provenance_records_pct_min": 59.76,
+      "stage_repeats": 2,
+      "stage_tokenise_pct": 9.82,
+      "stage_tokenise_pct_max": 11.69,
+      "stage_tokenise_pct_min": 8.61,
+      "stage_tokenizer_pass_excess": 0,
+      "stage_tokenizer_passes": 155272,
+      "title_casings": 423544,
+      "token_expands": 423544,
+      "token_expansions_constructed": 423544,
+      "token_keys_folded": 1298351,
+      "token_passthroughs": 423544,
+      "tokenizer_passes": 155272,
+      "tokenizer_scans": 0
+    },
+    "governed_perf.socrata.fixture": {
+      "call_preparations": 155272,
+      "catalog": "fixture",
+      "catalog_index_decisions": 426103,
+      "catalog_lookups": 426103,
+      "catalog_lookups_from_digit_rejoin": 27719,
+      "catalog_lookups_from_token_path": 398384,
+      "catalog_lookups_per_identifier": 2.744,
+      "catalog_memo_hit_pct": 0.0,
+      "catalog_memo_hits": 0,
+      "class_word_lookups": 398418,
+      "confidence_validations": 398384,
+      "corpus": "socrata",
+      "decomposition_rounds": 3,
+      "distinct_identifiers": 69682,
+      "distinct_identifiers_pct": 44.88,
+      "expansion_memo_hit_pct": 5.94,
+      "expansion_memo_hits": 25160,
+      "full_ns": 1764296300.0,
+      "full_ns_max": 1841067700.0,
+      "full_ns_min": 1668843000.0,
+      "identifier_expansions_constructed": 155272,
+      "identifiers": 155272,
+      "identifiers_per_second": 88008,
+      "machine": "Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "memo_partitions_consulted": 849647,
+      "ns_per_identifier": 11362.6,
+      "phrase_mismatches": 0,
+      "phrase_only_speedup": 3.082,
+      "phrase_only_speedup_max": 3.227,
+      "phrase_only_speedup_min": 3.046,
+      "provenance_records_constructed": 553656,
+      "provenance_records_per_identifier": 3.566,
+      "python_calls_per_identifier": 134.44,
+      "python_calls_total": 20874408,
+      "sequence_validations": 553656,
+      "source": "socrata_80pages_v2.json",
+      "stage_assembly_pct": 7.74,
+      "stage_assembly_pct_max": 7.86,
+      "stage_assembly_pct_min": 7.48,
+      "stage_catalog_lookup_excess": 0,
+      "stage_catalog_lookups": 426103,
+      "stage_catalog_pct": 15.95,
+      "stage_catalog_pct_max": 17.2,
+      "stage_catalog_pct_min": 15.92,
+      "stage_class_word_lookup_excess": 0,
+      "stage_class_word_lookups": 398418,
+      "stage_provenance_class_word_pct": 5.53,
+      "stage_provenance_class_word_pct_max": 9.93,
+      "stage_provenance_class_word_pct_min": 5.26,
+      "stage_provenance_pct": 67.56,
+      "stage_provenance_pct_max": 69.01,
+      "stage_provenance_pct_min": 67.17,
+      "stage_provenance_records_pct": 61.64,
+      "stage_provenance_records_pct_max": 62.3,
+      "stage_provenance_records_pct_min": 59.08,
+      "stage_repeats": 2,
+      "stage_tokenise_pct": 8.15,
+      "stage_tokenise_pct_max": 8.64,
+      "stage_tokenise_pct_min": 7.33,
+      "stage_tokenizer_pass_excess": 0,
+      "stage_tokenizer_passes": 155272,
+      "title_casings": 398280,
+      "token_expands": 423544,
+      "token_expansions_constructed": 398384,
+      "token_keys_folded": 1222939,
+      "token_passthroughs": 398280,
+      "tokenizer_passes": 155272,
+      "tokenizer_scans": 0
     },
     "micro.generate_default": {
       "iterations": 5000,
@@ -14810,6 +15348,3934 @@
       "system": "shapecue",
       "unlocated_pairs": 0
     },
+    "one_sense.pmc_oa.a2.biomedical": {
+      "a2_new_coverage_multiple_of_current": 5.95,
+      "a2_new_coverage_pct_of_licensed": 85.62,
+      "comparator": "the mechanism A2 replaces answers at NONE of the 212305 out-of-sentence occurrences, so its error rate there is 0 by declining rather than by being right. A2 buys coverage and pays in correctness.",
+      "corpus": "pmc_oa_same_article_genre",
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "groups_distinct": 738,
+      "groups_refinement": 321,
+      "groups_surface": 412,
+      "groups_unambiguous": 24220,
+      "licensed_occurrences": 247974,
+      "licensed_occurrences_distinct": 17706,
+      "licensed_occurrences_distinct_pct": 7.14,
+      "licensed_occurrences_inside_a_definition_sentence": 35669,
+      "licensed_occurrences_outside_every_definition_sentence": 212305,
+      "licensed_occurrences_refinement": 7208,
+      "licensed_occurrences_refinement_pct": 2.91,
+      "licensed_occurrences_surface": 8718,
+      "licensed_occurrences_surface_pct": 3.52,
+      "licensed_occurrences_unambiguous": 214342,
+      "licensed_occurrences_unambiguous_pct": 86.44,
+      "licensed_occurrences_unbounded_substring_count": 311750,
+      "licensed_occurrences_under_multi_expansion_groups": 33632,
+      "licensed_occurrences_under_multi_expansion_groups_pct": 13.56,
+      "model": "commit to the first definition in document order; license every whole-token occurrence of that short form at or after it; term_shaped short forms only",
+      "occurrence_scans": 25691,
+      "pooled_gold": false,
+      "profile": "biomedical",
+      "role": "single_annotator_reference",
+      "short_form_groups_licensed": 25691,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "wrong_ceiling_correctness_pct_of_licensed": 9.62,
+      "wrong_ceiling_distinct": 16968,
+      "wrong_ceiling_distinct_pct_of_licensed": 6.84,
+      "wrong_ceiling_refinement": 6887,
+      "wrong_ceiling_refinement_pct_of_licensed": 2.78,
+      "wrong_ceiling_surface": 8306,
+      "wrong_ceiling_surface_pct_of_licensed": 3.35,
+      "wrong_floor_correctness_pct_of_licensed": 0.5775,
+      "wrong_floor_distinct": 1040,
+      "wrong_floor_distinct_pct_of_licensed": 0.4194,
+      "wrong_floor_refinement": 392,
+      "wrong_floor_refinement_pct_of_licensed": 0.1581,
+      "wrong_floor_surface": 473,
+      "wrong_floor_surface_pct_of_licensed": 0.1907
+    },
+    "one_sense.pmc_oa.a2.general": {
+      "a2_new_coverage_multiple_of_current": 5.95,
+      "a2_new_coverage_pct_of_licensed": 85.61,
+      "comparator": "the mechanism A2 replaces answers at NONE of the 212302 out-of-sentence occurrences, so its error rate there is 0 by declining rather than by being right. A2 buys coverage and pays in correctness.",
+      "corpus": "pmc_oa_same_article_genre",
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "groups_distinct": 746,
+      "groups_refinement": 318,
+      "groups_surface": 410,
+      "groups_unambiguous": 24221,
+      "licensed_occurrences": 247979,
+      "licensed_occurrences_distinct": 17838,
+      "licensed_occurrences_distinct_pct": 7.19,
+      "licensed_occurrences_inside_a_definition_sentence": 35677,
+      "licensed_occurrences_outside_every_definition_sentence": 212302,
+      "licensed_occurrences_refinement": 7183,
+      "licensed_occurrences_refinement_pct": 2.9,
+      "licensed_occurrences_surface": 8713,
+      "licensed_occurrences_surface_pct": 3.51,
+      "licensed_occurrences_unambiguous": 214245,
+      "licensed_occurrences_unambiguous_pct": 86.4,
+      "licensed_occurrences_unbounded_substring_count": 311755,
+      "licensed_occurrences_under_multi_expansion_groups": 33734,
+      "licensed_occurrences_under_multi_expansion_groups_pct": 13.6,
+      "model": "commit to the first definition in document order; license every whole-token occurrence of that short form at or after it; term_shaped short forms only",
+      "occurrence_scans": 25695,
+      "pooled_gold": false,
+      "profile": "general",
+      "role": "single_annotator_reference",
+      "short_form_groups_licensed": 25695,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "wrong_ceiling_correctness_pct_of_licensed": 9.66,
+      "wrong_ceiling_distinct": 17092,
+      "wrong_ceiling_distinct_pct_of_licensed": 6.89,
+      "wrong_ceiling_refinement": 6865,
+      "wrong_ceiling_refinement_pct_of_licensed": 2.77,
+      "wrong_ceiling_surface": 8303,
+      "wrong_ceiling_surface_pct_of_licensed": 3.35,
+      "wrong_floor_correctness_pct_of_licensed": 0.5795,
+      "wrong_floor_distinct": 1052,
+      "wrong_floor_distinct_pct_of_licensed": 0.4242,
+      "wrong_floor_refinement": 385,
+      "wrong_floor_refinement_pct_of_licensed": 0.1553,
+      "wrong_floor_surface": 471,
+      "wrong_floor_surface_pct_of_licensed": 0.1899
+    },
+    "one_sense.pmc_oa.a2.high_precision": {
+      "a2_new_coverage_multiple_of_current": 5.95,
+      "a2_new_coverage_pct_of_licensed": 85.62,
+      "comparator": "the mechanism A2 replaces answers at NONE of the 211913 out-of-sentence occurrences, so its error rate there is 0 by declining rather than by being right. A2 buys coverage and pays in correctness.",
+      "corpus": "pmc_oa_same_article_genre",
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "groups_distinct": 746,
+      "groups_refinement": 318,
+      "groups_surface": 409,
+      "groups_unambiguous": 24143,
+      "licensed_occurrences": 247500,
+      "licensed_occurrences_distinct": 17838,
+      "licensed_occurrences_distinct_pct": 7.21,
+      "licensed_occurrences_inside_a_definition_sentence": 35587,
+      "licensed_occurrences_outside_every_definition_sentence": 211913,
+      "licensed_occurrences_refinement": 7183,
+      "licensed_occurrences_refinement_pct": 2.9,
+      "licensed_occurrences_surface": 8708,
+      "licensed_occurrences_surface_pct": 3.52,
+      "licensed_occurrences_unambiguous": 213771,
+      "licensed_occurrences_unambiguous_pct": 86.37,
+      "licensed_occurrences_unbounded_substring_count": 311159,
+      "licensed_occurrences_under_multi_expansion_groups": 33729,
+      "licensed_occurrences_under_multi_expansion_groups_pct": 13.63,
+      "model": "commit to the first definition in document order; license every whole-token occurrence of that short form at or after it; term_shaped short forms only",
+      "occurrence_scans": 25616,
+      "pooled_gold": false,
+      "profile": "high_precision",
+      "role": "single_annotator_reference",
+      "short_form_groups_licensed": 25616,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "wrong_ceiling_correctness_pct_of_licensed": 9.68,
+      "wrong_ceiling_distinct": 17092,
+      "wrong_ceiling_distinct_pct_of_licensed": 6.91,
+      "wrong_ceiling_refinement": 6865,
+      "wrong_ceiling_refinement_pct_of_licensed": 2.77,
+      "wrong_ceiling_surface": 8299,
+      "wrong_ceiling_surface_pct_of_licensed": 3.35,
+      "wrong_floor_correctness_pct_of_licensed": 0.581,
+      "wrong_floor_distinct": 1052,
+      "wrong_floor_distinct_pct_of_licensed": 0.4251,
+      "wrong_floor_refinement": 386,
+      "wrong_floor_refinement_pct_of_licensed": 0.156,
+      "wrong_floor_surface": 470,
+      "wrong_floor_surface_pct_of_licensed": 0.1899
+    },
+    "one_sense.pmc_oa.a2_projected_genuine": {
+      "artefact.distinct.of_sample": "49 of 120",
+      "artefact.distinct.projected_groups": 301.4,
+      "artefact.distinct.share_ci_high_pct": 50.18,
+      "artefact.distinct.share_ci_low_pct": 31.95,
+      "artefact.distinct.share_pct": 40.83,
+      "artefact.projected_groups": 349.5,
+      "artefact.projected_groups_ci_high": 502.4,
+      "artefact.projected_groups_ci_high_pct_of_term_shaped_groups": 1.956,
+      "artefact.projected_groups_ci_low": 254.1,
+      "artefact.projected_groups_ci_low_pct_of_term_shaped_groups": 0.989,
+      "artefact.projected_groups_pct_of_term_shaped_groups": 1.36,
+      "artefact.projected_licensed_occurrences": 8311.1,
+      "artefact.projected_licensed_occurrences_pct": 3.352,
+      "artefact.projected_wrong_ceiling": 7961.6,
+      "artefact.projected_wrong_ceiling_ci_high_pct_of_licensed": 4.557,
+      "artefact.projected_wrong_ceiling_ci_low_pct_of_licensed": 2.345,
+      "artefact.projected_wrong_ceiling_pct_of_licensed": 3.211,
+      "artefact.projected_wrong_floor": 483.5,
+      "artefact.projected_wrong_floor_pct_of_licensed": 0.195,
+      "artefact.refinement.of_sample": "6 of 40",
+      "artefact.refinement.projected_groups": 48.1,
+      "artefact.refinement.share_ci_high_pct": 29.84,
+      "artefact.refinement.share_ci_low_pct": 5.71,
+      "artefact.refinement.share_pct": 15.0,
+      "artefact.surface.of_sample": "0 of 40",
+      "artefact.surface.projected_groups": 0.0,
+      "artefact.surface.share_ci_high_pct": 8.81,
+      "artefact.surface.share_ci_low_pct": 0.0,
+      "artefact.surface.share_pct": 0.0,
+      "artefact_note": "For an `artefact` group the label says one of its expansions is not an expansion at all; it does NOT say which one came first, and A2 commits to whichever did. So the artefact rows are EXPOSURE and not error: the error is somewhere between zero and the ceiling, and this measurement does not locate it.",
+      "comparator": "the sentence-scoped mechanism A2 replaces answers at none of the out-of-sentence occurrences, so the rate A2 is measured against is zero by declining rather than by being right",
+      "comparator_error_rate_pct": 0.0,
+      "corpus": "pmc_oa_same_article_genre",
+      "genuine.distinct.of_sample": "5 of 120",
+      "genuine.distinct.projected_groups": 30.8,
+      "genuine.distinct.share_ci_high_pct": 9.46,
+      "genuine.distinct.share_ci_low_pct": 1.37,
+      "genuine.distinct.share_pct": 4.17,
+      "genuine.projected_groups": 38.8,
+      "genuine.projected_groups_ci_high": 148.3,
+      "genuine.projected_groups_ci_high_pct_of_term_shaped_groups": 0.577,
+      "genuine.projected_groups_ci_low": 10.3,
+      "genuine.projected_groups_ci_low_pct_of_term_shaped_groups": 0.04,
+      "genuine.projected_groups_pct_of_term_shaped_groups": 0.151,
+      "genuine.projected_licensed_occurrences": 918.0,
+      "genuine.projected_licensed_occurrences_pct": 0.37,
+      "genuine.projected_wrong_ceiling": 879.2,
+      "genuine.projected_wrong_ceiling_ci_high_pct_of_licensed": 1.308,
+      "genuine.projected_wrong_ceiling_ci_low_pct_of_licensed": 0.095,
+      "genuine.projected_wrong_ceiling_pct_of_licensed": 0.355,
+      "genuine.projected_wrong_floor": 53.1,
+      "genuine.projected_wrong_floor_pct_of_licensed": 0.0214,
+      "genuine.refinement.of_sample": "1 of 40",
+      "genuine.refinement.projected_groups": 8.0,
+      "genuine.refinement.share_ci_high_pct": 13.16,
+      "genuine.refinement.share_ci_low_pct": 0.06,
+      "genuine.refinement.share_pct": 2.5,
+      "genuine.surface.of_sample": "0 of 40",
+      "genuine.surface.projected_groups": 0.0,
+      "genuine.surface.share_ci_high_pct": 8.81,
+      "genuine.surface.share_ci_low_pct": 0.0,
+      "genuine.surface.share_pct": 0.0,
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "method": "per label and per class, the adjudicated share times that class's group count, licensed occurrences and error bounds; intervals are Clopper-Pearson on the adjudication draw alone",
+      "note": "The ceiling assumes every licensed occurrence of a genuinely ambiguous short form except the committed definition site carries the other sense, which no document does. It is a bound, not an estimate, and the floor below it is the part that needs no annotation at all.",
+      "pooled_gold": false,
+      "profile": "biomedical",
+      "role": "single_annotator_reference",
+      "unclear.distinct.of_sample": "2 of 120",
+      "unclear.distinct.projected_groups": 12.3,
+      "unclear.distinct.share_ci_high_pct": 5.89,
+      "unclear.distinct.share_ci_low_pct": 0.2,
+      "unclear.distinct.share_pct": 1.67,
+      "unclear.projected_groups": 12.3,
+      "unclear.projected_groups_ci_high": 108.1,
+      "unclear.projected_groups_ci_high_pct_of_term_shaped_groups": 0.421,
+      "unclear.projected_groups_ci_low": 1.5,
+      "unclear.projected_groups_ci_low_pct_of_term_shaped_groups": 0.006,
+      "unclear.projected_groups_pct_of_term_shaped_groups": 0.048,
+      "unclear.projected_licensed_occurrences": 295.1,
+      "unclear.projected_licensed_occurrences_pct": 0.119,
+      "unclear.projected_wrong_ceiling": 282.8,
+      "unclear.projected_wrong_ceiling_ci_high_pct_of_licensed": 0.943,
+      "unclear.projected_wrong_ceiling_ci_low_pct_of_licensed": 0.014,
+      "unclear.projected_wrong_ceiling_pct_of_licensed": 0.114,
+      "unclear.projected_wrong_floor": 17.3,
+      "unclear.projected_wrong_floor_pct_of_licensed": 0.007,
+      "unclear.refinement.of_sample": "0 of 40",
+      "unclear.refinement.projected_groups": 0.0,
+      "unclear.refinement.share_ci_high_pct": 8.81,
+      "unclear.refinement.share_ci_low_pct": 0.0,
+      "unclear.refinement.share_pct": 0.0,
+      "unclear.surface.of_sample": "0 of 40",
+      "unclear.surface.projected_groups": 0.0,
+      "unclear.surface.share_ci_high_pct": 8.81,
+      "unclear.surface.share_ci_low_pct": 0.0,
+      "unclear.surface.share_pct": 0.0,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "variant.distinct.of_sample": "64 of 120",
+      "variant.distinct.projected_groups": 393.6,
+      "variant.distinct.share_ci_high_pct": 62.49,
+      "variant.distinct.share_ci_low_pct": 44.01,
+      "variant.distinct.share_pct": 53.33,
+      "variant.projected_groups": 1070.4,
+      "variant.projected_groups_ci_high": 1170.6,
+      "variant.projected_groups_ci_high_pct_of_term_shaped_groups": 4.557,
+      "variant.projected_groups_ci_low": 916.2,
+      "variant.projected_groups_ci_low_pct_of_term_shaped_groups": 3.566,
+      "variant.projected_groups_pct_of_term_shaped_groups": 4.167,
+      "variant.projected_licensed_occurrences": 24107.8,
+      "variant.projected_licensed_occurrences_pct": 9.722,
+      "variant.projected_wrong_ceiling": 23037.4,
+      "variant.projected_wrong_ceiling_ci_high_pct_of_licensed": 10.199,
+      "variant.projected_wrong_ceiling_ci_low_pct_of_licensed": 7.933,
+      "variant.projected_wrong_ceiling_pct_of_licensed": 9.29,
+      "variant.projected_wrong_floor": 1351.1,
+      "variant.projected_wrong_floor_pct_of_licensed": 0.5448,
+      "variant.refinement.of_sample": "33 of 40",
+      "variant.refinement.projected_groups": 264.8,
+      "variant.refinement.share_ci_high_pct": 92.66,
+      "variant.refinement.share_ci_low_pct": 67.22,
+      "variant.refinement.share_pct": 82.5,
+      "variant.surface.of_sample": "40 of 40",
+      "variant.surface.projected_groups": 412.0,
+      "variant.surface.share_ci_high_pct": 100.0,
+      "variant.surface.share_ci_low_pct": 91.19,
+      "variant.surface.share_pct": 100.0
+    },
+    "one_sense.pmc_oa.audit": {
+      "adjudicators": 1,
+      "annotator": "the author of this runner; no second reader",
+      "corpus": "pmc_oa_same_article_genre",
+      "distinct.frame_size": 738,
+      "distinct.label_artefact": 49,
+      "distinct.label_artefact_pct": 40.83,
+      "distinct.label_genuine": 5,
+      "distinct.label_genuine_pct": 4.17,
+      "distinct.label_unclear": 2,
+      "distinct.label_unclear_pct": 1.67,
+      "distinct.label_variant": 64,
+      "distinct.label_variant_pct": 53.33,
+      "distinct.labels_applied": 120,
+      "distinct.sample_pct_of_frame": 16.26,
+      "distinct.sample_size": 120,
+      "drawn_groups_with_no_label": [],
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "label_vocabulary": [
+        "artefact",
+        "genuine",
+        "unclear",
+        "variant"
+      ],
+      "labels_in_the_table_matching_no_drawn_group": [],
+      "note": "One annotator, one operating point, one domain, and the annotator wrote the ladder being adjudicated. A rate off this sample is a rate about one class under AUDIT_PROFILE and nothing wider. Every frame is term_shaped only, so it excludes every single-letter and discourse-marker key the extractor also collides.",
+      "pooled_gold": false,
+      "profile": "biomedical",
+      "refinement.frame_size": 321,
+      "refinement.label_artefact": 6,
+      "refinement.label_artefact_pct": 15.0,
+      "refinement.label_genuine": 1,
+      "refinement.label_genuine_pct": 2.5,
+      "refinement.label_unclear": 0,
+      "refinement.label_unclear_pct": 0.0,
+      "refinement.label_variant": 33,
+      "refinement.label_variant_pct": 82.5,
+      "refinement.labels_applied": 40,
+      "refinement.sample_pct_of_frame": 12.46,
+      "refinement.sample_size": 40,
+      "role": "single_annotator_reference",
+      "rows": [
+        {
+          "class": "distinct",
+          "expansions": [
+            "sum frequency generation",
+            "shown in Fig."
+          ],
+          "label": "artefact",
+          "pmcid": 7582155,
+          "short_form": "SFG"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Differentially expressing genes",
+            "Differentially expressed genes",
+            "differential expression genes"
+          ],
+          "label": "variant",
+          "pmcid": 10273532,
+          "short_form": "DEGs"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "inhibited the growth",
+            "inhibition of growth rate"
+          ],
+          "label": "artefact",
+          "pmcid": 10049361,
+          "short_form": "Ir"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "high-risk group",
+            "hazard ratios"
+          ],
+          "label": "genuine",
+          "pmcid": 9913704,
+          "short_form": "HR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Real-time quantitative reverse transcription PCR",
+            "reverse transcription-quantitative PCR"
+          ],
+          "label": "variant",
+          "pmcid": 8481544,
+          "short_form": "RT-qPCR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "magnetic resonance spectroscopy, and the computational Machine-Learned Modeling Infrastructure",
+            "Multiscale Machine-Learned Modeling Infrastructure"
+          ],
+          "label": "artefact",
+          "pmcid": 10902389,
+          "short_form": "MuMMI"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "High Affinity Transport Systems",
+            "High affinity transport system",
+            "high-affinity NO3\u2212 transport",
+            "high-affinity NO3\u2212 transporters"
+          ],
+          "label": "variant",
+          "pmcid": 10256645,
+          "short_form": "HATS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "coss povidone",
+            "cross povidone"
+          ],
+          "label": "variant",
+          "pmcid": 8343990,
+          "short_form": "CP"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Healthcare Seeking Beliefs for parkinsonism",
+            "Health Seeking Beliefs"
+          ],
+          "label": "variant",
+          "pmcid": 3427187,
+          "short_form": "HSB"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "American Indian or Alaskan Native",
+            "American Indians or Alaska Natives"
+          ],
+          "label": "variant",
+          "pmcid": 11142665,
+          "short_form": "AIAN"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Modulus of Rupture",
+            "mechanical performance",
+            "mechanical properties"
+          ],
+          "label": "artefact",
+          "pmcid": 11493799,
+          "short_form": "MOR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "first dorsal interosseous",
+            "first dorsal interosseus"
+          ],
+          "label": "variant",
+          "pmcid": 11595597,
+          "short_form": "FDI"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "\u03941-pyrroline-5-carboxylate synthetase",
+            "\u03941-pirroline-5-carboxylate synthetase",
+            "delta-1-pyrroline-5-carboxylate synthase",
+            "\u22061-pyrroline-5-carboxylate synthetase"
+          ],
+          "label": "variant",
+          "pmcid": 7696101,
+          "short_form": "P5CS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "colon stem cells",
+            "colonic stem cells"
+          ],
+          "label": "variant",
+          "pmcid": 11749566,
+          "short_form": "CoSCs"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "unaffected children and adolescents",
+            "unaffected population"
+          ],
+          "label": "artefact",
+          "pmcid": 9859466,
+          "short_form": "UCA"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "large-capacity thermogravimetric analyzer",
+            "large-capacity TGA"
+          ],
+          "label": "variant",
+          "pmcid": 6539107,
+          "short_form": "LC-TGA"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "haluronic acid",
+            "Hyaluronic Acid"
+          ],
+          "label": "variant",
+          "pmcid": 6930756,
+          "short_form": "HA"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "lactic acid bacteria",
+            "Lactobacillus hilgardii and Pediococcus pentosaceus"
+          ],
+          "label": "artefact",
+          "pmcid": 5524659,
+          "short_form": "LAB"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Last Reading Weight KG",
+            "last reading weight",
+            "LAST WT KG"
+          ],
+          "label": "variant",
+          "pmcid": 4074427,
+          "short_form": "LW"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "succinyl phosphonate",
+            "specific perturbation",
+            "specific inhibitor of OGDHC"
+          ],
+          "label": "genuine",
+          "pmcid": 8718613,
+          "short_form": "SP"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "a category B school",
+            "and non-fruit consumption",
+            "a father with junior high"
+          ],
+          "label": "artefact",
+          "pmcid": 11575446,
+          "short_form": "aOR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "p-nitrophenyl palmitate",
+            "previously dissolved in isopropyl alcohol"
+          ],
+          "label": "artefact",
+          "pmcid": 6278552,
+          "short_form": "pNPP"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "aluminum",
+            "AlCl3\u2009\u00b7\u20096H2O",
+            "Al3+",
+            "Additional file and Fig."
+          ],
+          "label": "artefact",
+          "pmcid": 4647617,
+          "short_form": "Al"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Transmission electron micrographs",
+            "Transmission electron microscopy"
+          ],
+          "label": "variant",
+          "pmcid": 6163620,
+          "short_form": "TEM"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "adaptive laboratory evolution",
+            "and B, p\u2010value\u2009=\u20090.049"
+          ],
+          "label": "artefact",
+          "pmcid": 10990044,
+          "short_form": "ALE"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "mammalian TORC1",
+            "mTOR complex 1"
+          ],
+          "label": "variant",
+          "pmcid": 8545561,
+          "short_form": "mTORC1"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Schwerstverletzungsartenverfahrens",
+            "Schwerstverletztenartenverfahren"
+          ],
+          "label": "variant",
+          "pmcid": 8218558,
+          "short_form": "SAV"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "minimum inhibitory concentration",
+            "\u03bcg/ml and is resistant to amoxicillin"
+          ],
+          "label": "artefact",
+          "pmcid": 5837087,
+          "short_form": "MIC"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Listeria monocytogenes expressing chicken ovalbumin",
+            "L. monocytogenes encoding the chicken ovalbumin gene"
+          ],
+          "label": "variant",
+          "pmcid": 6587114,
+          "short_form": "LM-OVA"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Perforated grain",
+            "Perforated grains",
+            "powder, WGL, number of grains with perforations"
+          ],
+          "label": "artefact",
+          "pmcid": 10146953,
+          "short_form": "PerfG"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "hole-injecting layer",
+            "hole-injection layer"
+          ],
+          "label": "variant",
+          "pmcid": 6890729,
+          "short_form": "HIL"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "head-down tilt",
+            "head-down-tilt",
+            "head-down tilting",
+            "head-down tilt bed rest"
+          ],
+          "label": "variant",
+          "pmcid": 10354073,
+          "short_form": "HDT"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "quantitative phase microscopy",
+            "quantitative phase microscope"
+          ],
+          "label": "variant",
+          "pmcid": 10130531,
+          "short_form": "QPM"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "protein-G Sepharose",
+            "glutathione Sepharose beads"
+          ],
+          "label": "unclear",
+          "pmcid": 9395532,
+          "short_form": "GE"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "variable influence on projection",
+            "variable important in projection"
+          ],
+          "label": "variant",
+          "pmcid": 9670373,
+          "short_form": "VIP"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "of social responsibility",
+            "odds ratios"
+          ],
+          "label": "artefact",
+          "pmcid": 8703844,
+          "short_form": "OR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Inductively Coupled Plasma Optical Emission Spectrometry",
+            "inductively coupled plasma\u2014optical emission spectroscopy"
+          ],
+          "label": "variant",
+          "pmcid": 8564527,
+          "short_form": "ICP-OES"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "periodic-acid Schiff",
+            "period acid Schiff"
+          ],
+          "label": "variant",
+          "pmcid": 3674619,
+          "short_form": "PAS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Connectivity Map",
+            "CMAP LINCS 2020, 22 June 2021"
+          ],
+          "label": "artefact",
+          "pmcid": 8946504,
+          "short_form": "CMap"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "total organic carbon",
+            "Total soil C"
+          ],
+          "label": "artefact",
+          "pmcid": 5893836,
+          "short_form": "TOC"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "hormone receptor-positive",
+            "hazard ratio"
+          ],
+          "label": "genuine",
+          "pmcid": 10763362,
+          "short_form": "HR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "First Reading Weight KG",
+            "first reading weight",
+            "FIRST WT KG"
+          ],
+          "label": "variant",
+          "pmcid": 4074427,
+          "short_form": "FW"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "lower critical solution temperature",
+            "lowest critical solution concentration"
+          ],
+          "label": "variant",
+          "pmcid": 6163620,
+          "short_form": "LCST"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "screws were angled at 10\u00b0",
+            "screws were inserted at 10\u00b0"
+          ],
+          "label": "artefact",
+          "pmcid": 9403742,
+          "short_form": "SR-10"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "N-terminal 43 amino acid residues",
+            "NAC102\u0394N43-eYFP"
+          ],
+          "label": "artefact",
+          "pmcid": 8268430,
+          "short_form": "N43"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Acinic cell carcinoma",
+            "Acinar cell carcinoma"
+          ],
+          "label": "variant",
+          "pmcid": 3530754,
+          "short_form": "ACC"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "microRNAs",
+            "miR-4433-3p, respectively"
+          ],
+          "label": "artefact",
+          "pmcid": 10098097,
+          "short_form": "miRs"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "methicillin-resistant S. aureus",
+            "Methicillin-resistant Staphylococcus aureus"
+          ],
+          "label": "variant",
+          "pmcid": 4166016,
+          "short_form": "MRSA"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Differential scanning calorimetry",
+            "Dynamic scanning calorimetry"
+          ],
+          "label": "variant",
+          "pmcid": 11946615,
+          "short_form": "DSC"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Mallotus furetianus extract",
+            "Mallotus furetiamus"
+          ],
+          "label": "variant",
+          "pmcid": 7382178,
+          "short_form": "MF"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "rate of perceived exertion",
+            "ratings of perceived exertion"
+          ],
+          "label": "variant",
+          "pmcid": 6723041,
+          "short_form": "RPE"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "methylated-CpG-binding domain",
+            "methyl-CpG-binding domain"
+          ],
+          "label": "variant",
+          "pmcid": 4431600,
+          "short_form": "MBD"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "amyotrophic lateral sclerosis",
+            "ALSFRS-R score 31/48"
+          ],
+          "label": "artefact",
+          "pmcid": 6547457,
+          "short_form": "ALS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "GFAP-cre/MARVELD1fl/fl mice was notably irregular",
+            "further identified by immunofluorescence staining"
+          ],
+          "label": "artefact",
+          "pmcid": 6155261,
+          "short_form": "Fig"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "near-edge X-ray absorption fine structure",
+            "Near-ambient X-ray absorption fine structure"
+          ],
+          "label": "variant",
+          "pmcid": 7366672,
+          "short_form": "NEXAFS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "water extract of Eclipta prostrata L.",
+            "Water extract of E. prostrate L."
+          ],
+          "label": "variant",
+          "pmcid": 3934447,
+          "short_form": "WEP"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "single or multiple nucleotide variants",
+            "single nucleotide polymorphisms"
+          ],
+          "label": "artefact",
+          "pmcid": 5814582,
+          "short_form": "SNPs"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "heterozygosis",
+            "heterozygosity"
+          ],
+          "label": "variant",
+          "pmcid": 8073038,
+          "short_form": "He"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "abdomen",
+            "abdominal"
+          ],
+          "label": "variant",
+          "pmcid": 6838213,
+          "short_form": "AB"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "cryo-electron microscopy",
+            "cryogenic electron microscopy"
+          ],
+          "label": "variant",
+          "pmcid": 11292135,
+          "short_form": "cryo-EM"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Odds ratios",
+            "odds ratio",
+            "of neutropenia"
+          ],
+          "label": "artefact",
+          "pmcid": 4883255,
+          "short_form": "OR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "median absolute deviation",
+            "MVPA, median"
+          ],
+          "label": "artefact",
+          "pmcid": 11505919,
+          "short_form": "MAD"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "clusters of orthologous group",
+            "COG1409"
+          ],
+          "label": "artefact",
+          "pmcid": 9289680,
+          "short_form": "COG"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Scanning Electron Microscopy",
+            "scanning electron microscope"
+          ],
+          "label": "variant",
+          "pmcid": 10532005,
+          "short_form": "SEM"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "oral thrush",
+            "or both parents",
+            "or both parents deceased"
+          ],
+          "label": "artefact",
+          "pmcid": 8860281,
+          "short_form": "OR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Median odds ratios",
+            "monotherapy",
+            "median odds ratio"
+          ],
+          "label": "artefact",
+          "pmcid": 4883255,
+          "short_form": "MOR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "transfer RNAs",
+            "their sequences for our two samples"
+          ],
+          "label": "artefact",
+          "pmcid": 7020495,
+          "short_form": "tRNAs"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "guided by a partially complementary RNA molecule",
+            "guide RNA"
+          ],
+          "label": "artefact",
+          "pmcid": 4923065,
+          "short_form": "gRNA"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "syndecan 1",
+            "Syndican-1"
+          ],
+          "label": "variant",
+          "pmcid": 8357370,
+          "short_form": "SDC-1"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Beck Depression Inventory-II",
+            "but employing QALYs instead of clinical units"
+          ],
+          "label": "artefact",
+          "pmcid": 5328395,
+          "short_form": "BDI-II"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Dice similarity coefficient",
+            "Dice similiarity coefficient"
+          ],
+          "label": "variant",
+          "pmcid": 11492079,
+          "short_form": "DSC"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Canadian National Collection, Ottawa",
+            "Carleton Co., 24\u201331/VI/1977, Sanborne M."
+          ],
+          "label": "artefact",
+          "pmcid": 3208529,
+          "short_form": "CNC"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Health Recovery Program targeting people living with HIV",
+            "Health Recovery Program for HIV-infected persons",
+            "Health Recovery Program for HIV-infected drug users"
+          ],
+          "label": "variant",
+          "pmcid": 3157158,
+          "short_form": "HHRP"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "energy-conserving hydrogenases",
+            "energy-conserving hydrogenase"
+          ],
+          "label": "variant",
+          "pmcid": 4320612,
+          "short_form": "Ech"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "scanning electron microscopy",
+            "scanning electron microscope"
+          ],
+          "label": "variant",
+          "pmcid": 10647726,
+          "short_form": "SEM"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "open flowers",
+            "OFs"
+          ],
+          "label": "artefact",
+          "pmcid": 4776122,
+          "short_form": "OF"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "DYKDDDDK Tag",
+            "anti-DYKDDDDK"
+          ],
+          "label": "variant",
+          "pmcid": 7828388,
+          "short_form": "DDK"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "reduced-dimension",
+            "representation method"
+          ],
+          "label": "unclear",
+          "pmcid": 5469673,
+          "short_form": "RD"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "endothelial nitric oxide synthases",
+            "/endothelial nitric oxide synthase"
+          ],
+          "label": "variant",
+          "pmcid": 7439208,
+          "short_form": "eNOS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "critical point dryer",
+            "critical-point drying"
+          ],
+          "label": "variant",
+          "pmcid": 8677803,
+          "short_form": "CPD"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "intraoperative neuromonitoring",
+            "Intraoperative neurophysiological monitoring"
+          ],
+          "label": "variant",
+          "pmcid": 6445897,
+          "short_form": "IONM"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "\u201cmelanocarcinoma\u201d[All Fields] OR \u201cmelanocarcinomas\u201d[All Fields]",
+            "\u201crandomization\u201d[All Fields] OR \u201crandomly\u201d[All Fields]"
+          ],
+          "label": "artefact",
+          "pmcid": 9939121,
+          "short_form": "AND"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "hidden Markov models",
+            "Hidden Markov Modeling"
+          ],
+          "label": "variant",
+          "pmcid": 10902389,
+          "short_form": "HMM"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "left atrial",
+            "linear ablation"
+          ],
+          "label": "genuine",
+          "pmcid": 8546232,
+          "short_form": "LA"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "JA-isoleucine",
+            "jasmonoyl-isoleucine"
+          ],
+          "label": "variant",
+          "pmcid": 5479852,
+          "short_form": "JA-Ile"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "natural killer/T-cell lymphoma",
+            "NK/T-cell lymphoma"
+          ],
+          "label": "variant",
+          "pmcid": 7346655,
+          "short_form": "NKTCL"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "transcription start site",
+            "the DHS class"
+          ],
+          "label": "artefact",
+          "pmcid": 5393560,
+          "short_form": "TSS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Targeted Deep Amplicon Sequencing",
+            "targeted amplicon deep sequencing"
+          ],
+          "label": "variant",
+          "pmcid": 8759662,
+          "short_form": "TADS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "study mean",
+            "standard derivation"
+          ],
+          "label": "artefact",
+          "pmcid": 4428002,
+          "short_form": "SD"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "oscillating shear index",
+            "oscillatory shear index"
+          ],
+          "label": "variant",
+          "pmcid": 7874631,
+          "short_form": "OSI"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "PB mononuclear cells",
+            "peripheral blood mononuclear cell",
+            "peripheral blood mononuclear cells"
+          ],
+          "label": "variant",
+          "pmcid": 10235610,
+          "short_form": "PBMC"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Australian Plant Census",
+            "accepted, misapplied, excluded"
+          ],
+          "label": "artefact",
+          "pmcid": 10682373,
+          "short_form": "APC"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "hazard ratio",
+            "HLA-C rs12191877 SNP"
+          ],
+          "label": "artefact",
+          "pmcid": 10218224,
+          "short_form": "HR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "fluorescent signal was seen outside these tissue regions",
+            "found, independently of stages of maturity, in all discs examined"
+          ],
+          "label": "artefact",
+          "pmcid": 2875658,
+          "short_form": "Figure"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "monolayers",
+            "Machine Learning"
+          ],
+          "label": "genuine",
+          "pmcid": 7614201,
+          "short_form": "ML"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "HDP approximated MSN model",
+            "hierarchical Dirichlet process, multi-site neutral"
+          ],
+          "label": "variant",
+          "pmcid": 8326911,
+          "short_form": "HDP-MSN"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Mumm\u2019s Sprouting Broccoli",
+            "Mumm\u2019s Sprouting Seeds, Parkside, SK, Canada"
+          ],
+          "label": "artefact",
+          "pmcid": 10254352,
+          "short_form": "MUM"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Odds Ratio",
+            "or digestive tract infections"
+          ],
+          "label": "artefact",
+          "pmcid": 9792607,
+          "short_form": "OR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "triglycerols",
+            "triglycerides"
+          ],
+          "label": "variant",
+          "pmcid": 4660435,
+          "short_form": "TG"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "area under the curve",
+            "accuracy"
+          ],
+          "label": "artefact",
+          "pmcid": 11088107,
+          "short_form": "AUC"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Net primary production",
+            "net primary productivity"
+          ],
+          "label": "variant",
+          "pmcid": 3912177,
+          "short_form": "NPP"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "double amalgamation cold vapor atomic fluorescence spectrometry",
+            "double amalgamation cold vapor AFS"
+          ],
+          "label": "variant",
+          "pmcid": 3997863,
+          "short_form": "DA-CVAFS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "bone marrow transplantation",
+            "bone marrow transplant"
+          ],
+          "label": "variant",
+          "pmcid": 7943417,
+          "short_form": "BMT"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "GFP with a short C terminus LACE peptide tag",
+            "pET28-His6-GFP-C-LACE, gift from Jeffrey Bode Addgene plasmid # 133913"
+          ],
+          "label": "artefact",
+          "pmcid": 11246427,
+          "short_form": "GFP-LACE"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Mitogen-activated protein kinase phosphatases",
+            "MKP-2, and hVH3 respectively"
+          ],
+          "label": "artefact",
+          "pmcid": 11102075,
+          "short_form": "MKPs"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "visual analog scale",
+            "visual analog score"
+          ],
+          "label": "variant",
+          "pmcid": 11814855,
+          "short_form": "VAS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "humins were employed",
+            "humins non-soluble",
+            "humins fractions obtained after separation"
+          ],
+          "label": "artefact",
+          "pmcid": 8912838,
+          "short_form": "Hns"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "electro-optical modules",
+            "EOM-o2-micro; PreSens"
+          ],
+          "label": "artefact",
+          "pmcid": 6208160,
+          "short_form": "EOMs"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "DNA dependent protein kinase complex",
+            "dependant protein kinase complex"
+          ],
+          "label": "variant",
+          "pmcid": 8480522,
+          "short_form": "DNA-PK"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Polygenic risk scores for educational attainment",
+            "PRS for educational attainment"
+          ],
+          "label": "variant",
+          "pmcid": 11795430,
+          "short_form": "PRSEA"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "electrocardiography",
+            "electrocardiographic"
+          ],
+          "label": "variant",
+          "pmcid": 11940830,
+          "short_form": "ECG"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "adenosine deaminase acting on RNA",
+            "adenosine deaminase RNA specific"
+          ],
+          "label": "variant",
+          "pmcid": 9598096,
+          "short_form": "ADAR"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "info@vmm.be",
+            "Vlaamse Milieumaatschappij - Flanders Environment Agency"
+          ],
+          "label": "artefact",
+          "pmcid": 5974003,
+          "short_form": "VMM"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "High-density surface electromyography",
+            "high-density surface EMG"
+          ],
+          "label": "variant",
+          "pmcid": 11199256,
+          "short_form": "HD-sEMG"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Fluorescein angiography",
+            "fluorescein angiographic"
+          ],
+          "label": "variant",
+          "pmcid": 4251634,
+          "short_form": "FA"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "transepithelial electrical resistance",
+            "the modest effects on barrier properties",
+            "the maintenance of epithelial barrier"
+          ],
+          "label": "artefact",
+          "pmcid": 5037914,
+          "short_form": "TEER"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "multiple sclerosis",
+            "median dose: 1200\u00a0IU/day"
+          ],
+          "label": "artefact",
+          "pmcid": 9886624,
+          "short_form": "MS"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "fluorescence in situ hybridisation",
+            "Fluorescent In Situ Hybridisation"
+          ],
+          "label": "variant",
+          "pmcid": 9601419,
+          "short_form": "FISH"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Li6PS5I",
+            "LASI-80Si and typical sulfide SEs"
+          ],
+          "label": "artefact",
+          "pmcid": 10333182,
+          "short_form": "LPSI"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "collagen",
+            "Collado s.r.o., Brno, Czech Republic"
+          ],
+          "label": "artefact",
+          "pmcid": 8224647,
+          "short_form": "Coll"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Convolutional Neural Networks",
+            "Convolutional Neural Network"
+          ],
+          "label": "variant",
+          "pmcid": 11672922,
+          "short_form": "CNN"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "high-sensitivity C-reactive protein",
+            "high sensitivity C-reactive protein"
+          ],
+          "label": "variant",
+          "pmcid": 11143008,
+          "short_form": "hs-CRP"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "enhanced RNA interactome capture",
+            "enhanced RIC"
+          ],
+          "label": "variant",
+          "pmcid": 6199288,
+          "short_form": "eRIC"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "vascular adhesion protein 1",
+            "vascular adhesion protein-1"
+          ],
+          "label": "variant",
+          "pmcid": 7201527,
+          "short_form": "VAP-1"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "sterol regulatory element-binding protein-1c",
+            "Sterol-regulatory element-binding protein-1c"
+          ],
+          "label": "variant",
+          "pmcid": 8869144,
+          "short_form": "SREBP-1c"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Collisions",
+            "collision"
+          ],
+          "label": "variant",
+          "pmcid": 9078012,
+          "short_form": "Col"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Medicare Health Outcomes Survey",
+            "\u2014Medicare Health Outcomes Survey"
+          ],
+          "label": "variant",
+          "pmcid": 8446553,
+          "short_form": "MHOS"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Whole exome sequencing",
+            "whole-exome sequencing"
+          ],
+          "label": "variant",
+          "pmcid": 4875637,
+          "short_form": "WES"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Hazard ratios",
+            "Hazards ratio",
+            "Hazard ratio"
+          ],
+          "label": "variant",
+          "pmcid": 6071392,
+          "short_form": "HR"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "receptor-binding domain",
+            "receptor binding domain"
+          ],
+          "label": "variant",
+          "pmcid": 8856557,
+          "short_form": "RBD"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "proximity ligation assay",
+            "Proximity ligation assays"
+          ],
+          "label": "variant",
+          "pmcid": 8529229,
+          "short_form": "PLA"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "long-QT syndrome type 3",
+            "LQTS type 3"
+          ],
+          "label": "variant",
+          "pmcid": 8184778,
+          "short_form": "LQTS3"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "endothelial-mesenchymal transition",
+            "Endothelial-to-mesenchymal transition"
+          ],
+          "label": "variant",
+          "pmcid": 8076642,
+          "short_form": "EndMT"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Days of Year",
+            "Days of the Year"
+          ],
+          "label": "variant",
+          "pmcid": 7411018,
+          "short_form": "DOY"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "headspace solid phase microextraction gas chromatography mass spectrometry",
+            "headspace solid-phase microextraction gas chromatography\u2013mass spectrometry"
+          ],
+          "label": "variant",
+          "pmcid": 7483446,
+          "short_form": "HS/SPME\u2013GC\u2013MS"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "hypoxia-inducible factor",
+            "hypoxia inducible factor"
+          ],
+          "label": "variant",
+          "pmcid": 9086555,
+          "short_form": "HIF"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Treg specific demethylated region",
+            "\u2018Treg-specific-demethylated-region\u2019"
+          ],
+          "label": "variant",
+          "pmcid": 4617722,
+          "short_form": "TSDR"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "superoxide dismutase",
+            "-superoxide dismutase"
+          ],
+          "label": "variant",
+          "pmcid": 10512251,
+          "short_form": "SOD"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "interferons",
+            "Interferon"
+          ],
+          "label": "variant",
+          "pmcid": 9653400,
+          "short_form": "IFN"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "valvular interstitial cell",
+            "valvular interstitial cells"
+          ],
+          "label": "variant",
+          "pmcid": 7201527,
+          "short_form": "VIC"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "tandem duplication random loss",
+            "Tandem Duplication\u2013Random Loss"
+          ],
+          "label": "variant",
+          "pmcid": 6952441,
+          "short_form": "TDRL"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "lipopolysaccharide",
+            "\u201clipopolysaccharide"
+          ],
+          "label": "variant",
+          "pmcid": 8115455,
+          "short_form": "LPS"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "-catalase",
+            "catalase"
+          ],
+          "label": "variant",
+          "pmcid": 10512251,
+          "short_form": "CAT"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "principal component analysis",
+            "Principal Components Analysis"
+          ],
+          "label": "variant",
+          "pmcid": 7483446,
+          "short_form": "PCA"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            ".\nTime-dependent density functional theory",
+            "time-dependent density functional theory"
+          ],
+          "label": "variant",
+          "pmcid": 11848911,
+          "short_form": "TD-DFT"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "trimethylamine N-Oxide",
+            "Trimethylamine-N-oxide"
+          ],
+          "label": "variant",
+          "pmcid": 10853344,
+          "short_form": "TMAO"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Fourier Transform Infrared Spectroscopy",
+            "Fourier Transform Infra-Red spectroscopy"
+          ],
+          "label": "variant",
+          "pmcid": 6034791,
+          "short_form": "FTIR"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "confidence intervals",
+            "confidence interval"
+          ],
+          "label": "variant",
+          "pmcid": 11175786,
+          "short_form": "CI"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "deep-learning",
+            "deep learning"
+          ],
+          "label": "variant",
+          "pmcid": 9221552,
+          "short_form": "DL"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "average overlap frequency",
+            "Average Overlap Frequencies"
+          ],
+          "label": "variant",
+          "pmcid": 10235610,
+          "short_form": "AOF"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "positive and negative symptoms scale",
+            "positive and negative symptom scale"
+          ],
+          "label": "variant",
+          "pmcid": 9958934,
+          "short_form": "PANSS"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Low Affinity Transport Systems",
+            "Low affinity transport system"
+          ],
+          "label": "variant",
+          "pmcid": 10256645,
+          "short_form": "LATS"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "copy number variants",
+            "copy-number variants"
+          ],
+          "label": "variant",
+          "pmcid": 7229812,
+          "short_form": "CNVs"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "intra-myocellular",
+            "intramyocellular"
+          ],
+          "label": "variant",
+          "pmcid": 3907517,
+          "short_form": "IMCL"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "gonadotropin-releasing hormone",
+            "gonadotropin releasing hormone"
+          ],
+          "label": "variant",
+          "pmcid": 11290961,
+          "short_form": "GnRH"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Oxford Nanopore Technology",
+            "Oxford Nanopore Technologies"
+          ],
+          "label": "variant",
+          "pmcid": 11678115,
+          "short_form": "ONT"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "lipopolysaccharide-",
+            "lipopolysaccharide"
+          ],
+          "label": "variant",
+          "pmcid": 8545561,
+          "short_form": "LPS"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "bone marrow transplantation",
+            "BM transplantation"
+          ],
+          "label": "variant",
+          "pmcid": 11395504,
+          "short_form": "BMT"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "\u201cThe Cancer Genome Atlas\u201d",
+            "the Cancer Genome Atlas"
+          ],
+          "label": "variant",
+          "pmcid": 8199287,
+          "short_form": "TCGA"
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "first bone-to-implant contact",
+            "first bone-to-implant contacts"
+          ],
+          "label": "variant",
+          "pmcid": 8531107,
+          "short_form": "fBIC"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "myosin heavy chain genes for slow-twitch",
+            "myosin heavy chain gene for white fast-twitch myofibers",
+            "myosin heavy chain"
+          ],
+          "label": "genuine",
+          "pmcid": 11237663,
+          "short_form": "MyHC"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "oral health",
+            "OHRQoL, using two questions"
+          ],
+          "label": "artefact",
+          "pmcid": 9859466,
+          "short_form": "OH"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "janus kinase 2",
+            "anti-phospho-janus kinase 2"
+          ],
+          "label": "artefact",
+          "pmcid": 7346167,
+          "short_form": "JAK2"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Receiver operating characteristic",
+            "Receiver operating characteristic curve"
+          ],
+          "label": "variant",
+          "pmcid": 4899386,
+          "short_form": "ROC"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "lipid nanoparticles",
+            "Lipid-based nanoparticles"
+          ],
+          "label": "variant",
+          "pmcid": 11208694,
+          "short_form": "LNPs"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "c-Src wild-type expression vector",
+            "c-Src wild-type"
+          ],
+          "label": "variant",
+          "pmcid": 2584948,
+          "short_form": "Srcwt"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "monodehydro ascorbate",
+            "monodehydro ascorbate reductase"
+          ],
+          "label": "variant",
+          "pmcid": 7096404,
+          "short_form": "MDAR"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "first ripe fruit",
+            "first ripe fruit observed"
+          ],
+          "label": "variant",
+          "pmcid": 11148399,
+          "short_form": "FRF"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "interferon",
+            "interferon-inducible genes"
+          ],
+          "label": "artefact",
+          "pmcid": 3979045,
+          "short_form": "IFN"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "multi-site neutral",
+            "multi-site neutral model"
+          ],
+          "label": "variant",
+          "pmcid": 8326911,
+          "short_form": "MSN"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Attenuated total reflectance Fourier-transform infrared",
+            "Attenuated Total Reflectance Fourier-Transform Infrared Spectroscopy"
+          ],
+          "label": "variant",
+          "pmcid": 11767186,
+          "short_form": "ATR-FTIR"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "X-ray absorption\nspectroscopy",
+            "using\nX-ray absorption spectroscopy"
+          ],
+          "label": "variant",
+          "pmcid": 11406483,
+          "short_form": "XAS"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Fourier Transform Infrared",
+            "Fourier transform infrared spectra"
+          ],
+          "label": "variant",
+          "pmcid": 8677803,
+          "short_form": "FT-IR"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "major histocompatibility complex",
+            "peptide-major histocompatibility complex"
+          ],
+          "label": "artefact",
+          "pmcid": 11799297,
+          "short_form": "MHC"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "cardiovascular risk assessment",
+            "analysis\u2014cardiovascular risk assessment"
+          ],
+          "label": "variant",
+          "pmcid": 5591433,
+          "short_form": "CVRA"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Cancer Prevention and Control Network",
+            "Cancer Prevention and Control Research Network"
+          ],
+          "label": "variant",
+          "pmcid": 10689540,
+          "short_form": "CPCRN"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "two-component signaling systems",
+            "Two-component systems"
+          ],
+          "label": "variant",
+          "pmcid": 7247690,
+          "short_form": "TCSs"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Principal Stratum method",
+            "Principal Stratum"
+          ],
+          "label": "variant",
+          "pmcid": 10929173,
+          "short_form": "PS"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Matrix",
+            "domains\u2014Matrix"
+          ],
+          "label": "variant",
+          "pmcid": 11403411,
+          "short_form": "MA"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "adaptive PIAT",
+            "adaptive version of the PIAT"
+          ],
+          "label": "variant",
+          "pmcid": 8049941,
+          "short_form": "aPIAT"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "oxalate oxidase",
+            "oxalate oxidase 2"
+          ],
+          "label": "variant",
+          "pmcid": 4647617,
+          "short_form": "OXO"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "indoleamine-pyrrole 2,3-dioxygenase",
+            "indoleamine-2,3-dioxygenase"
+          ],
+          "label": "variant",
+          "pmcid": 11430382,
+          "short_form": "IDO"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "of light-strand replication",
+            "of L-strand"
+          ],
+          "label": "variant",
+          "pmcid": 6952441,
+          "short_form": "OL"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Leber hereditary optic neuropathy",
+            "Leber\u2019s Hereditary Optic Neuropathy"
+          ],
+          "label": "variant",
+          "pmcid": 11239017,
+          "short_form": "LHON"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "minimum detectable rotation rate",
+            "minimum detectable rotation"
+          ],
+          "label": "variant",
+          "pmcid": 11501923,
+          "short_form": "MDR"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "fold change",
+            "log2-fold change"
+          ],
+          "label": "variant",
+          "pmcid": 6199288,
+          "short_form": "FC"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "methicillin-resistant Staphylococcus aureus",
+            "methicillin-resistant S. aureus",
+            "methicillin-resistant"
+          ],
+          "label": "variant",
+          "pmcid": 10882737,
+          "short_form": "MRSA"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "paraventricular nucleus",
+            "paraventricular nucleus of the hypothalamus"
+          ],
+          "label": "variant",
+          "pmcid": 6423225,
+          "short_form": "PVN"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "protein\u2013protein",
+            "protein\u2013protein interactive"
+          ],
+          "label": "variant",
+          "pmcid": 6771964,
+          "short_form": "PPI"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Environmental tobacco smoke exposure",
+            "Environmental tobacco smoke"
+          ],
+          "label": "variant",
+          "pmcid": 4129920,
+          "short_form": "ETS"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "terpyridine",
+            "terpyridine units"
+          ],
+          "label": "variant",
+          "pmcid": 8677803,
+          "short_form": "TPY"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "nalidixic acid",
+            "QNs\u2014nalidixic acid"
+          ],
+          "label": "variant",
+          "pmcid": 10049361,
+          "short_form": "NAL"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "last-menstrual-period based",
+            "last-menstrual-period"
+          ],
+          "label": "variant",
+          "pmcid": 4978964,
+          "short_form": "LMP"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "smooth muscle 22\u03b1",
+            "anti-smooth muscle 22\u03b1"
+          ],
+          "label": "artefact",
+          "pmcid": 7346167,
+          "short_form": "SM22\u03b1"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "long noncoding RNAs",
+            "long ncRNAs"
+          ],
+          "label": "variant",
+          "pmcid": 11208694,
+          "short_form": "lncRNAs"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "temperatures\u2014room temperature",
+            "room temperature"
+          ],
+          "label": "variant",
+          "pmcid": 5877123,
+          "short_form": "RT"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "traits such as temperament",
+            "traits"
+          ],
+          "label": "artefact",
+          "pmcid": 11065956,
+          "short_form": "TS"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Succinate dehydrogenase A",
+            "succinate dehydrogenase flavoprotein subunit"
+          ],
+          "label": "variant",
+          "pmcid": 7113522,
+          "short_form": "SDHA"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "etoposide",
+            "etoposide and cisplatin"
+          ],
+          "label": "variant",
+          "pmcid": 11171404,
+          "short_form": "EP"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "Satisfaction with Food-related Life scale",
+            "Satisfaction with Food-related Life"
+          ],
+          "label": "variant",
+          "pmcid": 6266111,
+          "short_form": "SWFoL"
+        }
+      ],
+      "seed": 20260826,
+      "surface.frame_size": 412,
+      "surface.label_artefact": 0,
+      "surface.label_artefact_pct": 0.0,
+      "surface.label_genuine": 0,
+      "surface.label_genuine_pct": 0.0,
+      "surface.label_unclear": 0,
+      "surface.label_unclear_pct": 0.0,
+      "surface.label_variant": 40,
+      "surface.label_variant_pct": 100.0,
+      "surface.labels_applied": 40,
+      "surface.sample_pct_of_frame": 9.71,
+      "surface.sample_size": 40,
+      "unit": "one (document, short form) group over abstract + body of one JATS file"
+    },
+    "one_sense.pmc_oa.bridge.biomedical": {
+      "also_defined_in_the_text_by_the_extractor": 1714,
+      "class_distinct": 132,
+      "class_refinement": 124,
+      "class_surface": 150,
+      "competing_pct_of_reached": 23.69,
+      "corpus": "pmc_oa_same_article_genre",
+      "examples": [
+        {
+          "class": "distinct",
+          "offered": [
+            "between miR-192 and ARFGEF1",
+            "Brefeldin A-inhibited guanine nucleotide-exchange protein 1"
+          ],
+          "pmcid": 10938800,
+          "rostered": "Brefeldin A-inhibited guanine nucleotide-exchange protein 1",
+          "short_form": "BIG1"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "diet-induced obese"
+          ],
+          "pmcid": 10938800,
+          "rostered": "Diet-induced obesity",
+          "short_form": "DIO"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "palmitate",
+            "palmitic acid"
+          ],
+          "pmcid": 10938800,
+          "rostered": "Palmitic acid",
+          "short_form": "PA"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "decayed, missing, and filled teeth"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Decayed, missing or filled permanent teeth",
+          "short_form": "DMFT"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Federation"
+          ],
+          "pmcid": 8451146,
+          "rostered": "International dental federation",
+          "short_form": "FDI"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "probability-proportional-to-size"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Probability proportional to size",
+          "short_form": "PPS"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "odds ratio",
+            "oral health status\u2019",
+            "of urbanization\u2019"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Odds ratio",
+          "short_form": "OR"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "false-positive rate",
+            "False positive rate"
+          ],
+          "pmcid": 8451146,
+          "rostered": "False-positive rate",
+          "short_form": "FPR"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "false-negative rate",
+            "False negative rate"
+          ],
+          "pmcid": 8451146,
+          "rostered": "False-negative rate",
+          "short_form": "FNR"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "area under the curve",
+            "Area under curve"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Area under curve",
+          "short_form": "AUC"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "acetylated low-density lipoprotein"
+          ],
+          "pmcid": 5336693,
+          "rostered": "acetylated low density lipoprotein",
+          "short_form": "acLDL"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "degenerate oligonucleotide-primed PCR"
+          ],
+          "pmcid": 5336693,
+          "rostered": "degenerate oligonucleotide primed PCR",
+          "short_form": "DOP-PCR"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Smooth Muscle Growth Medium-2"
+          ],
+          "pmcid": 5336693,
+          "rostered": "Smooth Muscle Growth Medium-2 (Lonza)",
+          "short_form": "SmGM-2"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "microvesicles\u2014Weibel-Palade bodies"
+          ],
+          "pmcid": 5336693,
+          "rostered": "Weibel-Palade bodies",
+          "short_form": "WPBs"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "Day-ahead"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Day-a-Head PES",
+          "short_form": "DaH"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Regions of Divergence",
+            "Region of Divergence"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Region of Divergence",
+          "short_form": "RoD"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Regions of Convergence",
+            "Region of Convergence"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Region of Convergence",
+          "short_form": "RoC"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "Real-Time Pricing"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Real-Time Price",
+          "short_form": "RTP"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Stochastic and Adaptive SLA"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Stochastic Adaptive- Service Level Agreement",
+          "short_form": "SA-SLA"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "Federal Licensing Examination",
+            "Federal Licensing Exam"
+          ],
+          "pmcid": 6267086,
+          "rostered": "Federal licensing examination",
+          "short_form": "FLE"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "strengths, weaknesses, opportunities and threats"
+          ],
+          "pmcid": 6267086,
+          "rostered": "Strengths, weaknesses, opportunities, threats",
+          "short_form": "SWOT"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "cone-beam computed tomography",
+            "cone-beam CT"
+          ],
+          "pmcid": 9012776,
+          "rostered": "Cone-beam computed tomography",
+          "short_form": "CBCT"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "osteomeatal complex"
+          ],
+          "pmcid": 9012776,
+          "rostered": "Ostiomeatal complex",
+          "short_form": "OMC"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "streptozocin",
+            "streptozotocin"
+          ],
+          "pmcid": 8934496,
+          "rostered": "Streptozocin",
+          "short_form": "STZ"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "very low-density lipoprotein"
+          ],
+          "pmcid": 8934496,
+          "rostered": "Very low density lipoprotein",
+          "short_form": "VLDL"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "activity"
+          ],
+          "pmcid": 4776122,
+          "rostered": "acid invertase",
+          "short_form": "AI"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "cell-wall bound AI"
+          ],
+          "pmcid": 4776122,
+          "rostered": "cell wall bound AI",
+          "short_form": "CWAI"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "cyclin-dependent kinases 1"
+          ],
+          "pmcid": 10334841,
+          "rostered": "cyclin-dependent kinase 1",
+          "short_form": "Cdk1"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "the European Surveillance System"
+          ],
+          "pmcid": 11923449,
+          "rostered": "European Surveillance System",
+          "short_form": "TESSy"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "immune checkpoint inhibitor"
+          ],
+          "pmcid": 7399011,
+          "rostered": "Immune checkpoint inhibitors",
+          "short_form": "ICI"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "programmed death ligand 1",
+            "Programmed death-ligand 1"
+          ],
+          "pmcid": 7399011,
+          "rostered": "Programmed death-ligand 1",
+          "short_form": "PD-L1"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Brazilian National Alcohol and Drugs Survey"
+          ],
+          "pmcid": 8063477,
+          "rostered": "II Brazilian national alcohol and drugs survey",
+          "short_form": "BNADS"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "\u201cearly serious delinquency\u201d"
+          ],
+          "pmcid": 8063477,
+          "rostered": "Early serious delinquency",
+          "short_form": "ESD"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "awareness, treatment, and control"
+          ],
+          "pmcid": 8425529,
+          "rostered": "awareness treatment, and control",
+          "short_form": "ATC"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Institute for Population Sciences"
+          ],
+          "pmcid": 8425529,
+          "rostered": "International Institute for Population Sciences",
+          "short_form": "IIPS"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "area-under-curve"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Area under the curve",
+          "short_form": "AUC"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Patient Reported Outcome"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Patient-reported outcome",
+          "short_form": "PRO"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Role Function-Preventive"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Role function preventive",
+          "short_form": "RFP"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Role Function-Restrictive"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Role function restrictive",
+          "short_form": "RFR"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "scores presented as mean",
+            "since migraine diagnosis, mean"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Standard deviation",
+          "short_form": "SD"
+        }
+      ],
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "note": "A competitor here is not proof of a second sense: the extractor has no gold. It is proof that the roster does not settle the question, which is what the roster's own rate would otherwise be read as doing.",
+      "pooled_gold": false,
+      "profile": "biomedical",
+      "role": "single_annotator_reference",
+      "singly_rostered_short_forms": 2694,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "with_an_expansion_the_roster_does_not_carry": 406
+    },
+    "one_sense.pmc_oa.bridge.general": {
+      "also_defined_in_the_text_by_the_extractor": 1714,
+      "class_distinct": 132,
+      "class_refinement": 124,
+      "class_surface": 150,
+      "competing_pct_of_reached": 23.69,
+      "corpus": "pmc_oa_same_article_genre",
+      "examples": [
+        {
+          "class": "distinct",
+          "offered": [
+            "between miR-192 and ARFGEF1",
+            "Brefeldin A-inhibited guanine nucleotide-exchange protein 1"
+          ],
+          "pmcid": 10938800,
+          "rostered": "Brefeldin A-inhibited guanine nucleotide-exchange protein 1",
+          "short_form": "BIG1"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "diet-induced obese"
+          ],
+          "pmcid": 10938800,
+          "rostered": "Diet-induced obesity",
+          "short_form": "DIO"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "palmitate",
+            "palmitic acid"
+          ],
+          "pmcid": 10938800,
+          "rostered": "Palmitic acid",
+          "short_form": "PA"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "decayed, missing, and filled teeth"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Decayed, missing or filled permanent teeth",
+          "short_form": "DMFT"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Federation"
+          ],
+          "pmcid": 8451146,
+          "rostered": "International dental federation",
+          "short_form": "FDI"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "probability-proportional-to-size"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Probability proportional to size",
+          "short_form": "PPS"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "odds ratio",
+            "oral health status\u2019",
+            "of urbanization\u2019"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Odds ratio",
+          "short_form": "OR"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "false-positive rate",
+            "False positive rate"
+          ],
+          "pmcid": 8451146,
+          "rostered": "False-positive rate",
+          "short_form": "FPR"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "false-negative rate",
+            "False negative rate"
+          ],
+          "pmcid": 8451146,
+          "rostered": "False-negative rate",
+          "short_form": "FNR"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "area under the curve",
+            "Area under curve"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Area under curve",
+          "short_form": "AUC"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "acetylated low-density lipoprotein"
+          ],
+          "pmcid": 5336693,
+          "rostered": "acetylated low density lipoprotein",
+          "short_form": "acLDL"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "degenerate oligonucleotide-primed PCR"
+          ],
+          "pmcid": 5336693,
+          "rostered": "degenerate oligonucleotide primed PCR",
+          "short_form": "DOP-PCR"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Smooth Muscle Growth Medium-2"
+          ],
+          "pmcid": 5336693,
+          "rostered": "Smooth Muscle Growth Medium-2 (Lonza)",
+          "short_form": "SmGM-2"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "microvesicles\u2014Weibel-Palade bodies"
+          ],
+          "pmcid": 5336693,
+          "rostered": "Weibel-Palade bodies",
+          "short_form": "WPBs"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "Day-ahead"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Day-a-Head PES",
+          "short_form": "DaH"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Regions of Divergence",
+            "Region of Divergence"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Region of Divergence",
+          "short_form": "RoD"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Regions of Convergence",
+            "Region of Convergence"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Region of Convergence",
+          "short_form": "RoC"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "Real-Time Pricing"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Real-Time Price",
+          "short_form": "RTP"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Stochastic and Adaptive SLA"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Stochastic Adaptive- Service Level Agreement",
+          "short_form": "SA-SLA"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "Federal Licensing Examination",
+            "Federal Licensing Exam"
+          ],
+          "pmcid": 6267086,
+          "rostered": "Federal licensing examination",
+          "short_form": "FLE"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "strengths, weaknesses, opportunities and threats"
+          ],
+          "pmcid": 6267086,
+          "rostered": "Strengths, weaknesses, opportunities, threats",
+          "short_form": "SWOT"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "cone-beam computed tomography",
+            "cone-beam CT"
+          ],
+          "pmcid": 9012776,
+          "rostered": "Cone-beam computed tomography",
+          "short_form": "CBCT"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "osteomeatal complex"
+          ],
+          "pmcid": 9012776,
+          "rostered": "Ostiomeatal complex",
+          "short_form": "OMC"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "streptozocin",
+            "streptozotocin"
+          ],
+          "pmcid": 8934496,
+          "rostered": "Streptozocin",
+          "short_form": "STZ"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "very low-density lipoprotein"
+          ],
+          "pmcid": 8934496,
+          "rostered": "Very low density lipoprotein",
+          "short_form": "VLDL"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "activity"
+          ],
+          "pmcid": 4776122,
+          "rostered": "acid invertase",
+          "short_form": "AI"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "cell-wall bound AI"
+          ],
+          "pmcid": 4776122,
+          "rostered": "cell wall bound AI",
+          "short_form": "CWAI"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "cyclin-dependent kinases 1"
+          ],
+          "pmcid": 10334841,
+          "rostered": "cyclin-dependent kinase 1",
+          "short_form": "Cdk1"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "the European Surveillance System"
+          ],
+          "pmcid": 11923449,
+          "rostered": "European Surveillance System",
+          "short_form": "TESSy"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "immune checkpoint inhibitor"
+          ],
+          "pmcid": 7399011,
+          "rostered": "Immune checkpoint inhibitors",
+          "short_form": "ICI"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "programmed death ligand 1",
+            "Programmed death-ligand 1"
+          ],
+          "pmcid": 7399011,
+          "rostered": "Programmed death-ligand 1",
+          "short_form": "PD-L1"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Brazilian National Alcohol and Drugs Survey"
+          ],
+          "pmcid": 8063477,
+          "rostered": "II Brazilian national alcohol and drugs survey",
+          "short_form": "BNADS"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "\u201cearly serious delinquency\u201d"
+          ],
+          "pmcid": 8063477,
+          "rostered": "Early serious delinquency",
+          "short_form": "ESD"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "awareness, treatment, and control"
+          ],
+          "pmcid": 8425529,
+          "rostered": "awareness treatment, and control",
+          "short_form": "ATC"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Institute for Population Sciences"
+          ],
+          "pmcid": 8425529,
+          "rostered": "International Institute for Population Sciences",
+          "short_form": "IIPS"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "area-under-curve"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Area under the curve",
+          "short_form": "AUC"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Patient Reported Outcome"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Patient-reported outcome",
+          "short_form": "PRO"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Role Function-Preventive"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Role function preventive",
+          "short_form": "RFP"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Role Function-Restrictive"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Role function restrictive",
+          "short_form": "RFR"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "scores presented as mean",
+            "since migraine diagnosis, mean"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Standard deviation",
+          "short_form": "SD"
+        }
+      ],
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "note": "A competitor here is not proof of a second sense: the extractor has no gold. It is proof that the roster does not settle the question, which is what the roster's own rate would otherwise be read as doing.",
+      "pooled_gold": false,
+      "profile": "general",
+      "role": "single_annotator_reference",
+      "singly_rostered_short_forms": 2694,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "with_an_expansion_the_roster_does_not_carry": 406
+    },
+    "one_sense.pmc_oa.bridge.high_precision": {
+      "also_defined_in_the_text_by_the_extractor": 1709,
+      "class_distinct": 131,
+      "class_refinement": 123,
+      "class_surface": 149,
+      "competing_pct_of_reached": 23.58,
+      "corpus": "pmc_oa_same_article_genre",
+      "examples": [
+        {
+          "class": "distinct",
+          "offered": [
+            "between miR-192 and ARFGEF1",
+            "Brefeldin A-inhibited guanine nucleotide-exchange protein 1"
+          ],
+          "pmcid": 10938800,
+          "rostered": "Brefeldin A-inhibited guanine nucleotide-exchange protein 1",
+          "short_form": "BIG1"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "diet-induced obese"
+          ],
+          "pmcid": 10938800,
+          "rostered": "Diet-induced obesity",
+          "short_form": "DIO"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "palmitate",
+            "palmitic acid"
+          ],
+          "pmcid": 10938800,
+          "rostered": "Palmitic acid",
+          "short_form": "PA"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "decayed, missing, and filled teeth"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Decayed, missing or filled permanent teeth",
+          "short_form": "DMFT"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Federation"
+          ],
+          "pmcid": 8451146,
+          "rostered": "International dental federation",
+          "short_form": "FDI"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "probability-proportional-to-size"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Probability proportional to size",
+          "short_form": "PPS"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "odds ratio",
+            "oral health status\u2019",
+            "of urbanization\u2019"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Odds ratio",
+          "short_form": "OR"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "false-positive rate",
+            "False positive rate"
+          ],
+          "pmcid": 8451146,
+          "rostered": "False-positive rate",
+          "short_form": "FPR"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "false-negative rate",
+            "False negative rate"
+          ],
+          "pmcid": 8451146,
+          "rostered": "False-negative rate",
+          "short_form": "FNR"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "area under the curve",
+            "Area under curve"
+          ],
+          "pmcid": 8451146,
+          "rostered": "Area under curve",
+          "short_form": "AUC"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "acetylated low-density lipoprotein"
+          ],
+          "pmcid": 5336693,
+          "rostered": "acetylated low density lipoprotein",
+          "short_form": "acLDL"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "degenerate oligonucleotide-primed PCR"
+          ],
+          "pmcid": 5336693,
+          "rostered": "degenerate oligonucleotide primed PCR",
+          "short_form": "DOP-PCR"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Smooth Muscle Growth Medium-2"
+          ],
+          "pmcid": 5336693,
+          "rostered": "Smooth Muscle Growth Medium-2 (Lonza)",
+          "short_form": "SmGM-2"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "microvesicles\u2014Weibel-Palade bodies"
+          ],
+          "pmcid": 5336693,
+          "rostered": "Weibel-Palade bodies",
+          "short_form": "WPBs"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "Day-ahead"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Day-a-Head PES",
+          "short_form": "DaH"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Regions of Divergence",
+            "Region of Divergence"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Region of Divergence",
+          "short_form": "RoD"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Regions of Convergence",
+            "Region of Convergence"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Region of Convergence",
+          "short_form": "RoC"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "Real-Time Pricing"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Real-Time Price",
+          "short_form": "RTP"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Stochastic and Adaptive SLA"
+          ],
+          "pmcid": 9747051,
+          "rostered": "Stochastic Adaptive- Service Level Agreement",
+          "short_form": "SA-SLA"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "Federal Licensing Examination",
+            "Federal Licensing Exam"
+          ],
+          "pmcid": 6267086,
+          "rostered": "Federal licensing examination",
+          "short_form": "FLE"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "strengths, weaknesses, opportunities and threats"
+          ],
+          "pmcid": 6267086,
+          "rostered": "Strengths, weaknesses, opportunities, threats",
+          "short_form": "SWOT"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "cone-beam computed tomography",
+            "cone-beam CT"
+          ],
+          "pmcid": 9012776,
+          "rostered": "Cone-beam computed tomography",
+          "short_form": "CBCT"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "osteomeatal complex"
+          ],
+          "pmcid": 9012776,
+          "rostered": "Ostiomeatal complex",
+          "short_form": "OMC"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "streptozocin",
+            "streptozotocin"
+          ],
+          "pmcid": 8934496,
+          "rostered": "Streptozocin",
+          "short_form": "STZ"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "very low-density lipoprotein"
+          ],
+          "pmcid": 8934496,
+          "rostered": "Very low density lipoprotein",
+          "short_form": "VLDL"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "activity"
+          ],
+          "pmcid": 4776122,
+          "rostered": "acid invertase",
+          "short_form": "AI"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "cell-wall bound AI"
+          ],
+          "pmcid": 4776122,
+          "rostered": "cell wall bound AI",
+          "short_form": "CWAI"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "cyclin-dependent kinases 1"
+          ],
+          "pmcid": 10334841,
+          "rostered": "cyclin-dependent kinase 1",
+          "short_form": "Cdk1"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "the European Surveillance System"
+          ],
+          "pmcid": 11923449,
+          "rostered": "European Surveillance System",
+          "short_form": "TESSy"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "immune checkpoint inhibitor"
+          ],
+          "pmcid": 7399011,
+          "rostered": "Immune checkpoint inhibitors",
+          "short_form": "ICI"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "programmed death ligand 1",
+            "Programmed death-ligand 1"
+          ],
+          "pmcid": 7399011,
+          "rostered": "Programmed death-ligand 1",
+          "short_form": "PD-L1"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Brazilian National Alcohol and Drugs Survey"
+          ],
+          "pmcid": 8063477,
+          "rostered": "II Brazilian national alcohol and drugs survey",
+          "short_form": "BNADS"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "\u201cearly serious delinquency\u201d"
+          ],
+          "pmcid": 8063477,
+          "rostered": "Early serious delinquency",
+          "short_form": "ESD"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "awareness, treatment, and control"
+          ],
+          "pmcid": 8425529,
+          "rostered": "awareness treatment, and control",
+          "short_form": "ATC"
+        },
+        {
+          "class": "refinement",
+          "offered": [
+            "Institute for Population Sciences"
+          ],
+          "pmcid": 8425529,
+          "rostered": "International Institute for Population Sciences",
+          "short_form": "IIPS"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "area-under-curve"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Area under the curve",
+          "short_form": "AUC"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Patient Reported Outcome"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Patient-reported outcome",
+          "short_form": "PRO"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Role Function-Preventive"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Role function preventive",
+          "short_form": "RFP"
+        },
+        {
+          "class": "surface",
+          "offered": [
+            "Role Function-Restrictive"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Role function restrictive",
+          "short_form": "RFR"
+        },
+        {
+          "class": "distinct",
+          "offered": [
+            "scores presented as mean",
+            "since migraine diagnosis, mean"
+          ],
+          "pmcid": 10073392,
+          "rostered": "Standard deviation",
+          "short_form": "SD"
+        }
+      ],
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "note": "A competitor here is not proof of a second sense: the extractor has no gold. It is proof that the roster does not settle the question, which is what the roster's own rate would otherwise be read as doing.",
+      "pooled_gold": false,
+      "profile": "high_precision",
+      "role": "single_annotator_reference",
+      "singly_rostered_short_forms": 2694,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "with_an_expansion_the_roster_does_not_carry": 403
+    },
+    "one_sense.pmc_oa.resolver.biomedical": {
+      "all.class_distinct": 1145,
+      "all.class_distinct_pct_of_groups": 3.87,
+      "all.class_distinct_pct_of_violations": 58.66,
+      "all.class_refinement": 371,
+      "all.class_refinement_pct_of_groups": 1.25,
+      "all.class_refinement_pct_of_violations": 19.01,
+      "all.class_surface": 436,
+      "all.class_surface_pct_of_groups": 1.47,
+      "all.class_surface_pct_of_violations": 22.34,
+      "all.groups_with_two_or_more_expansions": 1952,
+      "all.short_form_groups": 29619,
+      "all.violation_pct": 6.59,
+      "characters": 62464536,
+      "corpus": "pmc_oa_same_article_genre",
+      "definition_pairs_landing_in_no_sentence_span": 0,
+      "definition_pairs_offered": 38445,
+      "documents": 1839,
+      "documents_with_a_violation": 1027,
+      "documents_with_a_violation_pct": 55.85,
+      "extractor_calls": 1839,
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "instrument": "resolver",
+      "machine": "Python 3.13.4 on Windows AMD64",
+      "note": "No gold. This is the population A2 must arbitrate, not the population that is genuinely ambiguous: a group whose second expansion is extractor noise is counted because A2 would still have to choose, and would license the choice document-wide.",
+      "pooled_gold": false,
+      "profile": "biomedical",
+      "role": "single_annotator_reference",
+      "term_shaped.class_distinct": 738,
+      "term_shaped.class_distinct_pct_of_groups": 2.87,
+      "term_shaped.class_distinct_pct_of_violations": 50.17,
+      "term_shaped.class_refinement": 321,
+      "term_shaped.class_refinement_pct_of_groups": 1.25,
+      "term_shaped.class_refinement_pct_of_violations": 21.82,
+      "term_shaped.class_surface": 412,
+      "term_shaped.class_surface_pct_of_groups": 1.6,
+      "term_shaped.class_surface_pct_of_violations": 28.01,
+      "term_shaped.distinct_violating_short_form_types": 1163,
+      "term_shaped.groups_with_two_or_more_expansions": 1471,
+      "term_shaped.most_frequent_violating_short_form": "OR",
+      "term_shaped.most_frequent_violating_short_form_documents": 25,
+      "term_shaped.short_form_groups": 25691,
+      "term_shaped.violation_pct": 5.73,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "wall_clock_seconds_unarmed_note": 4.84
+    },
+    "one_sense.pmc_oa.resolver.general": {
+      "all.class_distinct": 754,
+      "all.class_distinct_pct_of_groups": 2.91,
+      "all.class_distinct_pct_of_violations": 50.84,
+      "all.class_refinement": 318,
+      "all.class_refinement_pct_of_groups": 1.23,
+      "all.class_refinement_pct_of_violations": 21.44,
+      "all.class_surface": 411,
+      "all.class_surface_pct_of_groups": 1.59,
+      "all.class_surface_pct_of_violations": 27.71,
+      "all.groups_with_two_or_more_expansions": 1483,
+      "all.short_form_groups": 25930,
+      "all.violation_pct": 5.72,
+      "characters": 62464536,
+      "corpus": "pmc_oa_same_article_genre",
+      "definition_pairs_landing_in_no_sentence_span": 0,
+      "definition_pairs_offered": 33244,
+      "documents": 1839,
+      "documents_with_a_violation": 850,
+      "documents_with_a_violation_pct": 46.22,
+      "extractor_calls": 1839,
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "instrument": "resolver",
+      "machine": "Python 3.13.4 on Windows AMD64",
+      "note": "No gold. This is the population A2 must arbitrate, not the population that is genuinely ambiguous: a group whose second expansion is extractor noise is counted because A2 would still have to choose, and would license the choice document-wide.",
+      "pooled_gold": false,
+      "profile": "general",
+      "role": "single_annotator_reference",
+      "term_shaped.class_distinct": 746,
+      "term_shaped.class_distinct_pct_of_groups": 2.9,
+      "term_shaped.class_distinct_pct_of_violations": 50.61,
+      "term_shaped.class_refinement": 318,
+      "term_shaped.class_refinement_pct_of_groups": 1.24,
+      "term_shaped.class_refinement_pct_of_violations": 21.57,
+      "term_shaped.class_surface": 410,
+      "term_shaped.class_surface_pct_of_groups": 1.6,
+      "term_shaped.class_surface_pct_of_violations": 27.82,
+      "term_shaped.distinct_violating_short_form_types": 1164,
+      "term_shaped.groups_with_two_or_more_expansions": 1474,
+      "term_shaped.most_frequent_violating_short_form": "OR",
+      "term_shaped.most_frequent_violating_short_form_documents": 25,
+      "term_shaped.short_form_groups": 25695,
+      "term_shaped.violation_pct": 5.74,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "wall_clock_seconds_unarmed_note": 4.09
+    },
+    "one_sense.pmc_oa.resolver.high_precision": {
+      "all.class_distinct": 754,
+      "all.class_distinct_pct_of_groups": 2.92,
+      "all.class_distinct_pct_of_violations": 50.88,
+      "all.class_refinement": 318,
+      "all.class_refinement_pct_of_groups": 1.23,
+      "all.class_refinement_pct_of_violations": 21.46,
+      "all.class_surface": 410,
+      "all.class_surface_pct_of_groups": 1.59,
+      "all.class_surface_pct_of_violations": 27.67,
+      "all.groups_with_two_or_more_expansions": 1482,
+      "all.short_form_groups": 25824,
+      "all.violation_pct": 5.74,
+      "characters": 62464536,
+      "corpus": "pmc_oa_same_article_genre",
+      "definition_pairs_landing_in_no_sentence_span": 0,
+      "definition_pairs_offered": 33131,
+      "documents": 1839,
+      "documents_with_a_violation": 850,
+      "documents_with_a_violation_pct": 46.22,
+      "extractor_calls": 1839,
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "instrument": "resolver",
+      "machine": "Python 3.13.4 on Windows AMD64",
+      "note": "No gold. This is the population A2 must arbitrate, not the population that is genuinely ambiguous: a group whose second expansion is extractor noise is counted because A2 would still have to choose, and would license the choice document-wide.",
+      "pooled_gold": false,
+      "profile": "high_precision",
+      "role": "single_annotator_reference",
+      "term_shaped.class_distinct": 746,
+      "term_shaped.class_distinct_pct_of_groups": 2.91,
+      "term_shaped.class_distinct_pct_of_violations": 50.64,
+      "term_shaped.class_refinement": 318,
+      "term_shaped.class_refinement_pct_of_groups": 1.24,
+      "term_shaped.class_refinement_pct_of_violations": 21.59,
+      "term_shaped.class_surface": 409,
+      "term_shaped.class_surface_pct_of_groups": 1.6,
+      "term_shaped.class_surface_pct_of_violations": 27.77,
+      "term_shaped.distinct_violating_short_form_types": 1163,
+      "term_shaped.groups_with_two_or_more_expansions": 1473,
+      "term_shaped.most_frequent_violating_short_form": "OR",
+      "term_shaped.most_frequent_violating_short_form_documents": 25,
+      "term_shaped.short_form_groups": 25616,
+      "term_shaped.violation_pct": 5.75,
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "wall_clock_seconds_unarmed_note": 4.0
+    },
+    "one_sense.pmc_oa.roster.admitted.case_folded": {
+      "articles": 1839,
+      "articles_with_a_roster": 220,
+      "articles_with_a_violation": 1,
+      "class_distinct": 0,
+      "class_refinement": 0,
+      "class_surface": 1,
+      "corpus": "pmc_oa_same_article_genre",
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "groups_with_two_or_more_expansions": 1,
+      "instrument": "roster",
+      "note": "A roster is a curated one-to-one table, so this rate is a FLOOR on within-document ambiguity and is not an estimate of one. It answers 'do authors declare two senses', which is a question about declaration habits.",
+      "pooled_gold": false,
+      "population": "admitted by roster_pair_admissible",
+      "role": "single_annotator_reference",
+      "roster_pairs": 2696,
+      "short_form_groups": 2695,
+      "short_form_key": "case-folded",
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "violation_pct": 0.0371,
+      "violations": [
+        {
+          "class": "surface",
+          "expansions": [
+            "Mueller hinton broth",
+            "Mueller-Hinton broth"
+          ],
+          "pmcid": 5557310,
+          "short_form": "mhb"
+        }
+      ]
+    },
+    "one_sense.pmc_oa.roster.admitted.case_sensitive": {
+      "articles": 1839,
+      "articles_with_a_roster": 220,
+      "articles_with_a_violation": 1,
+      "class_distinct": 0,
+      "class_refinement": 0,
+      "class_surface": 1,
+      "corpus": "pmc_oa_same_article_genre",
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "groups_with_two_or_more_expansions": 1,
+      "instrument": "roster",
+      "note": "A roster is a curated one-to-one table, so this rate is a FLOOR on within-document ambiguity and is not an estimate of one. It answers 'do authors declare two senses', which is a question about declaration habits.",
+      "pooled_gold": false,
+      "population": "admitted by roster_pair_admissible",
+      "role": "single_annotator_reference",
+      "roster_pairs": 2696,
+      "short_form_groups": 2695,
+      "short_form_key": "case-sensitive",
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "violation_pct": 0.0371,
+      "violations": [
+        {
+          "class": "surface",
+          "expansions": [
+            "Mueller hinton broth",
+            "Mueller-Hinton broth"
+          ],
+          "pmcid": 5557310,
+          "short_form": "MHB"
+        }
+      ]
+    },
+    "one_sense.pmc_oa.roster.raw.case_folded": {
+      "articles": 1839,
+      "articles_with_a_roster": 221,
+      "articles_with_a_violation": 4,
+      "class_distinct": 1,
+      "class_refinement": 2,
+      "class_surface": 1,
+      "corpus": "pmc_oa_same_article_genre",
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "groups_with_two_or_more_expansions": 4,
+      "instrument": "roster",
+      "note": "A roster is a curated one-to-one table, so this rate is a FLOOR on within-document ambiguity and is not an estimate of one. It answers 'do authors declare two senses', which is a question about declaration habits.",
+      "pooled_gold": false,
+      "population": "every <def-item>",
+      "role": "single_annotator_reference",
+      "roster_pairs": 2842,
+      "short_form_groups": 2837,
+      "short_form_key": "case-folded",
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "violation_pct": 0.141,
+      "violations": [
+        {
+          "class": "refinement",
+          "expansions": [
+            "Number of patients",
+            "Number of patients in a subgroup"
+          ],
+          "pmcid": 10073392,
+          "short_form": "n"
+        },
+        {
+          "class": "distinct",
+          "expansions": [
+            "Multiple Sclerosis",
+            "millisecond"
+          ],
+          "pmcid": 7434833,
+          "short_form": "ms"
+        },
+        {
+          "class": "refinement",
+          "expansions": [
+            "brain-derived neurotrophic factor",
+            "human brain-derived neurotrophic factor gene",
+            "mouse brain-derived neurotrophic factor gene"
+          ],
+          "pmcid": 10032030,
+          "short_form": "bdnf ="
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Mueller hinton broth",
+            "Mueller-Hinton broth"
+          ],
+          "pmcid": 5557310,
+          "short_form": "mhb"
+        }
+      ]
+    },
+    "one_sense.pmc_oa.roster.raw.case_sensitive": {
+      "articles": 1839,
+      "articles_with_a_roster": 221,
+      "articles_with_a_violation": 2,
+      "class_distinct": 0,
+      "class_refinement": 1,
+      "class_surface": 1,
+      "corpus": "pmc_oa_same_article_genre",
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "groups_with_two_or_more_expansions": 2,
+      "instrument": "roster",
+      "note": "A roster is a curated one-to-one table, so this rate is a FLOOR on within-document ambiguity and is not an estimate of one. It answers 'do authors declare two senses', which is a question about declaration habits.",
+      "pooled_gold": false,
+      "population": "every <def-item>",
+      "role": "single_annotator_reference",
+      "roster_pairs": 2842,
+      "short_form_groups": 2840,
+      "short_form_key": "case-sensitive",
+      "unit": "one (document, short form) group over abstract + body of one JATS file",
+      "violation_pct": 0.0704,
+      "violations": [
+        {
+          "class": "refinement",
+          "expansions": [
+            "brain-derived neurotrophic factor",
+            "human brain-derived neurotrophic factor gene"
+          ],
+          "pmcid": 10032030,
+          "short_form": "BDNF ="
+        },
+        {
+          "class": "surface",
+          "expansions": [
+            "Mueller hinton broth",
+            "Mueller-Hinton broth"
+          ],
+          "pmcid": 5557310,
+          "short_form": "MHB"
+        }
+      ]
+    },
+    "one_sense.pmc_oa.sample": {
+      "articles": 1839,
+      "articles_with_a_roster": 220,
+      "audit_sample_sizes": {
+        "distinct": 120,
+        "refinement": 40,
+        "surface": 40
+      },
+      "audit_seed": 20260826,
+      "characters": 62464536,
+      "corpus": "pmc_oa_same_article_genre",
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "ladder_stop_words": [
+        "a",
+        "an",
+        "and",
+        "by",
+        "for",
+        "in",
+        "of",
+        "on",
+        "the",
+        "to",
+        "with"
+      ],
+      "pooled_gold": false,
+      "profiles": [
+        "high_precision",
+        "general",
+        "biomedical"
+      ],
+      "role": "single_annotator_reference",
+      "roster_pairs_declared": 2696,
+      "sentence_table.characters": 62464536,
+      "sentence_table.chunked_sentences_on_the_same_documents": 6054,
+      "sentence_table.documents_short_enough_to_check_whole": 328,
+      "sentence_table.machine": "Python 3.13.4 on Windows AMD64",
+      "sentence_table.paragraph_blocks": 329312,
+      "sentence_table.profile_agreement_documents_checked": 40,
+      "sentence_table.profile_agreement_documents_identical": 40,
+      "sentence_table.sentence_splitter_calls": 329312,
+      "sentence_table.sentences": 638975,
+      "sentence_table.wall_clock_seconds_unarmed_note": 28.34,
+      "sentence_table.whole_document_agreement_documents_checked": 40,
+      "sentence_table.whole_document_agreement_documents_identical": 0,
+      "sentence_table.whole_document_sentences": 3929,
+      "unit": "one (document, short form) group over abstract + body of one JATS file"
+    },
+    "one_sense.pmc_oa.splitter_agreement": {
+      "corpus": "pmc_oa_same_article_genre",
+      "coverage_pct_chunked_split": 79.31,
+      "coverage_pct_difference": 0.05,
+      "coverage_pct_whole_document_split": 79.26,
+      "definition_sentence_agreement_pct": 78.64,
+      "definitions_the_engine_captured_no_sentence_for": 0,
+      "definitions_whose_sentence_differs_from_the_engines": 88,
+      "definitions_whose_sentence_matches_the_engines": 324,
+      "document_character_ceiling": 20000,
+      "documents": 40,
+      "documents_short_enough_to_check": 328,
+      "documents_whose_pair_set_is_identical_with_capture_on": 40,
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "licensed_occurrences_on_the_sample": 2015,
+      "note": "The sample is the short half of the corpus by construction, because the whole-document arm is the one that does not finish on a long article. Nothing here says the two splits agree as well on documents longer than the ceiling.",
+      "pooled_gold": false,
+      "profile": "biomedical",
+      "role": "single_annotator_reference",
+      "seed": 20260826,
+      "unit": "one (document, short form) group over abstract + body of one JATS file"
+    },
+    "one_sense.pmc_oa.splitter_cost": {
+      "corpus": "pmc_oa_same_article_genre",
+      "gold_provenance": "roster instrument: each article's own <def-list>; resolver instrument: none, by design",
+      "machine": "Python 3.13.4 on Windows AMD64",
+      "measurement": "wall clock, unarmed; only the ratio between rows is read",
+      "note": "Doubling the input doubles the sentence count and roughly quadruples the time. A linear splitter would show a ratio near 2; a quadratic one near 4.",
+      "pooled_gold": false,
+      "role": "single_annotator_reference",
+      "row0.characters": 6700,
+      "row0.seconds_unarmed_note": 0.0325,
+      "row0.sentences": 100,
+      "row0.splitter_calls": 1,
+      "row1.characters": 13400,
+      "row1.seconds_ratio_to_previous_row_unarmed_note": 3.98,
+      "row1.seconds_unarmed_note": 0.1293,
+      "row1.sentences": 200,
+      "row1.splitter_calls": 1,
+      "row2.characters": 26800,
+      "row2.seconds_ratio_to_previous_row_unarmed_note": 4.0,
+      "row2.seconds_unarmed_note": 0.5172,
+      "row2.sentences": 400,
+      "row2.splitter_calls": 1,
+      "row3.characters": 53600,
+      "row3.seconds_ratio_to_previous_row_unarmed_note": 4.03,
+      "row3.seconds_unarmed_note": 2.0823,
+      "row3.sentences": 800,
+      "row3.splitter_calls": 1,
+      "unit": "one (document, short form) group over abstract + body of one JATS file"
+    },
     "oracle.med1250": {
       "acronymkit_correct": 940,
       "corpus": "med1250",
@@ -14989,6 +19455,1020 @@
       "exact_f1": 83.65,
       "exact_precision": 92.32,
       "exact_recall": 76.47
+    },
+    "roundtrip.independence": {
+      "extractor_module_closure": 6,
+      "extractor_runtime_closure_with_sentences": 10,
+      "generate_runtime_closure": 23,
+      "generate_runtime_resource_modules": [
+        "acronymkit.lexicon",
+        "acronymkit.phonetics",
+        "acronymkit.stopwords"
+      ],
+      "generator_module_closure": 9,
+      "shared_module_names_static": [
+        "acronymkit",
+        "acronymkit.config",
+        "acronymkit.enums",
+        "acronymkit.exceptions",
+        "acronymkit.models"
+      ],
+      "shared_modules_default_paths": 6,
+      "shared_modules_runtime_with_sentences": 10,
+      "shared_modules_static": 5,
+      "shared_resource_modules_default_paths": [],
+      "shared_resource_modules_default_paths_count": 0,
+      "shared_resource_modules_runtime": [
+        "acronymkit.stopwords"
+      ],
+      "shared_resource_modules_runtime_count": 1,
+      "shared_resource_modules_static": [],
+      "shared_resource_modules_static_count": 0
+    },
+    "roundtrip.med1250.beam_bound_disposition": {
+      "max_points_an_oracle_bound_could_recover_at_shipped_defaults": 0.18,
+      "max_points_an_oracle_bound_could_recover_at_width_1": 9.09,
+      "max_points_an_oracle_bound_could_recover_at_width_250": 0.09,
+      "points_below_a_perfect_verifier_at_the_ceiling": 57.91,
+      "recall_at_shipped_width_pct": 42.0,
+      "recall_at_width_1_pct": 33.0,
+      "shipped_pairs_where_the_beam_is_read": 2,
+      "shipped_pairs_where_the_beam_is_read_pct": 0.18,
+      "unpruned_ceiling_pct": 42.09
+    },
+    "roundtrip.med1250.ceiling": {
+      "aligner_accepts": 953,
+      "aligner_accepts_pct": 85.7,
+      "aligner_character_alignment_exists": 1009,
+      "aligner_character_alignment_exists_pct": 90.74,
+      "aligner_minus_prefix_ceiling_points": 25.45,
+      "aligner_short_form_admissible": 1047,
+      "aligner_short_form_admissible_pct": 94.15,
+      "pairs": 1112,
+      "prefix_alignable_at_1_letters": 555,
+      "prefix_alignable_at_1_letters_pct": 49.91,
+      "prefix_alignable_at_2_letters": 590,
+      "prefix_alignable_at_2_letters_pct": 53.06,
+      "prefix_alignable_at_3_letters": 637,
+      "prefix_alignable_at_3_letters_pct": 57.28,
+      "prefix_alignable_at_4_letters": 652,
+      "prefix_alignable_at_4_letters_pct": 58.63,
+      "prefix_alignable_at_inf_letters": 670,
+      "prefix_alignable_at_inf_letters_pct": 60.25
+    },
+    "roundtrip.med1250.census": {
+      "corpus": "med1250",
+      "distinct_long_forms": 1101,
+      "distinct_pairs": 1112,
+      "distinct_short_forms": 1010,
+      "documents": 1252,
+      "gold_pair_occurrences": 1221,
+      "label": "tuning split, contaminated",
+      "short_forms_longer_than_six": 79,
+      "short_forms_longer_than_six_pct": 7.1,
+      "short_forms_of_one_character": 22
+    },
+    "roundtrip.med1250.correlation": {
+      "aligner_confidence_max": 1.0,
+      "aligner_confidence_min": 0.7333,
+      "distinct_aligner_confidences": 8,
+      "distinct_generator_margins": 93,
+      "distinct_generator_scores": 426,
+      "pairs_offered": 1112,
+      "pairs_with_both_signals": 468,
+      "pearson_margin_vs_confidence": 0.1217,
+      "pearson_score_vs_confidence": 0.2862,
+      "spearman_margin_vs_confidence": 0.1627,
+      "spearman_score_vs_confidence": 0.3345
+    },
+    "roundtrip.med1250.disagreement": {
+      "gold_positives": {
+        "aligner_accept_pct": 85.7,
+        "aligner_only": 494,
+        "both_accept": 459,
+        "both_reject": 150,
+        "pairs": 1112,
+        "roundtrip_accept_pct": 42.09,
+        "roundtrip_only": 9
+      },
+      "negative_seed": 20260825,
+      "pooled": {
+        "aligner_only": 520,
+        "both_accept": 463,
+        "both_reject": 1230,
+        "disagreement_pct": 23.88,
+        "disagreements": 531,
+        "pairs": 2224,
+        "phi_between_verdicts": 0.5604,
+        "roundtrip_only": 11
+      },
+      "seeded_negatives": {
+        "aligner_accept_pct": 2.7,
+        "aligner_only": 26,
+        "both_accept": 4,
+        "both_reject": 1080,
+        "pairs": 1112,
+        "roundtrip_accept_pct": 0.54,
+        "roundtrip_only": 2
+      }
+    },
+    "roundtrip.med1250.extractor_proposed": {
+      "biomedical": {
+        "discrimination_points": 35.67,
+        "distinct_proposed_pairs": 1050,
+        "false_reject_pct_on_gold_matching": 50.33,
+        "pairs_surviving_the_filter": 468,
+        "precision_after_filter_pct": 95.51,
+        "precision_before_filter_pct": 85.71,
+        "proposals_matching_gold": 900,
+        "proposals_not_matching_gold": 150,
+        "proposed_occurrences": 1158,
+        "roundtrip_rejects": 582,
+        "roundtrip_rejects_pct": 55.43,
+        "true_reject_pct_on_non_gold_matching": 86.0
+      },
+      "high_precision": {
+        "discrimination_points": 25.6,
+        "distinct_proposed_pairs": 939,
+        "false_reject_pct_on_gold_matching": 49.07,
+        "pairs_surviving_the_filter": 459,
+        "precision_after_filter_pct": 95.86,
+        "precision_before_filter_pct": 92.01,
+        "proposals_matching_gold": 864,
+        "proposals_not_matching_gold": 75,
+        "proposed_occurrences": 1039,
+        "roundtrip_rejects": 480,
+        "roundtrip_rejects_pct": 51.12,
+        "true_reject_pct_on_non_gold_matching": 74.67
+      }
+    },
+    "roundtrip.med1250.misses": {
+      "misses": 644,
+      "misses_architectural": 442,
+      "misses_architectural_pct_of_corpus": 39.75,
+      "misses_configurational": 202,
+      "misses_configurational_pct_of_corpus": 18.17,
+      "misses_the_aligner_accepts": 494,
+      "misses_the_aligner_accepts_pct_of_corpus": 44.42,
+      "pairs": 1112,
+      "recovered_by_verification_config": 79,
+      "roundtrip_hits_exhaustive": 468
+    },
+    "roundtrip.med1250.recall": {
+      "beam_1": {
+        "final_node_count_at_or_above_budget_pairs": 173,
+        "generator_refused_pairs": 40,
+        "hits": 367,
+        "hits_alnum_relaxed": 377,
+        "hits_among_truncated": 367,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 1",
+        "pairs": 1112,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 33.9,
+        "recall_among_truncated_pct": 34.24,
+        "recall_pct": 33.0,
+        "search_beam_width": 1,
+        "truncated_pairs": 1072,
+        "truncated_pairs_pct": 96.4,
+        "wall_seconds_unarmed_note": 0.12,
+        "work": {
+          "candidates_scored": 1088,
+          "generator_calls": 1101,
+          "generator_refusals": 39,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 8036,
+          "tokenizer_calls": 1101
+        }
+      },
+      "beam_16": {
+        "final_node_count_at_or_above_budget_pairs": 915,
+        "generator_refused_pairs": 13,
+        "hits": 462,
+        "hits_alnum_relaxed": 492,
+        "hits_among_truncated": 291,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 16",
+        "pairs": 1112,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 44.24,
+        "recall_among_truncated_pct": 56.73,
+        "recall_pct": 41.55,
+        "search_beam_width": 16,
+        "truncated_pairs": 513,
+        "truncated_pairs_pct": 46.13,
+        "wall_seconds_unarmed_note": 0.35,
+        "work": {
+          "candidates_scored": 10405,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 35018,
+          "tokenizer_calls": 1101
+        }
+      },
+      "beam_2": {
+        "final_node_count_at_or_above_budget_pairs": 219,
+        "generator_refused_pairs": 13,
+        "hits": 403,
+        "hits_alnum_relaxed": 414,
+        "hits_among_truncated": 403,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 2",
+        "pairs": 1112,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 37.23,
+        "recall_among_truncated_pct": 36.74,
+        "recall_pct": 36.24,
+        "search_beam_width": 2,
+        "truncated_pairs": 1097,
+        "truncated_pairs_pct": 98.65,
+        "wall_seconds_unarmed_note": 0.12,
+        "work": {
+          "candidates_scored": 1979,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 12982,
+          "tokenizer_calls": 1101
+        }
+      },
+      "beam_250": {
+        "final_node_count_at_or_above_budget_pairs": 928,
+        "generator_refused_pairs": 13,
+        "hits": 467,
+        "hits_alnum_relaxed": 502,
+        "hits_among_truncated": 1,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 250",
+        "pairs": 1112,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 45.14,
+        "recall_among_truncated_pct": 6.25,
+        "recall_pct": 42.0,
+        "search_beam_width": 250,
+        "truncated_pairs": 16,
+        "truncated_pairs_pct": 1.44,
+        "wall_seconds_unarmed_note": 0.78,
+        "work": {
+          "candidates_scored": 27458,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 61529,
+          "tokenizer_calls": 1101
+        }
+      },
+      "beam_32": {
+        "final_node_count_at_or_above_budget_pairs": 928,
+        "generator_refused_pairs": 13,
+        "hits": 465,
+        "hits_alnum_relaxed": 499,
+        "hits_among_truncated": 77,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 32",
+        "pairs": 1112,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 44.87,
+        "recall_among_truncated_pct": 42.54,
+        "recall_pct": 41.82,
+        "search_beam_width": 32,
+        "truncated_pairs": 181,
+        "truncated_pairs_pct": 16.28,
+        "wall_seconds_unarmed_note": 0.43,
+        "work": {
+          "candidates_scored": 15221,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 43613,
+          "tokenizer_calls": 1101
+        }
+      },
+      "beam_4": {
+        "final_node_count_at_or_above_budget_pairs": 580,
+        "generator_refused_pairs": 13,
+        "hits": 441,
+        "hits_alnum_relaxed": 461,
+        "hits_among_truncated": 426,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 4",
+        "pairs": 1112,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 41.46,
+        "recall_among_truncated_pct": 47.87,
+        "recall_pct": 39.66,
+        "search_beam_width": 4,
+        "truncated_pairs": 890,
+        "truncated_pairs_pct": 80.04,
+        "wall_seconds_unarmed_note": 0.2,
+        "work": {
+          "candidates_scored": 3709,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 19942,
+          "tokenizer_calls": 1101
+        }
+      },
+      "beam_64": {
+        "final_node_count_at_or_above_budget_pairs": 928,
+        "generator_refused_pairs": 13,
+        "hits": 465,
+        "hits_alnum_relaxed": 499,
+        "hits_among_truncated": 74,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 64",
+        "pairs": 1112,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 44.87,
+        "recall_among_truncated_pct": 46.25,
+        "recall_pct": 41.82,
+        "search_beam_width": 64,
+        "truncated_pairs": 160,
+        "truncated_pairs_pct": 14.39,
+        "wall_seconds_unarmed_note": 0.6,
+        "work": {
+          "candidates_scored": 20231,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 49453,
+          "tokenizer_calls": 1101
+        }
+      },
+      "beam_8": {
+        "final_node_count_at_or_above_budget_pairs": 595,
+        "generator_refused_pairs": 13,
+        "hits": 449,
+        "hits_alnum_relaxed": 473,
+        "hits_among_truncated": 426,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 8",
+        "pairs": 1112,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 42.54,
+        "recall_among_truncated_pct": 49.71,
+        "recall_pct": 40.38,
+        "search_beam_width": 8,
+        "truncated_pairs": 857,
+        "truncated_pairs_pct": 77.07,
+        "wall_seconds_unarmed_note": 0.23,
+        "work": {
+          "candidates_scored": 6446,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 27844,
+          "tokenizer_calls": 1101
+        }
+      },
+      "beam_control_never_cuts": {
+        "final_node_count_at_or_above_budget_pairs": 928,
+        "generator_refused_pairs": 13,
+        "hits": 468,
+        "hits_alnum_relaxed": 503,
+        "hits_among_truncated": 0,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "POSITIVE CONTROL: same per-pair node budget, a beam too wide to ever cut. truncated_pairs must be 0 and recall must equal the exhaustive arm's; anything else means the per-pair budget is starving the search and every beam figure below is a node-budget figure wearing a beam's name",
+        "pairs": 1112,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 45.23,
+        "recall_among_truncated_pct": 0.0,
+        "recall_pct": 42.09,
+        "search_beam_width": 1000000,
+        "truncated_pairs": 0,
+        "truncated_pairs_pct": 0.0,
+        "wall_seconds_unarmed_note": 1.45,
+        "work": {
+          "candidates_scored": 45588,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 95971,
+          "tokenizer_calls": 1101
+        }
+      },
+      "exhaustive": {
+        "final_node_count_at_or_above_budget_pairs": 0,
+        "generator_refused_pairs": 13,
+        "hits": 468,
+        "hits_alnum_relaxed": 503,
+        "hits_among_truncated": 0,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 5000000,
+        "note": "no beam consulted anywhere -- the ceiling at shipped weights",
+        "pairs": 1112,
+        "per_pair_node_budget": false,
+        "recall_alnum_relaxed_pct": 45.23,
+        "recall_among_truncated_pct": 0.0,
+        "recall_pct": 42.09,
+        "search_beam_width": 250,
+        "truncated_pairs": 0,
+        "truncated_pairs_pct": 0.0,
+        "wall_seconds_unarmed_note": 1.33,
+        "work": {
+          "candidates_scored": 45588,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 95971,
+          "tokenizer_calls": 1101
+        }
+      },
+      "machine_unarmed_note": "CPython 3.13.4 on win32, AMD64",
+      "shipped": {
+        "final_node_count_at_or_above_budget_pairs": 0,
+        "generator_refused_pairs": 13,
+        "hits": 465,
+        "hits_alnum_relaxed": 499,
+        "hits_among_truncated": 0,
+        "max_candidates": 25,
+        "max_search_nodes_declared": 50000,
+        "note": "Config() exactly -- what a caller gets today",
+        "pairs": 1112,
+        "per_pair_node_budget": false,
+        "recall_alnum_relaxed_pct": 44.87,
+        "recall_among_truncated_pct": 0.0,
+        "recall_pct": 41.82,
+        "search_beam_width": 250,
+        "truncated_pairs": 2,
+        "truncated_pairs_pct": 0.18,
+        "wall_seconds_unarmed_note": 0.69,
+        "work": {
+          "candidates_scored": 14152,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 69080,
+          "tokenizer_calls": 1101
+        }
+      },
+      "unbounded_top_n": {
+        "final_node_count_at_or_above_budget_pairs": 0,
+        "generator_refused_pairs": 13,
+        "hits": 467,
+        "hits_alnum_relaxed": 502,
+        "hits_among_truncated": 0,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "shipped search, no top-N truncation -- isolates _limit from the search",
+        "pairs": 1112,
+        "per_pair_node_budget": false,
+        "recall_alnum_relaxed_pct": 45.14,
+        "recall_among_truncated_pct": 0.0,
+        "recall_pct": 42.0,
+        "search_beam_width": 250,
+        "truncated_pairs": 2,
+        "truncated_pairs_pct": 0.18,
+        "wall_seconds_unarmed_note": 0.68,
+        "work": {
+          "candidates_scored": 34046,
+          "generator_calls": 1101,
+          "generator_refusals": 13,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 69080,
+          "tokenizer_calls": 1101
+        }
+      },
+      "verification_only": {
+        "final_node_count_at_or_above_budget_pairs": 0,
+        "generator_refused_pairs": 0,
+        "hits": 546,
+        "hits_alnum_relaxed": 607,
+        "hits_among_truncated": 0,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 5000000,
+        "note": "the widened verification-only configuration (R14 disposition)",
+        "pairs": 1112,
+        "per_pair_node_budget": false,
+        "recall_alnum_relaxed_pct": 54.59,
+        "recall_among_truncated_pct": 0.0,
+        "recall_pct": 49.1,
+        "search_beam_width": 250,
+        "truncated_pairs": 6,
+        "truncated_pairs_pct": 0.54,
+        "wall_seconds_unarmed_note": 249.63,
+        "work": {
+          "candidates_scored": 955056,
+          "generator_calls": 1101,
+          "generator_refusals": 0,
+          "memo_hit_rate_pct": 0.99,
+          "memo_hits": 11,
+          "memo_lookups": 1112,
+          "states_evaluated": 2825222,
+          "tokenizer_calls": 1101
+        }
+      }
+    },
+    "roundtrip.med1250.verdict_arm_work": {
+      "candidates_scored": 58786,
+      "generator_calls": 1226,
+      "generator_refusals": 15,
+      "memo_hit_rate_pct": 76.98,
+      "memo_hits": 4099,
+      "memo_lookups": 5325,
+      "note": "work done by the single prober behind disagreement, correlation and proposals",
+      "states_evaluated": 125898,
+      "tokenizer_calls": 1226
+    },
+    "roundtrip.pmc_oa.beam_bound_disposition": {
+      "max_points_an_oracle_bound_could_recover_at_shipped_defaults": 0.13,
+      "max_points_an_oracle_bound_could_recover_at_width_1": 12.77,
+      "max_points_an_oracle_bound_could_recover_at_width_250": 0.33,
+      "points_below_a_perfect_verifier_at_the_ceiling": 48.25,
+      "recall_at_shipped_width_pct": 51.42,
+      "recall_at_width_1_pct": 38.98,
+      "shipped_pairs_where_the_beam_is_read": 3,
+      "shipped_pairs_where_the_beam_is_read_pct": 0.13,
+      "unpruned_ceiling_pct": 51.75
+    },
+    "roundtrip.pmc_oa.ceiling": {
+      "aligner_accepts": 2173,
+      "aligner_accepts_pct": 90.69,
+      "aligner_character_alignment_exists": 2189,
+      "aligner_character_alignment_exists_pct": 91.36,
+      "aligner_minus_prefix_ceiling_points": 22.5,
+      "aligner_short_form_admissible": 2384,
+      "aligner_short_form_admissible_pct": 99.5,
+      "pairs": 2396,
+      "prefix_alignable_at_1_letters": 1412,
+      "prefix_alignable_at_1_letters_pct": 58.93,
+      "prefix_alignable_at_2_letters": 1505,
+      "prefix_alignable_at_2_letters_pct": 62.81,
+      "prefix_alignable_at_3_letters": 1603,
+      "prefix_alignable_at_3_letters_pct": 66.9,
+      "prefix_alignable_at_4_letters": 1628,
+      "prefix_alignable_at_4_letters_pct": 67.95,
+      "prefix_alignable_at_inf_letters": 1634,
+      "prefix_alignable_at_inf_letters_pct": 68.2
+    },
+    "roundtrip.pmc_oa.census": {
+      "corpus": "pmc_oa_same_article_genre",
+      "distinct_long_forms": 2371,
+      "distinct_pairs": 2396,
+      "distinct_short_forms": 2010,
+      "documents": 1839,
+      "gold_pair_occurrences": 2696,
+      "label": "single-annotator reference, 2 adjudicator(s), contaminated",
+      "short_forms_longer_than_six": 143,
+      "short_forms_longer_than_six_pct": 5.97,
+      "short_forms_of_one_character": 0
+    },
+    "roundtrip.pmc_oa.correlation": {
+      "aligner_confidence_max": 1.0,
+      "aligner_confidence_min": 0.76,
+      "distinct_aligner_confidences": 8,
+      "distinct_generator_margins": 281,
+      "distinct_generator_scores": 1027,
+      "pairs_offered": 2396,
+      "pairs_with_both_signals": 1240,
+      "pearson_margin_vs_confidence": 0.1918,
+      "pearson_score_vs_confidence": 0.2606,
+      "spearman_margin_vs_confidence": 0.3222,
+      "spearman_score_vs_confidence": 0.3485
+    },
+    "roundtrip.pmc_oa.disagreement": {
+      "gold_positives": {
+        "aligner_accept_pct": 90.69,
+        "aligner_only": 942,
+        "both_accept": 1231,
+        "both_reject": 214,
+        "pairs": 2396,
+        "roundtrip_accept_pct": 51.75,
+        "roundtrip_only": 9
+      },
+      "negative_seed": 20260825,
+      "pooled": {
+        "aligner_only": 999,
+        "both_accept": 1236,
+        "both_reject": 2546,
+        "disagreement_pct": 21.08,
+        "disagreements": 1010,
+        "pairs": 4792,
+        "phi_between_verdicts": 0.6239,
+        "roundtrip_only": 11
+      },
+      "seeded_negatives": {
+        "aligner_accept_pct": 2.59,
+        "aligner_only": 57,
+        "both_accept": 5,
+        "both_reject": 2332,
+        "pairs": 2396,
+        "roundtrip_accept_pct": 0.29,
+        "roundtrip_only": 2
+      }
+    },
+    "roundtrip.pmc_oa.extractor_proposed": {
+      "note": "corpus carries no running text; the extractor was not run",
+      "pairs": 0
+    },
+    "roundtrip.pmc_oa.misses": {
+      "misses": 1156,
+      "misses_architectural": 756,
+      "misses_architectural_pct_of_corpus": 31.55,
+      "misses_configurational": 400,
+      "misses_configurational_pct_of_corpus": 16.69,
+      "misses_the_aligner_accepts": 942,
+      "misses_the_aligner_accepts_pct_of_corpus": 39.32,
+      "pairs": 2396,
+      "recovered_by_verification_config": null,
+      "roundtrip_hits_exhaustive": 1240
+    },
+    "roundtrip.pmc_oa.recall": {
+      "beam_1": {
+        "final_node_count_at_or_above_budget_pairs": 178,
+        "generator_refused_pairs": 44,
+        "hits": 934,
+        "hits_alnum_relaxed": 987,
+        "hits_among_truncated": 934,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 1",
+        "pairs": 2396,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 41.19,
+        "recall_among_truncated_pct": 39.71,
+        "recall_pct": 38.98,
+        "search_beam_width": 1,
+        "truncated_pairs": 2352,
+        "truncated_pairs_pct": 98.16,
+        "wall_seconds_unarmed_note": 0.27,
+        "work": {
+          "candidates_scored": 2374,
+          "generator_calls": 2371,
+          "generator_refusals": 43,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 20104,
+          "tokenizer_calls": 2371
+        }
+      },
+      "beam_16": {
+        "final_node_count_at_or_above_budget_pairs": 1771,
+        "generator_refused_pairs": 10,
+        "hits": 1200,
+        "hits_alnum_relaxed": 1308,
+        "hits_among_truncated": 806,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 16",
+        "pairs": 2396,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 54.59,
+        "recall_among_truncated_pct": 56.64,
+        "recall_pct": 50.08,
+        "search_beam_width": 16,
+        "truncated_pairs": 1423,
+        "truncated_pairs_pct": 59.39,
+        "wall_seconds_unarmed_note": 0.97,
+        "work": {
+          "candidates_scored": 26599,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 99471,
+          "tokenizer_calls": 2371
+        }
+      },
+      "beam_2": {
+        "final_node_count_at_or_above_budget_pairs": 236,
+        "generator_refused_pairs": 10,
+        "hits": 1026,
+        "hits_alnum_relaxed": 1094,
+        "hits_among_truncated": 1026,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 2",
+        "pairs": 2396,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 45.66,
+        "recall_among_truncated_pct": 43.0,
+        "recall_pct": 42.82,
+        "search_beam_width": 2,
+        "truncated_pairs": 2386,
+        "truncated_pairs_pct": 99.58,
+        "wall_seconds_unarmed_note": 0.35,
+        "work": {
+          "candidates_scored": 4521,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 33154,
+          "tokenizer_calls": 2371
+        }
+      },
+      "beam_250": {
+        "final_node_count_at_or_above_budget_pairs": 1802,
+        "generator_refused_pairs": 10,
+        "hits": 1232,
+        "hits_alnum_relaxed": 1347,
+        "hits_among_truncated": 20,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 250",
+        "pairs": 2396,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 56.22,
+        "recall_among_truncated_pct": 23.26,
+        "recall_pct": 51.42,
+        "search_beam_width": 250,
+        "truncated_pairs": 86,
+        "truncated_pairs_pct": 3.59,
+        "wall_seconds_unarmed_note": 2.43,
+        "work": {
+          "candidates_scored": 86369,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 201519,
+          "tokenizer_calls": 2371
+        }
+      },
+      "beam_32": {
+        "final_node_count_at_or_above_budget_pairs": 1802,
+        "generator_refused_pairs": 10,
+        "hits": 1211,
+        "hits_alnum_relaxed": 1322,
+        "hits_among_truncated": 274,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 32",
+        "pairs": 2396,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 55.18,
+        "recall_among_truncated_pct": 45.29,
+        "recall_pct": 50.54,
+        "search_beam_width": 32,
+        "truncated_pairs": 605,
+        "truncated_pairs_pct": 25.25,
+        "wall_seconds_unarmed_note": 1.31,
+        "work": {
+          "candidates_scored": 40739,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 130592,
+          "tokenizer_calls": 2371
+        }
+      },
+      "beam_4": {
+        "final_node_count_at_or_above_budget_pairs": 954,
+        "generator_refused_pairs": 10,
+        "hits": 1143,
+        "hits_alnum_relaxed": 1230,
+        "hits_among_truncated": 1118,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 4",
+        "pairs": 2396,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 51.34,
+        "recall_among_truncated_pct": 51.52,
+        "recall_pct": 47.7,
+        "search_beam_width": 4,
+        "truncated_pairs": 2170,
+        "truncated_pairs_pct": 90.57,
+        "wall_seconds_unarmed_note": 0.44,
+        "work": {
+          "candidates_scored": 8760,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 52476,
+          "tokenizer_calls": 2371
+        }
+      },
+      "beam_64": {
+        "final_node_count_at_or_above_budget_pairs": 1802,
+        "generator_refused_pairs": 10,
+        "hits": 1221,
+        "hits_alnum_relaxed": 1333,
+        "hits_among_truncated": 276,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 64",
+        "pairs": 2396,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 55.63,
+        "recall_among_truncated_pct": 50.27,
+        "recall_pct": 50.96,
+        "search_beam_width": 64,
+        "truncated_pairs": 549,
+        "truncated_pairs_pct": 22.91,
+        "wall_seconds_unarmed_note": 1.73,
+        "work": {
+          "candidates_scored": 57765,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 153482,
+          "tokenizer_calls": 2371
+        }
+      },
+      "beam_8": {
+        "final_node_count_at_or_above_budget_pairs": 979,
+        "generator_refused_pairs": 10,
+        "hits": 1161,
+        "hits_alnum_relaxed": 1260,
+        "hits_among_truncated": 1124,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "beam mode forced by a per-pair node budget, width 8",
+        "pairs": 2396,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 52.59,
+        "recall_among_truncated_pct": 53.09,
+        "recall_pct": 48.46,
+        "search_beam_width": 8,
+        "truncated_pairs": 2117,
+        "truncated_pairs_pct": 88.36,
+        "wall_seconds_unarmed_note": 0.72,
+        "work": {
+          "candidates_scored": 15761,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 75535,
+          "tokenizer_calls": 2371
+        }
+      },
+      "beam_control_never_cuts": {
+        "final_node_count_at_or_above_budget_pairs": 1802,
+        "generator_refused_pairs": 10,
+        "hits": 1240,
+        "hits_alnum_relaxed": 1356,
+        "hits_among_truncated": 0,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "POSITIVE CONTROL: same per-pair node budget, a beam too wide to ever cut. truncated_pairs must be 0 and recall must equal the exhaustive arm's; anything else means the per-pair budget is starving the search and every beam figure below is a node-budget figure wearing a beam's name",
+        "pairs": 2396,
+        "per_pair_node_budget": true,
+        "recall_alnum_relaxed_pct": 56.59,
+        "recall_among_truncated_pct": 0.0,
+        "recall_pct": 51.75,
+        "search_beam_width": 1000000,
+        "truncated_pairs": 0,
+        "truncated_pairs_pct": 0.0,
+        "wall_seconds_unarmed_note": 4.32,
+        "work": {
+          "candidates_scored": 131378,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 367408,
+          "tokenizer_calls": 2371
+        }
+      },
+      "exhaustive": {
+        "final_node_count_at_or_above_budget_pairs": 0,
+        "generator_refused_pairs": 10,
+        "hits": 1239,
+        "hits_alnum_relaxed": 1355,
+        "hits_among_truncated": 0,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 5000000,
+        "note": "no beam consulted anywhere -- the ceiling at shipped weights",
+        "pairs": 2396,
+        "per_pair_node_budget": false,
+        "recall_alnum_relaxed_pct": 56.55,
+        "recall_among_truncated_pct": 0.0,
+        "recall_pct": 51.71,
+        "search_beam_width": 250,
+        "truncated_pairs": 1,
+        "truncated_pairs_pct": 0.04,
+        "wall_seconds_unarmed_note": 3.58,
+        "work": {
+          "candidates_scored": 118140,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 246396,
+          "tokenizer_calls": 2371
+        }
+      },
+      "machine_unarmed_note": "CPython 3.13.4 on win32, AMD64",
+      "shipped": {
+        "final_node_count_at_or_above_budget_pairs": 0,
+        "generator_refused_pairs": 10,
+        "hits": 1206,
+        "hits_alnum_relaxed": 1317,
+        "hits_among_truncated": 0,
+        "max_candidates": 25,
+        "max_search_nodes_declared": 50000,
+        "note": "Config() exactly -- what a caller gets today",
+        "pairs": 2396,
+        "per_pair_node_budget": false,
+        "recall_alnum_relaxed_pct": 54.97,
+        "recall_among_truncated_pct": 0.0,
+        "recall_pct": 50.33,
+        "search_beam_width": 250,
+        "truncated_pairs": 3,
+        "truncated_pairs_pct": 0.13,
+        "wall_seconds_unarmed_note": 3.24,
+        "work": {
+          "candidates_scored": 37145,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 227626,
+          "tokenizer_calls": 2371
+        }
+      },
+      "unbounded_top_n": {
+        "final_node_count_at_or_above_budget_pairs": 0,
+        "generator_refused_pairs": 10,
+        "hits": 1238,
+        "hits_alnum_relaxed": 1354,
+        "hits_among_truncated": 0,
+        "max_candidates": 100000,
+        "max_search_nodes_declared": 50000,
+        "note": "shipped search, no top-N truncation -- isolates _limit from the search",
+        "pairs": 2396,
+        "per_pair_node_budget": false,
+        "recall_alnum_relaxed_pct": 56.51,
+        "recall_among_truncated_pct": 0.0,
+        "recall_pct": 51.67,
+        "search_beam_width": 250,
+        "truncated_pairs": 3,
+        "truncated_pairs_pct": 0.13,
+        "wall_seconds_unarmed_note": 3.29,
+        "work": {
+          "candidates_scored": 111980,
+          "generator_calls": 2371,
+          "generator_refusals": 10,
+          "memo_hit_rate_pct": 1.04,
+          "memo_hits": 25,
+          "memo_lookups": 2396,
+          "states_evaluated": 227626,
+          "tokenizer_calls": 2371
+        }
+      }
+    },
+    "roundtrip.pmc_oa.verdict_arm_work": {
+      "candidates_scored": 131378,
+      "generator_calls": 2371,
+      "generator_refusals": 10,
+      "memo_hit_rate_pct": 67.01,
+      "memo_hits": 4817,
+      "memo_lookups": 7188,
+      "note": "work done by the single prober behind disagreement, correlation and proposals",
+      "states_evaluated": 367408,
+      "tokenizer_calls": 2371
     },
     "shortform.med1250_all.biomedical.balanced_trim": {
       "balanced_trim": true,

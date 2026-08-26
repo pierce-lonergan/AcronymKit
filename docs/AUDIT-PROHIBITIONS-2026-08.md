@@ -1,8 +1,18 @@
 # The do-not list, re-derived: an error rate for the claims that close directions
 
 D-068 measured this project's reporting error rate for the first time. `20.8` % of a seeded sample of
-incidental claims were not true, and the subset that needed **a derivation** rather than a lookup
-failed at `36.4` %. This page turns that number backwards onto the prohibitions.
+incidental claims were not true. This page turns that instrument backwards onto the prohibitions.
+
+**RETIRED IN PLACE, AND IT IS THE CLAUSE THAT CHOSE THIS PAGE'S FRAME.** The paragraph above used to
+end *"and the subset that needed **a derivation** rather than a lookup failed at `36.4` %"*. D-082
+re-took that decomposition on a second round and it did **not** replicate: the same split measured
+`25.0` % against `18.8` %, so the ratio went from `4.7x` to `0.75x` and inverted, and a sensitivity
+check on the grader's boundary did not rescue it. **The headline rate stands; the decomposition does
+not.** `36.4` % is not a baseline anything may be compared against, which is why the comparator column
+in [section 3](#3-the-rate) is struck as well. Nothing this page measured on its own population
+changes — the retirement is of a comparator, not of a finding. The census behind it, and what a third
+round would need to establish the decomposition, are in
+[docs/CLAIMS-LEDGER.md](CLAIMS-LEDGER.md) section 6.
 
 **The reason to do that is not symmetry.** A live claim is read by somebody. A prohibition is read by
 nobody, because the direction it closes is closed, and the whole point of closing a direction is that
@@ -127,18 +137,29 @@ its share of the population on purpose. The per-stratum rows are the ones that m
 | **B** — closed records, fenced evidence | `13` | `13` | `0` | `0` | `0.0` % | `0.0` % |
 | **P** — closed records, prose | `8` | `7` | `0` | `1` | `0.0` % | `12.5` % |
 
-### The decomposition D-068 found useful, repeated here
+### The kind-of-check split, on this page's own population
 
 **By kind of check.** This is the finding.
 
-| kind | n | not true | unreproducible | either | D-068's rate |
-|---|---:|---:|---:|---:|---:|
-| settled by one lookup | `31` | `1` — `3.2` % | `0` | `3.2` % | `7.7` % |
-| needing a derivation | `25` | `4` — `16.0` % | `9` — `36.0` % | **`52.0` %** | `36.4` % |
+| kind | n | not true | unreproducible | either |
+|---|---:|---:|---:|---:|
+| settled by one lookup | `31` | `1` — `3.2` % | `0` | `3.2` % |
+| needing a derivation | `25` | `4` — `16.0` % | `9` — `36.0` % | **`52.0` %** |
 
-The single-lookup rate reproduces D-068's within noise. The derivation-requiring rate does **not**:
-D-068 recorded `0` of `24` unchecked items, and this pass records `9` of `25` derivation-requiring
-figures that cannot be re-derived at all. **That gap is structural rather than accidental, and it is
+**THE `D-068's rate` COLUMN IS STRUCK, AND THE HEADING ABOVE IT WITH IT.** The column carried `7.7` %
+and `36.4` %, and the sentence under this table opened *"The single-lookup rate reproduces D-068's
+within noise. The derivation-requiring rate does **not**"*. That comparison is withdrawn: D-082
+re-took D-068's decomposition and it did not replicate, `25.0` % against `18.8` %, the ratio inverting
+from `4.7x` to `0.75x`. Both compared cells moved, and D-082 records that the first round's boundary
+between a lookup and a derivation was never written down — so the comparison was never known to be
+between the same two cells.
+
+**The rows above stand, and they are not a third round of R15.** This is a census of the do-not list
+rather than a seeded sample of a round's incidental reporting, on a different population, graded on a
+three-valued scale R15's two rounds never used. Reading them as a third observation of the same ratio
+is the error the struck column invited. What they do say, unchanged: D-068 recorded `0` of `24`
+unchecked items, and this pass records `9` of `25` derivation-requiring figures that cannot be
+re-derived at all. **That gap is structural rather than accidental, and it is
 the most useful thing on this page.** A prohibition is very often justified by a measurement taken
 against a resource the project then deliberately did not acquire — the PMC Open Access collection,
 `SecureFinAI-Lab/Regulations_abbreviation`, Ab3P's `31` MB `SingTermFreq.dat`. The refusal to acquire
@@ -147,10 +168,15 @@ anybody standing in this checkout. **A figure about a thing you decided not to o
 nobody can re-derive.**
 
 **By failure mode.** Of the `5` FALSE verdicts, `4` are **staleness** — true when written, not true of
-this tree now — and `1` is a **hard error** in arithmetic, wrong on the day it was published. D-068
-found `3` of `5` staleness. Excluding staleness the not-true rate over the whole pass is `1` of `56`,
-`1.8` %; counting it, `8.9` % stands, and this page counts it, because a prohibition is read in the
-present tense by whoever is deciding not to do something.
+this tree now — and `1` is a **hard error** in arithmetic, wrong on the day it was published.
+Excluding staleness the not-true rate over the whole pass is `1` of `56`, `1.8` %; counting it,
+`8.9` % stands, and this page counts it, because a prohibition is read in the present tense by whoever
+is deciding not to do something.
+
+**A second comparator is struck here.** The sentence read *"D-068 found `3` of `5` staleness"*. That
+is the other decomposition D-082 re-took, and it did not replicate either: the second round found
+staleness in `1` of `5`, with the dominant failure mode a premise asserted as fact and never
+measured.
 
 ---
 
@@ -371,6 +397,13 @@ make** — the records and the mandate text belong to the recorder and the maint
 9. **A07.008's comparator `83.85` is superseded** by the shipped `84.21`. True about the run, stale as
    a statement about the library.
 
+**Applied `2026-08-25`. Ten of them landed, not nine, and one of the nine did not.** The eight of
+these that live in `docs/AUDIT-2026-08.md` are corrected in place there, beside the sentences they
+retire; `2` — D-020 item `1` — is in a decision record and was reported to its owner instead; and two
+further corrections were added, because this list left two of this page's own `FALSE` verdicts with
+no correction pointing at the document that carries them. Section `12` is the account, including
+three things this page got wrong about its own corrections.
+
 ---
 
 ## 7. Stratum C — the live prohibitions, a census of `7`
@@ -532,6 +565,236 @@ CPython 3.13.4 on win32; command output.
 indistinguishable from hiding. The convention that separates them is printing the command beside each
 block, and that convention is followed here — but it is a convention, not a check, and the tables in
 sections `4` and `7` are large enough that a reader is trusting it rather than verifying it.
+
+---
+
+## 12. The corrections, applied — and three things this page got wrong about them
+
+Written `2026-08-25`, one round after section `6`. Every figure below was re-derived from source for
+this section rather than carried across from the tables above, and doing that changed three of them.
+
+### What landed, and where
+
+`docs/AUDIT-2026-08.md` now carries a *Corrections to the do-not list* section, a front-matter pointer
+to it, and **seven** in-place markers beside the sentences they retire — five blockquotes and two
+table-cell notes, counted rather than remembered. **Nothing above those markers was rewritten.** The retired
+sentence and its correction are readable side by side, which is the only form in which a correction is
+also evidence.
+
+| # | the reason corrected | where it is now marked | outcome |
+|---|---|---|---|
+| C1 | "four orders of magnitude" is three | the PMC row, and the PMC prose | conclusion untouched |
+| C2 | this page's own wheel and headroom figures are stale | beside that block | conclusion untouched |
+| C3 | the D-020 quotation describes a defect since fixed | beside it | conclusion untouched |
+| C4 | the vendoring coverage figure has no derivation | the vendoring row | conclusion untouched |
+| C5 | "rows" is a count of distinct dictionary keys | the per-candidate paragraph | conclusion untouched |
+| C6 | four external figures carry no source and no read date | the PMC section | conclusion untouched |
+| C7 | the instruction to retire D-011's figure was never executed | the per-candidate paragraph | nothing on that page changes |
+| C8 | the comparator is superseded, and the prize is smaller | the per-candidate paragraph | **stronger** |
+| C9 | the governed share of source is stale | the split-the-package paragraph | conclusion untouched |
+| C10 | the public-symbol denominator has no derivation | the split-the-package paragraph | conclusion untouched |
+
+**Nothing lifted, and nothing was proposed for lifting.** The margin under every corrected figure was
+re-checked rather than assumed: the largest live ratio anywhere in the PMC arithmetic is `10^3.50`,
+and the whole per-candidate prize is `1.23` points against a shipped `84.21`.
+
+### Two of this page's own `FALSE` verdicts had no correction attached
+
+C9 and C2 are new here. `A10.001` — the governed share of source — was graded `FALSE — stale` in
+section `4` and appears in none of the nine. `A11.003` and `A11.005` were graded `FALSE — stale` and
+correction `2` points at **D-020's** copy of those figures rather than at the audit's own block, which
+is where a reader of the do-not list meets them. Both gaps are the same shape: a verdict was recorded
+and the recommendation that should have followed it was not written. **The correction list was
+audited against the verdict table for this section, which is a check the list itself did not get.**
+
+### Nothing is proposed for lifting — and the one item a maintainer should still look at
+
+**No prohibition was lifted and none is recommended for lifting**, which is the same line section `6`
+took and the same line this pass is authorised to take. Reporting one anyway, because the point of
+keeping the two outcomes apart is that the weaker one gets said out loud:
+
+**`A03`, vendoring `SecureFinAI-Lab/Regulations_abbreviation`, now rests on a qualitative claim
+alone.** Its quantitative half — `1.124` % of real token occurrences — has no corpus, no command, no
+date and one occurrence in the tree, so after C4 the refusal stands entirely on *the matches are
+homographs*: `POP`, `CAR`, `CT`, `IT` would make a refuse-to-guess subsystem guess. That reason is
+sound and, for this library's positioning, decisive on its own. **It is also unmeasured.** Nobody has
+counted how many of that catalogue's entries are homographs against a real schema's vocabulary, and
+the figure that was supposed to carry the case cannot be re-derived by anybody here.
+
+**So the recommendation is to measure it, not to lift it.** `A03` is the one item on the do-not list
+whose evidence is thin enough that a future round could be tempted to reopen it on the grounds that
+the reason was wrong — and that would be the exact confusion this page exists to prevent, because the
+reason is not wrong, it is unquantified. The decision is the maintainer's and this pass did not take
+it.
+
+### Three things this page got wrong about its own corrections
+
+**One — the `10^3.72` ceiling is superseded, and by this page's own correction `3`.** Section `5`
+reports the most generous reachable ratio as `10^3.72`, which is `600` MB against `113,269` B. That
+denominator is the figure correction `3` says nobody holds any more. Over the figures a reader holds
+today the ceiling is `10^3.50`. The direction of the slip flatters the refutation rather than the
+project, which is why it survived.
+
+**Two — `87` has drifted into being true, and this page could not have known it.** `A10.003` is graded
+`UNREPRODUCIBLE` on seven readings taken at the audit's own commit, and that verdict is exactly right
+at that commit. At HEAD one of the seven now returns the published denominator:
+
+```
+python -- "public symbols", this page's own seven readings, re-run at both commits
+                                                      6a3e000     HEAD
+  dir(acronymkit) | dir(acronymkit.governed), public      113      114
+  sum of every __all__ in the package                     269      269
+  len(acronymkit.__all__) + len(governed.__all__)          90       91
+  the same, union with acronymkit.nlp.__all__              89       89
+  public non-module attributes of both, union              86       87   <--
+  acronymkit.__all__ union governed.__all__                83       84
+  dir(acronymkit), public                                  70       71
+```
+
+One public name — `NlpBackend` — was added between the two commits. **A figure with no derivation has
+become arithmetically true by drift**, and that is a worse state than staleness: a reader spot-checking
+`87` today finds agreement and stops. It is still not a derivation, because under the reading that
+returns `87` the governed count is `46` rather than `42`. And one of the seven readings is not a
+function of the tree at all — `dir(acronymkit)` returns `70` or `72` at the same commit depending on
+which submodules have already been imported, which means this page published a reading whose value
+depends on the harness that took it.
+
+**Three — the wheel figure is not a stable quantity, and D-077's contest has a cause.** D-077 records
+this page's successor correction contested at `593,682` B against `596,222` B under the same command.
+Re-run at HEAD, twice from an identical tree and once from a line-ending-normalised export of the same
+commit:
+
+```
+python -m build --wheel --no-isolation -- one host, CPython 3.13.4 on win32, build 1.3.0
+                                          wheel B    headroom B   % of budget
+  HEAD 387f739, CRLF working checkout      596,613      189,819        75.86
+  HEAD 387f739, the same tree, again       596,613      189,819        75.86
+  HEAD 387f739, LF git-archive export      595,242      191,190        75.69
+```
+
+Same tree twice gives the same size and *different* digests, because a zip stores mtimes. The
+line-ending difference alone is `1,371` B on a checkout carrying `45,917` CRLF pairs across `67`
+tracked files. **A wheel byte count published without naming its checkout is unreproducible by
+construction**, and the two contested figures are therefore both correct and neither citable.
+
+**And the population this page measured has moved.** `tools/prohibitions.py --list` now enumerates
+`36` closed records and `566` stratum B figures where this page published `35` and `564`, because
+records were added to `docs/DECISIONS.md` after the draw. The stratum A census is unchanged — every
+marker inserted into the audit carries no free-standing number, deliberately, so that the frame this
+page drew from is still the frame a re-run draws. That was a constraint on how the corrections could
+be phrased, and phrasing chosen to protect a denominator is worth disclosing.
+
+### Is this class mechanically checkable? Asked mechanically
+
+Section `7` found two of seven live prohibitions with no mechanism. This asks the harder version: is
+there a gate for *the reason under a prohibition going stale*, in the way `tools/check_external.py` is
+the gate for an uncited appeal to somebody else's figure?
+
+Two checks in this tree have a shape that could apply. `tools/check_claims.py` resolves a figure
+against `bench/results.json` by run id. `tools/check_external.py` arms a sentence that appeals to a
+published outside figure. Both were run against all `35` figures on the do-not list.
+
+```
+a probe over the frame tools/prohibitions.py --frame produces, run against
+bench/results.json and tools/check_external.py. DERIVED -- no judgement applied.
+The probe is a scratch script and is NOT committed: tools/ was not this pass's
+to add to, so this block is re-derivable from its description and not by a
+command a reader can type, which is a weaker standing than the blocks above it.
+
+  R1  value-in-results  -- the figure equals a value under a run id named
+                           inside its own fenced block                      10 of 35
+  R2  external-appeal   -- tools/check_external.py arms the sentence         0 of 35
+      neither                                                               25 of 35
+
+  restricted to the 13 figures this page graded not-true or unreproducible:
+      routable by R1 or R2                                                   0 of 13     derived
+```
+
+The next split is **judged, not derived** — no rule can decide "could a committed script re-derive
+this", so it is one reader's classification of the same thirteen and it is labelled rather than
+folded into the block above:
+
+```
+JUDGED, one reader, the same 13 figures. Not a measurement.
+  re-derivable in this checkout by a committed script                        5 of 13
+      A10.001, A10.003, A11.003, A11.005, A11.006
+  not re-derivable because the resource was deliberately refused             7 of 13
+      A02.001, A02.002, A03.001, A07.009, A07.010, A11.002, A11.008
+  prose arithmetic with no machine-readable claim in it                      1 of 13
+      A11.007
+```
+
+**`R2`'s zero is a real negative and not a vacuous one, which R11 says has to be shown rather than
+claimed.** `docs/AUDIT-2026-08.md` is inside `tools/check_external.py`'s `SCAN_GLOBS`, so the gate does
+run over the do-not list; it simply finds nothing there to arm:
+
+```
+python tools/check_external.py -- one mutation applied to the do-not list, the gate run,
+the file restored from the bytes read before the mutation and the md5 re-checked.
+CPython 3.13.4 on win32; command output.
+
+  rc=0  control, unmutated                                        do-not list not named
+  rc=1  one armed appeal injected into section 0                  do-not list named
+  rc=0  control again, restored byte-identically                  do-not list not named
+```
+
+**The answer is that no gate is available for this class, and the probe says why rather than
+asserting it.** The `10` routable figures are `A07`'s and `A08`'s — the two prohibitions that write
+their evidence under a run id — and **every one of them was already `TRUE`**. Every figure that failed
+was invisible to both checks. `R2` scores zero because `check_external`'s arming vocabulary is built
+for *appeals* — "the published figures", "as reported by" — and the do-not list states its external
+numbers bare: `80` GB of PMC, `5.27` M full texts. Widening that vocabulary to catch a bare external
+number is the prose linter its own module docstring says nobody would leave switched on.
+
+**What is available is not a gate but a convention with a measured effect.** The single property that
+separates the surviving figures from the failing ones is being written under a run id — which is
+`R4` and operating rule `1` already, applied to a do-not list rather than to a README. Five of the
+thirteen failures would additionally be re-derivable here by a committed script, in `R16`'s shape: a
+figure ships with the command that regenerates it, and CI diffs the output. The other `8` are
+uncheckable from this checkout permanently, and `7` of those `8` are uncheckable **because of the
+prohibition itself** — the resource was refused, so the number about it cannot be re-derived by
+anybody standing here.
+
+The register entry for this is standing unknown `U-3` in
+[`docs/DEFINITION-OF-DONE.md`](DEFINITION-OF-DONE.md), carrying "no gate is available" as the finding
+rather than as a to-do.
+
+### The pre-registration, and the falsifier that fired
+
+Nine falsifiers were written down before any command was run. **One fired.**
+
+- **It fired on `87`.** The pre-registration said: *if any principled reading of "public symbols" at
+  HEAD yields exactly `87`, then `A10.003`'s `UNREPRODUCIBLE` is wrong.* One does. The verdict at the
+  audit's commit survives and the correction survives — the ratio still mixes two definitions — but
+  the prediction was wrong on its own terms and the finding it produced is the most useful thing in
+  this section. It is reported here because a pre-registration whose failures are quietly absorbed is
+  a decoration.
+- **It did not fire on a lifted conclusion.** No corrected figure moved any prohibition's conclusion,
+  which is what section `6` predicted and what re-derivation confirmed.
+- **It half-fired on the wheel.** The threshold was *within `200` B of `596,222`*; the rebuild landed
+  `391` B away, so the literal falsifier did not fire — but the tree had moved two commits, so the
+  test was not the one the threshold was written for, and the diagnosis above is the real answer.
+- **Also pre-registered, and it happened:** *I expect to find at least one item where this page's
+  correction is itself stale or over-tight; finding zero would be evidence I read it credulously.*
+  Three were found.
+
+### How this addendum fails
+
+**It is an auditor grading its own corrections.** Section `9` says the verdicts on this page are claims
+too and their error rate is unmeasured; the same is now true one level up. Nobody has re-derived the
+ten corrections, and three of the three errors found in this page were found by the same person who
+wrote this section — which is the shape section `9` warns about, arriving from inside again.
+
+**The gate probe's two routes are the two that exist, not the two that could exist.** `0 of 13` is a
+statement about this repository's current checks and not a proof that no check could work. A reader
+who builds a third route and catches something has refuted the "no gate available" finding, and that
+is the outcome `U-3` is written to invite.
+
+**And the corrections are prose.** They will go stale exactly the way the sentences they replace did.
+`C2`'s wheel figures are already dated by the commit they name; `C9`'s share of source moves with every
+commit that touches `src/`. The difference is that each now prints the command that re-derives it,
+which is a convention rather than a check — the same convention section `11` says a reader of the
+large tables above is trusting rather than verifying.
 
 ---
 

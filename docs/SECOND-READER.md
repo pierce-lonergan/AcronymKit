@@ -376,6 +376,20 @@ Nothing here forces anybody to apply anything, and that is deliberate: a reader 
 to strangers would be authoring by another route. What is enforced is that no finding rots without a
 name against it.
 
+**One finding is now applied and the ledger does not say so, and the gap is structural.**
+`F-2026-08-25-01` — the module docstring of `src/acronymkit/__init__.py` still opening with two
+retired sentences — was rewritten in the round that wrote this paragraph. Its row still reads
+`disposition = "blocked"` with a `blocked_on` that says *"It is not blocked on knowing what to
+write"*, which has stopped being true. It stays that way because closing it needs a ledger write,
+`disposition = "fixed"` needs an `applied_by` that is not the reader, and the applier here is a
+workstream that holds the source file and does not hold
+[`docs/cold-reads.toml`](cold-reads.toml). **`--check` is green throughout**, because a `blocked`
+finding has no decay clock — the mechanism bounds how long an *open* finding may rot and says nothing
+about a `blocked` one whose blocker has been removed. The next cold read owes this row three fields:
+`disposition = "fixed"`, an `applied_by` naming the applying round, and an `applied_in` naming the
+commit. Until it is written, this paragraph is the only place the fact exists, which is exactly the
+failure mode section 5.3 is about, arriving through the disposition the section does not clock.
+
 ---
 
 ## 6. What it costs
@@ -466,6 +480,31 @@ consistently wrong about the world passes all six. `docs/OFFLINE.md`'s air-gap f
 example, were checked for *coverage* and not re-derived; the second reader confirmed which modules
 the scan omits and did not re-run the scan.
 
+**Neither trigger reaches a source file, and one shipped defect proves the hole rather than
+illustrating it.** `PATHSPEC` is six entries and `src/` is not one of them; `user_facing_files()`
+enumerates root files and `docs/*.md` and returns `21`, none of them source. So
+`src/acronymkit/__init__.py`'s module docstring — the first prose a reader meets in an editor, inside
+`tools/check_claims.py`'s `SCAN_GLOBS`, and reported by `docs/POSITIONING.md` as still carrying two of
+the three sentences that page retires — **was reachable by no trigger on this page.** Both reads that
+found it found it through check C5, by following a pointer out of another document, which is luck
+wearing a checklist's clothes. Demonstrated in the working tree that finally rewrote it:
+
+```
+python tools/second_reader.py --trigger, mid-round, with the docstring already rewritten.
+CPython 3.13.4 on win32. Command output, not a benchmark measurement.
+
+  git status --porcelain    ->  M src/acronymkit/__init__.py   (among eleven others)
+  trigger A                 ->  4 user-facing file(s), and that file is NOT among them
+```
+
+**Disposition: reported, not fixed, and the reason is a cost rather than an ownership dodge.**
+`--check` refuses any file `user_facing_files()` enumerates that the rotation cannot reach, and
+`find src/acronymkit -name '*.py' | wc -l` returns `40`. Admitting the package's source would take the
+rotation from `21` entries to `61`, so the set would turn over in sixty-one rounds instead of
+twenty-one — and the paragraph below already names the current latency as a weakness. Admitting only `__init__.py` is a special case with no rule behind it,
+which is the shape [section 3](#3-the-trigger) refuses for jobs. **The honest position is that this
+policy covers documents and says it covers anything user-facing, and the two are not the same set.**
+
 **Trigger B's latency is the size of the rotation.** With one untouched file per round, a defect in
 a file nobody edits waits, on average, half a turn of the set before anybody looks at it. The
 `docs/OFFLINE.md` module count and the `docs/SUPPORT_MATRIX.md` command list had both been wrong for
@@ -485,8 +524,11 @@ the head commit carries no `Second-reader:` trailer naming the reader. `.github/
 the environment it runs in: a push touching `README.md` with no trailer, red, captured. The register
 entry it needs is drafted and handed over rather than written here.
 
-**The gate that does exist has a hole with a known shape.** `MANIFEST.in` ships `docs/*.md`, so
-`docs/cold-reads.toml` is absent from an sdist exactly as `.github/gates.toml` is. `--check` fails
+**CORRECTED 2026-08-26: `docs/cold-reads.toml` IS shipped.** This paragraph said `MANIFEST.in`
+ships `docs/*.md` so the ledger is absent from an sdist exactly as `.github/gates.toml` is. Both were
+added to `MANIFEST.in` by `387f739` and both are present in a tarball built from this tree. The
+hole that remains is a different and smaller one: `--check` still assumes a checkout, so it belongs
+to a checkout environment and must be registered in one. `--check` fails
 loudly there rather than passing vacuously, which means this gate belongs to a checkout environment
 and must be registered in one. That is the D-058 fourth-instance shape — a gate that cannot fail
 where every file it scans is present by construction — named in advance this time rather than found
@@ -516,12 +558,19 @@ here for a human, and `python tools/second_reader.py --check` refuses a disagree
 
 <!-- rotation-cursor -->
 ```
-cursor docs/SUPPORT_MATRIX.md
+cursor docs/GATES.md
 ```
 
-Read that as: the last cold read (2026-08-25) served
-[`docs/GOVERNED_NAMING.md`](GOVERNED_NAMING.md), which is entry four of the fifteen in section 3, so
-trigger B serves entry five next. The next reader changes the ledger; this line is checked against
+Read that as: the last cold read (2026-08-26) served
+[`docs/SUPPORT_MATRIX.md`](SUPPORT_MATRIX.md), which is entry five of the twenty-one in section 3,
+so trigger B serves entry six next.
+
+**The cursor stalled for two consecutive reads before this line moved, and the gate is what moved
+it.** Reads three and four both served `docs/SUPPORT_MATRIX.md`, because a read-only reader cannot
+write the ledger and nobody wrote it for them — so the rotation, whose whole purpose is that a
+document nobody edits is a document nobody re-reads, stopped rotating. `--check` refused the
+disagreement between this line and the ledger the moment the ledger was finally written, which is the
+one failure mode section 3 predicted this policy would have. The next reader changes the ledger; this line is checked against
 it, and the check is the only reason to trust either.
 
 **The cursor points at a page that already has a finding against it.** `F-2026-08-24-05` is
@@ -529,6 +578,20 @@ it, and the check is the only reason to trust either.
 sixteen-command CLI — and the seven the sentence does not reach are the governed half, which
 `docs/POSITIONING.md` commits this library to leading with. That is trigger B and the ledger arriving
 at the same page from opposite directions, which is the first evidence either mechanism works.
+
+**AND THIS SECTION SAID "FIFTEEN" TWICE ABOUT A SET OF TWENTY-ONE, WHICH IS THE THIRD TIME THIS PAGE
+HAS BEEN WRONG ABOUT ITS OWN ROTATION COUNT.** The line above read *"entry four of the fifteen"*, and
+the paragraph below still narrates the amendment that took the set to fifteen without saying that
+section 3's tree-reachability rule then took it further. Section 3 is the only copy and the tool
+parses it; the count is derived, not remembered:
+
+```
+python tools/second_reader.py --check          # output, not a benchmark measurement
+  rotation: 21 file(s); trigger B serves docs/SUPPORT_MATRIX.md next
+```
+
+Section 9 carried the same drift and is corrected there. C1 is the check that catches this and C1 was
+written on this page.
 
 **Rotation set amended, 2026-08-25.** [`docs/POSITIONING.md`](POSITIONING.md) was appended, taking
 the set to fifteen. That page asked for it in its own words — *a positioning statement nobody
@@ -606,12 +669,19 @@ mutation                                                     pytest   --check
   H  the docs/DECISIONS.md exclusion is dropped                rc=1     rc=1
 ```
 
-**D got through on the first run, and the fix is why the rotation set is twenty files.** On the first
-pass D printed `rc=0 rc=0`: deleting an entry from the rotation block was invisible to both the suite
-and the gate, because every surviving entry existed, none repeated and the cursor still resolved. **A
-set checked only against itself agrees with itself perfectly.** The rule added in response reads the
-tree instead — every user-facing file must be reachable by the rotation — and it took the set from
-fifteen to twenty because five pages, this one included, were unreachable. D fails now. The row is
+**D got through on the first run, and the fix is why the rotation set is twenty-one files.** On the
+first pass D printed `rc=0 rc=0`: deleting an entry from the rotation block was invisible to both the
+suite and the gate, because every surviving entry existed, none repeated and the cursor still
+resolved. **A set checked only against itself agrees with itself perfectly.** The rule added in
+response reads the tree instead — every user-facing file must be reachable by the rotation — and it
+took the set from fifteen to twenty-one because six pages, this one included, were unreachable. D
+fails now.
+
+**CORRECTED: this paragraph said "twenty files" and "five pages", and section 3 says six and lists
+them.** The two accounts differ by [`docs/SOURCING.md`](SOURCING.md), which section 3 records as
+having been caught by the anti-rot rule mid-round rather than by the tree sweep — so both narratives
+are defensible and only one count can be. The count is derived, `rotation: 21 file(s)`, and section 3
+is the copy the tool parses. The row is
 left in the table with its history rather than shown only in its repaired state.
 
 **A and G are the honest asymmetry, not a hole.** Both redden `pytest` and leave `--check` green,

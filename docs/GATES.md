@@ -25,47 +25,68 @@ paragraph.
 
 ## Read this before the table
 
-**Thirteen of the thirty-six gates now carry in-situ evidence, and none of it was new work.**
+**Twelve of the thirty-six gates carry in-situ evidence, and the count went DOWN this round.**
 
-The previous version of this page opened *"the count is zero"* and *"nothing in `gate-mutation.yml`
-has ever run"*. The second sentence was false when it was written. That workflow had run — once, on
-`2026-08-25`, green, with all five artifact bundles uploaded — and nothing in this repository had
-ever looked at it. Every one of the thirteen automated gates came back `demonstrated` on
-`ubuntu-latest` under CPython `3.12`, and `--check` went on printing `0 of 36` afterwards because
-nobody had written a run id into the register. **Evidence that is produced and not recorded is
-evidence nobody has**, and that is a worse failure than the one this page was built to describe: the
-mechanism worked, the run was green, and the count stayed at zero for a whole phase.
+The previous version of this page opened *"Thirteen of the thirty-six"*. One of the thirteen was
+`gates.suite`, the highest-ranked gate this harness can mutate at all, and **its evidence has been
+withdrawn.** Not because the gate was found inert — because the verdict that recorded it was
+measured to be reachable with the defect uncaught, in both environments, so it could not have come
+back `INERT` for any tree. A check that cannot fail, inside the harness built to catalogue checks
+that cannot fail. The measurement is in *[The verdict that could not go red](#the-verdict-that-could-not-go-red)*.
+
+What went up is the set this harness can mutate at all: three gates whose implementation was a
+heredoc inside a workflow are now scripts in `tools/`, so `automated` went from 13 to 16 and
+`inline` from 8 to 5.
 
 ```
 python tools/gates.py --check                                -- command output
-  gate manifest: 36 gate(s) across 21 environment(s) in 5 workflow file(s)
-  mutation kind: automated 13, control 2, inline 8, manual 13
-  demonstrable by this harness: 13 of 36, 0 of them still owed
-  CARRYING IN-SITU EVIDENCE:   13 of 36
-  top of the cost ranking:     3 of 3 demonstrated  (1 claims, 2 splits_manifest, 3 suite)
-  in-situ quota: debt 23, ceiling 23 | 2 round(s) | M2-P4 (the first harvest) cut 13
-                 (run 32808357572 at 3173126) | quota 3 per round, top 3 of the ranking
-                 must be demonstrated
+  note: evidence provenance -- 7 of 12 demonstrated gate(s) carry evidence taken before a
+        change to a file the gate is made of; `--evidence-provenance` says which
+  gate manifest: 36 gate(s) across 23 environment(s) in 5 workflow file(s)
+  mutation kind: automated 16, control 2, inline 5, manual 13
+  demonstrable by this harness: 16 of 36, 4 of them still owed
+  CARRYING IN-SITU EVIDENCE:   12 of 36
+  top of the cost ranking:     2 of 3 demonstrated  (1 claims, 2 splits_manifest, 3 suite)
+  in-situ quota: debt 24, ceiling 24 | 3 round(s) | M3-PA (the heredoc extraction) cut -1,
+                 withdrew ['suite'], owes 4 forward | quota 3 per round, top 3 of the
+                 ranking must be demonstrated
 ```
 
-**The evidence is dated `2026-08-25`, taken at commit `3173126`, in run `32808357572`.** Every
-demonstrated gate carries all three, because a run id says a demonstration happened and only the
-commit says *which gate* was demonstrated. That run is one commit behind this page's own HEAD, and
-`git diff 3173126 61cf933 -- .github/ tools/gates.py bench/splits.toml tests/test_splits_manifest.py
-src/acronymkit/resources/ bench/results.json docs/GATES.md` is **empty**: not one byte of any gate's
-command, or of any mutation's target, changed between the run and the register that records it.
+**The proof that licensed the first harvest has expired, and it was a proof that could not stay
+true.** All thirteen demonstrations rested on one sentence written here: that
+`git diff 3173126 61cf933` over eight paths was *empty*. It was true when it was written. It was
+false on the next commit — seven of those eight paths have moved since, `tools/gates.py` by 518
+lines and `bench/results.json` by 5,303. **A proof with a one-commit lifetime is not a mechanism**,
+so it is replaced by one that is computed per gate and printed on every run:
 
-The remaining `23` are the eight `inline`, thirteen `manual` and two `control` refusals. Not one is a
-gate this harness can mutate, so the next payment is not more of the same — it is the heredoc
-extraction that would close three of the eight at once.
+```
+python tools/gates.py --evidence-provenance                  -- command output, abridged
+  gate                       at        state              changed under it
+  claims                     3173126   predates a change  docs/GATES.md, tools/check_claims.py
+  splits_manifest            3173126   predates a change  bench/splits.toml, tools/splits.py
+  ngram_matches_lexicon      3173126   describes HEAD     -
+  mypy                       3173126   describes HEAD     -  [command names no file; ...]
+  gate_manifest              3173126   predates a change  tools/gates.py
+  control_always_red         3173126   predates a change  .github/gates.toml, tools/gates.py
+  ...
+  7 of 12 gate(s) carry evidence taken before a change to a file the gate is made of.
+```
 
-**What is still open, stated where it cannot be missed.** This round edits `tools/gates.py`, and five
-of the thirteen demonstrated gates run `tools/gates.py` as their command. Their evidence therefore
-describes the previous revision of that tool. `gate-mutation.yml` triggers on pushes touching
-`tools/gates.py`, `.github/gates.toml`, `.github/workflows/*.yml` and `tests/test_gate_manifest.py`,
-so **the commit that lands this work re-takes the evidence on its own** — but until that run
-completes, five rows here are one revision stale and the register does not currently say which. That
-is the honest state and it is the first thing to attack.
+A gate's dependency set is its mutation's edit targets, plus the file its command runs, plus the
+workflow its step lives in. Where a command names no file — `python -m pytest`, `python -m mypy` —
+the set is the whole tree and the row says so, because an empty changed-list would read as *nothing
+this gate depends on has moved*, which is the flattering answer and the false one.
+
+**It is a note and never a failure.** A changed file does not establish that a gate stopped catching
+anything; it establishes which evidence is worth re-taking. A rule that reddened the build on the
+passage of ordinary commits would be deleted within a week.
+
+**Was any of the twelve falsified?** Asked, rather than assumed. Every automated mutation was re-run
+on this tree on 2026-08-25: ten came back `DEMONSTRATED`, two (`test_environment_control`,
+`harness_lint_environment`) came back `UNRESTORED` because a developer machine cannot satisfy their
+premises — which the register already predicts — and one, `suite`, exposed the confound above. **No
+gate was found inert on its own declared defect.** Local re-running can falsify in-situ evidence and
+cannot confirm it, and it is used here only in that direction.
 
 ---
 
@@ -179,26 +200,42 @@ python tools/gates.py --check                                              rc=1
     healthy. Demonstrate the new gate, or pay for it by demonstrating another.
 ```
 
-**The debt rule and the top-of-ranking rule are not waivable. The rest are.** A rule with no escape
-gets deleted the first time it is inconvenient; one with a named escape gets argued with. So a round
-that pays less than the per-round quota may record a waiver, and so may a round that adds an
-`automated` gate it could not run in CI in the same commit — but no waiver lets the debt rise, and no
-waiver excuses a gate in the top three of the ranking carrying no evidence.
+**The debt rule used to be not waivable, and that was a defect rather than a discipline.**
+It is now waivable **only against an attribution**, and the reason is that the unwaivable version
+made two honest moves unsayable and one documented escape unreachable:
 
-**This is deliberately harsh and it will bite.** The demonstrable set is now exhausted: all thirteen
-`automated` gates are demonstrated, and the twenty-three that remain cannot be mutated by this
-harness at all. A future round that adds a `manual` gate — a new release check, say — has to pay for
+- **Retiring a demonstration raises the debt by one**, so *"we found our evidence is weaker than we
+  thought"* was refused before any escape was consulted. That is a count that can only rise, which
+  is not a measurement.
+- **The top-of-ranking rule made it worse at the top**, which is where a withdrawal matters most.
+- **The escape this page already advertised could never apply.** It said a round may waive *"that
+  adds an `automated` gate it could not run in CI in the same commit"*. Adding such a gate raises
+  the debt by one, so the unwaivable rule fired first and the waiver was dead text. **A documented
+  escape no input can reach is the same defect as a check that cannot fail, pointed the other way**,
+  and it sat in this file from the day the quota was written.
+
+So a rise now needs *both* an attribution and a waiver. `withdrawn_gates` names every gate whose
+evidence was retired; `owed_forward` counts gates whose demonstration the next run is expected to
+take; every name is checked against the live register; a withdrawn gate still carrying a run id is
+refused; and the round **after** one that owed evidence forward must show the debt fell by at least
+that much or say why it did not. An *unattributed* rise is still refused, and the top-of-ranking rule
+still fires unless the gate is named as withdrawn and owed forward. Nine tests drive those rules.
+
+**This is deliberately harsh and it will bite.** The set this harness can mutate is 16 of 36 and 4 of
+those are owed. The 20 that remain are 5 `inline`, 13 `manual` and 2 `control` refusals, and none can
+be mutated here. A future round that adds a `manual` gate — a new release check, say — has to pay for
 it by extracting an inline gate into a script and demonstrating that. **The currency the quota
-creates is exactly the fix this page has been naming and not doing since it was written**, and three
-of the eight inline gates go together in one afternoon's work.
+creates is exactly the fix this page named and did not do for two phases**, and three of the eight
+inline gates have now been spent. [What the other five would cost](#what-the-remaining-five-would-cost-so-the-quota-does-not-stall-on-an-unstated-tail)
+is measured rather than guessed, because an unstated tail is how a quota stalls.
 
 ### The rest of the battery
 
 Seven more mutations of the live register, one at a time, each restored:
 
 ```
-python tools/gates.py --check, eight runs against .github/gates.toml   -- command output
-one mutation each, the file restored from bytes read first and md5-verified
+python tools/gates.py --check, ten runs against .github/gates.toml   -- command output,
+one mutation each, the file restored from bytes read first and md5-verified   re-measured 2026-08-25
 
   rc=0  control, unmutated
   rc=1  A  the top-ranked gate loses its in-situ evidence
@@ -208,19 +245,37 @@ one mutation each, the file restored from bytes read first and md5-verified
   rc=1  E  a gate declares a blast radius that is not one
   rc=1  F  a gate loses its cost_if_inert
   rc=1  G  an in-situ date loses its commit
+  rc=1  H  a withdrawn gate is left carrying its run id
+  rc=1  I  an automated fail-mutation drops its expect_failure_matching
+
+  register restored byte-identically after every case: True
 ```
 
-Case `A` is the one worth reading in full, because it fires three rules at once and each says
+The first attempt at this re-measurement is worth one line, because it is the shape this whole page
+is about: **five of the ten cases were silent no-ops and reported `rc=0`.** Every search string used
+`\n` and the working copy of `.github/gates.toml` had CRLF, so five "mutations" changed nothing and
+five green rows would have been published as refusals. The script now asserts that each case actually
+changed the file. See *[How this page fails](#how-this-page-fails)* for what the CRLF is doing there.
+
+Case `A` is the one worth reading in full, because it fires four rules at once and each says
 something different:
 
 ```
-  -   IN_SITU_TRAJECTORY['M2-P4 (the first harvest)']
-    says 13 gate(s) carry in-situ evidence; 12 do.
+python tools/gates.py --check, gates.claims stripped of its run id and commit  -- command output
+  - gates.claims.mutation: `verified_in_situ_on` with no `verified_in_situ_run`. A date with
+    no run id is a claim with no evidence.
+  - gates.claims.mutation: `verified_in_situ_on` with no `verified_in_situ_commit`. A run id
+    says a demonstration happened; the commit says WHICH gate was demonstrated.
+  -   IN_SITU_TRAJECTORY['M3-PA (the heredoc extraction)']
+    says 12 gate(s) carry in-situ evidence; 11 do.
   -   gates.claims ranks 1 of 36 by cost-if-inert and carries no in-situ evidence.
     The top 3 of the ranking must be demonstrated where they run.
-  -   1 gate(s) this harness can mutate carry no in-situ evidence: ['claims'].
-    Their own commands are runnable on a runner today, so this is a debt and not a limit.
 ```
+
+Case `H` is the one this round added, and it is the withdrawal rule closing in the other direction:
+a round that says it retired `gates.suite`'s evidence, against a register that still carries the run
+id, is refused — *"one of the two is wrong"*. Without it, a withdrawal would be a sentence in a
+Python list with nothing checking it against the tree.
 
 Case `C` is the ordering rule: swapping the ranks of `claims` and `ruff_format` is refused not
 because somebody dislikes it but because it inverts the declared factors —
@@ -264,24 +319,28 @@ passes. **That was the only positive control in the repository.** It is now gene
 
 ```
 python tools/gates.py --list | tail                          -- command output
-  automated  13    an edit this harness applies, runs the gate's own command against, and reverts
-  inline      8    the gate is a heredoc inside a workflow; there is no command to invoke
+  automated  16    an edit this harness applies, runs the gate's own command against, and reverts
+  inline      5    the gate is a heredoc inside a workflow; there is no command to invoke
   manual     13    mutable only in an environment this harness cannot create
   control     2    the step IS a positive control; mutating a control is a different task
 ```
 
 Eight jobs carry no gate at all and each one says why in the register — two third-party analyses
 whose rule sets this repository does not define, four upload-and-attest steps that assert nothing
-about the tree, and two jobs of the mutation harness itself.
+about the tree, and two jobs of the mutation harness itself. Two more were added this round for the
+same reason, and the reason is worth reading: `--assert-environment` checks **path globs**, and the
+premise of `zero-dependency` and `import-time` is that *no optional dependency is installed* — a
+property of the interpreter, not of the tree. A gate registered for a premise its own command cannot
+observe would be the exact shape this page catalogues, so it is refused and the hole is written down.
 
-**Eight of the thirty-six are refused for one architectural reason and it is worth naming.** A gate
-whose implementation is a heredoc inside `ci.yml` has no command a runner can invoke, so a mutation
-harness could only ever run a *copy* of it — and D-018 already settled that a pattern describing the
-bug cannot be used to test for the bug. The fix is to extract those heredocs into scripts the way
-`tools/splits.py` was extracted, and it is not done. Three of the eight — the schema-copy digest,
-Tier 0 purity and the import ceiling — would be closed by the same afternoon's work.
+**Five of the thirty-six are still refused for the architectural reason, and three that were are
+not.** A gate whose implementation is a heredoc inside `ci.yml` has no command a runner can invoke,
+so a mutation harness could only ever run a *copy* of it — and D-018 already settled that a pattern
+describing the bug cannot be used to test for the bug. `schema_copies_match`, `tier_zero_purity` and
+`import_ceiling` were the three this page named as *"one afternoon's work"*. They are extracted.
+What that cost, and what the remaining five would cost, is in
+*[The extraction](#the-extraction-and-what-it-fired-on-its-first-invocation)*.
 
-**Ten of the thirteen automated mutations have been run, and every one was demonstrated.** They are
 the ones a developer machine can reproduce:
 
 ```
@@ -318,6 +377,101 @@ resource pair was run against the real bundled files, and both were restored byt
 checked by digest, not by the harness's own word.
 
 ---
+
+---
+
+## The extraction, and what it fired on its first invocation
+
+Three heredocs became `tools/gate_schema_copies.py`, `tools/gate_tier_zero.py` and
+`tools/gate_import_ceiling.py`. `ci.yml` invokes them; `tools/gates.py --mutate` runs the same files
+against a declared defect. `tests/test_gate_scripts.py` pins both directions — each script must fail
+on its defect **and** pass otherwise — and pins the two-copy problems the extraction creates: the
+failure marker in each script must equal the one in the register, and `ci.yml` must invoke the
+command the register names.
+
+### The schema-copy gate was red on the developer machine and nothing could see it
+
+The first invocation of the extracted script, against an **unmutated** tree:
+
+```
+python tools/gate_schema_copies.py                           -- command output, 2026-08-25
+  SCHEMA COPIES DIVERGED: schemas/ and the bundled resource copy have diverged.       rc=1
+  e1b2f9f2...  schemas/acronym-engine-result.schema.json
+  9a8823ce...  src/acronymkit/resources/acronym-engine-result.schema.json
+
+git ls-files --eol <both paths>
+  i/lf  w/crlf  attr/text eol=lf    schemas/acronym-engine-result.schema.json
+  i/lf  w/lf    attr/text eol=lf    src/acronymkit/resources/acronym-engine-result.schema.json
+```
+
+`.gitattributes` declares `*.json text eol=lf` and states in its own comment that the reason is
+*"the CI job that asserts the two copies of the interchange schema are identical"*. The working copy
+of one of the two had CRLF anyway, so the two differed by 161 bytes of line ending. **`git status`
+was clean throughout**, because git compares normalised content — and the gate could not be run,
+because it was a heredoc. Repaired by rewriting the working copy to LF, which is byte-identical to
+HEAD: a working-tree repair, not a commit.
+
+This is R11 running in the other direction. The rule says a gate must be shown able to fail where it
+runs. The mirror is that a gate nothing can invoke cannot be shown to be **passing** anywhere either.
+
+### Extraction alone did not make the third one demonstrable, which refutes this page's own costing
+
+This page and the register both said the three go together. Measured, they do not.
+
+```
+python tools/gates.py --mutate <gate>                        -- command output, 2026-08-25, Windows
+  schema_copies_match   DEMONSTRATED  mutated rc=1, restored rc=0   ambient interpreter
+  tier_zero_purity      INERT         mutated rc=0                  ambient interpreter
+  tier_zero_purity      DEMONSTRATED  mutated rc=1, restored rc=0   venv, `pip install -e .`
+  import_ceiling        DEMONSTRATED  mutated rc=1, restored rc=0   venv, `pip install .`, with setup
+```
+
+The `INERT` row is the finding and it is not about the gate. `acronymkit` happened to be installed
+**non-editably** on that machine, so `import acronymkit` resolved to site-packages and an edit to
+`src/` never reached the thing the gate looks at. The harness reported a blind gate when the harness
+had simply not touched it.
+
+`ci.yml`'s `import-time` job installs non-editably **on purpose** — *"an editable install adds a path
+finder of its own, and what is being measured is what a user actually installs"* — so
+`gates.import_ceiling` would have had that failure mode permanently, in its own environment, by
+construction. The fix is a new register field, `mutation.setup`: a command run after the edits and
+before the gate, and again after the restore. For that one gate it is
+`python -m pip install --quiet --no-deps --force-reinstall .`.
+
+Two other things the extraction changed rather than moved, both registered rather than done quietly:
+
+- **The old refusal named the wrong mutation.** It said an eager `import pydantic`. Pydantic is not
+  installed in a base-only environment, so that import raises and the gate exits non-zero for a
+  reason it does not describe — a false demonstration. The registered mutation is
+  `from . import enums`, which the structural half rejects by name and which needs nothing installed.
+- **Only the structural half of `import_ceiling` is demonstrated.** No edit to this tree reliably
+  takes a cold import from where it sits to over the declared ceiling without breaking the
+  structural half first, so the wall-clock half has never been shown able to fail and is not claimed
+  to have been. R18 would have that half be an unarmed note with the machine named; changing it is a
+  change to what CI enforces and is not this commit's business. The ceiling and its derivation
+  travelled with the code into `tools/gate_import_ceiling.py`'s module docstring.
+
+### What the remaining five would cost, so the quota does not stall on an unstated tail
+
+```
+the five gates still refused as `inline`, and what stands between each and a demonstration
+  airgap_public_api_probe   rank  5   a ~150-line probe written into $RUNNER_TEMP and run inside
+                                      an unprivileged network namespace. Extractable; NOT
+                                      demonstrable by this harness, which cannot build that
+                                      namespace. Cost: a script, and no evidence.
+  wheel_resources           rank 11   needs a built wheel, which exists only between two steps of
+  wheel_budget              rank 18   the `build` job. The gate's command has no meaning outside
+  installed_wheel_smoke     rank 14   that window, so extraction buys testability and not a
+                                      mutation -- unless `setup` is used to build the wheel, at
+                                      roughly a minute per mutation.
+  installed_import_resolves rank 26   needs the laid-out run directory `installed-suite` builds
+                                      across three earlier steps. Same shape as the packaging
+                                      gates: a sequence, not a command.
+```
+
+**Three of eight went in an afternoon and the other five will not.** The honest reading of the
+original estimate is that it was right about the three it named and silent about the tail, which is
+what an unstated tail does to a quota.
 
 ## How many known defects each gate actually catches
 
@@ -419,6 +573,58 @@ on at the time**, so it is reported and not diagnosed. What it demonstrates clea
 doing its job: no coverage number was published from that run, because the run had no right to
 publish one.
 
+### The drift is closed for the assertions and named for the sequence
+
+`tools/gate_packaging_mutation.py` **rebuilt `ci.yml`'s sequence rather than invoking it**, and the
+register recorded that as an accepted cost beside every gate it touches. It was not only a cost, it
+was the cause: the harness carried its own copy of `EXPECTED_NON_PASSING`, its own `PASS_FLOOR`, its
+own log parser and its own `test -f` list, and the guard that existed to notice the drift
+(`check_expected_non_passing_is_current`) printed `WARNING:` and carried on.
+
+**Both assertions are now invoked rather than reproduced.** They were pure functions of text all
+along — a log in, a verdict out; a tree in, a list of missing paths out — so they became
+`tools/gate_installed_suite.py` and `tools/gate_sdist_files.py`. `ci.yml` runs them and the harness
+imports them. There is nothing left for those two to drift from, and a test asserts it:
+
+```
+tests/test_gate_scripts.py::TestTheWorkflowAndTheScriptsAgree      -- what it pins
+  ci.yml invokes all five extracted scripts by path
+  no heredoc is left for an extracted gate (EXPECTED_NON_PASSING = {, CEILING_MS, ...)
+  the harness's EXPECTED_NON_PASSING, PASS_FLOOR and file list ARE the scripts' objects
+```
+
+**The sequence around them is still reproduced, and the stronger fix is refused with a reason.** A
+job's `run:` block is not addressable from outside the workflow; `installed-suite`'s sequence spans
+`$RUNNER_TEMP`, `$GITHUB_WORKSPACE` and a virtual environment the workflow creates, none of which
+exists off a runner. Nothing here can invoke it. So what is checkable is that every command the
+harness copies still appears in the file it was copied from, and that is asserted **fatally, before
+any case runs**:
+
+```
+python tools/gate_packaging_mutation.py --check-drift         -- command output, 2026-08-25
+  reproduction check: 11 sequence fragment(s) still present in ci.yml; 4 divergence(s)
+  declared; the two ASSERTIONS are imported from the scripts ci.yml runs, not copied
+    declared divergence: installs the sdist with `--no-deps --force-reinstall` into the
+      AMBIENT interpreter; installed-suite installs `${sdist}[dev]` into a fresh venv
+    declared divergence: adds `-p no:cacheprovider` to the extracted-tree run
+    declared divergence: runs in a temp directory rather than under $RUNNER_TEMP
+    declared divergence: does not re-run build's wheel steps at all
+```
+
+A drift check that cannot fail would be the same defect a third time, so it has a control: the live
+workflow passes it, and a workflow with one fragment renamed does not.
+
+**Fatal rather than a warning, and that is the whole change in one word.** The previous guard's
+reasoning was that *"a harness that refuses to start because a list moved is a harness people
+delete"*. That is wrong in the one direction that matters here: this script's output is a **coverage
+table**, and the table gets quoted into the register and into this page. A number about the wrong
+sequence is worse than no number, which is exactly what run `32808357572` produced.
+
+**What has still never happened is a green run of this job on a runner.** The `| tee` is fixed, the
+build command matches the gate's, the drift check is fatal — and the two-of-five and four-of-five
+figures below still stand on the 2026-08-24 Windows re-measurement. Nothing in this round re-derived
+them anywhere.
+
 ### One reason changed, and the reason is the finding
 
 `installed-suite` still misses breakage `e`, and **it misses it for a different reason than D-050
@@ -501,6 +707,105 @@ matches. The suite would have gone red on that test **even if the D-058 defect h
 restored**, so `rc=1` on its own does not establish that this gate catches this defect. What
 establishes it is the named `FAILED` line above. *Take the evidence from the line, not from the
 verdict.* A probe that does not edit a file the register anchors on would fix it; that is not done.
+
+---
+
+### The verdict that could not go red
+
+The section above ends *"take the evidence from the line, not from the verdict. A probe that does
+not edit a file the register anchors on would fix it; that is not done."* **Neither half of that was
+enough, and the measurement that shows it costs one command.**
+
+`data/` present is the condition under which this register predicts `gates.suite` is INERT. With the
+mutation applied, on this tree, restricted to the two files that can react to it:
+
+```
+gates.suite's declared mutation applied by hand, data/ PRESENT   -- command output, 2026-08-25
+python -m pytest tests/test_splits_manifest.py tests/test_gate_manifest.py -q         rc=1
+  FAILED tests/test_gate_manifest.py::TestTheRegisterThisRepositoryShips::test_it_validates
+  (tests/test_splits_manifest.py: no failure -- the D-058 defect is NOT caught here,
+   exactly as this register predicts)
+the file restored, md5-verified against the bytes read before the mutation      True
+```
+
+So `rc != 0` was reachable **with the declared defect uncaught**. The probe edits
+`tests/test_splits_manifest.py`, which is the anchor `gates.suite`'s own register entry names, so the
+register's validator reddens the suite on its own — in *both* environments, for *any* tree. The
+harness could not have returned `INERT` for this gate. **Its automated verdict carried no
+information at all, and the register recorded in-situ evidence on the strength of it.**
+
+Two consequences, and the second is the one this page has to say out loud.
+
+**The rule changed.** `mutation.expect_failure_matching` is now required on every automated
+mutation that expects a failure: a substring the gate's own output must contain before a non-zero
+exit counts as a demonstration. For `gates.suite` it is the name of the test that must fail. The
+rule has a positive control — the same mutation with a line the gate never prints comes back
+`INERT`, and the same mutation with the right line comes back `demonstrated`:
+
+```
+tools/gates.py, one gate, two markers                        -- command output, 2026-08-25
+  control  (the real marker)   demonstrated
+  probe    (a line it never prints)   INERT -- "the gate exited 1, but its output does not
+                                      contain 'A LINE THIS GATE NEVER PRINTS'"
+```
+
+**And the rule flips this gate's own local verdict, which is the result to read.** Same tree, same
+mutation, same two full suite runs, before and after the rule:
+
+```
+python tools/gates.py --mutate suite       -- command output, 2026-08-25, data/ PRESENT
+  before the rule   suite   DEMONSTRATED  mutated rc=1, restored rc=0
+  after  the rule   suite   INERT         "the gate exited 1, but its output does not
+                                          contain <the named test>. Something here failed; it
+                                          was not this gate catching this defect, and a return
+                                          code cannot tell those apart."
+                                          (the only FAILURE printed is
+                                           TestTheRegisterThisRepositoryShips.test_it_validates;
+                                           the named test is
+                                           test_the_reader_that_would_spend_the_allocated_arm_is_wired)
+```
+
+`INERT` is the **correct** answer on a machine holding `data/` — it is what this register predicted
+and what the harness had stopped being able to say. The prediction that `test-gates` exists to check
+is testable again.
+
+**The evidence was withdrawn.** The captured artifact from run `32808357572` does carry the named
+`FAILED` line — it is quoted in the section above — but the only record of it in this repository is
+that quotation, and a failure line transcribed into a prose document is an unchecked claim in
+exactly the way R16 says a figure inside an image is. Under the new rule the demonstration has to be
+**re-taken**, not re-read. `gate-mutation.yml` triggers on every path this commit touches, so the run
+that re-takes it is the run that lands this work, and `owed_forward` on the trajectory row is what
+makes the next round check that it happened.
+
+**What is still not done: the confound itself.** Removing it needs a probe that does not edit a file
+the register anchors on, and the D-058 defect *lives* in that file. Naming the line is the fix that
+works without moving the defect; it makes the verdict attributable and leaves `rc=1` over-determined.
+
+### Retiring evidence was arithmetically impossible, and that is a defect in the quota rather than in the evidence
+
+Withdrawing `gates.suite` should have been a one-line edit. It was not, and the reason is worth more
+than the edit.
+
+The quota is a ceiling on the debt, `gates - in_situ`, and the ceiling rule was declared **not
+waivable**. Withdrawing a demonstration raises the debt by one. So the rule fired first, `continue`d
+past every escape, and *"we found our evidence is weaker than we thought"* could not be expressed at
+all. The top-of-ranking rule made it worse: `gates.suite` ranks 3, and the top three must carry
+evidence, so a withdrawal there was doubly unsayable — **at exactly the rank where a withdrawal
+matters most.**
+
+The same ratchet had already broken something this page claimed to offer. It says a round may record
+a waiver *"that adds an `automated` gate it could not run in CI in the same commit"*. Adding such a
+gate raises the debt by one, so that waiver **could never apply.** A documented escape that no input
+can reach is the same defect as a check that cannot fail, pointed the other way, and it had been
+sitting in this file since the quota was written.
+
+The fix is attribution rather than exemption. A rise is now permitted only when the round accounts
+for it — `withdrawn_gates`, naming each gate whose evidence was retired, and `owed_forward`, counting
+gates whose demonstration the next run is expected to take — **and** carries a waiver saying why.
+Every name is checked against the live register, a withdrawn gate that still carries a run id is
+refused, and the round *after* one that owed evidence forward must show the debt fell by at least
+that much or write down why it did not. Nine tests in `tests/test_gate_manifest.py` drive those
+rules, including the one that matters most: an *unattributed* rise is still refused.
 
 ---
 
@@ -773,24 +1078,71 @@ python tools/gates.py --json                        the register as JSON
 python tools/gates.py --assert-environment lint     is this machine that environment?
 python tools/gates.py --mutate mypy                 one mutation, applied and reverted
 python tools/gates.py --mutate-environment lint     every automated mutation of one environment
+python tools/gates.py --evidence-provenance         which evidence predates a change to its gate
+python tools/gate_schema_copies.py                  the two schema copies are byte-identical
+python tools/gate_tier_zero.py                      Tier 0 imports and runs with no extras
+python tools/gate_import_ceiling.py                 nothing is eagerly bound; cold import is cheap
+python tools/gate_sdist_files.py DIR                an extracted sdist carries what its docs cite
+python tools/gate_installed_suite.py LOG            adjudicate an installed-suite pytest log
+python tools/gate_packaging_mutation.py --check-drift  is the reproduction still ci.yml's sequence?
 python tools/gate_packaging_mutation.py --out DIR   the five historical breakages, against a real sdist
 ```
 
 `--mutate` edits the working tree and puts it back. It writes the previous bytes of every file it
 touches before touching it and restores them in a `finally` block, and then re-runs the gate to
 confirm a zero exit — because without that second half, a gate failing for an unrelated reason reads
-as a successful demonstration.
+as a successful demonstration. It also reports, rather than hides, a file that **changed while the
+mutation was applied**: one declared mutation deletes `bench/results.json` for the duration of a run,
+this repository is edited by several agents at once, and a restore from bytes read beforehand would
+otherwise overwrite somebody else's write in silence.
+
+**Two of these reinstall or rebuild.** `--mutate import_ceiling` carries a `setup` that runs
+`pip install --force-reinstall .`, because `ci.yml`'s `import-time` job installs non-editably and a
+source edit would otherwise never reach the gate. Run it inside a virtual environment — invoke
+`tools/gates.py` **with that venv's interpreter** and the setup lands there — unless you want
+`acronymkit` reinstalled into whatever Python you are holding.
 
 ---
 
 ## How this page fails
 
-**The lead item is at the top and it is not a footnote: twenty-three of the thirty-six gates carry no
-in-situ evidence, and none of them can.** Every one is an `inline`, `manual` or `control` refusal that
-this harness cannot mutate. So the number that just moved from zero to thirteen is the number of
-gates that were *always* demonstrable, and the honest reading of `13 of 36` is not *"a third of the
-way"* — it is *"all of the easy ones, and the remainder needs a different kind of work"*. The quota is
-built so that remainder is the only currency left, which is a mechanism and not yet a payment.
+**The lead item is that the count went DOWN and four gates are owed on a promise.** Twelve of
+thirty-six carry in-situ evidence, against thirteen before. `gates.suite` — rank 3, the highest-cost
+gate this harness can mutate — had its evidence withdrawn because its recorded verdict was measured
+to be reachable with the defect uncaught. Three newly-extracted gates carry a **local** demonstration
+and nothing else, and a local demonstration is precisely what R11 says is not evidence. So the honest
+statement is: `12 of 36`, four owed forward on a CI run that has not happened yet, and **nothing on
+this page is evidence that the extraction works on a runner.**
+
+**Twenty-four of the thirty-six still carry no in-situ evidence, and twenty of those cannot.** Five
+`inline`, thirteen `manual`, two `control` — none mutable by this harness. The number that moved
+from zero to thirteen and back to twelve is the number of gates that were *always* demonstrable, and
+the honest reading is not *"a third of the way"* — it is *"all of the easy ones, and the remainder
+needs a different kind of work"*. Three of that remainder were spent this round; what the other five
+inline gates cost is measured above, and it is not another afternoon.
+
+**Every number on this page about the extraction was taken on a developer machine, and one of them
+had to be taken twice to be right.** `tier_zero_purity` came back `INERT` against the ambient
+interpreter and `DEMONSTRATED` against a venv that mirrors the CI job, and the difference was the
+install mode. Any of these three could differ on a runner for a reason nobody has thought of; that is
+the whole of R11 and it applies to this round's own work first.
+
+**The working tree writes CRLF into files git stores as LF, and it has already broken a gate.**
+> **THE COUNT USED TO BE QUOTED HERE AND IS NOW DELIBERATELY NOT.** This paragraph said
+> "`66` of `216`". A cold reader running the same command got `57`; the next run got `61`. The
+> denominator reproduces exactly and the numerator does not, because **`w/crlf` is a property of the
+> reader's working tree and checkout settings, not of the repository** — and this page ships in the
+> sdist, where it would be asserting a fact about a machine the reader does not have. The `216` is
+> kept because it is a repository fact. The share is described rather than counted, which is the
+> only honest form available: a figure that changes with who reads it is not a figure.
+
+`.gitattributes` declares `*.json text eol=lf` and says the reason is the schema-copy gate.
+`git ls-files --eol` reports a large minority of the `216` tracked files as `w/crlf`, and
+`schemas/acronym-engine-result.schema.json` was one of them — so that gate was **red in this working tree** and nothing could see it, because it
+was a heredoc. `git status` stays clean throughout, because git normalises on compare. The same thing
+silently no-opped five cases of this page's own mutation battery. Nothing checks it: there is no gate
+on working-tree line endings, and the one gate that would notice only notices for two files out of
+sixty-six.
 
 **The previous version of this page said `gate-mutation.yml` had never run, and that was false when
 it was written.** It had run — green, artifacts uploaded, `13` demonstrations captured — and this page
@@ -801,20 +1153,39 @@ failure mode here is not that the mechanism does not work, it is that its output
 whose artifacts nobody harvests is indistinguishable from one that never ran, and nothing here
 closes that.
 
-**Five of the thirteen demonstrated gates run `tools/gates.py`, and this round edited it.** Their
-evidence describes the previous revision of that tool. The workflow's `paths:` trigger re-takes it on
-the landing commit, and until that run completes those five rows are one revision stale — with no
-field in the register saying so and no check that could notice.
+**Seven of the twelve demonstrated gates carry evidence taken before a change to a file the gate is
+made of, and `--evidence-provenance` is a note rather than a gate.** It says which evidence is worth
+re-taking; it does not say that any of it stopped working, and nothing here could. Two of the twelve
+have a dependency set that cannot be closed at all — `python -m pytest` and `python -m mypy` name no
+file — so for those the honest answer is *the whole tree changed*, printed as such.
 
-**The packaging job reproduces two gates rather than invoking them, and that drift has now cost a
-whole run.** `build`'s sdist step and the whole `installed-suite` job are multi-step sequences with no
-single command, so `tools/gate_packaging_mutation.py` rebuilds the sequence. A reproduction is not
-the gate: somebody edits `ci.yml` and not the script, and the two drift with nothing to say so. This
-page used to list that as a risk. It is now an incident — `--no-isolation` against `ci.yml`'s plain
-`python -m build`, invisible on a developer machine, fatal on a runner. One piece is guarded, the
-script re-reads `EXPECTED_NON_PASSING` out of `ci.yml` and reports drift from its own copy; the build
-command is now identical to the gate's by inspection and by nothing else. **A third divergence of the
-same kind would be found the same way: by somebody reading a log.**
+**The provenance check needs git history and CI checkouts are shallow.** `actions/checkout` fetches
+depth 1 by default, so every row would read `unknown` unless the job asks for more. The `report` job
+does; nothing enforces that a future job will, and a table of `unknown` is honest and useless.
+
+**Local re-running can falsify in-situ evidence and cannot confirm it, and this page uses it only in
+that direction — but that direction was exercised on a tree several agents were editing.** Two runs
+of the same suite an hour apart on this machine gave `5392 passed, 10 skipped` and
+`5391 passed, 11 skipped`, because another workstream's files landed in between. Every number on
+this page taken from a full-suite run carries that uncertainty.
+
+**The packaging job's ASSERTIONS are now invoked and its SEQUENCE is still reproduced.** The two
+copied objects are gone — `EXPECTED_NON_PASSING`, `PASS_FLOOR`, the log parser and the `test -f` list
+live in `tools/gate_installed_suite.py` and `tools/gate_sdist_files.py`, which `ci.yml` runs and the
+harness imports. What is left is the multi-step sequence, and it **cannot** be invoked from outside
+the workflow: a job's `run:` block is not addressable, and the sequence spans `$RUNNER_TEMP`,
+`$GITHUB_WORKSPACE` and a venv the workflow creates. So the stronger fix is refused for that half and
+the divergence is made checkable instead — eleven literal fragments asserted against `ci.yml`, fatally
+and before any case runs, plus four declared divergences. **A fragment check is weaker than an
+invocation and this page will not pretend otherwise**: it catches a rename or a flag change and it
+cannot catch a reordering, an added step, or a `run:` block that means something different with the
+same words in it.
+
+**And the packaging harness has still never produced a green run on a runner.** The `| tee`, the
+`--no-isolation` and the two copies are all fixed; the two-of-five and four-of-five coverage figures
+this page publishes still rest on a Windows re-measurement from 2026-08-24. Nothing in this round
+re-derived them anywhere, and this round did not run the harness at all — it installs into the
+ambient interpreter with `--force-reinstall`, on a machine other agents were running suites on.
 
 **The ranking is a judgement with a validator attached, not a measurement.** `cost_rank` is refused
 when it inverts its declared factors, and the factors themselves are asserted rather than measured.
@@ -842,10 +1213,20 @@ parser's on all five workflow files, and they agree today. PyYAML is not a dev d
 one so a validator can read four files is a worse trade than a scanner that says what it is — so on a
 runner without it, that anchor is a skip.
 
-**`.github/gates.toml` is not shipped in the sdist, and this page is.** `MANIFEST.in` ships
-`recursive-include docs *.md` and `.github/workflows/*.yml`, and nothing else from `.github/` — so a
-reader holding a distribution gets this page, follows its link to the register in the second
-paragraph, and finds nothing. That is precisely the `data/LICENSES.md` shape: a shipped document
+**`.github/gates.toml` IS shipped in the sdist, and this paragraph said the opposite for one
+commit.** It used to read: *"`.github/gates.toml` is not shipped in the sdist, and this page is.
+`MANIFEST.in` ships `recursive-include docs *.md` and `.github/workflows/*.yml`, and nothing else
+from `.github/` — so a reader holding a distribution gets this page, follows its link to the register
+in the second paragraph, and finds nothing."* That was true when written and false one commit later:
+`387f739` added `include .github/gates.toml` and `include docs/cold-reads.toml` to `MANIFEST.in`,
+**because a link-integrity guard added in that same commit found this exact dangling link**. Refuted
+here against a real sdist built from this tree rather than against `MANIFEST.in`, since the manifest
+is the input and the tarball is the claim.
+
+The correction is left visible because of how it happened: the commit that **fixed** the defect did
+not update the three pages that **described** it, and one of those three is in a source file no
+trigger on the policy page can reach. A repository can fix a thing and go on publishing that the
+thing is broken, and nothing in this register catches that. That is precisely the `data/LICENSES.md` shape: a shipped document
 citing evidence the artifact omits, which `MANIFEST.in`'s own comment already enumerates four
 instances of. The tests in `tests/test_gate_manifest.py` that read the register skip there on a
 narrow `needs_register` mark rather than erroring, which is the right behaviour and not a fix — how

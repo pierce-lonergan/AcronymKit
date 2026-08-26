@@ -15,9 +15,13 @@ breaking change if your CI asserts on that report's key set. **Changed** carries
 changes, both of which make an existing report *stricter* rather than different, and one of which
 will newly flag identifiers a pipeline previously waved through.
 
-**And if you are here to decide whether a governed catalog is worth building**, read the first entry
-under **Documentation**. It is the only measurement anybody has of that question and it says less
-than its headline sounds like it says.
+**And if you are here to decide whether a governed catalog is worth building**, read the entry under
+**Documentation** headed *what a governed catalog is worth on a real schema*. It is the only
+measurement anybody has of that question and it says less than its headline sounds like it says.
+
+**If you call `expand_identifier` in a hot loop, or you were hoping for a second-opinion verifier
+on `extract()`**, the first three **Documentation** entries are the ones for you. Neither changes
+any behaviour; both change what you should expect next.
 
 ### Positioning
 
@@ -200,6 +204,135 @@ than its headline sounds like it says.
   so nothing got heavier.
 
 ### Documentation
+
+- **The package's own module docstring now says what the library is for, and the first example shows
+  it refusing.** `help(acronymkit)` and the docstring your editor pops up used to open with
+  *"bi-directional, multi-tiered acronym engine"* and *"one library for the three things production
+  systems do with acronyms"* — a breadth pitch this project retired three releases' worth of
+  documentation ago and had not removed from the one file every reader opens first. It now leads with
+  governance, and its governed example prints the **refusal** as well as the answer: `is_fully_known`
+  → `False` and `unknown_tokens` → `['KYC']` for a token no catalog approved.
+  - **Read the sentence that goes with it, because it is a live foot-gun.** The default
+    `UnknownPolicy` still returns a phrase for an unknown token — `'Transaction Kyc Identifier'` — at
+    `is_known=False` and confidence `0.0`. **A caller reading only `.phrase` gets a governed-looking
+    string for a token nobody approved.** That is documented behaviour and it has not changed; what
+    changed is that the front door now says so.
+  - Generation, backronym synthesis and alignment, extraction and contextual disambiguation are all
+    still there, still supported, and are now named as supporting capabilities with their losing
+    comparisons attached. Nothing was deprecated and no output moved. `docs/DECISIONS.md` D-089.
+
+- **If you were waiting for `extract()` to gain a second-opinion verifier, it is not coming — and the
+  measurement that stopped it is published.** The idea was to run each extracted pair back through
+  the acronym generator and reject the ones it could not reproduce. Measured against gold pairs with
+  the search running fully unpruned, the generator reaches the true short form for about **two in
+  five** pairs on MED1250 and **half** on a PubMed Central author-roster corpus, while the shipped
+  Schwartz & Hearst aligner accepts around **six in seven** and **nine in ten** of the same pairs.
+  **A verifier built on it would have silently discarded a large share of correct output.**
+  - The cause is structural and no configuration fixes it: the generator emits *prefixes* of
+    successive words, and the aligner is allowed to place a character anywhere inside a word. Roughly
+    **two in five** of the whole MED1250 corpus is unreachable at every setting of every knob.
+  - **What the mechanism is good for, if you want it:** used as a *filter* rather than a verifier it
+    is a genuine precision signal — it rejects wrong pairs about half again as often as right ones —
+    but it costs about half the recall to get there, and that trade is yours to make rather than a
+    default anybody should ship. Nothing in the library changed either way. Run ids `roundtrip.*`;
+    `docs/DECISIONS.md` D-085.
+
+- **CORRECTION to the entry above, and it is the one to read if you were told this project had
+  decided not to reuse a definition across a document.** The record that stopped the verifier also
+  stopped a second idea — reusing a definition the extractor already confirmed at later occurrences
+  of the same short form in the same document — and gave two reasons, the second being that the
+  workstream measuring it *"did not report"*. **It did.** Its measurements were in the repository the
+  whole time and the report died on the way to the record. The second reason is withdrawn outright,
+  and the first does not describe the idea it was applied to: **reusing a confirmed definition
+  proposes no new candidate**, so a rule about the cost of widening candidate generation is a rule
+  about something else.
+  - **What the measurement says, if you were hoping for it.** On a PubMed Central corpus it would
+    license 247,500<!--claim:one_sense.pmc_oa.a2.high_precision.licensed_occurrences:,--> occurrences,
+    85.62<!--claim:one_sense.pmc_oa.a2.high_precision.a2_new_coverage_pct_of_licensed:.2f--> % of them
+    outside any definition sentence and therefore new, with a correctness cost bounded between
+    0.581<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_floor_correctness_pct_of_licensed:.3f--> %
+    and
+    9.68<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_ceiling_correctness_pct_of_licensed:.2f--> %
+    of what it licenses.
+  - **Read the comparator before reading that as cheap.** The mechanism it would replace is wrong on
+    **none** of those occurrences, because it declines to answer them at all. This would buy coverage
+    and pay in correctness, and **it is still not shipping** — not because of the verifier result, but
+    because of that trade and because it would change what `extract()` returns on almost every
+    biomedical document, which republishes every recall figure this project has ever printed as a
+    figure about a different system. **The decision is the maintainer's and nothing in the library has
+    changed.** Run ids `one_sense.*`; `docs/DECISIONS.md` D-092, and the retirement note in D-085.
+
+- **The extraction harness has been checked against the original implementation's own published
+  output, and it agrees on every document.** If you have ever wondered whether this project's
+  competitor numbers are an artifact of its own scoring code: no shared-task scorer for this task
+  exists anywhere — the run establishes that mechanically rather than assuming it — so the check was
+  done against the NLM reference system's own output file at a pinned commit, hashed, licence read
+  from that commit, not vendored.
+  1,252<!--claim:differential.med1250.reference_output.documents_compared:,--> documents compared,
+  1,252<!--claim:differential.med1250.reference_output.documents_agreeing:,--> agreeing,
+  0<!--claim:differential.med1250.reference_output.documents_disagreeing:,--> disagreeing.
+  - **Quote the discriminating half, not the total.**
+    515<!--claim:differential.med1250.reference_output.documents_discriminating:,--> of those
+    documents carry at least one pair;
+    737<!--claim:differential.med1250.reference_output.documents_vacuous:,--> are two systems agreeing
+    that an abstract contains no abbreviation at all.
+  - **What this is not.** It is agreement with one implementation's output on one corpus. **It is not
+    evidence that this project's scoring convention matches the published literature**, which is a
+    different claim and remains unmeasured — and a neighbouring measurement already prices an
+    annotation convention alone at `26.66` points on a different task.
+  - **A ceiling nobody had published:** fed the gold as a prediction, the harness returns recall
+    98.2<!--claim:differential.med1250.harness_ceiling.max_recall_pct:.1f--> % rather than a clean
+    hundred. Every extraction recall figure here is measured against a scale whose top is not a
+    hundred. Run ids `differential.*`; `docs/DECISIONS.md` D-093.
+
+- **Where `expand_identifier` actually spends its time, if you are tuning a governed pipeline:
+  building provenance records.** On real Socrata and SEC XBRL identifier corpora, constructing the
+  per-token provenance — the row that resolved each token, the rule that fired, the confidence — is
+  **larger than tokenisation, catalog lookup and phrase assembly put together**, on every corpus
+  measured, including one where the token memo is serving over nine calls in ten. `expand_identifier`
+  builds close to four frozen records per call.
+  - **Practical reading:** if you are calling it in a hot loop and only ever read `.phrase`, you are
+    paying for an audit trail you never open — and there is currently no way to turn that off.
+    Nothing has changed yet; this is the measurement that will decide what does.
+  - **The token memo is smaller than a real schema.** It holds `4096` entries and **clears** rather
+    than evicting when it fills, and a real portal corpus carries roughly six times that many
+    distinct tokens. If your identifiers are drawn from a wide vocabulary, the memo may be doing less
+    for you than its hit rate on a small corpus suggests.
+  - Every figure ships with a **work count** — tokenizer passes, catalog lookups, memo hit rates,
+    records constructed — and every wall-clock figure is fenced with the machine named and is not
+    quotable, because the same three runs produced identical work counts and wall-clock figures that
+    differed by more than a third. Run ids `governed_perf.*`; `docs/EVALUATION.md`;
+    `docs/DECISIONS.md` D-086.
+
+- **Two corpus sizes this project has published are wrong, and the corrected figures are in the
+  record.** The Socrata field/caption corpus is `155,272` pairs here, not the `164,652` previously
+  quoted — short by `9,380`, and the third independent re-derivation to land away from the original.
+  The `107,012`-identifier corpus quoted in the audit **cannot be rebuilt from this repository at
+  all**: two of its eight named sources are present and there is no fetcher for the rest. It is
+  reported as unreconstructible rather than quietly replaced with a different population.
+  `docs/DECISIONS.md` D-086.
+
+- **`docs/DEFINITION-OF-DONE.md` now carries twenty criteria rather than fourteen**, and the six new
+  ones did not flatter it: five of the six read *not met* and four read *not started*. The met-count
+  rose by one and the proportion fell from roughly seven in ten to a little over half.
+  `docs/DECISIONS.md` D-090.
+
+- **Two internal statistics this project used to quote about its own reporting are retired.** A
+  sampled audit of this project's own claims has now run three times. The **headline error rate
+  stands** — somewhere in the low-to-mid twenties per cent of sampled claims are not true — but the
+  two decompositions that used to be quoted alongside it (which *kind* of claim fails more often, and
+  which *failure mode* dominates) both failed to replicate and are retired in place, with the reason
+  attached at every site rather than deleted. **This matters to a reader only in one way**: if you
+  have seen a sentence from this project saying that claims needing a derivation fail about five
+  times as often as claims settled by a lookup, that sentence is withdrawn.
+  `docs/CLAIMS-LEDGER.md` §6; `docs/DECISIONS.md` D-088.
+  - **Follow the second pointer, not the first, until §6 is fixed.** A cold read found that
+    `docs/CLAIMS-LEDGER.md` §6 still says the audit has run **twice** and still attaches its headline
+    to "both rounds", while D-088 — written the same round, and naming §6 in its own **Status** line
+    as a site of this correction — records **three** rounds and says in terms that reading the same
+    percentage off the third one compares a false-only row against two not-true rows. **The correction
+    named its own destination and did not arrive there.** `docs/DECISIONS.md` D-088 is the copy to
+    read; the fix to §6 is owed by whoever owns that page. `docs/DECISIONS.md` D-096.
 
 - **What a governed catalog is worth on a real schema, measured for the first time — and the answer
   is "a little, in a place the pooled figure cannot see".** If you are deciding whether to build or
@@ -404,6 +537,50 @@ than its headline sounds like it says.
 
 ### Notes
 
+- **Three of this round's records were reconstructed after the workstreams that did the work could
+  not deliver a report, and they are labelled so you can discount them.** Four of ten agents in the
+  last phase finished their work and failed while formatting the final report; three of those had
+  already written results into the repository. The record file was then written without them, and one
+  of its conclusions was wrong as a result — the withdrawal is the *CORRECTION* entry under
+  **Documentation** above.
+  - **What a reader loses:** every other record in `docs/DECISIONS.md` carries a *How it fails*
+    section written by whoever did the work — the arm they did not run, the figure they distrusted,
+    the near-miss they caught by hand. **For three records this round there is no such person**, and
+    those sections were written by the recorder from stored measurements. Each of the three says so in
+    its own first sentence.
+  - **The salvage caught two errors in its own source material**, both from resolving every figure to
+    a stored field before writing the sentence around it: a sampled share handed over under the wrong
+    one of four labels, and a coverage multiple described one notch tighter than it measures.
+  - **Nothing in this repository can tell "a workstream produced no result" from "a workstream
+    produced a result and could not report it".** Measurements can sit in `bench/results.json` with no
+    document citing them, and have now done so three times in two rounds. The check that would catch
+    it is one function and nobody has written it. `docs/DECISIONS.md` D-095.
+
+- **The cold-read policy ran for a fourth time, found eleven new defects, and could not record them —
+  for the second consecutive read.** Three shipped documents state that a source distribution omits
+  two files it now ships; a policy page's own trajectory figures are two rounds stale, including the
+  column that page instructs readers to treat as the stable one; and one page says an internal audit
+  has run twice where two documents written the same round say three. **The register the policy keeps
+  was not written**, so the rotation cursor has not advanced for two reads and the findings live only
+  in a note no rule reaches. `python tools/second_reader.py --check` stays green throughout, **because
+  it cannot tell "no read happened" from "a read happened and could not record it"**.
+  `docs/DECISIONS.md` D-096.
+
+- **The claims-migration quota took its first waiver, and the waiver is a measurement.** Every one of
+  the `42` unadjudicated numbers left in the decision log was resolved against every field in
+  `bench/results.json`: `26` match nothing anywhere, and the other `16` match only unrelated
+  quantities in unrelated units — a millisecond matching a set-similarity index. Deletion was walked
+  and refused three times with the reason attached. **Read it as a waiver at the end of a burn-down
+  rather than one taken to avoid it**, and note that the next round owes the same probe before it may
+  take the same waiver. `docs/DECISIONS.md` D-097.
+
+- **The do-not list was audited against its own reasons and nothing was lifted.** Ten stated reasons
+  were corrected — not nine — with the retired sentence left visible beside each correction; five
+  prohibitions are marked as standing, two of them **stronger than written**, and no conclusion fell.
+  One refusal now rests on a qualitative claim alone and is **reported for measurement rather than
+  recommended for lifting**, which is a distinction worth keeping: the reason is not wrong, it is
+  unquantified. `docs/AUDIT-2026-08.md`; `docs/DECISIONS.md` D-094.
+
 - **This project measures the error rate of its own reporting, and it is not zero.** A seeded sample
   of `24` claims made by the round that produced these notes was re-checked against running code: `5`
   of them — `20.8 %` — are not true. That is the same rate as the previous round measured, and the
@@ -564,10 +741,13 @@ than its headline sounds like it says.
   subsystem. `docs/DECISIONS.md` D-067.
 - **This project now has a measured error rate on its own reporting.** A seeded sample of `24`
   incidental claims made during this round was checked against running code: `19` true, `4` false, `1`
-  misleading. Claims settled by one file read failed at `7.7 %`; claims needing a command run failed
-  at `36.4 %`. Most failures were counts that were correct when written and went stale on a tree eight
-  workstreams were editing at once. Contributor-facing, and published rather than filed:
-  `docs/DECISIONS.md` D-068.
+  misleading — `20.8 %` not true. Most failures were counts that were correct when written and went
+  stale on a tree eight workstreams were editing at once. Contributor-facing, and published rather
+  than filed: `docs/DECISIONS.md` D-068. **One sentence is retired in place here rather than
+  deleted:** *"Claims settled by one file read failed at `7.7 %`; claims needing a command run failed
+  at `36.4 %`."* A second round re-took that split and it inverted — `25.0 %` against `18.8 %` — so
+  the decomposition is withdrawn and the headline rate is not. `docs/DECISIONS.md` D-082 measured it;
+  `docs/CLAIMS-LEDGER.md` section 6 carries the retirement and what a third round would need.
 - **The definition of done is now fourteen criteria and the page has been renumbered.** Six were
   added; what four documents cite as "criterion 9" is criterion `10` from now on. Nine of fourteen
   read met, which is the highest that page has ever read, and the page says in its own words why that
