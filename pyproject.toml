@@ -55,7 +55,7 @@ dependencies = [
 
 [project.optional-dependencies]
 cli = ["click>=8.0.0"]
-nlp = ["spacy>=3.5.0", "nltk>=3.8.0"]
+nlp = ["spacy>=3.8.16", "nltk>=3.8.0"]
 transformers = ["onnxruntime>=1.14.0", "transformers>=4.25.0"]
 all = ["acronymkit[cli,nlp,transformers]"]
 dev = [
