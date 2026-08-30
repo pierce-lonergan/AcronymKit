@@ -60,11 +60,11 @@ transformers = ["onnxruntime>=1.14.0", "transformers>=4.25.0"]
 all = ["acronymkit[cli,nlp,transformers]"]
 dev = [
     "acronymkit[cli]",
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "pytest-asyncio>=0.21.0",
-    "jsonschema>=4.17.0",
-    "hypothesis>=6.80.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-asyncio>=1.4.0",
+    "jsonschema>=4.26.0",
+    "hypothesis>=6.165.10",
     # The two linters are pinned to a minor range, and everything else is not,
     # because they are the only dev dependencies whose *new releases change
     # whether the build passes*. Both have now reddened CI for a rule that did
@@ -90,10 +90,10 @@ dev = [
     # other way by omission. New rules are worth adopting -- deliberately, in a
     # commit that says so and fixes what they find, not in whatever commit
     # happens to be pushed the morning a release lands.
-    "ruff>=0.14.8,<0.15",
-    "mypy>=1.19.0,<2",
-    "build>=1.0.0",
-    "twine>=4.0.0",
+    "ruff>=0.16.5,<0.17",
+    "mypy>=2.3.1,<3",
+    "build>=1.5.0",
+    "twine>=7.0.0",
 ]
 
 [project.scripts]
