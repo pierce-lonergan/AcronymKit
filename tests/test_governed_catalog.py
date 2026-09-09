@@ -119,7 +119,7 @@ def test_the_two_scorers_return_the_same_verdict_on_every_admitted_pair(
     they ever did, every figure this harness publishes would be incomparable
     with ``governed_gold.socrata.*`` rather than a decomposition of it.
     """
-    from acronymkit.governed import GovernedDictionary, expand_identifier
+    from acronymkit.catalog import GovernedDictionary, expand_identifier
 
     assert gold.admits(identifier, caption), "fixture is not an admitted pair"
     produced = expand_identifier(identifier, GovernedDictionary({})).phrase
@@ -131,7 +131,7 @@ def test_the_two_scorers_return_the_same_verdict_on_every_admitted_pair(
 
 def test_the_fixture_set_exercises_both_verdicts() -> None:
     """Otherwise the test above passes on a set where nothing is ever wrong."""
-    from acronymkit.governed import GovernedDictionary, expand_identifier
+    from acronymkit.catalog import GovernedDictionary, expand_identifier
 
     empty = GovernedDictionary({})
     verdicts = {
@@ -172,7 +172,7 @@ def test_an_empty_catalog_cannot_score_a_non_identical_pair() -> None:
     alphanumerics, the word tuples cannot be equal. This is why that zero is
     reported as a derivation and not as evidence.
     """
-    from acronymkit.governed import GovernedDictionary, expand_identifier
+    from acronymkit.catalog import GovernedDictionary, expand_identifier
 
     empty = GovernedDictionary({})
     for identifier, caption in [
@@ -245,7 +245,7 @@ def test_min_votes_and_min_share_both_bite() -> None:
 
 def test_a_built_catalog_actually_changes_the_answer() -> None:
     """Otherwise every delta in this harness is a measurement of nothing."""
-    from acronymkit.governed import GovernedDictionary, expand_identifier
+    from acronymkit.catalog import GovernedDictionary, expand_identifier
 
     built = catalog.build_catalog(
         [("qty_a", "Quantity A"), ("qty_b", "Quantity B")], "equal_count", 2, 0.5
@@ -305,7 +305,7 @@ def _fold(scored: List[Tuple[str, str]]) -> object:
 
 
 def _score(scored: List[Tuple[str, str]], entries: object) -> dict:
-    from acronymkit.governed import GovernedDictionary, expand_identifier
+    from acronymkit.catalog import GovernedDictionary, expand_identifier
 
     empty = GovernedDictionary({})
     buckets = {pair: catalog.classify(*pair) for pair in scored}

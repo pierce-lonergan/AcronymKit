@@ -179,14 +179,14 @@ def _load_gold() -> Any:
 
 gold = _load_gold()
 
-from acronymkit.governed import (  # noqa: E402
+from acronymkit.catalog import (  # noqa: E402
     EntryKind,
     ExpansionSource,
     GovernedDictionary,
     GovernedEntry,
     expand_identifier,
 )
-from acronymkit.governed.tokenizer import split_identifier  # noqa: E402
+from acronymkit.catalog.tokenizer import split_identifier  # noqa: E402
 
 #: Harvesting rules, in the order the report prints them. See the module
 #: docstring for what each one aligns.
@@ -591,7 +591,7 @@ def score(
         "corpus": "socrata",
         "arm": fold.name,
         "system": (
-            "acronymkit.governed.expand_identifier, empty catalog against a "
+            "acronymkit.catalog.expand_identifier, empty catalog against a "
             f"{len(catalog.entries)}-row catalog voted from held-in portals"
         ),
         "train_portal_half": fold.train_half,

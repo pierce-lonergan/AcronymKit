@@ -50,8 +50,8 @@ from types import ModuleType
 
 import pytest
 
-from acronymkit.governed import GovernedDictionary, GovernedEntry
-from acronymkit.governed.enums import EntryKind, ExpansionSource
+from acronymkit.catalog import GovernedDictionary, GovernedEntry
+from acronymkit.catalog.enums import EntryKind, ExpansionSource
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RUNNER = REPO_ROOT / "bench" / "run_governed_perf.py"
@@ -404,7 +404,7 @@ def test_the_census_arithmetic_is_what_a_hand_count_says() -> None:
 
 def test_the_census_reads_the_memo_limit_out_of_the_module() -> None:
     """A ceiling written down twice is a ceiling that goes stale in one of them."""
-    from acronymkit.governed import dictionary as dictionary_module
+    from acronymkit.catalog import dictionary as dictionary_module
 
     figures = perf.census(("TXN_ID", "DT_CD"))
     assert figures["memo_limit"] == dictionary_module._MEMO_LIMIT
@@ -429,7 +429,7 @@ def test_the_census_top_share_is_monotone() -> None:
 
 
 SAMPLE_CALLERS = """
-from acronymkit.governed import expand_identifier
+from acronymkit.catalog import expand_identifier
 
 def reads_only_the_phrase(name, catalog):
     return expand_identifier(name, catalog).phrase
@@ -479,7 +479,7 @@ def test_a_call_whose_result_leaves_the_scope_is_unclassified_rather_than_zero(
     """ "No fields read" and "the fields are not visible here" are different answers."""
     sample = tmp_path / "onward.py"
     sample.write_text(
-        "from acronymkit.governed import expand_identifier\n"
+        "from acronymkit.catalog import expand_identifier\n"
         "def f(n, c):\n"
         "    return [expand_identifier(n, c)]\n",
         encoding="utf-8",
@@ -708,7 +708,7 @@ def test_the_memo_arm_reports_a_hit_rate_beside_every_throughput_figure() -> Non
 
 def test_the_memo_arm_restores_the_levels_it_borrowed() -> None:
     """Module state is put back, so one arm cannot silently configure the next."""
-    from acronymkit.governed import dictionary as dictionary_module
+    from acronymkit.catalog import dictionary as dictionary_module
 
     before = dict(dictionary_module._MEMO_LEVELS)
     perf.measure_memo_arm("unit", CORPUS, "empty", empty_catalog, repeats=1, source="unit")

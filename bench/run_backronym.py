@@ -214,8 +214,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from acronymkit.backronym import BackronymGenerator  # noqa: E402
 from acronymkit.config import Config  # noqa: E402
 from acronymkit.models import BackronymCandidate, Token  # noqa: E402
+from acronymkit.nlp.tokenizer import Tokenizer  # noqa: E402
 from acronymkit.scoring import Scorer, build_mappings  # noqa: E402
-from acronymkit.tokenizer import Tokenizer  # noqa: E402
 from bench import corpora  # noqa: E402
 
 #: One position in the character stream: ``(token index, offset, lowered char)``.

@@ -36,6 +36,12 @@ that commissioned it expected.
 on `extract()`**, the first three **Documentation** entries are the ones for you. Neither changes
 any behaviour; both change what you should expect next.
 
+**And the package has been split into three, with every old import path kept.** `acronymkit.core`,
+`acronymkit.nlp` and `acronymkit.catalog` — see the first entry under **Changed**. **This is not a
+breaking change and it is not a deprecation**: every import you have written still works, still
+resolves to the same objects, and every output is byte-identical. What to read is the paragraph
+naming how long the old paths are kept and what would end that.
+
 ### Positioning
 
 - **`acronymkit` is now stated to be a governance instrument, and the governed half leads.** No code
@@ -268,6 +274,72 @@ any behaviour; both change what you should expect next.
   derived pairing.
 
 ### Changed
+
+- **The package is split at the lexer contract seam: `acronymkit.core`, `acronymkit.nlp`,
+  `acronymkit.catalog`. NOT BREAKING — every existing import path still works and resolves to the
+  same objects.** No behaviour changed, and that is verified rather than asserted, below.
+  - **Why.** This library contains two tokenizers whose contracts are irreconcilable. Prose
+    tokenisation treats punctuation as a clause boundary, leans on whitespace, extracts
+    parentheticals from running morphology and NFKC-normalises what is left. Identifier
+    tokenisation operates on rigid boundaries, treats `#`, `%`, `_`, `:` and `/` as *semantic
+    tokens*, enforces physical column constraints, and may never lose a character. Each destroys
+    the other's input — `docs/DECISIONS.md`'s B1 finding measures character loss on `14.6560` % of
+    distinct Socrata captions and `36.0072` % of distinct SEC XBRL labels. **Neither figure is
+    gated**: both live in fenced blocks, which `tools/check_claims.py` cannot read, and no run id
+    in `bench/results.json` backs them. Stated here rather than left for a reader to discover.
+  - **The shape.** `acronymkit.core` is a leaf — conformal risk arithmetic, the exception
+    hierarchy, immutable span coordinates, with **no regular expression, no lexical asset and no
+    string normalisation** anywhere in it, checked off the syntax tree rather than claimed in a
+    docstring. `acronymkit.nlp` holds chunking, candidate extraction, parenthetical matching and
+    document-scope propagation. `acronymkit.catalog` holds identifier tokenisation, symbol
+    handling, casing decomposition, `to_physical_name` and dictionary conformance. **`catalog`
+    never imports `nlp`, `nlp` never imports `catalog`, `core` imports neither** — enforced by an
+    AST import-boundary rule registered as `gates.architecture_boundaries`.
+  - **Every old path is kept, and returns the SAME OBJECTS.** `acronymkit.governed` and all
+    thirteen of its submodules, `acronymkit.extractor`, `acronymkit.propagation`,
+    `acronymkit.tokenizer`, `acronymkit.exceptions` and `acronymkit.conformal` all still import.
+    Identity, not equality: `acronymkit.governed.expand_identifier is
+    acronymkit.catalog.expand_identifier`, and `acronymkit.governed.tokenizer is
+    acronymkit.catalog.tokenizer`. A shim that rebound names to fresh classes would satisfy every
+    equality assertion in the suite and fail the first time somebody wrote `except` or `isinstance`
+    across the two paths, so identity is what is asserted, per path, in
+    `tests/test_architecture_boundaries.py`.
+  - **How long the old paths are kept: through the whole of the `0.x` line.** Removal requires a
+    major version, and a `DeprecationWarning` announced in a minor release at least one release
+    ahead of it. **No warning is emitted today**, deliberately: nothing inside this package imports
+    through the old paths any more, so the only emitter would be a caller who cannot act on it
+    until that cycle opens. A shim with no stated end date is a second public API somebody
+    maintains forever without ever having decided to; this one has an end attached to a version.
+  - **Not one byte of output moved, and that is a measurement rather than a benchmark.** Every
+    catalog surface — `split_identifier`, `split_identifier_parts`, `strip_qualifier`,
+    `expand_identifier` against an empty catalog and against a populated one, `to_physical_name`,
+    `is_compliant`, `normalize`, and the aggregate `catalog_gap` report — was run over every pair
+    of both governed corpora, and every extraction and propagation output was run over MED1250 and
+    PLOD-CW at all three extraction profiles. **`3,619,227` records, compared field by field,
+    before the first line moved and after the last.** Every field of every record, provenance
+    included: `entry_id`, `source`, `confidence`, `beat`, `class_word`, `kind`, `is_known`,
+    `is_fully_known`, `unaccounted`, plus the `repr` of every object. Identical. The one record
+    that differs is the harness's own note of which import path it used, which is what that record
+    exists to say.
+  - **What DID change: `__module__` on every moved class.** An uncaught traceback now prints
+    `acronymkit.core.exceptions.ConfigurationError` where it printed
+    `acronymkit.exceptions.ConfigurationError`. If you match on that string — in a log parser, in a
+    pickle written by an older version, in a doctest — it moved. One doctest in this tree pinned
+    the old spelling and was updated; nothing else in this package matches on it.
+  - **What is still called `governed`, and stays that way:** every type name
+    (`GovernedDictionary`, `GovernedEntry`, `GovernedNamer`), the documentation page, the CLI
+    verbs, and every `governed_*` run id in `bench/results.json`. A run id is the identity of a
+    measurement, and renaming one silently re-points every citation of it. "Governed" is the
+    posture — refuse rather than guess; "catalog" is the thing this half is *about*.
+  - **What the new rule cannot see, because a rule with an unstated blind spot is worse than no
+    rule.** The facade layer — `engine.py`, `cli.py`, `disambiguation.py`, `models.py`, the package
+    `__init__` — is exempt and may import both halves, so nothing stops a prose-tokenizer result
+    being handed to the identifier tokenizer one module further out. Two of the rule's three edges
+    are tautologies on the tree it shipped against: `catalog -> nlp` and `nlp -> catalog` never
+    existed, which is precisely why the split could come out byte-identical. And
+    `importlib.import_module(name)` with a computed name defeats it, which is pinned as a
+    deliberately-failing-to-fire test rather than left to be rediscovered.
+    [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) carries the table and the map.
 
 - **BREAKING: `normalize` raises instead of silently returning a name with a character deleted.**
   `normalize('TXN_©_ID', GovernedDictionary({}))` returned `'TXN_ID'` and `normalize('㎡', ...)`
@@ -750,6 +822,22 @@ any behaviour; both change what you should expect next.
 
 ### Notes
 
+- **The proof that the package split changed no output is real, and you cannot re-run it.** The
+  `3,619,227`-record comparison was produced by a harness that is **not committed to this repository**,
+  and the two governed corpora it reads are not distributed with the package. `git ls-files` matches no
+  such script. So the strongest claim this release makes about the split rests on one party's word,
+  and the independent reader who checked the rest of the round could not adjudicate it either. **Two
+  parties have now been unable to reproduce it.** If you need that assurance for your own upgrade, the
+  honest answer is that the repository does not currently let you obtain it. Committing the harness is
+  named as owed work. `docs/DECISIONS.md` D-120.
+
+- **One scope sentence about that proof was wrong in `docs/ARCHITECTURE.md` and is corrected here.**
+  It read *"every catalog, extraction and propagation output on Socrata and SEC XBRL"*. The catalog
+  records were taken on those two governed corpora; the `4,215` extraction and `4,215` propagation
+  records were taken on MED1250 and PLOD-CW, and the harness runs no extraction on governed data at
+  all. This changelog stated it correctly throughout; the architecture page did not. `docs/DECISIONS.md`
+  D-120.
+
 - **Three of this round's records were reconstructed after the workstreams that did the work could
   not deliver a report, and they are labelled so you can discount them.** Four of ten agents in the
   last phase finished their work and failed while formatting the final report; three of those had
@@ -999,24 +1087,47 @@ any behaviour; both change what you should expect next.
     summary and the register reports `1`, because the roster naming who was expected was written by one
     of the workstreams instead of by whoever launched them. D-113.
 
-- **The claims-migration quota took a third consecutive waiver, and the record says the escalation
-  channel is what has stopped working.** Nothing was migrated out of the deferred ledger for a third
+- **The claims-migration quota has now taken a fourth consecutive waiver, and the fourth one comes
+  with the measurement that explains the other three: the quota has been counting the wrong ledger.**
+  `docs/DECISIONS.md` carries `42` numbers the gate defers on *and*, separately, `42` it backs only by
+  value coincidence. Three independent walks all resolved the first population and all three correctly
+  measured it terminal. `13` of the second population are unambiguously citable **today**, with named
+  run ids. The quota reads only the first — and the ledger schema cannot record a movement in the
+  second at all, so a round that did those `13` citations honestly turns the build red while a round
+  that records them as zero passes clean. **The maintainer is asked one question with a measurement
+  attached, rather than a fourth restatement of the third waiver.** `docs/DECISIONS.md` D-126.
+
+- **Superseded, kept for the record: the third waiver, and the escalation channel.** Nothing was migrated out of the deferred ledger for a third
   round. The residue in the decision log was measured unreachable by three independent walks, the
   changelog's own residue is frozen history that a citation would rewrite, and the four replacements the
   previous round escalated to the maintainer are unanswered in the tree. **A third waiver is not
   evidence about the residue; it is evidence that this project has no channel to a decision-maker.**
   `docs/DECISIONS.md` D-118.
 
-- **The measured not-true rate of this project's own reporting is `16.67` % pooled over five rounds,
-  and the round that measured it found that measuring it again will not help.** A fifth seeded sample
-  of `24` claims returned `2` not true. Pooling five rounds moves the interval's half-width by about a
-  point while the point estimate moves twice that, so **the interval is still moving faster than it is
-  shrinking**, and reaching a useful width would take roughly twenty-five more rounds at this size.
-  Quote it as five graders' pooled rate and not as this project's. **Nothing about the library's
+- **The measured not-true rate of this project's own reporting is `15.97` % pooled over `SIX` rounds
+  — `23` of `144`, Wilson `[10.89, 22.83]` — and that series is now closed.** A sixth seeded sample of
+  `24` claims returned `3` not true. **Read the round count carefully, because the tree briefly
+  disagreed with itself about it.** The series was declared closed at `16.67` % over five rounds while
+  a sixth round was already in flight under the same rules; closing a series prospectively does not
+  un-run a round performed under it, so the closing figure is the six-round one. A replacement sampling
+  frame draws from a different population and **starts at `n = 0`**; no pooled figure spans the two,
+  and one internal constant still prints the five-round number beside the successor. Pooling a sixth
+  round moved the interval's half-width from `6.64` to `5.97` while the estimate moved `0.70`, so
+  **the interval is still moving about as fast as it is shrinking**. Quote it as six graders' pooled
+  rate and not as this project's. **Nothing about the library's
   measured behaviour is implicated** — every published accuracy figure is gated against
   `bench/results.json`. `docs/DECISIONS.md` D-115.
 
-- **The definition of done stands at twenty criteria and no verdict moved at the eighth sweep.** The
+- **The definition of done stands at twenty criteria, `11` of them met, and the ninth sweep moved
+  exactly one verdict — by narrowing it rather than by progress.** The deferred-ledger criterion is
+  still met as written, and what its trajectory measures turned out to be narrower than the criterion
+  reads. Four more rows had their evidence corrected without their verdicts moving, including one that
+  had gone stale in two of its three closing clauses. **The one thing this sweep could not check at all
+  is the byte-identity proof behind the package split**: the corpora are not in the repository and the
+  harness that produced it is not committed, so it is recorded as unmeasurable here rather than
+  resolved into a `met`. `docs/DEFINITION-OF-DONE.md`, `docs/DECISIONS.md` D-125.
+
+- **Superseded: no verdict moved at the eighth sweep.** The
   round's own brief forecast that the W11 criterion — whether `extract()` may emit a short form with an
   absent long form — would close, and it did not: A2 ships as a separate opt-in module and leaves
   `extract()` byte-identical, so the question is cheaper to answer and still unanswered. One criterion

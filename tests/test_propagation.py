@@ -1,11 +1,11 @@
-"""Tests for :mod:`acronymkit.propagation` -- A2, document-scoped propagation.
+"""Tests for :mod:`acronymkit.nlp.propagation` -- A2, document-scoped propagation.
 
 Three groups, and the third is the one this round exists for:
 
 * :class:`TestTheRule` -- the four clauses of the measured rule, one test each,
   each written so that dropping the clause turns it red.
 * :class:`TestTheGate` -- every :class:`~acronymkit.conformal.ConformalDecision`
-  outcome reaching :func:`~acronymkit.propagation.propagate`, plus the one
+  outcome reaching :func:`~acronymkit.nlp.propagation.propagate`, plus the one
   refusal this module adds on top of them.
 * :class:`TestTheClaim` -- a prose rule over the surfaces that describe the gate
   to a caller. ``docs/DECISIONS.md`` D-104 found that split conformal's bound is
@@ -31,14 +31,14 @@ from acronymkit.config import Config
 from acronymkit.conformal import ConformalGate
 from acronymkit.enums import EngineTier
 from acronymkit.exceptions import ConfigurationError
-from acronymkit.extractor import AbbreviationExtractor
 from acronymkit.models import (
     AcronymPair,
     DisambiguationCandidate,
     DisambiguationResult,
     EngineMetadata,
 )
-from acronymkit.propagation import (
+from acronymkit.nlp.extractor import AbbreviationExtractor
+from acronymkit.nlp.propagation import (
     GATE_AMBIGUOUS,
     GATE_DISAGREED,
     GATE_NO_CANDIDATES,
@@ -61,8 +61,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 #: Files whose prose describes the gate to a caller and is held to the rule at
 #: the bottom of this file. A docstring reaches a reader through ``help()``
 #: exactly as Markdown reaches them through a browser, so both are in.
+#: **The module moved and every path here moved with it.** The definitions are
+#: in ``src/acronymkit/nlp/propagation.py`` since the package was split at the
+#: lexer contract seam; ``src/acronymkit/nlp/propagation.py`` is now a
+#: compatibility shim carrying no disclosure prose at all. The four assertions
+#: below that pin a fragment to EXACTLY ONE occurrence caught that rename and
+#: went red. The rule in ``tests/test_conformal.py`` written as "no offending
+#: paragraph" would have gone GREEN on the same shim, because a file with no
+#: prose has no offending paragraph -- which is D-110's finding, reproduced by
+#: accident in the same repository one round later.
 CLAIM_FILES = (
-    "src/acronymkit/propagation.py",
+    "src/acronymkit/nlp/propagation.py",
     "docs/EVALUATION.md",
     "README.md",
     "CHANGELOG.md",
@@ -103,7 +112,7 @@ SELECTIVE_SUBJECTS = (
 #: rule that can be satisfied by any nearby word is what went inert in D-104.
 DISCLAIMERS = ("not", "never", "larger", "greater", "times", "divided by", "no bound")
 
-#: Sentences of ``src/acronymkit/propagation.py`` that carry the disclosure, and
+#: Sentences of ``src/acronymkit/nlp/propagation.py`` that carry the disclosure, and
 #: that must appear EXACTLY ONCE each. This is the ``expect_failure_matching``
 #: move ``docs/GATES.md`` argues for, applied to prose: a presence rule over a
 #: common word is satisfiable by an unrelated mention elsewhere in the paragraph,
@@ -481,7 +490,7 @@ class TestTheClaim:
     @pytest.mark.parametrize("fragment", REQUIRED_FRAGMENTS)
     def test_each_disclosure_sentence_survives_verbatim_exactly_once(self, fragment: str) -> None:
         """A disclosure that can be diluted by an unrelated mention is not a disclosure."""
-        body = (REPO_ROOT / "src/acronymkit/propagation.py").read_text(encoding="utf-8")
+        body = (REPO_ROOT / "src/acronymkit/nlp/propagation.py").read_text(encoding="utf-8")
         flat = " ".join(body.split())
         assert flat.count(" ".join(fragment.split())) == 1, (
             f"the disclosure fragment {fragment!r} appears "
@@ -554,14 +563,14 @@ class TestTheClaim:
 
     def test_the_module_names_the_measured_multiple_beside_the_gate(self) -> None:
         """D-104's factor is quoted at the call site, not left in a decision record."""
-        body = (REPO_ROOT / "src/acronymkit/propagation.py").read_text(encoding="utf-8")
+        body = (REPO_ROOT / "src/acronymkit/nlp/propagation.py").read_text(encoding="utf-8")
         assert "4.38" in body, "the measured selective/alpha multiple is not at the call site"
         assert "21.92" in body, "the measured selective error rate is not at the call site"
         assert "risk-controlled selective classification" in body
 
     def test_the_module_says_the_gate_does_not_reach_the_licensed_occurrences(self) -> None:
         """The second gap, which is this module's own rather than conformal's."""
-        body = (REPO_ROOT / "src/acronymkit/propagation.py").read_text(encoding="utf-8").lower()
+        body = (REPO_ROOT / "src/acronymkit/nlp/propagation.py").read_text(encoding="utf-8").lower()
         assert "one-sense-per-" in body
         assert "the gate cannot see it" in body
 
@@ -577,12 +586,12 @@ def test_occurrence_is_frozen() -> None:
 
 
 def test_the_submodule_is_reachable_as_a_package_attribute() -> None:
-    """``import acronymkit; acronymkit.propagation`` -- the gap ``conformal`` fell into."""
+    """``import acronymkit; acronymkit.nlp.propagation`` -- the gap ``conformal`` fell into."""
     import importlib
 
     import acronymkit
 
-    assert acronymkit.propagation is importlib.import_module("acronymkit.propagation")
+    assert acronymkit.nlp.propagation is importlib.import_module("acronymkit.nlp.propagation")
     assert acronymkit.conformal is importlib.import_module("acronymkit.conformal")
 
 

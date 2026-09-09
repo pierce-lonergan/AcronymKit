@@ -36,6 +36,7 @@ from acronymkit.conformal import (
     nonconformity,
     smallest_calibration_size,
 )
+from acronymkit.core import conformal as core_conformal
 from acronymkit.disambiguation import ExpansionDictionary, LexicalDisambiguator
 from acronymkit.enums import EngineTier
 from acronymkit.exceptions import ConfigurationError
@@ -51,7 +52,19 @@ GUARANTEE_MARKERS = ("distribution-free", "probability at least", "coverage guar
 #: defect this guards against is a sentence, and a sentence in a docstring
 #: reaches a reader through ``help()`` exactly as one in Markdown reaches them
 #: through a browser.
+#:
+#: **``src/acronymkit/conformal.py`` is now a compatibility shim and passes this
+#: rule VACUOUSLY**, and the entry is kept rather than dropped. The definitions
+#: moved to ``src/acronymkit/core/conformal.py`` when the package was split at
+#: the lexer contract seam; that path is listed first and is where every
+#: guarantee sentence in this package's source now lives. The shim is listed
+#: second because a future edit could put a guarantee sentence on the
+#: compatibility page -- but a reader should know that of the five cases below,
+#: exactly one contributes no offender because it contains no prose to offend,
+#: which is the shape D-110 named: a green parametrised case that is
+#: indistinguishable from a file being correct.
 GUARANTEE_FILES = (
+    "src/acronymkit/core/conformal.py",
     "src/acronymkit/conformal.py",
     "src/acronymkit/disambiguation.py",
     "bench/run_conformal.py",
@@ -452,7 +465,31 @@ class TestTheGuaranteeIsNeverQuotedWithoutItsAssumption:
 
 
 def test_module_doctests_pass() -> None:
-    """Every example in the module runs, because an example nobody runs rots."""
-    results = doctest.testmod(conformal, verbose=False, report=False)
+    """Every example in the module runs, because an example nobody runs rots.
+
+    Aimed at ``acronymkit.core.conformal``, the defining module. It used to be
+    aimed at ``acronymkit.conformal``, and when that path became a
+    compatibility shim this assertion is what caught it: a shim carries no
+    ``>>>`` line, so ``attempted`` fell to zero while ``failed`` stayed at
+    zero. **A doctest suite that collects nothing reports success**, and the
+    only reason this did not pass silently is that somebody wrote the
+    ``attempted > 0`` line when there was nothing wrong.
+    """
+    results = doctest.testmod(core_conformal, verbose=False, report=False)
     assert results.failed == 0, f"{results.failed} doctest failure(s)"
     assert results.attempted > 0, "no doctests collected"
+
+
+def test_the_compatibility_path_re_exports_the_same_objects() -> None:
+    """``acronymkit.conformal`` must BE the core objects, not copies of them.
+
+    Identity rather than equality, and the reason is specific to this module: a
+    caller who calibrates a gate through one path and asks it a question
+    through the other must be talking about one class, or the guarantee they
+    were given describes a different object than the one deciding. A shim that
+    rebound the names to fresh classes would satisfy every equality assertion
+    in this file and fail at exactly that moment.
+    """
+    for name in conformal.__all__:
+        assert getattr(conformal, name) is getattr(core_conformal, name), name
+    assert conformal.__all__ == core_conformal.__all__

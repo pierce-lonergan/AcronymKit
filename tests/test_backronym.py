@@ -37,9 +37,9 @@ from acronymkit.engine import AcronymEngine
 from acronymkit.enums import MappingKind
 from acronymkit.lexicon import Lexicon
 from acronymkit.models import BackronymCandidate, Token
+from acronymkit.nlp.tokenizer import Tokenizer
 from acronymkit.phonetics import CharNGramModel
 from acronymkit.scoring import Scorer
-from acronymkit.tokenizer import Tokenizer
 from conftest import timing_budget
 
 #: Repository root, for locating ``bench/run_backronym.py``. The runner is

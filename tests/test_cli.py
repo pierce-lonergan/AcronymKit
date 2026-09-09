@@ -1710,8 +1710,8 @@ def test_omitting_unknown_leaves_the_preset_exactly_as_it_was(preset: str) -> No
     Asserted through the helper rather than a command because no command prints
     the policy it resolved.
     """
+    from acronymkit.catalog.policy import NamingPolicy
     from acronymkit.cli import _governed_policy
-    from acronymkit.governed.policy import NamingPolicy
 
     assert _governed_policy(preset) == getattr(NamingPolicy, preset)()
     assert _governed_policy("neural_optin").unknown.value == "neural"

@@ -22,8 +22,8 @@ from functools import cache
 from pathlib import Path
 from typing import AbstractSet, Any, Optional
 
+from .core.exceptions import AcronymKitError, ResourceNotFoundError
 from .enums import Language, StopWordCategory
-from .exceptions import AcronymKitError, ResourceNotFoundError
 from .resources import read_json_resource
 
 __all__ = ["StopWordRegistry"]

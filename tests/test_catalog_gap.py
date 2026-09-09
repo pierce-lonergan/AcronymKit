@@ -1,6 +1,6 @@
 """The catalog-gap report, pinned — because its whole value is that it is exact.
 
-``acronymkit.governed.gap`` makes a stronger claim than anything else in this
+``acronymkit.catalog.gap`` makes a stronger claim than anything else in this
 package: not *this is usually right* but *no catalog-free method can ever reach
 these columns*. A report that is merely usually right about that is worth
 nothing, because the reader's next action is to spend somebody's afternoon
@@ -44,10 +44,8 @@ from typing import Callable, NamedTuple
 
 import pytest
 
-from acronymkit.cli import EXIT_OK, EXIT_USAGE, main
-from acronymkit.exceptions import ConfigurationError
-from acronymkit.governed import GovernedDictionary
-from acronymkit.governed.gap import (
+from acronymkit.catalog import GovernedDictionary
+from acronymkit.catalog.gap import (
     CatalogGap,
     GapToken,
     catalog_gap,
@@ -55,6 +53,8 @@ from acronymkit.governed.gap import (
     render_gap,
     stream_key,
 )
+from acronymkit.cli import EXIT_OK, EXIT_USAGE, main
+from acronymkit.exceptions import ConfigurationError
 from conftest import REPO_ROOT, requires_click
 
 #: The bring-your-own-catalog kit, present in a checkout and absent from an
@@ -397,7 +397,7 @@ def test_module_doctests_pass() -> None:
     """The worked examples in ``gap.py`` are executed, not merely read."""
     import doctest
 
-    from acronymkit.governed import gap as module
+    from acronymkit.catalog import gap as module
 
     results = doctest.testmod(module, verbose=False, report=False)
     assert results.failed == 0, f"{results.failed} doctest failure(s)"

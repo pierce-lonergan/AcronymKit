@@ -1,6 +1,6 @@
 # Calling this library from the JVM
 
-For a Java or Kotlin team that wants `acronymkit.governed` — short→long expansion of database column
+For a Java or Kotlin team that wants `acronymkit.catalog` — short→long expansion of database column
 identifiers against a governed catalog, the reverse direction, and the compliance verifier — inside
 a Maven build.
 
@@ -196,7 +196,7 @@ this is not that, and neither is anything else here short of a port.
 ## Route 2 — GraalPy as a Maven dependency
 
 GraalVM's Python implementation ships as ordinary Maven coordinates and runs Python inside a JVM
-through the Polyglot API. **It now runs `acronymkit.governed`, and it did not before.**
+through the Polyglot API. **It now runs `acronymkit.catalog`, and it did not before.**
 
 ### What was established
 
@@ -207,7 +207,7 @@ this section is the practitioner's version of it.
 * **No GraalVM installation is needed.** A stock Temurin JDK plus two Maven coordinates
   (`org.graalvm.polyglot:polyglot` and `org.graalvm.polyglot:python-community`) is the whole setup.
   For a locked-down box that is the single most important fact about this route.
-* **`acronymkit.governed` imports and runs.** `load_bundle`, `expand_token`, `expand_identifier`,
+* **`acronymkit.catalog` imports and runs.** `load_bundle`, `expand_token`, `expand_identifier`,
   `to_physical_name`, `is_compliant`, `normalize` and `to_dict()` all work through the polyglot
   boundary. Against the tree an hour earlier the import failed with
   `ModuleNotFoundError: No module named 'pydantic_core._pydantic_core'`.
@@ -247,7 +247,7 @@ Cold start, measured from Java:
 ```
 GraalPy 25.2.4, interpreted (the JDK-21 default)
   context build 1066.2 ms | python bootstrap 2268.7 ms | import acronymkit 1632.7 ms
-  | import acronymkit.governed 1839.2 ms | load_bundle 241.1 ms
+  | import acronymkit.catalog 1839.2 ms | load_bundle 241.1 ms
   TOTAL cold start to first answer                                     7047.9 ms
 GraalPy 23.1.12, optimizing runtime
   TOTAL cold start to first answer                                    13033.8 ms
@@ -260,7 +260,7 @@ module import still costs about `1.1` s per additional context, because Python m
 initialisation re-runs even when parsed code is cached. A service wanting concurrency should build
 one context, load the vocabulary once, and guard it.
 
-Steady state, the real `acronymkit.governed`, 2,000 identifiers, `expand_identifier` → `to_dict()`
+Steady state, the real `acronymkit.catalog`, 2,000 identifiers, `expand_identifier` → `to_dict()`
 → JSON:
 
 ```
@@ -327,10 +327,10 @@ but "pydantic makes this route conditional on a combination most enterprise boxe
 
 ### The scope limit, and it is not small
 
-**`acronymkit.governed` is embeddable. The rest of the library is not.**
+**`acronymkit.catalog` is embeddable. The rest of the library is not.**
 
 ```console
-$ python -c "…ast sweep of every import in src/acronymkit/governed/*.py, split on sys.stdlib_module_names…"
+$ python -c "…ast sweep of every import in src/acronymkit/catalog/*.py, split on sys.stdlib_module_names…"
 stdlib : ['__future__', 'collections', 'copy', 'csv', 'dataclasses', 'enum', 'functools',
           'importlib', 'json', 'os', 'pathlib', 're', 'typing']
 3rd-pty: []
@@ -405,7 +405,7 @@ integration a Maven team is asking for.
 The only route with no Python at run time and no large JVM artifact. It is also the largest job and
 the only one that cannot promise the same answers.
 
-Sized from the tree today: `src/acronymkit/governed/` is `9,370` lines, of which `7,373` are neither
+Sized from the tree today: `src/acronymkit/catalog/` is `9,370` lines, of which `7,373` are neither
 blank nor a comment, and `5,016` of *those* are docstrings — leaving roughly **`2,400` lines of
 executable logic**. Do not read that as the size of the Java, which will be longer; read it as how
 much behaviour there is to get right. Against it sits an unusually complete specification:

@@ -1,4 +1,4 @@
-"""The edges of :mod:`acronymkit.governed`: what happens to input nobody meant.
+"""The edges of :mod:`acronymkit.catalog`: what happens to input nobody meant.
 
 The acceptance gate in ``tests/test_governed.py`` drives a golden replay set over
 names a governed standard would recognise. This file is the other half: the
@@ -49,8 +49,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from acronymkit.exceptions import AcronymKitError, TokenizationError
-from acronymkit.governed import (
+from acronymkit.catalog import (
     ComplianceReasonCode,
     ExpansionSource,
     GovernedDictionary,
@@ -62,7 +61,7 @@ from acronymkit.governed import (
     normalize,
     to_physical_name,
 )
-from acronymkit.governed.tokenizer import (
+from acronymkit.catalog.tokenizer import (
     ACCOUNTED_SEPARATORS,
     IdentifierParts,
     _scan,
@@ -70,6 +69,7 @@ from acronymkit.governed.tokenizer import (
     split_identifier_parts,
     strip_qualifier,
 )
+from acronymkit.exceptions import AcronymKitError, TokenizationError
 
 # --------------------------------------------------------------------------
 # A miniature catalog
@@ -876,7 +876,7 @@ def test_a_composed_accent_is_part_of_its_letter_and_is_not_normalised() -> None
     """``CLIENT`` spelled with an accent keeps the accent, in the token and in the phrase.
 
     The splitter applies no NFKC, no case folding and no accent stripping, and
-    the reason is sharper than consistency with ``acronymkit.tokenizer`` — which
+    the reason is sharper than consistency with ``acronymkit.nlp.tokenizer`` — which
     normalises to build a *matching key* and keeps the surface form beside it.
     NFKC rewrites text: it turns a ligature into two letters and a Roman numeral
     into Latin capitals. A normalising splitter would return tokens that are not

@@ -135,12 +135,12 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 try:  # installed, or already importable
-    from acronymkit.governed import GovernedDictionary, expand_identifier
+    from acronymkit.catalog import GovernedDictionary, expand_identifier
 except ImportError:  # pragma: no cover - exercised only from a source checkout
     _SRC = Path(__file__).resolve().parent.parent / "src"
     if _SRC.is_dir():
         sys.path.insert(0, str(_SRC))
-    from acronymkit.governed import GovernedDictionary, expand_identifier
+    from acronymkit.catalog import GovernedDictionary, expand_identifier
 
 #: Bumped whenever the report's shape or any metric's definition changes, so two
 #: reports from two organisations can be told apart without asking either of

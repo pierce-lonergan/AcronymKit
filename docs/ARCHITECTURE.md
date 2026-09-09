@@ -22,6 +22,150 @@ retired. The commitment that replaces it, what it costs, and what would reverse 
 [docs/POSITIONING.md](POSITIONING.md). The other four subsystems below are real, are measured
 wherever they can be measured at all, and do not lead.
 
+## The package boundary, and the measurement that put it there
+
+`acronymkit` is split into three packages, and the seam is **not** a taste about tidiness. It is a
+contract collision between two tokenizers, and the collision has a size.
+
+| | Prose tokenisation (`acronymkit.nlp`) | Identifier tokenisation (`acronymkit.catalog`) |
+|---|---|---|
+| Punctuation | a clause boundary; discarded | `#`, `%`, `_`, `:`, `/` are **semantic tokens** |
+| Whitespace | load-bearing; words are separated by it | absent; there is none to lean on |
+| Parentheticals | pulled out of running morphology | not a construct that occurs |
+| Non-ASCII | tolerated, NFKC-normalised | an unaccounted character, and a refusal |
+| Length | irrelevant | a physical column constraint |
+| Losing a character | routine and correct | the one thing it may never do |
+
+Run either tokenizer over the other's input and characters are destroyed. `docs/DECISIONS.md`'s B1
+finding measures it as character loss on `14.6560` % of distinct Socrata captions and `36.0072` % of
+distinct SEC XBRL labels, and the same block is reproduced in
+[docs/GOVERNED_NAMING.md](GOVERNED_NAMING.md). **Neither copy is adjudicated by
+`tools/check_claims.py`**: both sit inside fenced blocks, which D-112 records as the largest
+structural hole in that gate's coverage, and there is no run id in `bench/results.json` behind
+either number. They are quoted here with that provenance rather than presented as gated figures.
+
+A tokenizer whose input its sibling damages is a **package boundary**, not a setting. Domain
+adaptation inside one engine handles a vocabulary difference; it does not handle two lexers that
+cannot agree what a token is.
+
+```
+                        ┌───────────────────────────────┐
+                        │      acronymkit.core          │   THE LEAF
+                        │  conformal risk arithmetic    │   no regular expressions
+                        │  the exception hierarchy      │   no lexical assets
+                        │  immutable span coordinates   │   no string normalisation
+                        └───────────────┬───────────────┘
+                                        │  both may depend on it
+                     ┌──────────────────┴──────────────────┐
+                     │                                     │
+        ┌────────────▼─────────────┐         ┌─────────────▼────────────┐
+        │     acronymkit.nlp       │         │   acronymkit.catalog     │
+        │  chunking (tokenizer)    │    ✗    │  identifier tokenisation │
+        │  candidate extraction    │◀───✗───▶│  symbol handling         │
+        │  parenthetical matching  │    ✗    │  casing decomposition    │
+        │  document propagation    │         │  to_physical_name        │
+        │  the Tier 1 backends     │         │  dictionary conformance  │
+        └──────────────────────────┘         └──────────────────────────┘
+```
+
+**`catalog` never imports `nlp`. `nlp` never imports `catalog`. `core` imports neither** — not at
+run time, not inside a function, not under `typing.TYPE_CHECKING`. That is enforced by
+`tests/test_architecture_boundaries.py`, which walks the **abstract syntax tree** of every module
+in the package and resolves every import, relative ones included, to an absolute name. It is
+registered as `gates.architecture_boundaries`.
+
+An AST walk rather than a grep, and the difference is measured rather than asserted: five shapes
+write the same forbidden edge, and a grep for `from acronymkit.catalog` finds three of them and
+misses two outright — `import acronymkit.catalog as _c` and `importlib.import_module` on a literal.
+The test re-derives that `3` of `5` on every run.
+
+### What the rule cannot see, stated here rather than discovered later
+
+**The facade layer is exempt, and that is the loophole.** `engine.py`, `cli.py`,
+`disambiguation.py`, `models.py` and the package `__init__` are in no layer and may import both
+halves, because composing them is what a facade is for. Nothing stops a prose-tokenizer result
+being handed to the identifier tokenizer inside `engine.py`: the collision would be back, one module
+further out, with every rule green. **The rule is about a dependency graph and a dependency graph
+cannot see a data flow.**
+
+**Two of its three edges are tautologies on the tree it shipped against.** `catalog -> nlp` and
+`nlp -> catalog` were never present — that is exactly why the split came out byte-identical — so
+those two rules found nothing and could not have. The edge that became newly *possible* is
+`core -> {nlp, catalog}`, because `core` did not exist before. A green run today is a statement
+about one edge and a silence about two, and the registered mutation is the only evidence any of
+the three can fail.
+
+**And a computed import name defeats it.** `importlib.import_module(name)` where `name` is a
+variable is invisible to every static instrument, this one included. That limit is pinned as a
+deliberately-failing-to-fire test rather than left to be rediscovered.
+
+### `core` is a leaf, and it is bare
+
+`acronymkit.core` imports **nothing** from anywhere else in the package at run time. Its single
+in-package edge is `acronymkit.core.conformal` naming `DisambiguationResult` under `TYPE_CHECKING`
+for annotations; every use is duck-typed attribute access, so `import acronymkit.core` binds no
+sibling and no Pydantic DTO. That is checked twice, statically and at run time — one test imports
+`acronymkit.core` in a fresh interpreter, touches every name in its `__all__`, and asserts neither
+sibling is in `sys.modules`.
+
+The three absences that define it — no regular expression, no lexical asset, no string
+normalisation — were a docstring claim until the same gate started reading them off the syntax
+tree.
+
+### The compatibility decision, and how long it holds
+
+Every public import path that existed before the split still resolves, and resolves to **the same
+objects**:
+
+| Old path | Now defined in |
+|---|---|
+| `acronymkit.governed`, and all thirteen submodules | `acronymkit.catalog` |
+| `acronymkit.extractor` | `acronymkit.nlp.extractor` |
+| `acronymkit.propagation` | `acronymkit.nlp.propagation` |
+| `acronymkit.tokenizer` | `acronymkit.nlp.tokenizer` |
+| `acronymkit.exceptions` | `acronymkit.core.exceptions` |
+| `acronymkit.conformal` | `acronymkit.core.conformal` |
+
+Identity, not equality: `acronymkit.governed.expand_identifier is acronymkit.catalog.expand_identifier`,
+and `acronymkit.governed.tokenizer is acronymkit.catalog.tokenizer`. A shim that rebound names to
+fresh classes would satisfy every `==` in the suite and fail the first time somebody wrote `except`
+or `isinstance` across the two paths — which is the moment a compatibility shim exists for. All
+nineteen paths are asserted, per path, in `tests/test_architecture_boundaries.py`.
+
+**Why a shim rather than a clean break.** `acronymkit.governed` is named in `README.md`, in
+[docs/GOVERNED_NAMING.md](GOVERNED_NAMING.md), in the CLI, and in `docs/DECISIONS.md` — and the
+last of those is a file only the recorder may edit. Breaking the path would leave this project's
+own decision record citing an import that no longer exists, which is a worse outcome for a
+governance instrument than carrying a shim.
+
+**How long: through the whole of the `0.x` line.** Removal requires a major version and a
+`DeprecationWarning` announced in a minor release at least one release ahead of it. No warning is
+emitted today, deliberately — nothing inside this package imports through the old paths any more,
+so the only emitter would be a caller who cannot act on it until that cycle opens.
+
+**What did change:** `__module__` on every moved class. An uncaught traceback now prints
+`acronymkit.core.exceptions.ConfigurationError` where it printed `acronymkit.exceptions.ConfigurationError`.
+One doctest in the tree pinned the old spelling and was updated; nothing in this package matches on
+that string.
+
+**What did NOT change: any output.** The split was verified byte-identical over `3,619,227` records —
+every field of every record including `entry_id`, `source`, `confidence`, `beat`, `class_word`,
+`is_known`, `is_fully_known` and `unaccounted`, plus the `repr` of every object. See `CHANGELOG.md`.
+
+**Read the scope of that exactly, because an earlier draft of this sentence did not.** The `3,610,791`
+**catalog** records were taken over the two governed corpora, Socrata and SEC XBRL. The `4,215`
+extraction and `4,215` propagation records were taken over **MED1250 and PLOD-CW**; the harness runs
+no extraction on the governed corpora at all. This paragraph previously read *"every catalog,
+extraction and propagation output on Socrata and SEC XBRL"*, which claims a demonstration for all
+three families on governed data that was never performed. `CHANGELOG.md` had it right throughout.
+The harness itself is **not committed**, so no second party can re-run any of it — see D-120.
+
+**What is still called `governed`, and stays that way:** every type name
+(`GovernedDictionary`, `GovernedEntry`, `GovernedNamer`), the documentation page, the CLI verbs,
+and — most importantly — every `governed_*` run id in `bench/results.json`. A run id is the
+identity of a measurement; renaming one silently re-points every citation of it. "Governed" is the
+posture (refuse rather than guess); "catalog" is the thing this half is *about*.
+
 ## Subsystem map
 
 ```

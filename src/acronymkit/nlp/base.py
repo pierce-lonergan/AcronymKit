@@ -32,8 +32,8 @@ from collections.abc import Sequence
 from typing import Any, NamedTuple, Optional, Protocol, runtime_checkable
 
 from ..config import Config
+from ..core.exceptions import AcronymKitError, TierUnavailableError
 from ..enums import EngineTier, Language, TokenRole
-from ..exceptions import AcronymKitError, TierUnavailableError
 from ..models import Token
 
 __all__ = ["BackendUnavailable", "NlpBackend", "resolve_backend"]

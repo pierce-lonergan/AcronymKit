@@ -108,17 +108,17 @@ from acronymkit.config import Config  # noqa: E402
 from acronymkit.engine import AcronymEngine  # noqa: E402
 from acronymkit.enums import ExtractionProfile, TokenRole  # noqa: E402
 from acronymkit.exceptions import AcronymKitError  # noqa: E402
-from acronymkit.extractor import (  # noqa: E402
+from acronymkit.generator import ForwardGenerator  # noqa: E402
+from acronymkit.models import Token  # noqa: E402
+from acronymkit.nlp.extractor import (  # noqa: E402
     AbbreviationExtractor,
     _confidence,
     find_best_long_form,
     is_valid_long_form,
     is_valid_short_form,
 )
-from acronymkit.generator import ForwardGenerator  # noqa: E402
-from acronymkit.models import Token  # noqa: E402
+from acronymkit.nlp.tokenizer import Tokenizer  # noqa: E402
 from acronymkit.scoring import Scorer  # noqa: E402
-from acronymkit.tokenizer import Tokenizer  # noqa: E402
 from bench import corpora  # noqa: E402
 from bench import scoring as bench_scoring  # noqa: E402
 
@@ -1123,7 +1123,7 @@ def independence_record() -> Dict[str, Any]:
 
     Two closures are reported and they are not the same claim:
 
-    * the **module-level** closure of ``acronymkit.extractor``, which is what
+    * the **module-level** closure of ``acronymkit.nlp.extractor``, which is what
       "shares no knowledge resource" is usually taken to mean, and
     * the closure after ``extract()`` has actually run with
       ``extraction_capture_sentences=True``, which reaches the tokenizer and
@@ -1149,11 +1149,11 @@ def independence_record() -> Dict[str, Any]:
         )
         return list(json.loads(out.stdout.strip().splitlines()[-1]))
 
-    extractor_only = closure("import acronymkit.extractor")
+    extractor_only = closure("import acronymkit.nlp.extractor")
     generator_only = closure("import acronymkit.generator")
     extractor_run = closure(
         "from acronymkit.config import Config\n"
-        "from acronymkit.extractor import AbbreviationExtractor\n"
+        "from acronymkit.nlp.extractor import AbbreviationExtractor\n"
         "AbbreviationExtractor(Config(extraction_capture_sentences=True))"
         ".extract('The Portable Document Format (PDF) is a format. It has pages.')"
     )

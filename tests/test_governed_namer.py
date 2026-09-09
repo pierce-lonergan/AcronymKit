@@ -1,4 +1,4 @@
-"""Acceptance gate for :class:`acronymkit.governed.namer.GovernedNamer`.
+"""Acceptance gate for :class:`acronymkit.catalog.namer.GovernedNamer`.
 
 The facade adds no naming logic, so almost nothing here is about naming. What it
 adds is *binding* — one vocabulary, one policy, one overlay, fixed once — and the
@@ -69,8 +69,7 @@ from pathlib import Path
 
 import pytest
 
-from acronymkit.exceptions import ConfigurationError, LexiconError
-from acronymkit.governed import (
+from acronymkit.catalog import (
     GovernedDictionary,
     NamingPolicy,
     UnknownPolicy,
@@ -80,8 +79,9 @@ from acronymkit.governed import (
     normalize,
     to_physical_name,
 )
-from acronymkit.governed.loaders import load_bundle
-from acronymkit.governed.namer import GovernedNamer
+from acronymkit.catalog.loaders import load_bundle
+from acronymkit.catalog.namer import GovernedNamer
+from acronymkit.exceptions import ConfigurationError, LexiconError
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "governed"
 
@@ -247,7 +247,7 @@ def test_layers_compose_and_the_last_one_wins() -> None:
     """A project layer overrides a house layer and inherits the rest of it.
 
     The same composition
-    :meth:`~acronymkit.governed.dictionary.GovernedDictionary.with_custom`
+    :meth:`~acronymkit.catalog.dictionary.GovernedDictionary.with_custom`
     promises, asserted through the facade because that is where a caller will
     reach for it.
     """

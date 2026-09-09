@@ -1,4 +1,4 @@
-"""The two shortcuts :mod:`acronymkit.governed` takes, and the proof they are free.
+"""The two shortcuts :mod:`acronymkit.catalog` takes, and the proof they are free.
 
 Nothing in this file times anything. Wall-clock budgets belong in ``bench/``,
 where the environment is pinned and dispersion is reported; what belongs here is
@@ -45,8 +45,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from acronymkit.exceptions import LexiconError
-from acronymkit.governed import (
+from acronymkit.catalog import (
     ExpansionSource,
     GovernedDictionary,
     NamingPolicy,
@@ -55,12 +54,13 @@ from acronymkit.governed import (
     expand_token,
     is_compliant,
 )
-from acronymkit.governed.dictionary import (
+from acronymkit.catalog.dictionary import (
     _IDENTIFIER_MEMO_LIMIT,
     _MEMO_LIMIT,
     _MEMO_POLICY_LIMIT,
 )
-from acronymkit.governed.tokenizer import _scan, split_identifier, split_identifier_parts
+from acronymkit.catalog.tokenizer import _scan, split_identifier, split_identifier_parts
+from acronymkit.exceptions import LexiconError
 
 # --------------------------------------------------------------------------
 # A miniature catalog
@@ -320,7 +320,7 @@ def test_an_unknown_token_is_reported_unknown_however_often_it_is_asked_about() 
     """The passthrough contract does not soften on the second call.
 
     Passthroughs *are* now remembered, in ``_Memo.passed`` — see the module
-    docstring of :mod:`acronymkit.governed.dictionary` for the two sentences that
+    docstring of :mod:`acronymkit.catalog.dictionary` for the two sentences that
     were retired to get there. So this is no longer "the road not taken stays not
     taken"; it is the assertion that the road taken changes no answer, which is
     the only property that ever mattered here.
@@ -511,7 +511,7 @@ def test_the_length_shortcut_never_refuses_a_phrase_the_index_holds(text: str) -
     implementation of the rejection rule, so the test cannot be wrong in the same
     way the code is.
     """
-    from acronymkit.governed.dictionary import _phrase_key
+    from acronymkit.catalog.dictionary import _phrase_key
 
     catalog = GovernedDictionary.from_mapping(
         {"TXN": "Transaction", "XREF": "Cross Reference", "AM": "Amount"}

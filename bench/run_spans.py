@@ -303,7 +303,7 @@ def predict_acronymkit_propagated(
         ``(spans, elapsed_seconds, propagated_span_count)``.
     """
     from acronymkit import AcronymEngine, Config
-    from acronymkit.propagation import SOURCE_PROPAGATED, propagate
+    from acronymkit.nlp.propagation import SOURCE_PROPAGATED, propagate
 
     engine = AcronymEngine(Config(**overrides))
     predictions: dict[str, SpanPrediction] = {}

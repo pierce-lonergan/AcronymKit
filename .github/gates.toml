@@ -465,12 +465,123 @@ tree, so this job is the only place the packaging mutations mean anything.
 # GATES -- ci.yml : lint
 # ===========================================================================
 
+[gates.architecture_boundaries]
+environment = "lint"
+step = "The lexer contract seam holds -- catalog never imports nlp, nlp never imports catalog, core imports neither"
+command = "python -m pytest tests/test_architecture_boundaries.py"
+defect_class = "static_analysis"
+cost_rank = 40
+blast_radius = "repository"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+RANKED 40 OF 42 AND THE ARGUMENT IS AGAINST THIS GATE, because its own workstream wrote its rank
+and because the honest reading of its blast radius is the low one. A crossed boundary does not
+change an answer, does not move a published number and does not alter one byte a caller receives:
+the whole split was demonstrated byte-identical over 3,619,227 output records precisely because
+the seam is a fact about the IMPORT GRAPH and not about behaviour. What a violation costs is the
+property itself -- `acronymkit.core` stops being a leaf, or one tokenizer's package acquires a
+dependency on the other's -- and the tree keeps that defect until somebody reads for it.
+
+PARTIAL, NOT SOLE, AND THIS IS THE PART A READER SHOULD ARGUE WITH. `gates.suite` runs
+`python -m pytest` over the whole of tests/, which includes this file, in fifteen matrix cells.
+So a boundary violation reddens CI today whether or not this entry exists, and inert it costs
+NOTHING that gates.suite does not already catch. What this entry buys is three things and they
+are all about evidence rather than coverage: a NAMED mutation aimed at this rule specifically
+(gates.suite's probe edits tests/test_splits_manifest.py and says nothing about the seam), a
+failure in the cheap lint job that names the seam rather than one red case among 5,884, and a
+register entry that makes the rule visible to somebody reading .github/gates.toml rather than
+only to somebody reading tests/.
+"""
+detects = """
+Any import edge from acronymkit.core into acronymkit.nlp or acronymkit.catalog, from
+acronymkit.nlp into acronymkit.catalog, or from acronymkit.catalog into acronymkit.nlp -- written
+in any of five shapes, and reached through a compatibility path or not. The five: a plain
+from-import; `import acronymkit.catalog as _c`; a deferred import inside a function body; an
+import inside `if TYPE_CHECKING:`; and `importlib.import_module` (or `__import__`) on a string
+literal or an f-string whose literal parts already name the target. Relative imports are resolved
+against the importing module, so `from ..nlp import x` inside catalog/ is caught as the absolute
+edge it is.
+
+Also, inside acronymkit.core only: an import of `re`, `regex`, `unicodedata` or
+acronymkit.resources, and a call to `.casefold()`, `.normalize()`, `.encode()` or `.decode()`.
+Those three absences -- no regular expression, no lexical asset, no string normalisation -- are
+what the leaf IS, and they were a docstring claim until this gate read them off the syntax tree.
+
+And the compatibility surface: every one of the 19 old public import paths still resolving, and
+resolving to the SAME OBJECTS rather than to copies.
+"""
+blind_to = """
+FOUR THINGS, AND THE FIRST TWO ARE LARGER THAN WHAT IT SEES.
+
+1. THE FACADE. engine.py, cli.py, disambiguation.py, models.py and the package __init__ are in no
+   layer and may import both halves, because composing them is what a facade is for. Nothing here
+   stops a prose-tokenizer result being handed to the identifier tokenizer inside engine.py: the
+   contract collision would be back, one module further out, with every rule green. The rule is
+   about a dependency graph and a dependency graph cannot see a data flow.
+
+2. TWO OF ITS THREE EDGES ARE TAUTOLOGIES ON THIS TREE. catalog -> nlp and nlp -> catalog were
+   never present before the split -- that is WHY the split could be byte-identical -- so those two
+   rules found nothing and could not have found anything. The edge that became newly possible is
+   core -> {nlp, catalog}, and the mutation below is the only evidence any of the three can fail.
+
+3. A COMPUTED IMPORT NAME. `importlib.import_module(name)` where `name` is a variable defeats
+   every static instrument, this one included. It is pinned as a FAILING-TO-FIRE case in
+   tests/test_architecture_boundaries.py::test_a_computed_import_name_is_invisible, so the limit
+   is a test rather than a sentence somebody may later forget.
+
+4. RUNTIME. The AST reads what is written. One test runs `import acronymkit.core` in a fresh
+   interpreter and asserts neither sibling appears in sys.modules, which is the only runtime
+   check here; nothing walks the transitive closure of every module.
+"""
+[gates.architecture_boundaries.mutation]
+kind = "automated"
+expect = "fail"
+expect_failure_matching = "architecture boundary crossed"
+artifact = "lint/architecture-boundaries.log"
+verified_locally_on = 2026-09-09
+note = """
+THE PROBE IS DELIBERATELY THE SHAPE A GREP WOULD MISS. It adds
+`import acronymkit.nlp.tokenizer as _probe` to src/acronymkit/core/spans.py -- an aliased import,
+one of the two shapes a grep for `from acronymkit.nlp` does not see at all. A probe written as a
+plain from-import would demonstrate the rule at the one shape any instrument catches, which is
+the weakest demonstration available and the one that would leave the AST work unevidenced.
+
+IT REACHES THREE ASSERTIONS, NOT TWO, AND THE THIRD IS THE ONE WORTH HAVING. Run by hand on
+2026-09-09 the mutated tree gives `3 failed, 135 passed`: the per-file boundary rule,
+`test_core_is_a_leaf`, and -- the one the first draft of this note did not predict --
+`test_importing_core_binds_no_sibling`, which runs `import acronymkit.core` in a fresh
+interpreter and reports `architecture boundary crossed: import acronymkit.core bound
+['acronymkit.nlp', 'acronymkit.nlp.base', 'acronymkit.nlp.heuristic',
+'acronymkit.nlp.nltk_backend', 'acronymkit.nlp.spacy_backend', 'acronymkit.nlp.tokenizer']`. So
+one aliased import in a leaf costs six modules at run time, which is a cost the static rule
+cannot price and this probe therefore also demonstrates. `core/spans.py` is imported by
+acronymkit.nlp.propagation only and the mutated import creates no cycle at collection time, so
+what comes back is the boundary assertion rather than an ImportError that happens to be
+non-zero -- which is the whole of what `expect_failure_matching` is for here.
+
+The marker `architecture boundary crossed` is FAILURE_MARKER in
+tests/test_architecture_boundaries.py, pinned against this file by
+TestTheRegisterAndThisModuleAgree so the two copies cannot drift in silence -- which is what turns
+a future demonstration INERT while the exit code stays non-zero.
+
+NO IN-SITU EVIDENCE YET, and the reason is structural rather than an omission: the commit that
+ADDS a gate cannot also hold the CI run that demonstrates it. gate-mutation.yml triggers on
+.github/gates.toml, .github/workflows/*.yml and tools/gates.py, and this commit touches all
+three, so the push that lands this work is the run that owes the demonstration. Locally it
+returns DEMONSTRATED (mutated rc=1 matching the marker, restored rc=0) -- which is precisely the
+evidence R11 says does not count.
+"""
+edits = [
+  { file = "src/acronymkit/core/spans.py", find = "from .exceptions import TokenizationError", replace = "import acronymkit.nlp.tokenizer as _probe  # boundary mutation\nfrom .exceptions import TokenizationError" },
+]
+
 [gates.ruff]
 environment = "lint"
 step = "Ruff"
 command = "python -m ruff check src tests tools bench"
 defect_class = "static_analysis"
-cost_rank = 40
+cost_rank = 41
 blast_radius = "repository"
 silence = "loud"
 redundancy = "sole"
@@ -507,7 +618,7 @@ environment = "lint"
 step = "Ruff format check"
 command = "python -m ruff format --check src tests tools bench"
 defect_class = "static_analysis"
-cost_rank = 41
+cost_rank = 42
 blast_radius = "repository"
 silence = "loud"
 redundancy = "sole"
@@ -842,7 +953,7 @@ reporting nothing at all. The occupancy guard is what refuses that, and this mut
 shows the guard fires where the gate runs.
 
 The alternative probe -- corrupting a memo key so the cache really does serve a wrong entry_id --
-edits `src/acronymkit/governed/dictionary.py`'s keying, which is under active change by another
+edits `src/acronymkit/catalog/dictionary.py`'s keying, which is under active change by another
 workstream, and `--mutate` restores from bytes read beforehand. A restore that overwrites somebody
 else's concurrent write is a worse failure than a weaker probe.
 
@@ -866,7 +977,7 @@ tests/test_packaging_manifest.py -- so the gate demonstrated there is the gate s
 stops being true the moment this commit lands, because it moves .github/gates.toml.
 """
 edits = [
-  { file = "src/acronymkit/governed/dictionary.py", find = "        \"\"\"Discard the answer, so nothing is ever remembered.\"\"\"", replace = "        dict.__setitem__(self, key, value)" },
+  { file = "src/acronymkit/catalog/dictionary.py", find = "        \"\"\"Discard the answer, so nothing is ever remembered.\"\"\"", replace = "        dict.__setitem__(self, key, value)" },
 ]
 
 [gates.run_summary]

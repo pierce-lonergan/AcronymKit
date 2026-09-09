@@ -4,8 +4,8 @@
 of *that* on two things a frozen dataclass does per record that this package
 does not need done: the generated ``__init__`` writing nine fields through
 ``object.__setattr__``, and ``__post_init__`` re-normalising two of them that
-were already normal. :func:`~acronymkit.governed.models._new_token_expansion`
-and :func:`~acronymkit.governed.models._new_identifier_expansion` skip both by
+were already normal. :func:`~acronymkit.catalog.models._new_token_expansion`
+and :func:`~acronymkit.catalog.models._new_identifier_expansion` skip both by
 writing the fields straight into a fresh instance.
 
 That is a behaviour change to shipped governance code, so what this file pins is
@@ -41,15 +41,15 @@ from typing import Any, Optional
 
 import pytest
 
-from acronymkit.governed import (
+from acronymkit.catalog import (
     GovernedDictionary,
     GovernedEntry,
     expand_identifier,
     expand_token,
 )
-from acronymkit.governed import models as models_module
-from acronymkit.governed.enums import EntryKind, ExpansionSource
-from acronymkit.governed.models import (
+from acronymkit.catalog import models as models_module
+from acronymkit.catalog.enums import EntryKind, ExpansionSource
+from acronymkit.catalog.models import (
     GovernedValidationError,
     IdentifierExpansion,
     TokenExpansion,

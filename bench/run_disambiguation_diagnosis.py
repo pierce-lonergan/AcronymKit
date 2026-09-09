@@ -882,7 +882,7 @@ def abstention(records: Sequence[Decomposed]) -> dict:
     the *margin* between the top two candidates is a different quantity, and the
     question of whether it separates right answers from wrong ones has never been
     asked. If it does, the engine is discarding a refusal signal it already has
-    -- which is precisely what ``acronymkit.governed`` refuses to do, on the
+    -- which is precisely what ``acronymkit.catalog`` refuses to do, on the
     stated principle that an unknown token comes back flagged rather than
     approximated.
 

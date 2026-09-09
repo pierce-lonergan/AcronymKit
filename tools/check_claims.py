@@ -510,7 +510,15 @@ DEFERRED_BASELINE: Dict[str, int] = {
     "docs/OFFLINE.md": 3,
     "docs/notes/pydantic-cost.md": 70,
     "docs/notes/scoring-objective.md": 1,
-    "src/acronymkit/governed/models.py": 1,
+    # RE-KEYED, NOT RAISED. The file did not change and neither did the number
+    # on it: `src/acronymkit/governed/models.py` became
+    # `src/acronymkit/catalog/models.py` when the package was split at the
+    # lexer contract seam. The ledger is keyed by path, so a pure rename reads
+    # here as one entry paid and one entry created -- which is a debt rise the
+    # ratchet is right to refuse and wrong about. The total is unchanged at
+    # 189 and `--check` compares totals, so this is the edit that keeps the
+    # arithmetic honest rather than an exemption from it.
+    "src/acronymkit/catalog/models.py": 1,
 }
 
 #: Documents that were outside :data:`SCAN_GLOBS` until the scan set was widened.
@@ -1994,7 +2002,7 @@ DEBT_JUDGEMENTS: Tuple[Judgement, ...] = (
     # missing runner; and every candidate its value matches is a short-form F1,
     # which is what a coincidence looks like.
     Judgement(
-        path="src/acronymkit/governed/models.py",
+        path="src/acronymkit/catalog/models.py",
         number="84.6",
         anchor="of this distribution's import cost",
         bucket="blocked",
@@ -2751,6 +2759,65 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
             "round becomes a permanent exemption; two rounds was a limit and three is the policy."
         ),
     ),
+    LedgerRound(
+        label="M3-PD (the quota is reading the wrong ledger)",
+        deferred=189,
+        value_matched=64,
+        note=(
+            "Mandate III Phase D. 8 records were added, D-119 through D-126, so the pin went red "
+            "at 126 against 118 before a word of migration was written -- the seventh consecutive "
+            "round in which the binding did its job. IT MIGRATED NOTHING AND TOOK THE FOURTH "
+            "CONSECUTIVE WAIVER, and D-126 is the escalation the round's brief asked for instead "
+            "of a fourth waiver. THE RESIDUE WAS RE-WALKED RATHER THAN INHERITED and it "
+            "reproduces: the 42 deferred numbers in docs/DECISIONS.md resolve against every field "
+            "of bench/results.json as 25 matching nothing anywhere and 17 matching only a "
+            "coincidental value in an unrelated unit. D-109 measured 26 and 16. The split moved "
+            "by one in the direction D-109 predicted and named -- value-matched backing degrades "
+            "faster than the measurement corpus grows -- which is the third independent "
+            "reproduction of the same terminal verdict. THE NEW FACT IS NOT ABOUT THE RESIDUE. "
+            "docs/DECISIONS.md carries 42 DEFERRED numbers and, separately, 42 VALUE-MATCHED "
+            "ones, and the coincidence of the two totals is why three previous walks all resolved "
+            "the same population. Running --migrate over the other 42 gives 29 AMBIGUOUS, 6 "
+            "REPLICATED and 7 UNIQUE: 13 are unambiguously citable TODAY, with named run ids and "
+            "real metrics. The payable population in this file is 1 on the ledger the quota reads "
+            "and 13 on the ledger it does not. AND THE SCHEMA CANNOT RECORD THE DIFFERENCE: "
+            "trajectory_problems computes fall = previous.deferred - entry.deferred and requires "
+            "by_citation + by_deletion + by_fencing + by_other == fall, so all four accounting "
+            "columns are defined against the DEFERRED fall alone. A row recording those 13 "
+            "honestly as by_citation=13 turns the gate RED on two counts; the same work recorded "
+            "as by_citation=0 passes clean. The policy penalises the only payment currently "
+            "available. Trajectory: 316, 262, 231, 213, 201, 189, 189, 189, 189, 189. This row "
+            "plus a pin re-taken at 126 is what closes it."
+        ),
+        waiver=(
+            "FOURTH CONSECUTIVE WAIVER, WRITTEN AS AN ESCALATION WITH A MEASUREMENT ATTACHED "
+            "BECAUSE THE CODE HAS NO OTHER SHAPE FOR ONE. The round's brief said to pay the quota "
+            "or escalate it to the maintainer rather than write another waiver; it cannot be paid, "
+            "and this text is the escalation because trajectory_problems accepts a waiver string "
+            "or nothing. Citation: the deferred residue was re-resolved this round (25 match "
+            "nothing, 17 coincide in the wrong unit) and is terminal for the third independent "
+            "time; it is import attributions in ms and us no runner saves, plus range endpoints "
+            "and table cells whose deletion rewords a closed record. Deletion: unchanged and "
+            "refused for the same reasons. THE ONE QUESTION THE MAINTAINER IS BEING ASKED, and it "
+            "is not 'please answer D-109': SHOULD MIGRATION_QUOTA AND RECORD_FILE_FLOOR COUNT "
+            "MOVEMENT ON THE VALUE-MATCHED LEDGER? If yes, by_citation must be defined against "
+            "both falls and the next round can pay 13 of its 12 immediately out of this very "
+            "file. If no, the quota is knowingly a floor on a population three independent walks "
+            "have measured terminal, and the honest form of that is D-109's first escalated "
+            "replacement -- a per-file 'closed' disposition backed by the probe -- rather than a "
+            "waiver written every round by whoever happens to be the recorder. WHY THE RECORDER "
+            "DID NOT JUST DO THE 13 ANYWAY: it satisfies neither the quota nor the floor, both of "
+            "which read `fall`, so a waiver would still be required and 13 closed records would "
+            "have changed to no recorded effect; it couples 13 numbers INSIDE closed decision "
+            "records to --render, which rewrites a placeholder to its CURRENT value, so a future "
+            "re-render silently edits history -- the released-entry hazard D-109 measured on "
+            "CHANGELOG.md, in the one file where rewriting history is the specific thing "
+            "forbidden; and at 12 per round a payable 13 is exhausted in one round and every "
+            "round after it is a forced waiver again. docs/notes/pydantic-cost.md's 70 -- the "
+            "largest population in the register, never probed by anybody -- was assigned to "
+            "nobody for a fourth round."
+        ),
+    ),
 )
 
 #: How many records :data:`RECORD_FILE` held when the newest round was appended.
@@ -2776,7 +2843,7 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
 #: the gate reads, and ``label`` puts the words "which round paid for this"
 #: into the diff. It is a deterrent, not a mechanism, and calling it a mechanism
 #: would be the same overclaim this policy exists to stop.
-RECORD_FILE_PIN = RecordPin(label="M3-PC (the third waiver)", records=118)
+RECORD_FILE_PIN = RecordPin(label="M3-PD (the quota is reading the wrong ledger)", records=126)
 
 
 def count_records(text: str) -> int:

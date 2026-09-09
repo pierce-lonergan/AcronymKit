@@ -176,7 +176,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from acronymkit.config import Config  # noqa: E402
 from acronymkit.enums import ExtractionProfile  # noqa: E402
-from acronymkit.tokenizer import Tokenizer  # noqa: E402
+from acronymkit.nlp.tokenizer import Tokenizer  # noqa: E402
 from bench.run_genre import (  # noqa: E402
     DATA_DIR,
     Article,
@@ -1030,7 +1030,7 @@ def sentence_span_table(
     Three facts forced this design and each is measured rather than assumed.
 
     **The extractor's fallback splitter cannot be used on this corpus.**
-    ``acronymkit.extractor._fallback_sentence_spans`` treats a period as a
+    ``acronymkit.nlp.extractor._fallback_sentence_spans`` treats a period as a
     terminator only when the preceding word is longer than one character, which
     is the guard against ``J. R.``. PMC body text rendered with its ``<xref>``
     citations removed is full of ``space period space``, so the preceding word

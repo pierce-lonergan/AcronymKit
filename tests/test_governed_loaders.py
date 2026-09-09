@@ -1,4 +1,4 @@
-"""Acceptance gate for :mod:`acronymkit.governed.loaders`.
+"""Acceptance gate for :mod:`acronymkit.catalog.loaders`.
 
 These loaders exist so that a caller with a catalog in a spreadsheet does not
 have to write a script to get it in, so the tests are written against the
@@ -11,7 +11,7 @@ The load-bearing test is
 ``tests/test_governed.py`` assembles the fixture corpus by hand — read five
 files, pick the right key out of three of them, build a term index out of a CSV,
 then call a constructor with five keyword arguments — and that hand-merge is the
-friction :func:`~acronymkit.governed.loaders.load_bundle` removes. Asserting that
+friction :func:`~acronymkit.catalog.loaders.load_bundle` removes. Asserting that
 the one-line call produces an *equal* vocabulary is what makes the removal safe:
 if the loader ever drifts from what a careful caller would have written, this
 fails, and no example in this file is trusted to notice it instead.
@@ -30,15 +30,15 @@ from typing import Any
 
 import pytest
 
-from acronymkit.exceptions import LexiconError
-from acronymkit.governed import ExpansionSource, GovernedDictionary
-from acronymkit.governed.loaders import (
+from acronymkit.catalog import ExpansionSource, GovernedDictionary
+from acronymkit.catalog.loaders import (
     BUNDLE_FILES,
     load_bundle,
     load_csv,
     load_long_to_short_csv,
     load_term_index_csv,
 )
+from acronymkit.exceptions import LexiconError
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "governed"
 
@@ -161,7 +161,7 @@ def test_the_assembled_vocabulary_answers_the_verbs() -> None:
     bundle — the catalog, an allow-list, the class-word map and the glossary — so
     a section wired to the wrong constructor argument shows up here.
     """
-    from acronymkit.governed import expand_identifier, is_compliant, to_physical_name
+    from acronymkit.catalog import expand_identifier, is_compliant, to_physical_name
 
     nds = load_bundle(FIXTURES)
 
@@ -267,7 +267,7 @@ def _pin_bundle(tmp_path: Path, entries: list[dict[str, Any]], pins: dict[str, A
     """Write a two-file bundle holding a catalog and a pin sheet.
 
     ``source`` is filled in where a row omits it, because
-    :class:`~acronymkit.governed.models.GovernedEntry` requires it and the rows
+    :class:`~acronymkit.catalog.models.GovernedEntry` requires it and the rows
     below are about pins rather than about provenance. Every other field is left
     exactly as the test wrote it.
 
@@ -396,7 +396,7 @@ def test_a_minted_row_the_sheet_did_not_pin_is_scored_and_says_so(tmp_path: Path
     """An unruled collision is settled by the score and never claims full confidence.
 
     The same treatment
-    :meth:`~acronymkit.governed.dictionary.GovernedDictionary.from_long_to_short`
+    :meth:`~acronymkit.catalog.dictionary.GovernedDictionary.from_long_to_short`
     gives a collision it settles itself: ``scored``, confidence below full, and
     a note naming what was chosen over what. A derived answer that claimed the
     confidence of a governed one would make the field worthless for every other

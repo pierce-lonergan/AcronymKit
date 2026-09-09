@@ -902,7 +902,7 @@ def test_injecting_a_backend_skips_resolution_entirely(monkeypatch) -> None:
 
 def test_an_injected_tokenizer_reaches_the_default_extractor() -> None:
     """The default extractor is built from the *effective* tokenizer."""
-    from acronymkit.tokenizer import Tokenizer
+    from acronymkit.nlp.tokenizer import Tokenizer
 
     tokenizer = Tokenizer(Config())
     engine = AcronymEngine(tokenizer=tokenizer)
@@ -915,8 +915,8 @@ def test_an_injected_tokenizer_reaches_the_default_extractor() -> None:
 
 def test_an_injected_extractor_is_the_one_extraction_uses() -> None:
     """``extract`` and ``extract_definitions`` both route through it."""
-    from acronymkit.extractor import AbbreviationExtractor
     from acronymkit.models import AcronymPair
+    from acronymkit.nlp.extractor import AbbreviationExtractor
 
     class FixedExtractor(AbbreviationExtractor):
         """Answers with one fictional Northwind Data Standards pair, always."""

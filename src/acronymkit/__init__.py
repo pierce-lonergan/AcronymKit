@@ -5,7 +5,7 @@ schema column, a data-standard identifier, a token from a vocabulary the caller
 supplies and this library may not extend. Its first obligation on that subject
 is to report *unknown* rather than to return a plausible answer, because an
 unknown reported as unknown is recoverable and an unknown quietly guessed is
-not. :mod:`acronymkit.governed` is where that obligation is the design rather
+not. :mod:`acronymkit.catalog` is where that obligation is the design rather
 than a setting: expansion is a lookup against the catalog **you** supply, every
 resolved token records the row that resolved it, and ``is_fully_known`` is
 false the moment one token went unresolved or one character went unaccounted
@@ -23,7 +23,7 @@ for.
     ['KYC']
 
 **Read the flag; the phrase alone will not tell you.** Under the default
-:class:`~acronymkit.governed.enums.UnknownPolicy` that second call still returns
+:class:`~acronymkit.catalog.enums.UnknownPolicy` that second call still returns
 a phrase — ``'Transaction Kyc Identifier'`` — with the unrecognised token
 title-cased, ``is_known=False`` and confidence ``0.0``. The refusal is reported
 *beside* the answer rather than instead of it, so a caller that reads only
@@ -31,9 +31,9 @@ title-cased, ``is_known=False`` and confidence ``0.0``. The refusal is reported
 ``UnknownPolicy.REJECT`` raises instead, and it is opt-in. The default is a
 worklist rather than a guess, and only for a caller who reads it.
 
-``normalize_name`` is :func:`acronymkit.governed.compliance.normalize` under a
+``normalize_name`` is :func:`acronymkit.catalog.compliance.normalize` under a
 qualified name, and the rename is not cosmetic: this package already has a
-:func:`acronymkit.tokenizer.normalize`, which NFKC-composes and case-folds
+:func:`acronymkit.nlp.tokenizer.normalize`, which NFKC-composes and case-folds
 arbitrary text. Read inside its own module the bare verb is unambiguous; read
 at the top of the package it would be one of two unrelated normalisations with
 no way to tell which. The defining module keeps the short name; the export says
@@ -136,7 +136,26 @@ if TYPE_CHECKING:
     # ``_EXPORT_SOURCES`` and ``__all__`` — and drift between them is invisible
     # to both mypy and the interpreter, so ``tests/test_package.py`` reads this
     # block with ``ast`` and asserts all three agree.
+    from .catalog.compliance import is_compliant
+    from .catalog.compliance import normalize as normalize_name
+    from .catalog.dictionary import GovernedDictionary
+    from .catalog.expansion import expand_identifier, expand_token
+    from .catalog.models import GovernedEntry
+    from .catalog.naming import to_physical_name
+    from .catalog.policy import NamingPolicy
     from .config import STRATEGY_WEIGHTS, Config, ScoringWeights
+    from .core.exceptions import (
+        AcronymKitError,
+        ConfigurationError,
+        EmptyPhraseError,
+        GenerationError,
+        LexiconError,
+        NoCandidateError,
+        OfflineError,
+        ResourceNotFoundError,
+        TierUnavailableError,
+        TokenizationError,
+    )
     from .diagnostics import capabilities, format_report
     from .disambiguation import ExpansionDictionary
     from .engine import AcronymEngine
@@ -151,25 +170,6 @@ if TYPE_CHECKING:
         StopWordCategory,
         TokenRole,
     )
-    from .exceptions import (
-        AcronymKitError,
-        ConfigurationError,
-        EmptyPhraseError,
-        GenerationError,
-        LexiconError,
-        NoCandidateError,
-        OfflineError,
-        ResourceNotFoundError,
-        TierUnavailableError,
-        TokenizationError,
-    )
-    from .governed.compliance import is_compliant
-    from .governed.compliance import normalize as normalize_name
-    from .governed.dictionary import GovernedDictionary
-    from .governed.expansion import expand_identifier, expand_token
-    from .governed.models import GovernedEntry
-    from .governed.naming import to_physical_name
-    from .governed.policy import NamingPolicy
     from .models import (
         AcronymCandidate,
         AcronymPair,
@@ -219,16 +219,16 @@ _EXPORT_SOURCES = {
     "ScoringStrategy": "enums",
     "StopWordCategory": "enums",
     "TokenRole": "enums",
-    "AcronymKitError": "exceptions",
-    "ConfigurationError": "exceptions",
-    "EmptyPhraseError": "exceptions",
-    "GenerationError": "exceptions",
-    "LexiconError": "exceptions",
-    "NoCandidateError": "exceptions",
-    "OfflineError": "exceptions",
-    "ResourceNotFoundError": "exceptions",
-    "TierUnavailableError": "exceptions",
-    "TokenizationError": "exceptions",
+    "AcronymKitError": "core.exceptions",
+    "ConfigurationError": "core.exceptions",
+    "EmptyPhraseError": "core.exceptions",
+    "GenerationError": "core.exceptions",
+    "LexiconError": "core.exceptions",
+    "NoCandidateError": "core.exceptions",
+    "OfflineError": "core.exceptions",
+    "ResourceNotFoundError": "core.exceptions",
+    "TierUnavailableError": "core.exceptions",
+    "TokenizationError": "core.exceptions",
     "AcronymCandidate": "models",
     "AcronymPair": "models",
     "AcronymResult": "models",
@@ -242,14 +242,14 @@ _EXPORT_SOURCES = {
     "LetterMapping": "models",
     "ScoreBreakdown": "models",
     "Token": "models",
-    "is_compliant": "governed.compliance",
-    "normalize_name": "governed.compliance",
-    "GovernedDictionary": "governed.dictionary",
-    "expand_identifier": "governed.expansion",
-    "expand_token": "governed.expansion",
-    "GovernedEntry": "governed.models",
-    "to_physical_name": "governed.naming",
-    "NamingPolicy": "governed.policy",
+    "is_compliant": "catalog.compliance",
+    "normalize_name": "catalog.compliance",
+    "GovernedDictionary": "catalog.dictionary",
+    "expand_identifier": "catalog.expansion",
+    "expand_token": "catalog.expansion",
+    "GovernedEntry": "catalog.models",
+    "to_physical_name": "catalog.naming",
+    "NamingPolicy": "catalog.policy",
     # The one export that is a contract rather than an implementation. README
     # and docs/ARCHITECTURE.md both tell callers to implement it; it is exported
     # so that "implement the NlpBackend protocol" can be written down in a type
@@ -266,9 +266,9 @@ _EXPORT_SOURCES = {
 #: the wrong object is the failure mode a special case here would invite.
 #:
 #: Renaming on re-export is worth doing sparingly and worth doing here:
-#: ``acronymkit.tokenizer.normalize`` already exists and does something else
+#: ``acronymkit.nlp.tokenizer.normalize`` already exists and does something else
 #: entirely. Exporting the compliance verb as ``normalize`` would mean
-#: ``from acronymkit import normalize`` and ``from acronymkit.tokenizer import
+#: ``from acronymkit import normalize`` and ``from acronymkit.nlp.tokenizer import
 #: normalize`` silently shadowing each other in one module, and a reader of
 #: either call site having no way to tell which was meant. The defining module
 #: keeps the short name; the package exports the qualified one.
@@ -278,17 +278,17 @@ _EXPORT_ALIASES = {
 
 #: Submodules a bare ``import acronymkit`` used to bind as a side effect of the
 #: eager re-exports. They stay reachable as attributes so that
-#: ``import acronymkit; acronymkit.tokenizer`` keeps working, but they are now
+#: ``import acronymkit; acronymkit.nlp.tokenizer`` keeps working, but they are now
 #: imported on demand. ``cli`` and ``serialization`` are deliberately absent
 #: because they were never bound this way either: the point is to reproduce the
 #: previous attribute surface exactly, not to widen it.
 #:
-#: ``governed`` is the one entry with no previous surface to reproduce. It is
+#: ``catalog`` is the one entry with no previous surface to reproduce. It is
 #: listed because it is a sub-package whose own names are a superset of the
 #: eight re-exported here — a caller reaching for ``EntryKind`` or
 #: ``canonical_form_score`` has to get at it somehow, and
-#: ``acronymkit.governed`` raising ``AttributeError`` after ``import
-#: acronymkit`` while ``import acronymkit.governed`` worked would be a
+#: ``acronymkit.catalog`` raising ``AttributeError`` after ``import
+#: acronymkit`` while ``import acronymkit.catalog`` worked would be a
 #: distinction nobody can predict from the outside.
 _SUBMODULES = frozenset(
     {
@@ -302,6 +302,15 @@ _SUBMODULES = frozenset(
         # asserts this set is complete against the package directory, which is
         # why a whole module could go missing from it silently.
         "conformal",
+        # ``core`` is the leaf the package was split over: conformal risk
+        # arithmetic, the exception hierarchy and immutable span
+        # coordinates, with no regular expression, no lexical asset and no
+        # string normalisation anywhere in it. Listed for the same reason
+        # ``catalog`` is -- its own names are a superset of what the
+        # package re-exports, and a sub-package answering to ``import
+        # acronymkit.core`` but not to ``acronymkit.core`` after ``import
+        # acronymkit`` is a distinction nobody can predict from outside.
+        "core",
         "diagnostics",
         "disambiguation",
         "engine",
@@ -309,6 +318,14 @@ _SUBMODULES = frozenset(
         "exceptions",
         "extractor",
         "generator",
+        # ``catalog`` holds the identifier half after the package was split
+        # at the lexer contract seam; ``governed`` is the compatibility path
+        # it used to answer to and is kept for the whole of the 0.x line.
+        # BOTH are listed, and the second is not redundant: dropping it would
+        # make ``import acronymkit; acronymkit.governed`` raise while
+        # ``import acronymkit.governed`` still worked, which is the exact
+        # asymmetry the note on ``conformal`` above was written about.
+        "catalog",
         "governed",
         "lexicon",
         "models",

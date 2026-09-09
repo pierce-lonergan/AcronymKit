@@ -52,7 +52,7 @@ from acronymkit._pseudo_precision import (  # noqa: E402
     short_form_group,
 )
 from acronymkit._strategies import STRATEGIES, best_match, split_long_form  # noqa: E402
-from acronymkit.extractor import is_valid_short_form  # noqa: E402
+from acronymkit.nlp.extractor import is_valid_short_form  # noqa: E402
 from bench import corpora, scoring  # noqa: E402
 from bench.run_cascade import split_corpus  # noqa: E402
 from bench.run_extraction import dedupe_per_document, predict_acronymkit, save_results  # noqa: E402

@@ -193,8 +193,8 @@ import time
 from typing import AbstractSet, Callable, Optional, Sequence
 
 from .config import Config
+from .core.exceptions import NoCandidateError
 from .enums import TokenRole
-from .exceptions import NoCandidateError
 from .models import AcronymCandidate, Token
 from .phonetics import has_vowel
 from .scoring import Scorer, build_mappings
@@ -235,7 +235,7 @@ class ForwardGenerator:
     Example:
         >>> from acronymkit.config import Config
         >>> from acronymkit.scoring import Scorer
-        >>> from acronymkit.tokenizer import Tokenizer
+        >>> from acronymkit.nlp.tokenizer import Tokenizer
         >>> config = Config()
         >>> generator = ForwardGenerator(config, Scorer(config))
         >>> tokens = Tokenizer(config).tokenize("Portable Document Format")
@@ -298,7 +298,7 @@ class ForwardGenerator:
 
         Args:
             tokens: The complete token sequence for the phrase, as produced by
-                :meth:`~acronymkit.tokenizer.Tokenizer.tokenize`. Indices in the
+                :meth:`~acronymkit.nlp.tokenizer.Tokenizer.tokenize`. Indices in the
                 returned mappings refer to :attr:`~acronymkit.models.Token.index`
                 values, so the *full* sequence must be passed, not a filtered
                 subset.

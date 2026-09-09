@@ -123,14 +123,14 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
 from acronymkit import disambiguation as _d  # noqa: E402
-from acronymkit.config import Config  # noqa: E402
-from acronymkit.disambiguation import ExpansionDictionary, LexicalDisambiguator  # noqa: E402
-from acronymkit.governed import (  # noqa: E402
+from acronymkit.catalog import (  # noqa: E402
     EntryKind,
     ExpansionSource,
     GovernedDictionary,
     GovernedEntry,
 )
+from acronymkit.config import Config  # noqa: E402
+from acronymkit.disambiguation import ExpansionDictionary, LexicalDisambiguator  # noqa: E402
 from bench import corpora  # noqa: E402
 from bench.corpora import DisambiguationInstance, IdentifierCaptionPair  # noqa: E402
 from bench.run_disambiguation_diagnosis import (  # noqa: E402
@@ -515,7 +515,7 @@ def contract_arity(
 
     ``ExpansionDictionary`` maps a short form to a *sequence* of candidates and
     exists to be selected from. ``GovernedDictionary.lookup`` returns at most one
-    :class:`~acronymkit.governed.GovernedEntry` per token, because a governed
+    :class:`~acronymkit.catalog.GovernedEntry` per token, because a governed
     catalog is unambiguous *by definition* -- that is what governing a
     vocabulary means. The frequency information a prior would need is therefore
     not in the governed contract at all; it lives in the vote counters a catalog

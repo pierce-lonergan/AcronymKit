@@ -601,7 +601,7 @@ def governed_fit_probe() -> Dict[str, object]:
         carrying only ``skipped`` when the governed corpus or harness is absent.
     """
     try:
-        from acronymkit.governed import GovernedDictionary, expand_identifier
+        from acronymkit.catalog import GovernedDictionary, expand_identifier
         from bench import run_governed_catalog as catalog_bench
     except Exception as error:  # pragma: no cover - import guard
         return {"skipped": f"governed harness unavailable: {error}"}

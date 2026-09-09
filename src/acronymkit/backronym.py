@@ -335,7 +335,7 @@ class BackronymGenerator:
     Example:
         >>> from acronymkit.config import Config
         >>> from acronymkit.scoring import Scorer
-        >>> from acronymkit.tokenizer import Tokenizer
+        >>> from acronymkit.nlp.tokenizer import Tokenizer
         >>> config = Config()
         >>> generator = BackronymGenerator(config, Scorer(config))
         >>> tokens = Tokenizer(config).tokenize("Portable Document Format")
@@ -443,7 +443,7 @@ class BackronymGenerator:
         Args:
             target_word: Word the expansion must spell out.
             tokens: Source phrase, typically from
-                :meth:`~acronymkit.tokenizer.Tokenizer.tokenize`. Tokens with
+                :meth:`~acronymkit.nlp.tokenizer.Tokenizer.tokenize`. Tokens with
                 ``is_eligible`` unset (stop words, over-short words) are never
                 assigned a letter.
             limit: Maximum candidates to return; defaults to
@@ -459,7 +459,7 @@ class BackronymGenerator:
         Example:
             >>> from acronymkit.config import Config
             >>> from acronymkit.scoring import Scorer
-            >>> from acronymkit.tokenizer import Tokenizer
+            >>> from acronymkit.nlp.tokenizer import Tokenizer
             >>> config = Config()
             >>> generator = BackronymGenerator(config, Scorer(config))
             >>> tokens = Tokenizer(config).tokenize("Application Programming Interface")

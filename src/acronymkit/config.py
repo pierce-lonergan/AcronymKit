@@ -13,6 +13,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
+from .core.exceptions import ConfigurationError, OfflineError
 from .enums import (
     CaseStyle,
     EngineTier,
@@ -23,7 +24,6 @@ from .enums import (
     ScoringStrategy,
     StopWordCategory,
 )
-from .exceptions import ConfigurationError, OfflineError
 
 __all__ = ["EXTRACTION_PROFILES", "STRATEGY_WEIGHTS", "Config", "ScoringWeights"]
 

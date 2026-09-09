@@ -9,7 +9,7 @@ Construction cost
 -----------------
 Building an engine resolves the Tier 1 backend once (via
 :func:`~acronymkit.nlp.base.resolve_backend`) and builds a
-:class:`~acronymkit.tokenizer.Tokenizer`. It does **not** read the lexicon or
+:class:`~acronymkit.nlp.tokenizer.Tokenizer`. It does **not** read the lexicon or
 the character n-gram model: those are the two expensive resources, and they are
 loaded the first time a call actually needs them and then cached on the
 instance. A process that constructs an engine and never generates anything pays
@@ -124,10 +124,9 @@ from typing import Iterable, Optional, Sequence
 from .backronym import BackronymGenerator
 from .batch import arun_batch, run_batch
 from .config import Config
+from .core.exceptions import EmptyPhraseError, NoCandidateError
 from .disambiguation import ExpansionDictionary, LexicalDisambiguator
 from .enums import EngineTier
-from .exceptions import EmptyPhraseError, NoCandidateError
-from .extractor import AbbreviationExtractor
 from .generator import ForwardGenerator
 from .lexicon import Lexicon
 from .models import (
@@ -142,9 +141,10 @@ from .models import (
     Token,
 )
 from .nlp.base import NlpBackend, resolve_backend
+from .nlp.extractor import AbbreviationExtractor
+from .nlp.tokenizer import Tokenizer
 from .phonetics import CharNGramModel
 from .scoring import Scorer
-from .tokenizer import Tokenizer
 
 __all__ = ["AcronymEngine"]
 

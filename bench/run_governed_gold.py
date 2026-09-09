@@ -9,7 +9,7 @@ carried no accuracy number at all. The justification on file was that it is
 lookup table is exact about whatever the caller put in it, and that says nothing
 about the one thing in the subsystem that decides anything on its own.
 
-That one thing is :func:`~acronymkit.governed.tokenizer.split_identifier`. Its
+That one thing is :func:`~acronymkit.catalog.tokenizer.split_identifier`. Its
 own docstring says so -- "the only function here that decides anything on its
 own ... A boundary placed in the wrong character position produces a token no
 catalog contains, and no amount of governed vocabulary downstream can recover
@@ -189,7 +189,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
-from acronymkit.governed import GovernedDictionary, expand_identifier  # noqa: E402
+from acronymkit.catalog import GovernedDictionary, expand_identifier  # noqa: E402
 
 #: Where fetched payloads are cached. Inside the git-ignored ``data/``, like
 #: every other fetched evaluation asset; nothing here is committed or packaged.
@@ -607,7 +607,7 @@ def evaluate(arm: Arm) -> Dict[str, object]:
     return {
         "corpus": arm.corpus,
         "arm": arm.name,
-        "system": "acronymkit.governed.expand_identifier, empty catalog",
+        "system": "acronymkit.catalog.expand_identifier, empty catalog",
         "source_url": arm.source_url,
         "fetched_on": arm.fetched_on,
         "distinct_pairs_seen": arm.columns_seen,

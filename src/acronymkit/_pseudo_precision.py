@@ -315,7 +315,7 @@ def _bundled_document() -> dict[str, Any]:
             wrong-shaped resource is indistinguishable from a missing one as far
             as a caller can act on it, so it is reported the same way.
     """
-    from .exceptions import ResourceNotFoundError
+    from .core.exceptions import ResourceNotFoundError
 
     document = read_json_resource(BUNDLED_TABLE_RESOURCE)
     if not isinstance(document, dict) or not isinstance(document.get("values"), dict):

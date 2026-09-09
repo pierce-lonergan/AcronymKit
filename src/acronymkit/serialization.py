@@ -55,7 +55,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from .exceptions import AcronymKitError, ResourceNotFoundError
+from .core.exceptions import AcronymKitError, ResourceNotFoundError
 from .models import AcronymResult
 from .resources import has_resource, read_text_resource
 

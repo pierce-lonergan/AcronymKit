@@ -100,6 +100,7 @@ EXPECTED_ALL = [
 #: Every module a user may import directly. ``nlp`` and ``governed`` are the
 #: sub-packages.
 PUBLIC_MODULES = [
+    "core",
     "resources",
     "stopwords",
     "tokenizer",
@@ -115,6 +116,7 @@ PUBLIC_MODULES = [
     "serialization",
     "cli",
     "nlp",
+    "catalog",
     "governed",
 ]
 
@@ -319,7 +321,7 @@ def test_a_resolved_name_is_cached_in_the_module_globals() -> None:
 
 
 def test_submodules_stay_reachable_as_package_attributes() -> None:
-    """``import acronymkit; acronymkit.tokenizer`` worked before and still does.
+    """``import acronymkit; acronymkit.nlp.tokenizer`` worked before and still does.
 
     Every submodule listed here used to be bound as a side effect of the eager
     re-exports. Losing that silently would break callers for no reason.

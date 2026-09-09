@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What dominates the governed hot path, decomposed by cost centre.
 
-Mandate III lists five optimisations for :mod:`acronymkit.governed` and then says
+Mandate III lists five optimisations for :mod:`acronymkit.catalog` and then says
 plainly that none of them is worth doing until it is known what dominates. This
 runner is that measurement and nothing else: **it optimises nothing.** Every
 figure it writes is a description of the shipped code on a real corpus.
@@ -12,8 +12,8 @@ profiler's attribution
 ``expand_identifier`` does four separable things: it **tokenises** the name, it
 **looks each token up** in the catalog, it **assembles a phrase** out of the long
 forms, and it **constructs provenance** -- one frozen
-:class:`~acronymkit.governed.models.TokenExpansion` per token and one
-:class:`~acronymkit.governed.models.IdentifierExpansion` per call, each with a
+:class:`~acronymkit.catalog.models.TokenExpansion` per token and one
+:class:`~acronymkit.catalog.models.IdentifierExpansion` per call, each with a
 validating ``__post_init__``.
 
 A profiler can tell you what each *function* cost. It cannot tell you what each
@@ -155,19 +155,19 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
-from acronymkit.governed import (  # noqa: E402
+from acronymkit.catalog import (  # noqa: E402
     GovernedDictionary,
     expand_identifier,
 )
-from acronymkit.governed import dictionary as dictionary_module  # noqa: E402
-from acronymkit.governed import expansion as expansion_module  # noqa: E402
-from acronymkit.governed import models as models_module  # noqa: E402
-from acronymkit.governed import tokenizer as tokenizer_module  # noqa: E402
-from acronymkit.governed.models import (  # noqa: E402
+from acronymkit.catalog import dictionary as dictionary_module  # noqa: E402
+from acronymkit.catalog import expansion as expansion_module  # noqa: E402
+from acronymkit.catalog import models as models_module  # noqa: E402
+from acronymkit.catalog import tokenizer as tokenizer_module  # noqa: E402
+from acronymkit.catalog.models import (  # noqa: E402
     IdentifierExpansion,
     TokenExpansion,
 )
-from acronymkit.governed.tokenizer import split_identifier, split_identifier_parts  # noqa: E402
+from acronymkit.catalog.tokenizer import split_identifier, split_identifier_parts  # noqa: E402
 
 #: The governed-gold cache the two real corpora are read out of.
 GOVERNED_GOLD_CACHE = REPO_ROOT / "data" / "governed_gold"
@@ -318,7 +318,7 @@ def replay_bounded(keys: Sequence[str], limit: int) -> tuple[int, int]:
 
     The shipped rule, exactly: a map that holds ``limit`` answers and **empties
     itself** when it fills. It has no eviction order, which
-    :func:`~acronymkit.governed.dictionary._remember` documents as deliberate.
+    :func:`~acronymkit.catalog.dictionary._remember` documents as deliberate.
     What that costs is not derivable from a distinct count -- it depends on the
     order the keys arrive in -- so it is replayed rather than estimated.
 
@@ -346,7 +346,7 @@ def replay_bounded(keys: Sequence[str], limit: int) -> tuple[int, int]:
 def replay_lru(keys: Sequence[str], limit: int) -> int:
     """Hits from replaying ``keys`` through an LRU map of the same size.
 
-    The counterfactual :func:`~acronymkit.governed.dictionary._remember` declines
+    The counterfactual :func:`~acronymkit.catalog.dictionary._remember` declines
     to pay for. It is measured rather than argued about, because "an eviction
     order costs bookkeeping on every hit" is a statement about cost and says
     nothing at all about how many hits are being given up.
@@ -614,7 +614,7 @@ def stage_phrase(identifiers: Sequence[str], catalog: GovernedDictionary) -> Non
     caller who reads ``.tokens`` needs done.
 
     The long-form memo mirrors
-    :class:`~acronymkit.governed.dictionary._Memo` on the one property that
+    :class:`~acronymkit.catalog.dictionary._Memo` on the one property that
     matters here -- it remembers hits and never remembers misses -- so the two
     paths take the same number of lookups. :func:`verify_phrase_parity` is what
     turns that from an intention into a check.
@@ -651,7 +651,7 @@ def stage_class_word(identifiers: Sequence[str], catalog: GovernedDictionary) ->
     a second catalog lookup.
 
     ``class_word`` is the only field on a
-    :class:`~acronymkit.governed.models.TokenExpansion` that is not already in
+    :class:`~acronymkit.catalog.models.TokenExpansion` that is not already in
     hand by the time the record is built: every other field is read off the
     entry or off the token, and this one is a second index lookup per token. It
     is therefore worth separating from the cost of *constructing* the record,
@@ -1000,7 +1000,7 @@ def replay(
 
 
 #: The four routes, cheapest first, as ``(label, fast_construction, post_init)``.
-#: ``fast_construction`` is what :data:`acronymkit.governed.models._FAST_CONSTRUCTION`
+#: ``fast_construction`` is what :data:`acronymkit.catalog.models._FAST_CONSTRUCTION`
 #: is set to; ``post_init`` is whether ``__post_init__`` stays on the class.
 #: ``call_floor`` is the one route that is not the shipped builder at all.
 RECORD_ROUTES = (
@@ -2274,7 +2274,7 @@ def memo_counts(identifiers: Sequence[str], catalog: GovernedDictionary) -> dict
     the memo about itself.
 
     ``identifier_memo_hits`` is the identifier count minus the number of
-    tokenizer passes, because :func:`~acronymkit.governed.expansion.expand_identifier`
+    tokenizer passes, because :func:`~acronymkit.catalog.expansion.expand_identifier`
     tokenises exactly once per call whose body runs and not at all on a call the
     identifier memo answers.
 

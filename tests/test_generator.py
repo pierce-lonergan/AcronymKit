@@ -31,9 +31,9 @@ from acronymkit.exceptions import NoCandidateError
 from acronymkit.generator import ForwardGenerator
 from acronymkit.lexicon import Lexicon
 from acronymkit.models import AcronymCandidate, LetterMapping, Token
+from acronymkit.nlp.tokenizer import Tokenizer
 from acronymkit.phonetics import CharNGramModel, has_vowel
 from acronymkit.scoring import Scorer, build_mappings
-from acronymkit.tokenizer import Tokenizer
 from conftest import CANONICAL_ACRONYMS, timing_budget
 
 # ---------------------------------------------------------------------------
@@ -581,7 +581,7 @@ from acronymkit.generator import ForwardGenerator
 from acronymkit.lexicon import Lexicon
 from acronymkit.phonetics import CharNGramModel
 from acronymkit.scoring import Scorer
-from acronymkit.tokenizer import Tokenizer
+from acronymkit.nlp.tokenizer import Tokenizer
 
 config = Config()
 scorer = Scorer(

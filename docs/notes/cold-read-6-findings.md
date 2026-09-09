@@ -1,510 +1,647 @@
-# Cold read 6 — findings
+# Cold read six — findings
 
-Read of the working tree of `2026-09-09`, against `017cb37`. Fourth execution under the read-only
-rule of `docs/SECOND-READER.md` section 5. **This reader changed nothing but this file.** Every
-`refutation` below is a command whose output I saw in this session; none is carried from a record.
+**Reader:** `cold-read-6`, Mandate III Phase D, first round. **Date:** 2026-09-09.
+**Status: REPORT ONLY. Nothing in the tree was changed by this reader.** Section 5 of
+[`docs/SECOND-READER.md`](../SECOND-READER.md) retired the fix clause; the applier is somebody else,
+and `disposition = "fixed"` needs an `applied_by` that is not `cold-read-6`.
 
-**Trigger A** — `git status --porcelain --untracked-files=all -- README.md CHANGELOG.md
-CONTRIBUTING.md SECURITY.md pyproject.toml docs`, minus `docs/DECISIONS.md`, `docs/AUDIT-*.md`,
-`docs/notes/*.md` — served nine files: `CHANGELOG.md`, `CONTRIBUTING.md`, `README.md`,
-`docs/CLAIMS-LEDGER.md`, `docs/DEFINITION-OF-DONE.md`, `docs/EVALUATION.md`, `docs/GATES.md`,
-`docs/POSITIONING.md`, `docs/SECOND-READER.md`.
-
-**Trigger B** — `python tools/second_reader.py --check` prints *"trigger B serves
-docs/SECOND-READER.md next"*, and the ledger's `cursor_after` for read `2026-09-08` is
-`docs/SECOND-READER.md`. The cursor is derivable and agrees with the page.
-
-**Trigger B served a file trigger A had already served.** That is `F-5-7`'s sibling `F-5-5`,
-reproduced on the first read after it was raised: the rotation's one turn per round was spent on a
-document the diff already forced me through, so no untouched file was covered by mechanism this
-round. The rotation is `25` files and this is the second consecutive read to lose its turn to an
-overlap.
-
-**The eight gates, run at the start and again at the end, unchanged in between.**
-
-```
-python -m pytest tests                              5798 passed, 10 skipped, 1 xfailed
-python -m ruff check src tests tools bench          rc=0  All checks passed!
-python -m ruff format --check src tests tools bench rc=0  156 files already formatted
-python -m mypy                                      rc=0  99 source files
-python tools/check_claims.py                        rc=0  value-matched 64/64, deferred 189/189
-python tools/splits.py --check                      rc=0
-python tools/gates.py --check                       rc=0  in-situ 18 of 39
-python tools/second_reader.py --check               rc=0  open 5, fixed 10, of 15
-```
-
-Green — but see `F-6-7`: `pytest` was **red in five of the seven runs I took**, always for the same
-reason and never for a reason about this tree.
+**This file is the reader's working paper.** The ledger rows below are drafted for whoever writes
+[`docs/cold-reads.toml`](../cold-reads.toml), exactly as cold read five's were.
 
 ---
 
-## F-6-1 — the sixth document was corrected and the seventh was not
+## 0. Triggers, and the gates as I found them
 
-**Severity: high.** This is the failure shape the brief named, found where the brief did not look.
+**Trigger A** — `python tools/second_reader.py --trigger`, 12 user-facing files:
+`CHANGELOG.md`, `CONTRIBUTING.md`, `README.md`, `docs/ARCHITECTURE.md`, `docs/CLAIMS-LEDGER.md`,
+`docs/DEFINITION-OF-DONE.md`, `docs/EVALUATION.md`, `docs/GATES.md`, `docs/GOVERNED_NAMING.md`,
+`docs/JAVA_INTEROP.md`, `docs/RELEASE_CHECKLIST.md`, `docs/SOURCING.md`.
 
-`file` = `docs/SOURCING.md`, lines `625` and `632`–`633`.
+**Trigger B** — the cursor in `docs/cold-reads.toml` and in section 8 of the policy page both derive
+to **`docs/SECOND-READER.md`**, and `--check` agrees. That is the file served, and it is followed
+rather than announced. No figure is served this round.
 
-**Quoted exactly**, line `632`–`633`:
+### THE GATES ARE NOT GREEN IN THIS WORKING TREE. THREE OF THE TEN ARE RED.
 
-> **D and E are the two holes, and they are the same two.** `latency` is not in the gate's arming
-> vocabulary and a spelled-out `microseconds` is not in its unit vocabulary, so an invented latency
-> claim on this page would never be seen
-
-and line `625`, inside the battery block:
-
-> `  rc=0  D  prose line added: "Median latency ... 41 microseconds"     <file not named>`
-
-**Refutation.** Both halves of the sentence are now false, and the page states them in the present
-tense:
+`CONTRIBUTING.md` now publishes **ten** commands, not eight. Run one at a time on the working tree,
+CPython 3.13.4 on win32, no sibling suite running. Command output, not a benchmark measurement.
 
 ```
-python - <<'EOF'   # tools/check_claims.py loaded by path, nothing mutated
-'latency'  in _KEYWORDS           -> True
-'duration' in _KEYWORDS           -> True
-_UNIT_AFTER_NUMBER matches ' microseconds ...' -> True
-SCAN_GLOBS -> ('README.md', 'CHANGELOG.md', 'docs/*.md', 'docs/notes/*.md',
-               'src/acronymkit/*.py', 'src/acronymkit/**/*.py', 'bench/splits.toml')
-keyword_positions('Median latency for a governed expansion fell to 41 microseconds
-                   in this release.')                 -> [7]
-iter_claim_numbers(...) + arming_of(...)              -> (48, '41') armed by 'keyword'
-EOF
+  python -m pytest tests                            4 failed          rc=1   <-- RED
+  python -m ruff check src tests tools bench                          rc=0
+  python -m ruff format --check src tests tools bench                 rc=0
+  python -m mypy                                                      rc=0
+  python tools/check_claims.py                                        rc=0
+  python tools/splits.py --check                                      rc=0
+  python tools/gates.py --check                     1 problem(s)      rc=1   <-- RED
+  python tools/second_reader.py --check                               rc=0
+  python tools/run_summary.py --check                                 rc=0
+  python tools/run_summary.py --check-agent-summary 1 problem(s)      rc=1   <-- RED
 ```
 
-`docs/*.md` is in `SCAN_GLOBS`, so this page is scanned; `latency` arms the number at offset `48`
-from the keyword at offset `7`. The sentence's claim that such a figure *"would never be seen"* on
-this page is refuted at the level of the rule, not merely of an exit code — which is stronger than
-re-running the battery, and does not require mutating a file on a shared checkout.
+The four failures are
+`tests/test_gate_manifest.py::TestTheRegisterThisRepositoryShips::test_it_validates`,
+`tests/test_run_summary.py::TestThisCheckoutsExitAccounting::test_the_agent_gate_is_green_on_this_tree`,
+`…::test_this_repository_carries_a_control_that_asserts_both_states` and
+`tests/test_run_summary.py::TestTheAgentRegisterAndTheScriptAgree::test_the_mutation_target_exists_and_the_edit_applies`.
+**All three red gates and all four failures have one cause**, and it is F-6-01 below.
 
-**The count is wrong wherever it is published.** `docs/GATES.md` line `1243` heads a table *"Six
-documents corrected, and the disposition discharged"* and says *"six shipped files immediately
-stated something false. All six were corrected in the same commit."* The same six are enumerated in
-`tests/test_claims_gate_coverage.py` lines `46`–`50`, asserted again in `docs/SECOND-READER.md`
-(*"all six documents were corrected in the same commit"*) and again in `docs/DEFINITION-OF-DONE.md`
-(*"Keeping the hole open so that six documents describing it stayed accurate"*). **Seven files
-stated it. Six were corrected.** `docs/SOURCING.md` is the seventh, and it is the page that calls
-itself *"reproduced on a third page rather than carried on that record's word"* — the third
-independent reproduction of the blind spot, which makes it load-bearing rather than incidental.
-
-`tests/test_claims_gate_coverage.py`'s own docstring predicted this exactly: *"A third copy in a
-file nobody listed here is invisible to it."* Its `_RETIRED_OVERCLAIMS` check runs over `README.md`
-and `docs/EVALUATION.md` only.
-
-**Exact replacement text.** `docs/SOURCING.md` line `625`, in the battery block — this row must be
-**re-run**, not edited, per the convention the other three batteries held to this round. When it is
-re-run it will read:
+**D-110's caution is honoured and it does not cover this.** D-110 records that no gate result taken
+during a multi-workstream round is a statement about the finished tree, and that concurrency, not
+defect, explained three earlier reports of instability. This is not that. The failure is
+deterministic, it names one absent path, and the negative control separates it from the round:
 
 ```
-  rc=1  D  prose line added: "Median latency ... 41 microseconds"     docs/SOURCING.md named
+  git worktree add --detach <tmp> 18204a1 ; python tools/gates.py --check
+    CARRYING IN-SITU EVIDENCE:   20 of 40
+    gate manifest OK                                                  rc=0
+  the same command in the working tree
+    gates.agent_summary.mutation.edits[0]:
+      .github/run-summaries/_control-agent-crash/exits.toml does not exist,
+      so this mutation cannot be applied and the gate has no demonstration   rc=1
 ```
 
-`docs/SOURCING.md` lines `632`–`637`, replacing the paragraph beginning **"D and E are the two
-holes"**:
-
-> **D used to be a hole and is now the correction; E is still a hole.** `latency` was not in the
-> gate's arming vocabulary and a spelled-out `microseconds` was not in its unit vocabulary, so an
-> invented latency claim on this page was never seen — the blind spot `docs/DECISIONS.md` D-060
-> found in `README.md` and this page reproduced on a third page rather than carrying on that
-> record's word. It is closed: `latency` and `duration` are metric keywords and the spelled-out
-> sub-second units are units, and the row above is the **re-run**, not an edited digit. What the
-> closure did not reach is published in `docs/GATES.md` — the plurals `latencies` and `durations`,
-> a bare `seconds`, a speedup written `41.37x`, and byte figures. And every fenced block on this
-> page is outside the gate entirely, which D-052 says is mechanically indistinguishable from
-> hiding: section 0's traffic figures, section 4's power table and section 5's sizing block could
-> all be edited to say anything. The command is printed above each one so a reader can re-derive
-> it, and **that convention is the only thing separating those blocks from hiding.**
-
-And **the count**, in all four places, becomes **seven**: `docs/GATES.md` line `1243` heading
-*"Seven documents corrected, and the disposition discharged"* with a `docs/SOURCING.md` row reading
-`| `docs/SOURCING.md` | a battery whose row `D` is `rc=0`, on a third page | battery re-run, row `D`
-is `rc=1` |`; the same in `tests/test_claims_gate_coverage.py` lines `46`–`50`, in
-`docs/SECOND-READER.md` and in `docs/DEFINITION-OF-DONE.md`.
+Green at the round base, red in the round. It is this round's, whoever's round it is.
 
 ---
 
-## F-6-2 — `4.38 times alpha` is true at one of five measured alphas and is stated unconditionally
+## 1. Findings
 
-**Severity: medium.** Two shipped surfaces, one of them the API docstring.
-
-`file` = `src/acronymkit/propagation.py` line `397`, and `CHANGELOG.md` line `122`.
-
-**Quoted exactly**, `propagate()`'s docstring:
-
-> it does not bound the share of the gate's answers that are wrong -- measured at ``4.38`` times
-> ``alpha`` on ``conformal.sdu21.exchangeable``
-
-and `CHANGELOG.md`:
-
-> It does not bound the share of the gate's answers that are wrong, which is that rate divided by
-> the answer rate and was measured at `4.38` times `alpha` on `conformal.sdu21.exchangeable`.
-
-**Refutation.** `selective_error_over_alpha` is a recorded field of that run at five alphas, and it
-is monotone decreasing:
-
-```
-python - <<'EOF'   # bench/results.json, runs['conformal.sdu21.exchangeable']
-alpha  selective_err%  selective_error_over_alpha  answered/eval
-0.05   21.92           4.38                        292/3095
-0.10   28.85           2.88                        520/3095
-0.20   37.02           1.85                        859/3095
-0.30   41.02           1.37                       1192/3095
-0.50   48.42           0.97                       1743/3095
-EOF
-```
-
-`4.38` is the **maximum over the five**, at the smallest alpha. At `alpha = 0.50` the multiple is
-`0.97` — below `alpha`, not above it. A caller who reads *"measured at `4.38` times `alpha`"* and
-sets `alpha = 0.20` predicts `87.6` % and gets `37.02` %.
-
-**This is an overstatement of the danger, not of the guarantee**, so it is not the overclaim the
-brief feared reproduced; it is the reciprocal error, and it is still a number-bearing sentence that
-is false as written on the surface with the widest audience. The four correctly-scoped uses —
-`propagation.py` lines `67` and `127`, `docs/EVALUATION.md` lines `901` (cited) and `2601` — all
-attach the multiple to `alpha = 0.05`. Only the two above float free.
-
-**The guard pins the loose form.** `tests/test_propagation.py` line `538` asserts `"4.38" in body`
-of `propagation.py` and asserts nothing about the alpha it belongs to, so the rule that exists to
-keep the factor at the call site is satisfied by the version that omits its condition.
-
-**Exact replacement text.** `src/acronymkit/propagation.py` line `396`–`398`:
-
->     gate's answers that are wrong -- measured at ``4.38`` times ``alpha`` at
->     ``alpha = 0.05`` on ``conformal.sdu21.exchangeable``, and at ``1.85`` times
->     ``alpha`` at ``alpha = 0.20``; the multiple falls as ``alpha`` rises --
-
-`CHANGELOG.md` line `121`–`123`:
-
-> It does not bound the share of the gate's answers that are wrong, which is that rate divided by
-> the answer rate and was measured at `4.38` times `alpha` at `alpha` of `0.05` on
-> `conformal.sdu21.exchangeable`, falling to `1.85` times `alpha` at `0.20`.
-
-And `tests/test_propagation.py` line `538` should assert the pair, not the number:
-`assert "4.38" in body and "alpha = 0.05" in body`.
+Ordered by severity. Every one carries the command that refutes it, run before it was written down,
+and exact replacement text. Line numbers are of the working tree at the time of reading.
 
 ---
 
-## F-6-3 — `80 pre-existing records` is `40` records and `80` field-values
+### F-6-01 — `docs/GATES.md:1562` — the register's newest gate is demonstrated against a fixture the tree does not contain, and it is what is reddening three gates
 
-**Severity: medium.** A machine-independent count, wrong by exactly two.
-
-`file` = `docs/EVALUATION.md` line `2556`.
-
-**Quoted exactly:**
-
-> `elapsed_seconds` and `docs_per_second` moved on `80` pre-existing records; both are wall clock,
-> neither is cited anywhere, and R18 leaves them unarmed notes.
-
-**Refutation.** Diffing `git show HEAD:bench/results.json` against the working tree, flattened to
-leaf fields:
-
-```
-run ids: old 700, new 717, added 17, removed 0
-pre-existing run ids with NON-wall-clock movement: 0        <- the paper's other claim, TRUE
-field-level changes by leaf name:
-  elapsed_seconds: 40 value(s) across 40 run id(s)
-  docs_per_second: 40 value(s) across 40 run id(s)
-  total changed field-values: 80 ; changed run ids: 40, all in the `spans` family
-environment block changed: False
-```
-
-`80` is the count of changed **field-values**; the count of **records** is `40`. This repository
-uses "run record" for one entry keyed by run id (`docs/DECISIONS.md` line `5298`, *"the run
-record's own"*), and the sentence names two fields and then a record count, so the natural reading
-is `80` records each moving two fields — `160` values. The measurement is `40` and `80`.
-
-The neighbouring claims in the same bullet are **true and were checked**: `0` non-wall-clock fields
-moved on any pre-existing run id, and the two `run_spans.py` invocations added exactly `16` run ids
-(the seventeenth, `extraction.med1250.acronymkit_propagated`, is `run_extraction.py`'s, and the
-sentence correctly does not attribute it).
-
-**Exact replacement text**, `docs/EVALUATION.md` line `2556`:
-
-> `elapsed_seconds` and `docs_per_second` moved on `40` pre-existing records, `80` values in all;
-> both are wall clock, neither is cited anywhere, and R18 leaves them unarmed notes.
-
----
-
-## F-6-4 — `some forty points` is `32.52` points
-
-**Severity: medium.**
-
-`file` = `docs/EVALUATION.md` line `2528`.
-
-**Quoted exactly:**
-
-> the scope was worth about three points of a ceiling that sits some forty points below the trivial
-> all-caps rule's recall on the same corpus.
+> **Quote, `docs/GATES.md:1562-1563`:** "So the demonstration is against a committed **control**,
+> `.github/run-summaries/_control-agent-crash/`, and the distinction matters"
 
 **Refutation.**
 
 ```
-python - <<'EOF'   # bench/results.json, short_form.exact_recall, PLOD-CW all/tight
-spans.plod.all.tight.allcaps                        73.37
-spans.plod.all.tight.oracle_definitional            37.50   -> gap 35.87
-spans.plod.all.tight.oracle_definitional_propagated 40.85   -> gap 32.52
-EOF
+ls .github/run-summaries/                        ->  mandate-iii-phase-c        (only)
+git ls-files .github/run-summaries               ->  three files, all under mandate-iii-phase-c
+git status --porcelain --untracked-files=all -- .github
+                                                 ->  M .github/gates.toml
+                                                     M .github/workflows/ci.yml   (no untracked fixture)
+grep -n run-summaries .gitignore                 ->  (no match; it is not ignored, it is absent)
+python tools/gates.py --check                    ->  rc=1, naming
+    .github/run-summaries/_control-agent-crash/exits.toml
+python tools/run_summary.py --check-agent-summary
+  -> "no control directory in .github/run-summaries expects ['absent', 'unreadable']"   rc=1
+git show 18204a1:.github/gates.toml | grep -c _control-agent-crash   ->  0
 ```
 
-The gap is `32.52` points from the ceiling the sentence is about, or `35.87` from the pre-A2
-ceiling. Neither is *"some forty"*. **The likely mechanism is worth naming**: the propagated
-ceiling's own value is `40.85`, so a value has been read as a distance. That is the same
-substitution class as `F-5-1`'s retained denominator, and it is invisible to the claims gate because
-"forty" is spelled out — the residue class `docs/GATES.md` publishes as *"a metric named in a word
-nobody put on the list"*, here in its numeral form.
+The register entry at `.github/gates.toml:1156` is **new in this working tree** and points at a
+directory that exists nowhere — not tracked, not untracked, not ignored. The prose describes it as
+*committed*. The mutation transcript at `docs/GATES.md:1578-1582` publishes
+`agent_summary  DEMONSTRATED  mutated rc=1, restored rc=0`, dated 2026-09-09, for an edit that
+`tools/gates.py` itself reports as inapplicable.
 
-**Exact replacement text**, `docs/EVALUATION.md` line `2527`–`2529`:
+**This is `017cb37` again, one channel over.** That commit's message is *"the gate register shipped
+pointing at a figure the sdist did not carry, through a reference channel the link guard cannot
+see."* This is a register pointing at a **fixture** the tree does not carry. The class is the same
+and the newer instance is worse, because this one reddens the build rather than hiding.
 
-```
-the scope was worth about three points of a ceiling that still sits some thirty-three points
-below the trivial all-caps rule's recall on the same corpus --
-73.37<!--claim:spans.plod.all.tight.allcaps.short_form.exact_recall:.2f--> % against the
-40.85<!--claim:spans.plod.all.tight.oracle_definitional_propagated.short_form.exact_recall:.2f--> %
-above.
-```
+**Replacement.** There is no wording fix. The fixture is the fix: commit
+`.github/run-summaries/_control-agent-crash/` with the roster whose `control` key declares
+`absent` and `unreadable`, and the `exits.toml` carrying `killed-before-filing = 137` that the
+register's `find` string names. Until it lands, `docs/GATES.md:1562` must not say *committed*, and
+the mutation block at `1578` must not be published as a run that happened on this tree.
+If the fixture is landing in the same commit as this prose, this finding closes itself and the
+correct disposition is `fixed`; **if it is not, the three red gates are what ships.**
 
-(Fenced here so the citations are inert in this file and carry the house convention — no backticks
-around a cited number — when they are copied across.)
+**Owner:** the workstream that holds `.github/gates.toml` and `tools/run_summary.py`.
 
 ---
 
-## F-6-5 — `CONTRIBUTING.md`'s eight commands and its eight keys are different sets of eight
+### F-6-02 — `docs/CLAIMS-LEDGER.md:528` — a published `--frame` transcript that the shipped tool does not produce, in either its figures or its shape
 
-**Severity: medium.** The contradiction is six lines wide on one page.
+The brief for this round names the ledger's series closure as a risk area. **The closure itself is
+correct** (see §3 below). The block that prices its successor is not.
 
-`file` = `CONTRIBUTING.md`, gate block at lines `90`–`99` and sentence at line `161`.
+> **Quote, `docs/CLAIMS-LEDGER.md:528-540`:** "`$ python tools/sample_claims.py --frame`  # on a
+> quiet checkout at 18204a1 … `frame: 2180` … `round varies varies 12` … `recent 1751 80.3 % 8` …
+> `cold 429 19.7 % 4`"
 
-**Quoted exactly**, line `161`:
-
-> `status` is `complete` or `partial`; `gates` reports all eight commands above by key
-> (`pytest`, `ruff`, `ruff_format`, `mypy`, `claims`, `splits`, `gates`, `second_reader`);
-
-**Refutation.** The eight commands above are `pytest`, `ruff check`, `ruff format --check`, `mypy`,
-`check_claims.py`, `splits.py --check`, `gates.py --check`, **`run_summary.py --check`**. The eight
-keys are those seven plus **`second_reader`** and minus `run_summary`. The sets differ in two
-places, so *"all eight commands above by key"* is false about its own page.
+**Refutation.** Same tree, same command, the whole output:
 
 ```
-grep -n 'second_reader' .github/workflows/ci.yml     -> no match
-grep -n 'second_reader' .github/gates.toml           -> no match
-grep -n 'run: python tools/' .github/workflows/*.yml -> splits, check_claims, gates,
-                                                        render_figures, gate_memo_identity,
-                                                        run_summary, ... ; no second_reader
-grep -n 'run: python -m'    .github/workflows/ci.yml -> ruff check, ruff format --check, mypy,
-                                                        pytest
+python tools/sample_claims.py --frame
+  frame: 2187 unbacked claim-shaped number(s) in the scan set
+  round    N   671  ( 30.7 % of the frame)  draw 12
+  recent   N  1175  ( 53.7 % of the frame)  draw 8
+  cold     N   341  ( 15.6 % of the frame)  draw 4
+  design effect at equal rates: 1.20
 ```
 
-So **`python tools/second_reader.py --check` runs in no CI job and is in no gate register**, while
-being a required key of every round summary and one of the eight gates every agent brief names.
-`tools/gates.py --check` cannot see this: it refuses *a CI job that no gate register accounts for*,
-which is the job→register direction; a documented gate with no job is outside it.
+Six differences, and the hedge on the block — *"Re-run it; it moves with the tree"* — covers exactly
+one of them:
 
-**In fairness to the round, half of this is deliberate and says so.** `tools/run_summary.py` lines
-`194`–`200` state that the `run_summary` key is omitted on purpose because adding a ninth key
-mid-round would invalidate every summary written to the standing brief, and that *"the key lands
-when the brief lists nine."* That reasoning is sound and I am not asking for it to be reversed. What
-it never reconciles is the other half: the comment asserts the key list is the brief's eight, and
-does not notice that `CONTRIBUTING.md`'s block is a **different** eight. `CI runs all eight` of the
-block's commands is **true** and was checked.
+| published | the tool, now | can drift explain it |
+|---|---|---|
+| `frame: 2180` | `2187` | yes, `+7` |
+| `round  varies  varies` | `round N 671 (30.7 %)` | **no** — that is a different output *shape* |
+| `recent 1751  80.3 %` | `recent 1175  53.7 %` | **no** — `-576` |
+| `cold    429  19.7 %` | `cold    341  15.6 %` | **no** — `-88` |
+| percentages over a `2180` base of `recent + cold` | three disjoint strata summing to the frame | **no** — a different partition |
+| `2.03` at the shipped default (line 551) | `1.20` | **no** — allocation and shares only |
 
-**Exact replacement text**, `CONTRIBUTING.md` line `88` and the fenced block:
+And the window sub-block and the two prose figures beside it, each re-derived:
 
-> Nine commands. All nine must be green before you push, and CI runs eight of them —
-> `tools/second_reader.py --check` is a gate this project runs by hand and by brief, and it is in
-> no CI job:
->
-> ```bash
-> python -m pytest tests
-> python -m ruff check src tests tools bench
-> python -m ruff format --check src tests tools bench
-> python -m mypy
-> python tools/check_claims.py
-> python tools/splits.py --check
-> python tools/gates.py --check
-> python tools/second_reader.py --check
-> python tools/run_summary.py --check
-> ```
+```
+  --recent-commits  5   cold  819 of 2188      published:  918 of 2180
+  --recent-commits 20   cold  341 of 2187      published:  429 of 2180
+  --recent-commits 40   cold    2 of 2187      published:   16 of 2180
+  --base HEAD~3         round 1093 of 2187     published: 1102 of 2180
+  design effect over those four runs: 1.33, 1.20, 1.60, 1.02  ->  range 1.02-1.60
+```
 
-and line `161`:
+`docs/CLAIMS-LEDGER.md:550-552` says the design effect "measures `1.01` to `2.78` on this tree
+depending on the window, and `2.03` at the shipped default". **Neither endpoint and neither value is
+reachable**: the widest spread I could produce across the four windows the page itself names is
+`1.02`-`1.60`.
 
-> `status` is `complete` or `partial`; `gates` reports eight of the nine commands above by key
-> (`pytest`, `ruff`, `ruff_format`, `mypy`, `claims`, `splits`, `gates`, `second_reader`) — there
-> is no `run_summary` key, and `tools/run_summary.py` says at `GATE_KEYS` why it lands only when
-> the brief lists nine;
+**And "on a quiet checkout at 18204a1" cannot be literally true.** `git log -- tools/sample_claims.py`
+returns nothing: the tool is untracked and did not exist at `18204a1`. The charitable reading is *a
+tree whose HEAD is `18204a1`*, which is the tree I ran on and which does not reproduce the block.
+
+**Why this matters more than a stale number.** This is the section that closes a five-round series on
+the ground that its interval moves faster than it shrinks, and replaces it with a design whose whole
+declared cost is the design effect. **`2.03` is the price the section quotes for the change and
+`1.20` is the price the tool charges.** The argument is not overturned — `1.20 > 1.00`, so the
+direction survives — but the magnitude a reader is asked to accept is `69` % too large, and the
+sentence "the tool refuses to print the pooled rate without it" invites the reader to check.
+
+**Replacement, lines 526-552.** Do **not** retype the table. Delete the transcription and paste the
+tool's own `--frame` output, re-run at the moment the commit is made, with the four windows the page
+already argues from (`--recent-commits 5 / 20 / 40` and `--base HEAD~3`) below it. The output as it
+stood when this read ran is the first fenced block in this finding; it will have moved by the time
+anybody applies this, which is the whole reason to paste rather than transcribe.
+
+*(This replacement is given as an instruction rather than as text because writing the figures out
+here a second time would arm four of them under `tools/check_claims.py`'s unit rule and grow the
+deferred ledger, which R-rule forbids. The figures are above, inside a fence, where the same gate
+cannot read them — an asymmetry worth noticing, and D-052's point exactly.)*
+
+and at lines 543-545:
+
+> **This repository has almost no cold text, which is the premise the change rests on and it is weak
+> here.** Widen the window to `40` commits and `2` of `2187` numbers sit in a file nobody has
+> touched; one round's own diff (`HEAD~3..HEAD`) covers files carrying `1093` of `2187`.
+> De-weighting cold text saves little when there is little.
+
+and at lines 549-552:
+
+> **The price is a number and it is printed on every draw.** The design effect of the `12`/`8`/`4`
+> allocation — the ratio of the design-weighted estimator's variance to a uniform draw's, under the
+> null that every stratum carries the same rate — measures `1.02` to `1.60` on this tree depending on
+> the window, and `1.20` at the shipped default.
+
+**Owner:** the workstream that holds `tools/sample_claims.py` and section 6.
 
 ---
 
-## F-6-6 — the guard against a stale gate list has a stale floor and a stale message
+### F-6-03 — `docs/SECOND-READER.md:529` — the split moved the module count from 40 to 64, and section 7's live cost argument still says 40
 
-**Severity: medium.** Same class as `F-6-5`, one level down.
+This is the trigger-B file, and this is the finding the package split caused in it.
 
-`file` = `tests/test_second_reader_policy.py` line `1003`.
+> **Quote, `docs/SECOND-READER.md:529-531`:** "`find src/acronymkit -name '*.py' | wc -l` returns
+> `40`. Admitting the package's source would take the rotation from `21` entries to `61`, so the set
+> would turn over in sixty-one rounds instead of twenty-one"
 
-**Quoted exactly:**
-
-> `assert len(commands) >= 7, f"the gate block lists {len(commands)} commands; CI runs seven"`
-
-**Refutation.** `CONTRIBUTING.md` now publishes eight commands and CI runs eight. The floor is `>= 7`
-and the message says seven, so:
-
-* a gate **deleted** from the block passes, as long as seven remain — the failure this test was
-  written to catch;
-* the assertion message is now wrong prose sitting inside the test whose stated purpose is that *"a
-  list of the gates is exactly the kind of prose no gate reads — so this one is now read"*;
-* the only by-name completeness check in the test is
-  `assert any("tools/gates.py --check" in c for c in commands)`. Nothing checks for
-  `tools/second_reader.py --check`, in the test module named after that policy.
-
-Could this check have failed here? No: `len(commands)` is `8`, and `8 >= 7`. It could not have
-detected `F-6-5`, and it cannot detect a regression to seven.
-
-**Exact replacement text**, `tests/test_second_reader_policy.py` line `1003`:
-
-> ```python
->     assert len(commands) == 9, (
->         f"the gate block lists {len(commands)} commands; this project has nine gates, "
->         "eight of them in CI. A gate deleted from the block is the defect this asserts against, "
->         "so this is an equality and not a floor -- adding a gate is a deliberate edit here."
->     )
->     for required in ("tools/gates.py --check", "tools/second_reader.py --check",
->                      "tools/run_summary.py --check"):
->         assert any(required in c for c in commands), f"{required} belongs in this list"
-> ```
-
----
-
-## F-6-7 — the injection harness fails the build on a condition it calls normal
-
-**Severity: medium, process.** Not a false sentence; a gate that reds for a reason about somebody
-else's tree.
-
-`file` = `tests/test_claims_gate_coverage.py` lines `192`–`198`.
-
-**Quoted exactly**, from `_run_gate_with_injection`'s docstring:
-
-> when a second process is running the same module against the same checkout -- **which is the
-> normal state of this repository** -- one restore writes back bytes captured while the other's
-> injection was live
-
-and the guard for exactly that condition, twelve lines below:
-
-> `raise AssertionError("README.md already carries a claims-gate probe marker. ...")`
-
-**Refutation.** I ran the suite seven times. Five were red; every red was this assertion, and the
-failing parametrisation differed each time — `[memory in KB]`, `[bare seconds]` and `[speedup
-multiplier]`, `[plural keyword]`, `test_the_positive_control_fails_the_build`,
-`test_the_measured_price_of_the_closure_is_still_zero`. `README.md` carried no marker before or
-after any run.
+**Refutation.**
 
 ```
-Get-CimInstance Win32_Process -Filter "Name like '%python%'"
-  -> C:\Python313\python.exe -m pytest tests/ -q -p no:randomly --no-header ...   (PID 30304)
-  ... and later 4400, then 28576/35336, then 37816/30216/36296/35228
+find src/acronymkit -name '*.py' | wc -l                  ->  64
+python -c "import sys;sys.path.insert(0,'tools');import second_reader;
+           print(len(second_reader.user_facing_files()))"  ->  25
+python tools/second_reader.py --check
+  -> rotation: 25 file(s); trigger B serves docs/SECOND-READER.md next
 ```
 
-Another workstream's suite was running against this checkout throughout, which is the documented
-normal state. The module handles the **other** ordering correctly — `_or_skip` turns "another
-process overwrote my injection" into a `pytest.skip`, and `test_no_probe_survived_an_earlier_run`
-waits `10` seconds precisely to tell a live injection from debris. The start-of-injection guard
-does neither: it fails immediately, with no wait, on the same condition its sibling waits out.
+`64` not `40`; `25 + 64 = 89` not `61`; eighty-nine rounds, not sixty-one. The number is the
+load-bearing half of a *disposition*: section 7 declines to admit `src/` into the rotation on a cost
+argument, and the cost it quotes is `56` % of the real one. The conclusion survives — `89` is worse
+than `61` — but the page is arguing a case with a figure the split falsified in the same tree that
+published it.
 
-The consequence is that `python -m pytest tests` — gate one of eight — is **not a statement about
-this tree** on a shared checkout. It went green for me only once both other suites happened to be
-between injections: `5798 passed, 10 skipped, 1 xfailed`.
+**Replacement, `docs/SECOND-READER.md:528-531`:**
 
-**Exact replacement text**, `tests/test_claims_gate_coverage.py` line `191`:
+> `--check` refuses any file `user_facing_files()` enumerates that the rotation cannot reach, and
+> `find src/acronymkit -name '*.py' | wc -l` returns `64` — it returned `40` before the package was
+> split into `core`, `nlp` and `catalog`, and the compatibility shim is thirteen of the difference.
+> Admitting the package's source would take the rotation from `25` entries to `89`, so the set would
+> turn over in eighty-nine rounds instead of twenty-five.
 
-> ```python
->     deadline = time.monotonic() + 10.0
->     while _readme_debris() and time.monotonic() < deadline:
->         time.sleep(0.5)
->     if _readme_debris():
->         raise AssertionError(
->             "README.md has carried a claims-gate probe marker for ten seconds, so it is a "
->             "leftover rather than another process's live injection. Either a previous run of "
->             "this module died between injection and restore, or a second process is running it "
->             "against this checkout right now. Both leave an invented performance figure on the "
->             "front page that no gate here can see -- remove the marked line before re-running."
->         )
-> ```
->
-> — the same ten-second wait `test_no_probe_survived_an_earlier_run` already uses, for the same
-> reason it uses it. A marker seen once is an overlap; a marker still there ten seconds later is
-> debris. A gate that reds on an overlap is a gate that gets deleted.
+**Also stale in the same file for the same reason, and cheap to fix in the same edit:**
+`docs/SECOND-READER.md:245-246`, the C1 *Caught* record, publishes "`find src/acronymkit -name
+'*.py' | wc -l` returns forty" in the present tense against a historical finding. Add the date, or
+say *returned forty when this was found*.
+
+**Owner:** unowned — this is the round's, per section 5.2.
 
 ---
 
-## What I checked that came back clean, including the thing the brief expected to be wrong
+### F-6-04 — `docs/SECOND-READER.md:511` and `:121` — the page describes an `is_user_facing` the tree replaced last round, and contradicts itself one section earlier
 
-**A2's conformal prose does not make the selective promise, on any surface I could find.** The brief
-said this was the most expensive thing the round could ship, and I pre-registered that I expected
-the brief to be right and that expecting it made confirmation cheap. It is not there. Every surface
-that describes `gate=` names the bound **joint** and denies the selective reading explicitly:
-`propagation.py`'s module docstring (*"What that buys is a **joint** bound and not a selective one.
-Read the next two paragraphs before relying on it, because the natural reading is the wrong one and
-its wrongness has a measured size"*), `JOINT_NOT_SELECTIVE`, `PROPAGATION_GAP`, `gate_disclosure()`
-which concatenates `guarantee()` + both gaps so none can be quoted alone, `propagate()`'s docstring,
-`CHANGELOG.md`, and `docs/EVALUATION.md`'s *"The gate, and the guarantee it is not"*. The second gap
-— that nothing conformal says reaches the licensed occurrences — is stated on all seven too.
-`README.md`, `docs/POSITIONING.md`, `docs/GATES.md`, `docs/DEFINITION-OF-DONE.md`,
-`docs/ARCHITECTURE.md` and `docs/CLAIMS-LEDGER.md` do not mention propagation at all, so there is no
-surface where a caller meets the gate without the disclosure. `F-6-2` is the only defect I found in
-this subsystem's prose and it is a scoping error on a factor, not a promise about answers.
+Two sentences, one cause: F-5-4 admitted `docs/**/*.svg` and the prose describing the rule was not
+followed through.
 
-`tests/test_propagation.py::TestTheClaim` is a mutation-tested prose rule over `CLAIM_FILES` —
-`propagation.py`, `docs/EVALUATION.md`, `README.md`, `CHANGELOG.md` — with a blocklist, a
-paragraph-level "name it joint" rule and a sentence-level "name the selective rate only while
-disowning it" rule. It is the right shape. **Its weakness is `F-6-1`'s weakness**: `CLAIM_FILES` is
-a fixed list of four, two of which (`README.md`, and any future page) say nothing about propagation
-at all, so the rule is vacuous on them and blind to a fifth surface.
+> **Quote A, `docs/SECOND-READER.md:511-512`:** "`user_facing_files()` enumerates root files and
+> `docs/*.md` and returns `21`, none of them source."
 
-**The figures did not move, and that is what the documents say.**
-`python tools/render_figures.py --check` exits `0` with *"2 figure(s) x 2 theme(s) are
-byte-identical to what bench/results.json renders, and every run id they cite resolves"*, and
-`git status --porcelain -- docs/figures` is empty. `docs/EVALUATION.md`'s claim that all four SVGs
-came back byte-identical is true. Trigger B did not serve a figure this round.
+> **Quote B, `docs/SECOND-READER.md:121-123`:** "And minus everything under `docs/` that is not
+> Markdown — `docs/cold-reads.toml` is this policy's machine state"
 
-**The round's central "freeness" claim re-derives.** I re-derived both zeros independently, through
-the gate's own `iter_prose_numbers`: over `95` files and `2,330` free-standing prose numbers,
-**`0`** are armed by `latency` or `duration`, and **`0`** are followed by a spelled-out sub-second
-unit. Arming distribution `unarmed 2065 | unit 175 | keyword 90`.
+**Refutation.**
 
-**A caution about that derivation, recorded because I got it wrong first.** My first attempt applied
-`prose_of` line by line and reported `16` and `14` hits — every one of them inside a fenced battery
-block. `prose_of(text, suffix)` strips fences over the **whole text** and cannot be applied per
-line. The round's zeros are right and my first refutation was wrong; it is in here so that the next
-reader who reaches for the same shortcut does not publish it.
+```
+python -c "...; u=second_reader.user_facing_files(); print(len(u));
+           print([f for f in u if not f.endswith('.md')])"
+  ->  25
+  ->  ['docs/figures/monoculture-band-dark.svg', 'docs/figures/monoculture-band-light.svg',
+       'docs/figures/refusal-curve-dark.svg', 'docs/figures/refusal-curve-light.svg',
+       'pyproject.toml']
 
-**A2's arithmetic checks.** Verified against `bench/results.json` and not carried from the prose:
-recall `36.53`→`39.60` (`+3.07`), precision `93.66`→`93.73`, `88` new gold spans, `0` lost, `96`
-offered; `test` split gains `7`; oracle ceiling `37.50`→`40.85`, `1076`→`1172`; `1351` PLOD-CW
-documents at about `37` tokens each; `5.95` is
-`one_sense.pmc_oa.a2.*.a2_new_coverage_multiple_of_current` at all three profiles;
-`extraction.med1250.acronymkit_propagated` differs from `extraction.med1250.acronymkit` on exactly
-three of `19` fields — `system`, `elapsed_seconds`, `docs_per_second` — so *"agrees on all `16`
-compared fields"* is exact. `41` is value-matched (`9` measurements equal it), so
-`docs/EVALUATION.md`'s account of row `D` failing as a **ratchet** failure rather than an
-unbacked-claim failure is consistent.
+tools/second_reader.py:238   if not norm.startswith("docs/") or not norm.endswith((".md", ".svg")):
+```
 
-**Not verified, and named rather than assumed.** The R19 byte-identity pass — `4,260` documents,
-`10,625` pairs, three profiles, `sha256` over every field of every pair — rests on a scratch script
-not in the tree. I did not re-run it: it would take minutes of CPU on a checkout three other suites
-are already using, and a digest I cannot reproduce is worth less than saying so. The control arm is
-present and the design is right; the counts are unchecked by me. Likewise *"the whole span table
-reproduced exactly on a second machine"* names no machine and I cannot check it (R18).
+Quote B is refuted by **its own section**: `docs/SECOND-READER.md:166-167` says, forty-five lines
+later, *"`.svg` is in, `.toml` is still out."* Section 3 now tells a reader the trigger drops every
+non-Markdown file under `docs/` and then tells the same reader it does not. **This is C2 — two
+descriptions of one mechanism — with both descriptions inside one section of one page**, which is the
+narrowest form of it this repository has recorded.
+
+**Replacement, `docs/SECOND-READER.md:121-123`:**
+
+> Minus `docs/DECISIONS.md` and `docs/AUDIT-*.md`, which are historical records rather than
+> instructions to a user, and minus `docs/notes/*.md`, which are scoped technical notes read by
+> somebody who arrived from a link that already warned them. And minus every extension under `docs/`
+> **except `.md` and `.svg`** — `docs/cold-reads.toml` is this policy's machine state, not a page a
+> stranger reads, and a trigger that fired on it would make every cold read demand a cold read of its
+> own findings; a figure, by contrast, is prose, and the paragraph below is why.
+
+**Replacement, `docs/SECOND-READER.md:511-512`:**
+
+> `PATHSPEC` is six entries and `src/` is not one of them; `user_facing_files()` enumerates root
+> files, `docs/*.md` and `docs/**/*.svg`, and returns `25`, none of them source.
+
+**Owner:** unowned.
 
 ---
 
-## Ledger entries these findings should become
+### F-6-05 — `docs/SECOND-READER.md:439` and `:446-448` — the eighth gate is in CI, and the page still says twice that it is not
 
-`F-6-1` through `F-6-7`, `raised_in = "2026-09-09"`, `reader = "cold-read-6"`, all
-`disposition = "open"` — none may be closed by me, and `applied_by` must not be this reader.
-`reads` gains `id = "2026-09-09"`, `rotation_served = "docs/SECOND-READER.md"`,
-`cursor_after = "docs/SOURCING.md"`, `covered = ["CHANGELOG.md", "CONTRIBUTING.md", "README.md",
-"docs/CLAIMS-LEDGER.md", "docs/DEFINITION-OF-DONE.md", "docs/EVALUATION.md", "docs/GATES.md",
-"docs/POSITIONING.md", "docs/SECOND-READER.md", "docs/SOURCING.md",
-"src/acronymkit/propagation.py"]`.
+> **Quote A, `:439`:** "`0.09s  exit=0  python tools/second_reader.py --check  <- new, and NOT in CI
+> yet`"
+> **Quote B, `:446-448`:** "`python tools/second_reader.py --check` is listed here because a cold
+> reader should run it, **not** because CI does — no job invokes it yet"
 
-`docs/SOURCING.md` is listed under `covered` although **neither trigger sent me there**. Trigger A
-did not touch it and trigger B spent its turn on a file trigger A had already served. I reached it
-by grepping every occurrence of `latency` in the tree — which is to say, by the method, not by the
-mechanism. That is the fourth consecutive read in which the round's most expensive finding arrived
-outside the rotation, and it is the argument for `F-5-5`.
+**Refutation.**
+
+```
+grep -n second_reader .github/workflows/ci.yml
+  115:      - name: The cold-read ledger is consistent with the policy page
+  118:        # `tools/second_reader.py --check` adjudicates the second-reader policy:
+  129:        run: python tools/second_reader.py --check
+grep -n "^\[gates\.second_reader\]" .github/gates.toml   ->  2366
+```
+
+The step's own comment reads *"THE EIGHTH GATE, WHICH WAS RUN EVERY ROUND AND NEVER BY CI"* — it was
+registered and wired by `fbf7c45`, whose subject line says so. Two sentences on this page still
+describe the world before that commit, and **one of them is inside the block that begins "Two
+corrections in that block, and one of them is a gate"** — a paragraph written to correct a gate count
+now carries a gate-registration claim of its own that has gone false.
+
+**Do not confuse this with the job section 7 is still blocked on.** That one — `--trigger` against the
+push, failing when the list is non-empty and the head commit carries no `Second-reader:` trailer — is
+genuinely absent (`grep -rn "Second-reader:" .github/` returns nothing), and section 7's disposition
+is correct as written. Only the `--check` claims are stale.
+
+**Replacement, `:439`:** `0.09s  exit=0  python tools/second_reader.py --check  <- the eighth, and in the lint job since fbf7c45`
+
+**Replacement, `:446-448`:**
+
+> And `python tools/second_reader.py --check` was listed here as *not in CI* for as long as that was
+> true. It is the eighth gate, `fbf7c45` put it in the `lint` job and in `.github/gates.toml`, and a
+> cold read is what found that it had never run there. What remains uninvoked is the *trigger* job
+> [section 7](#7-how-this-fails) is blocked on, which is a different command.
+
+**Owner:** unowned.
+
+---
+
+### F-6-06 — `docs/SECOND-READER.md:592`, `:603`, `:617`, `:636`, `:408` — five sentences narrating a ledger state that two cold reads have moved past
+
+The cursor block itself is correct and `--check` agrees with it. Everything around it is one to three
+reads old.
+
+**Refutation, one command:**
+
+```
+python tools/second_reader.py --check
+  cold reads: 4 recorded; newest 2026-09-08
+  rotation: 25 file(s); trigger B serves docs/SECOND-READER.md next
+  findings: open 5, fixed 10, blocked 0, permanent 0  (of 15)
+  OPEN AND AT THE LIMIT: 0 of 5
+grep -n 'disposition' docs/cold-reads.toml
+  ->  F-2026-08-24-01/-02/-03 and F-2026-08-25-01 all "fixed"
+```
+
+| line | says | is |
+|---|---|---|
+| `:592` | the last read was `2026-08-26` and served `docs/SUPPORT_MATRIX.md`, "entry five of the twenty-one" | the last read is `2026-09-08` and served `docs/GATES.md`, entry six of **twenty-five** |
+| `:603-605` | "The cursor points at a page that already has a finding against it. `F-2026-08-24-05` is `docs/SUPPORT_MATRIX.md:39`" | the cursor points at **this page**, and `F-2026-08-24-05` is `fixed` |
+| `:617` | `rotation: 21 file(s); trigger B serves docs/SUPPORT_MATRIX.md next` — published as `--check` output | `rotation: 25 file(s); trigger B serves docs/SECOND-READER.md next` |
+| `:710` | "The count is derived, `rotation: 21 file(s)`" | `25` |
+| `:636` | `F-2026-08-24-01`, `-02`, `-03` are "open and one cold read from being refused as open" | all three `fixed`, applied `2026-08-26` |
+| `:406-418` | `F-2026-08-25-01`'s "row still reads `disposition = "blocked"`" and "The next cold read owes this row three fields" | `disposition = "fixed"`, `applied_by = "operator, mandate III phase A salvage"`, `applied_in = "2026-08-26"`. **The debt was paid; the paragraph describing the debt was not.** `blocked` is `0` on the whole ledger |
+
+**Replacement, `:617` and `:710`:** re-run the command and paste it. **Replacement, `:591-593`:**
+
+> Read that as: the last cold read (2026-09-08) served [`docs/GATES.md`](GATES.md), which is entry six
+> of the twenty-five in section 3, so trigger B serves entry seven next — this page.
+
+**Replacement, `:603-607`:** the paragraph's point was that the ledger and the rotation arrived at one
+page from opposite directions. That is still true and the page is now this one:
+
+> **The cursor points at the policy page itself, and it has an open finding against it.**
+> `F-5-5` says a rotation entry can be spent on a document trigger A already served, and this is the
+> first read where the rotation serves the page that carries the rule. Trigger B and the ledger
+> arriving at the same document from opposite directions is the evidence either mechanism works.
+
+**Replacement, `:636`, third table row:**
+
+> | "Report everything else" produced no fix — the C1 finding was unaltered in all three places one round later | **Fixed, two reads later, and the mechanism is why.** `F-2026-08-24-01`, `-02` and `-03` were carried as `open` past their re-affirmation and applied on `2026-08-26` with a second name against each. The bound section 5.3 promises is two cold reads; these took two |
+
+**Replacement, `:406-418`:** the whole paragraph should be deleted and replaced with its outcome —
+it is now a description of a hole that the mechanism closed, presented as a hole that is open.
+
+**Owner:** unowned. **Note for the ledger:** `F-5-5` is `open` and this read is its second; section
+5.3 refuses `open` after two cold reads, so the next read must move it or the gate reddens.
+
+---
+
+### F-6-07 — `src/acronymkit/governed/__init__.py:5-8` and `docs/ARCHITECTURE.md:135-136` — the shim's justification lists five places the old path is named; two of them do not name it, and the two copies of the list disagree
+
+This is the shape the brief predicted: *one sentence in two places*.
+
+> **Quote A, the shim docstring:** "``acronymkit.governed`` is a **public import path with a
+> documented API**. It is named in ``README.md``, in ``docs/GOVERNED_NAMING.md``, in
+> ``docs/QUICKSTART_GOVERNED.md``, in the CLI's own help, and in ``docs/DECISIONS.md``"
+
+> **Quote B, `docs/ARCHITECTURE.md:135-137`:** "`acronymkit.governed` is named in `README.md`, in
+> [docs/GOVERNED_NAMING.md](GOVERNED_NAMING.md), in the CLI, and in `docs/DECISIONS.md`"
+
+**Refutation.**
+
+```
+grep -c "acronymkit\.governed" docs/QUICKSTART_GOVERNED.md   ->  0
+grep -c "acronymkit\.governed" src/acronymkit/cli.py         ->  0
+python -m acronymkit.cli --help                              ->  17 commands, zero import paths
+grep -rn "acronymkit\.governed" src --include=*.py | grep -v "^src/acronymkit/governed/"
+  ->  two hits, both in src/acronymkit/__init__.py, both inside a comment about lazy binding
+```
+
+`docs/QUICKSTART_GOVERNED.md` names no import path at all — it is a CLI-only page, 33 occurrences of
+the word *governed*, all of them subcommand verbs and fixture directories. The CLI's `--help` prints
+`Usage`, `Options` and seventeen command lines; the only `acronymkit.catalog` in `cli.py` is a
+`:mod:` role in a module docstring that `--help` never renders.
+
+**The shim survives the correction** — `README.md`, `docs/GOVERNED_NAMING.md` and `docs/DECISIONS.md`
+do name the path, and `docs/DECISIONS.md` alone carries the argument, because nobody may edit it. But
+the justification for keeping a second public API forever is stated on five legs and stands on three,
+and the page a caller reads (`ARCHITECTURE.md`) already quietly dropped one of the two bad legs
+without saying so, which is how a divergence starts.
+
+**Replacement, both places, one sentence:**
+
+> `acronymkit.governed` is a public import path with a documented API. It is named in `README.md`,
+> in `docs/GOVERNED_NAMING.md`, and in `docs/DECISIONS.md` — and the last of those is a file only the
+> recorder may edit, so breaking the path would leave this project's own decision record citing an
+> import that no longer exists.
+
+**Owner:** the workstream that holds the split.
+
+---
+
+### F-6-08 — `docs/GATES.md:1648` and `:1699` — two counts in the newest gate entry that the tree does not produce
+
+> **Quote A, `:1648`:** "Run by hand on the mutated tree it gives `3 failed, 135 passed`"
+> **Quote B, `:1699`:** "a failure in the cheap lint job that names the seam rather than one red case
+> among 5,884"
+
+**Refutation.**
+
+```
+python -m pytest tests/test_architecture_boundaries.py --collect-only -q | tail -1
+  ->  tests/test_architecture_boundaries.py: 140
+python -m pytest tests/test_architecture_boundaries.py -q     ->  140 dots, no skips, no xfails
+python -m pytest tests --collect-only -q | awk -F': ' '/^tests\/.*: [0-9]+$/{s+=$2} END{print s}'
+  ->  6035
+```
+
+`3 + 135 = 138`, and the file collects `140` with nothing skipped: on this tree the mutated run must
+read `3 failed, 137 passed`. And `5,884` is neither the round base (`5798 passed, 10 skipped,
+1 xfailed` at `18204a1`) nor this tree (`6035` collected). **I could not re-run the mutation** — it
+edits `src/acronymkit/core/spans.py` and this reader changes nothing — so the honest reading is that
+the transcript was taken two tests ago rather than that it is wrong about what fails. Both numbers are
+un-gated prose: `tools/check_claims.py` returns `0` with them in place, because neither carries arming
+vocabulary.
+
+**Replacement, `:1648`:** re-run `python tools/gates.py --mutate architecture_boundaries` and paste
+the counts it prints, or drop the totals and keep the three failure lines, which are the evidence.
+**Replacement, `:1699`:** "…rather than one red case among six thousand", or cite the count with the
+command that derives it.
+
+**Owner:** the workstream that holds the split.
+
+---
+
+### F-6-09 — `docs/DEFINITION-OF-DONE.md:580` and `bench/run_micro.py:271` — a published benchmark row labels itself with an import that raises
+
+> **Quote, `docs/DEFINITION-OF-DONE.md:580`, the row's label:** "`from acronymkit import Engine`" —
+> followed on the same line, inside the same fenced block, by five medians, the recorded figure and a
+> direction. The label is the whole of the finding; the timings are not in dispute and are not
+> retyped here, because doing so would arm one of them under the unit rule.
+
+**Refutation.**
+
+```
+python -c "from acronymkit import Engine"
+  ->  ImportError: cannot import name 'Engine' from 'acronymkit'
+python -c "import acronymkit; print([n for n in acronymkit.__all__ if 'ngine' in n])"
+  ->  ['AcronymEngine', 'EngineMetadata', 'EngineTier']
+grep -n "cold_import_engine_ms" bench/run_micro.py
+  98:    "cold_import_engine_ms": "from acronymkit import AcronymEngine",
+  271:        print(f"from acronymkit import Engine   : {cold['cold_import_engine_ms']:8.1f} ms")
+```
+
+**The measurement is right and its label is wrong.** `run_micro.py:98` times the correct statement;
+`run_micro.py:271` prints a label naming a statement that raises, and `docs/DEFINITION-OF-DONE.md`
+faithfully transcribes what the tool printed. `docs/EVALUATION.md:235` describes the same figure
+correctly as `from acronymkit import AcronymEngine`, so two user-facing pages spell one measured
+quantity two ways and only one of them can be executed. This is C3 applied to a label rather than to
+a return value, and it is the cheapest defect in this document to fix.
+
+**Replacement, `bench/run_micro.py:271`:**
+`print(f"from acronymkit import AcronymEngine : {cold['cold_import_engine_ms']:8.1f} ms")`
+and re-transcribe `docs/DEFINITION-OF-DONE.md:578-582` from the corrected output.
+
+**Owner:** the workstream that holds `bench/run_micro.py`.
+
+---
+
+### F-6-10 — `docs/SECOND-READER.md:477` — a cost figure that agrees with nothing, including the block above it
+
+> **Quote:** "| Trigger B — cold-read one untouched file from the rotation | one file, median 3,792
+> words |"
+
+**Refutation.** `python tools/second_reader.py --cost` reports the median at `3,470` words
+(`docs/INSTALL.md`); the `--cost` block published thirty lines earlier at `:455` reports `4,362`
+(`docs/POSITIONING.md`). **Three values for one quantity on one page**, and `3,792` appears nowhere
+else in the tree — it is not a stale copy of either. Low severity, no argument turns on it, but it is
+a number with no derivation inside a table whose neighbours all have one.
+
+**Replacement:** "| Trigger B — cold-read one untouched file from the rotation | one file; `--cost`
+prints the current median |". Do not type a third number.
+
+**Owner:** unowned.
+
+---
+
+## 2. Question 4, per document. No abstentions.
+
+Section 4.1 admits none, so each of the thirteen documents read gets a nomination even where I found
+nothing wrong.
+
+| document | the sentence most likely to be false | checked how |
+|---|---|---|
+| `docs/SECOND-READER.md` *(trigger B)* | `:529` "`find src/acronymkit -name '*.py' \| wc -l` returns `40`" | ran it: `64`. **F-6-03** |
+| `docs/GATES.md` | `:1562` "the demonstration is against a committed **control**" | `ls`, `git ls-files`, `gates.py --check`. **F-6-01** |
+| `docs/CLAIMS-LEDGER.md` | `:551` "`2.03` at the shipped default" | ran `--frame`: `1.20`. **F-6-02** |
+| `docs/ARCHITECTURE.md` | `:135` "named in … the CLI" | `--help` output; `grep` on `cli.py`. **F-6-07** |
+| `docs/DEFINITION-OF-DONE.md` | `:580` "`from acronymkit import Engine`" | executed it; `ImportError`. **F-6-09** |
+| `CHANGELOG.md` | `:298-303` "**Every old path is kept, and returns the SAME OBJECTS.**" | executed all 19; identity holds. **Survives** |
+| `README.md` | `:19-23` the `GovernedNamer` example's two printed values | executed; `'Transaction Applicant Identifier'` and `False`. **Survives** |
+| `docs/GOVERNED_NAMING.md` | `:8-11` the `expand_identifier` example | executed; `'Transaction Identifier'`. **Survives** |
+| `CONTRIBUTING.md` | "Ten commands … CI runs all ten" | all ten located in `.github/workflows/ci.yml`. **Survives** — but three of the ten are red on this tree (§0) |
+| `docs/EVALUATION.md` | `:2461` "`acronymkit.nlp.propagation.propagate()`" | imported; resolves. **Survives** |
+| `docs/JAVA_INTEROP.md` | `:210` "`acronymkit.catalog` imports and runs" | import resolves; GraalPy not installed here, so the *runs* half is **unchecked** |
+| `docs/RELEASE_CHECKLIST.md` | `:373` "`acronymkit.catalog` only" | `git grep`; consistent. **Survives** |
+| `docs/SOURCING.md` | `:695` `from acronymkit.catalog import GovernedDictionary, expand_identifier` | executed. **Survives** |
+
+---
+
+## 3. What I expected to find and did not. Each of these could have failed here.
+
+Reported because a checklist that only prints hits is indistinguishable from one that was not run.
+
+**The compatibility decision is consistent across all five surfaces.** `README.md:31-33`,
+`CHANGELOG.md:305-310`, `docs/ARCHITECTURE.md:143-146`, `docs/GOVERNED_NAMING.md:29` and the shim's
+own docstring each state: kept **through the whole of the `0.x` line**, removal needs a **major
+version**, preceded by a `DeprecationWarning` **announced in a minor release at least one release
+ahead**, and **no warning is emitted today**. Every page that takes a position says **not breaking**;
+none implies a warning exists. The shim's docstring even names `CHANGELOG.md` as where the commitment
+is written down, and it is there. This was the brief's second named risk and the tree passes it. The
+only defect in the neighbourhood is F-6-07, which is about the *list of pages*, not the lifetime.
+
+**The nineteen legacy paths are asserted per path, and they resolve.** `LEGACY` in
+`tests/test_architecture_boundaries.py:561-579` holds exactly nineteen entries — `governed` plus its
+thirteen submodules, `extractor`, `propagation`, `tokenizer`, `exceptions`, `conformal` — and I
+executed all of them: `__all__` matches element-for-element (`48` names),
+`governed.expand_identifier is catalog.expand_identifier`, and
+`governed.tokenizer is catalog.tokenizer`.
+
+**Every documented import in the user-facing corpus executes.** I extracted every `from acronymkit…
+import …` and `import acronymkit…` from `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`
+and all nineteen `docs/*.md`, resolved each to a `(module, name)` pair, and imported it: **40 pairs,
+`0` failures**, once `F-6-09`'s prose row is excluded. **The split did not leave a single raising
+import in the documentation.** That was the brief's first named risk and it is the strongest negative
+result in this read.
+
+**The series closure is correctly stated and its arithmetic reproduces.**
+`docs/CLAIMS-LEDGER.md:470` says CLOSED in the heading, `:493` says "The series is **CLOSED** at those
+numbers", `:509` says "the new series starts at `n = 0`", and the tool prints
+`IT DOES NOT CARRY ACROSS` on every `--frame`. I re-derived the Wilson intervals independently:
+`20/120` gives `[11.06 %, 24.35 %]`, half-width `6.64`; `18/96` gives `18.75 %`, half-width `7.75`;
+the deltas `2.08` and `1.11` are right; and `n ≈ 600` does put the half-width at `2.98` points, so
+"`25` rounds of `24` **in total**, so `20` more" is right including the trap it flags. **Nothing on
+that page continues the old series into the new one.** The brief's third risk area is clean; only the
+frame block beneath it (F-6-02) is not.
+
+**The sixteen-to-seventeen command growth was caught everywhere it mattered.** `governed-gap` took
+the CLI from `16` to `17` (`grep -c '\.command('  ->  17`, and `--help` lists 17). I expected
+`docs/SUPPORT_MATRIX.md:39` and `docs/OFFLINE.md:25,150` to still say sixteen — the `F-2026-08-24-01`
+to `-05` cluster was fixed at sixteen. **All three say `17`, and all three name the four undriven
+subcommands including `governed-gap`.** The fix outran the finding.
+
+**`core` really is a leaf.** `grep` for `import re`, `regex`, `unicodedata` and `normalize` across
+`src/acronymkit/core/*.py` returns nothing; the one in-package edge is `..models` under
+`TYPE_CHECKING`, and `models.py` is facade rather than `nlp` or `catalog`, so
+`docs/ARCHITECTURE.md:68-70`'s "not under `typing.TYPE_CHECKING`" and `:104-106`'s "single in-package
+edge … under `TYPE_CHECKING`" are **not** in contradiction. I checked this expecting a contradiction
+and there is none.
+
+**Two `docs/OFFLINE.md` lines I would raise if this were its round.** `:407` and `:457` still say
+"all 27 modules" under an exhaustive word while `:53` and `:70` were corrected to say *the 27 that
+existed when the scan ran, against 40 today* — and `40` is now `64`. `docs/OFFLINE.md` is served by
+neither trigger this round. Recorded here so the next reader served it does not have to re-find it.
+
+---
+
+## 4. What this read could not check
+
+- **The `3,619,227`-record byte-identity claim (R19).** `CHANGELOG.md:314-323`,
+  `docs/ARCHITECTURE.md:154-158` and the shim docstring all rest on it. The harness that produced it
+  is not in the tree under a name I could find, and the governed corpora are not present in this
+  checkout. **Unmeasurable here, and that is the honest answer.** It is carried on the split
+  workstream's word, exactly as D-110 carried C1's `4,260`-document digest, and it deserves the same
+  second party.
+- **The `--mutate` transcripts.** Both `agent_summary` and `architecture_boundaries` publish mutation
+  output. Running either edits the tree, which section 5 forbids this reader. F-6-01 is refuted
+  without running one, because `--check` refuses the edit as inapplicable; F-6-08's arithmetic gap is
+  reported as a gap rather than as a re-run.
+- **`docs/JAVA_INTEROP.md`'s GraalPy timings.** No GraalPy on this machine. The import-path half of
+  its claims was checked; the *runs* half was not.
+- **Whether the three red gates are somebody's uncommitted work in flight.** I read one snapshot. The
+  negative control at `18204a1` is what makes the finding safe to publish regardless.
+
+**One environment hazard, recorded because it would produce a false finding.** `import acronymkit` on
+this machine resolves to a **non-editable** copy in
+`AppData/Roaming/Python/Python313/site-packages/acronymkit`, which has no `catalog` package. Every
+probe in this document was run with `PYTHONPATH=src`. A reader who forgets that reports
+`ModuleNotFoundError: No module named 'acronymkit.catalog'` and concludes the split is broken.
+`docs/GATES.md:585` records this exact hazard biting before.
+
+---
+
+## 5. Drafted ledger rows
+
+For whoever writes [`docs/cold-reads.toml`](../cold-reads.toml). `applied_by` must not be
+`cold-read-6`.
+
+```toml
+[[reads]]
+id = "2026-09-09"
+reader = "cold-read-6"
+rotation_served = "docs/SECOND-READER.md"
+cursor_after = "docs/CLAIMS-LEDGER.md"
+covered = [
+  "CHANGELOG.md", "CONTRIBUTING.md", "README.md", "docs/ARCHITECTURE.md",
+  "docs/CLAIMS-LEDGER.md", "docs/DEFINITION-OF-DONE.md", "docs/EVALUATION.md",
+  "docs/GATES.md", "docs/GOVERNED_NAMING.md", "docs/JAVA_INTEROP.md",
+  "docs/RELEASE_CHECKLIST.md", "docs/SOURCING.md", "docs/SECOND-READER.md",
+]
+```
+
+`cursor_after` is entry eight of the twenty-five, `docs/CLAIMS-LEDGER.md`, by rotation order —
+**not** by anything this reader chose. `F-5-3`, `F-5-5`, `F-5-6`, `F-5-7` and `F-5-8` each need
+`reviewed_in = "2026-09-09"` or the gate reddens, and **all five reach their two-read limit at the
+next read**, so `OPEN AND AT THE LIMIT` goes from `0 of 5` to `5 of 5` after this one is filed.
+
+Ten findings, `F-6-01` to `F-6-10`. Proposed dispositions: all `open`, all `owner` as named per
+finding. F-6-01 should be `fixed` if and only if the control fixture lands in the same commit as the
+prose describing it.

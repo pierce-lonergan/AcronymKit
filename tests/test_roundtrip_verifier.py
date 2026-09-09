@@ -64,8 +64,8 @@ from bench import run_roundtrip_verifier as rt  # noqa: E402
 from acronymkit.config import Config  # noqa: E402
 from acronymkit.engine import AcronymEngine  # noqa: E402
 from acronymkit.generator import ForwardGenerator  # noqa: E402
+from acronymkit.nlp.tokenizer import Tokenizer  # noqa: E402
 from acronymkit.scoring import Scorer  # noqa: E402
-from acronymkit.tokenizer import Tokenizer  # noqa: E402
 
 #: Phrases spanning one to seven eligible tokens, so the bound arithmetic is
 #: exercised where the search space is tiny and where it is not.

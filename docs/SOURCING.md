@@ -692,7 +692,7 @@ python - <<'PY'
 import csv, sys
 sys.path.insert(0, "src")
 from collections import Counter
-from acronymkit.governed import GovernedDictionary, expand_identifier
+from acronymkit.catalog import GovernedDictionary, expand_identifier
 empty = GovernedDictionary({})
 rows = list(csv.DictReader(open("socrata_schema.csv", encoding="utf-8-sig")))
 per_row = [{t.raw.casefold() for t in expand_identifier(r["identifier"], empty).tokens} for r in rows]

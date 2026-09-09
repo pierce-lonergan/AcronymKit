@@ -864,7 +864,7 @@ shipped, vendored or committed.
 ### Calibrated refusal: a guarantee, and the sentence it does not license
 
 The table above is a curve with no threshold on it, because *no threshold this library can defend is
-the caller's*. `acronymkit.conformal` changes what the caller has to supply rather than who chooses:
+the caller's*. `acronymkit.core.conformal` changes what the caller has to supply rather than who chooses:
 they name a target error rate `alpha` and hand over a **calibration set from their own data**, and a
 split-conformal pass turns the pair into a threshold. Deterministic, model-free, one pass, no new
 dependency, and **no calibration data ships** — a calibration set shipped by this project would make
@@ -2458,7 +2458,7 @@ id, and a mutation to any of them reddens the build and names the line.
 
 ## A2 ships opt-in, and the coverage claim that justified it does not survive its own corpus
 
-`acronymkit.propagation.propagate()` implements the rule the section above priced: *commit to the
+`acronymkit.nlp.propagation.propagate()` implements the rule the section above priced: *commit to the
 first definition of a short form in document order, license every whole-token occurrence of that
 short form at or after it, term-shaped short forms only.* It is **opt-in** -- no engine, no `Config`
 field and no default path reaches it -- and the reason is the pre-registration below rather than
@@ -2611,7 +2611,7 @@ and ceiling this document already publishes,
 9.68<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_ceiling_correctness_pct_of_licensed:.2f--> % of
 licensed occurrences. A confident definition propagated into a document that reuses the short form
 for something else is wrong at every licensed site and the gate cannot see it.
-`acronymkit.propagation.gate_disclosure()` returns all three parts in one string so that no surface
+`acronymkit.nlp.propagation.gate_disclosure()` returns all three parts in one string so that no surface
 can quote one of them alone.
 
 ### What this does not establish
@@ -2987,7 +2987,7 @@ and, until this table, carried no accuracy number at all. The justification on f
 rather than a measurement: a lookup table is exact about whatever the caller put into it.
 
 There is exactly one thing in that subsystem which decides anything on its own, and
-`src/acronymkit/governed/tokenizer.py` says so in its own docstring — where the identifier is cut
+`src/acronymkit/catalog/tokenizer.py` says so in its own docstring — where the identifier is cut
 into tokens. Everything downstream is a lookup against a catalog the caller supplies, and a cut in
 the wrong character position produces a token no catalog can contain. So the accuracy question for
 the governed subsystem is: **does it cut identifiers where the people who named them cut them?**
@@ -4160,7 +4160,7 @@ re-normalises two of them that were already normal, and roughly three quarters o
 was that bookkeeping.
 
 The reason it is bookkeeping rather than checking is that these DTOs are **built by this package out
-of values it computed itself** — which `acronymkit.governed.models`' own module docstring already
+of values it computed itself** — which `acronymkit.catalog.models`' own module docstring already
 said about validation, and had not applied one step earlier. `beat` is a `tuple` comprehension,
 `unaccounted` comes from `IdentifierParts` whose every return path builds a tuple, and `confidence`
 is a `GovernedEntry` field that entry's own `__post_init__` coerced and bounded when the catalog row
@@ -4168,9 +4168,9 @@ was loaded.
 
 ### What shipped, and the one thing it could not do separately
 
-`acronymkit.governed.models._new_token_expansion` and `_new_identifier_expansion` build the two
+`acronymkit.catalog.models._new_token_expansion` and `_new_identifier_expansion` build the two
 result DTOs by writing the fields straight into a fresh instance. The four construction sites in
-`acronymkit.governed.expansion` call them; **the public constructors are untouched** and still
+`acronymkit.catalog.expansion` call them; **the public constructors are untouched** and still
 normalise a list to a tuple and still refuse a confidence outside `[0, 1]`, which
 `tests/test_governed_fast_construction.py` pins with the switch on.
 

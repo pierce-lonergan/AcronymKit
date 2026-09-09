@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The catalog-gap report on real schema corpora, plus the controls it needs to be read.
 
-:func:`acronymkit.governed.gap.catalog_gap` claims something exact: that a
+:func:`acronymkit.catalog.gap.catalog_gap` claims something exact: that a
 label carrying a character its identifier does not is unreachable by **any**
 catalog-free method, and that the tokens responsible are a finite ranked list.
 This runner points that at two real identifier/label populations and publishes
@@ -106,9 +106,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
-from acronymkit.governed import GovernedDictionary, expand_identifier  # noqa: E402
-from acronymkit.governed.gap import catalog_gap, label_words, stream_key  # noqa: E402
-from acronymkit.governed.tokenizer import split_identifier  # noqa: E402
+from acronymkit.catalog import GovernedDictionary, expand_identifier  # noqa: E402
+from acronymkit.catalog.gap import catalog_gap, label_words, stream_key  # noqa: E402
+from acronymkit.catalog.tokenizer import split_identifier  # noqa: E402
 from acronymkit.lexicon import Lexicon  # noqa: E402
 
 #: The governed-gold cache the two real corpora are read out of.
@@ -193,8 +193,8 @@ def census(
         rows: ``(identifier, label)`` rows in cache order.
         source: The cache file read.
         fetched_on: The fetch date carried through from the envelope.
-        min_token_length: Passed to :func:`~acronymkit.governed.gap.catalog_gap`.
-        require_letter: Passed to :func:`~acronymkit.governed.gap.catalog_gap`.
+        min_token_length: Passed to :func:`~acronymkit.catalog.gap.catalog_gap`.
+        require_letter: Passed to :func:`~acronymkit.catalog.gap.catalog_gap`.
 
     Returns:
         The entry, with the report's own work counts on it.
@@ -287,7 +287,7 @@ def word_list_control(rows: Sequence[tuple[str, str]]) -> dict[str, Any]:
         "why_rejected": (
             "the causes are structural rather than tunable -- other languages, ordinals, domain "
             "vocabulary and concatenations -- so no English word list stops being wrong about "
-            "them. acronymkit.governed.gap therefore imports no lexicon and requires labels."
+            "them. acronymkit.catalog.gap therefore imports no lexicon and requires labels."
         ),
     }
 

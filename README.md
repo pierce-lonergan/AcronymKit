@@ -16,12 +16,22 @@ can be measured at all, and do not lead.
 questions this project cannot answer at all, and what would reverse the decision.
 
 ```python
-from acronymkit.governed import GovernedNamer
+from acronymkit.catalog import GovernedNamer
 
 nds = GovernedNamer.from_mapping({"TXN": "Transaction", "APPLNT": "Applicant", "ID": "Identifier"})
 nds.expand_identifier("TXN_APPLNT_ID").phrase        # 'Transaction Applicant Identifier'
 nds.expand_identifier("TXN_KYC_ID").is_fully_known   # False — the catalog has no KYC
 ```
+
+> **The import path used to be `acronymkit.governed`, and it still works.** The package is now split
+> at the seam between its two tokenizers — `acronymkit.core` (a leaf: conformal arithmetic, the
+> exception hierarchy, span coordinates), `acronymkit.nlp` (prose) and `acronymkit.catalog`
+> (identifiers). **Every old import path resolves to the same objects**, `acronymkit.governed`
+> included, and no output moved: the split was verified byte-identical over every catalog,
+> extraction and propagation record on both governed corpora. The old paths are kept through the
+> whole of the `0.x` line, and removing them would need a major version and a deprecation announced
+> a release ahead. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the seam, the measurement behind
+> it, and what the boundary rule cannot see.
 
 **Governed naming leads this README for two reasons, and neither is that it is the larger half of the
 package.** It leads because nothing in the ecosystem table below addresses it — a bare column token,
@@ -207,7 +217,7 @@ vocabulary, return the long form — deterministically, with no context to disam
 with a record of which catalog entry produced each word.
 
 ```python
-from acronymkit.governed import GovernedNamer, load_bundle
+from acronymkit.catalog import GovernedNamer, load_bundle
 
 # A real standard is a directory of files, and one line reads it:
 #     nds = GovernedNamer.from_bundle("nds_standard/")

@@ -9,6 +9,701 @@ Newest first.
 
 ---
 
+**Mandate III Phase D — D-119 through D-126, and they are in ASCENDING order**, like the block below
+them. D-119 frames the round and carries its lead finding, because every other record in this block
+depends on which tree its evidence was taken from. D-120 and D-121 are the two workstreams in
+dependency order, D-122 to D-125 are the instruments that read them, and D-126 is the quota.
+Read them down the page rather than up.
+
+---
+
+## D-119 — **The three red gates were an unmerged branch, not a deleted fixture.** Two of the four parties reported evidence destroyed; the bytes were sitting in `origin/main` the whole time, and the one summary that said so was never read by the two workstreams it would have unblocked
+
+**Status:** measured by the recorder; the checkout was brought forward and all eight gates are green ·
+**Amends:** the cause named in D1's report, in cold read six's `F-6-01`, and in two machine summaries ·
+**Evidence:** `git cat-file -e origin/main:.github/run-summaries/_control-agent-crash/exits.toml`;
+`git merge-file` against base `5a268cd`; the eight gates below ·
+**No experiment number spent — experiment eleven is still free**
+
+Two workstreams, one cold read and one sampled-verification round. **Three of the eight gates were red
+when the round was handed over. All eight are green now, and the repair was a merge.**
+
+```
+the eight gates, run by the recorder on the reconciled tree. Command output, not a benchmark
+measurement. CPython 3.13.4 on win32; a single quiet checkout, no sibling suite running.
+  python -m pytest tests                      6027 passed, 10 skipped, 1 xfailed   rc=0
+  python -m ruff check src tests tools bench  All checks passed!                   rc=0
+  python -m ruff format --check ...           180 files already formatted          rc=0
+  python -m mypy                              no issues found in 121 source files  rc=0
+  python tools/check_claims.py                unbacked 0 | deferred 189 | vm 64    rc=0
+  python tools/splits.py --check              splits manifest OK                   rc=0
+  python tools/gates.py --check               CARRYING IN-SITU EVIDENCE 21 of 42   rc=0
+  python tools/second_reader.py --check       findings open 5, fixed 10            rc=0
+```
+
+`6038` collected against the `5809` of D-110's baseline. The rise decomposes exactly: `140` from
+`tests/test_architecture_boundaries.py`, `6` more from D1 elsewhere, `48` from
+`tests/test_run_summary.py` (`87` → `135`) and `35` from the new `tests/test_sample_claims.py`.
+`140 + 6 + 48 + 35 = 229`, and `5809 + 229 = 6038`.
+
+### What was actually wrong
+
+Local `main` stood at `18204a1`. `origin/main` stood three commits ahead at `10c648e`. The
+agent-summary workstream had committed and **pushed** its control fixture at `5a268cd`, then removed
+its untracked working copies *because they were now committed and would block a `git pull`* — which
+its own report says in those words. The seam workstream's uncommitted split was sitting on top of a
+checkout that had never been brought forward, so from inside it the fixture had simply vanished.
+
+```
+the one command that separates "deleted" from "unmerged". Command output, not a benchmark.
+  $ git cat-file -e origin/main:.github/run-summaries/_control-agent-crash/exits.toml ; echo $?
+  0
+  $ git log --oneline origin/main --diff-filter=A -- .../_control-agent-crash/exits.toml
+  5a268cd feat: an agent that exits cleanly and files nothing now reddens the build, ...
+  $ git log --oneline main       --diff-filter=A -- .../_control-agent-crash/exits.toml
+  (nothing)
+```
+
+**Nothing was destroyed and there was nothing to reconstruct.** D-095 is the record of what salvaging
+a sibling's evidence by hand costs, and the seam workstream correctly refused to do it — its refusal
+was right for a reason that was not the reason it gave.
+
+### Four parties, four diagnoses, and only one of them was right
+
+| party | what it recorded as the cause | correct |
+|---|---|---|
+| D1, the seam | "a concurrent sibling workstream **deleted** `_control-agent-crash/`" | no |
+| cold read six, `F-6-01` | "that directory **exists nowhere** … `git ls-files` shows three files" | no |
+| D5, the agent-summary round | "I removed only the two untracked directories I created (every byte committed at `30a72c1`)" | yes, and it did not connect this to the red gates |
+| R15 round six | "the checkout … does not carry `_control-agent-crash/`, **which exists at `origin/main`**" | **yes** |
+
+R15's machine-readable summary names `origin/main` explicitly. It was written to
+`scratchpad/run_summary/m3pd-r15-round-six.json` and **neither of the two workstreams that were
+blocked by the problem read it**, because nothing in this project routes one round's summary to
+another round. D-113 shipped the register that makes these accounts durable; this is the first
+measured instance of a durable account being *correct, present, and unread*, which is a different
+defect from the one D-113 named and it is downstream of it.
+
+### The lost update underneath, which is the part that generalises
+
+A clean three-way merge is a measurement, not an opinion. Taking `5a268cd` as base, the working tree
+as *ours* and `origin/main` as *theirs*, all four overlapping files merged with **zero conflicts**:
+
+```
+git merge-file, LF-normalised, base = 5a268cd. Command output, not a benchmark measurement.
+  CLEAN   .github/gates.toml            145 lines differed from origin/main
+  CLEAN   tools/gates.py                 69
+  CLEAN   docs/GATES.md                 145
+  CLEAN   docs/CLAIMS-LEDGER.md          53
+```
+
+A clean merge against that base is what establishes the shape: **the seam workstream branched its
+edits from a mid-flight snapshot of an uncommitted sibling.** Everything the sibling committed
+*afterwards* — at `30a72c1` and `10c648e` — was invisible to it. Concretely, the working tree carried
+`20` in-situ stamps in `.github/gates.toml` and `0` occurrences of `34408932625`, the run id the
+sibling had already stamped in. Two untracked files, `tools/sample_claims.py` and
+`tests/test_sample_claims.py`, were *older* on disk than the committed copies and lacked the year
+filter that had already shipped.
+
+**This is D-110's class one channel further out.** D-110 found a sibling's unstaged edit destroyed by
+`git checkout --`, leaving no blob. Here nothing was destroyed and every byte is recoverable — and
+the damage is the same size, because a workstream reasoning about a tree three commits stale reports
+numbers that are locally consistent and globally wrong. An unstaged file destroyed leaves no
+evidence; **a stale checkout leaves evidence that looks fine.**
+
+### The one number the recorder changed in a workstream's file, and why
+
+`tools/gates.py`'s `InSituRound("M3-PD (the seam)")` shipped `in_situ=20`, and the register's own
+arithmetic then reported three problems at once: evidence apparently fell by one with no gate named
+in `withdrawn_gates`, the debt apparently rose `20` → `22` with only `1` accounted, and the row said
+`20` carry evidence where `21` do. On the reconciled tree the true row is `gates=42, in_situ=21`,
+debt `20` → `21`, fully accounted by `owed_forward=1`. That is a one-integer correction forced by the
+file's own validator, and the prose beside it was corrected to match rather than left to disagree.
+R15 round six predicted exactly this, in its verdict on the register: *"note `origin/main` already
+carries in-situ 21, where the same merge would read debt 21."*
+
+### What the recorder verified, and what it carried
+
+Item 1 of the brief, answered rather than assumed. **Verified against running code, this round:**
+the `origin/main` blob and its landing commit; the four-file three-way merge; all eight gates on the
+reconciled tree with `--junitxml` for the counts; `acronymkit.core`'s runtime leaf property in a
+fresh interpreter (`__all__` of `19`, `0` sibling modules bound); all `19` compatibility paths (`16`
+identical module objects, and name-for-name identity `10/10`, `8/8`, `48/48` on the three package
+shims); `wilson(20,120)` and `wilson(23,144)` re-derived; the deferred residue re-walked and
+re-classified; the `13` unambiguously citable value-matched claims enumerated with their run ids; the
+ledger-schema experiment in D-126; `64` modules under `src/acronymkit`; and eight of cold read six's
+ten findings re-run against the merged tree.
+
+**Carried on trust, and named:** the `3,619,227`-record byte-identity digest (the seam workstream ran
+it; the governed corpora are not in this checkout and cold read six could not adjudicate it either —
+**two parties now unable, which is worse than D-110's one**); GitHub Actions run `34408932625` (R15
+read it with `gh` and downloaded the artifact; the recorder verified only that `.github/gates.toml`
+names that run and commit); the `98` of `185` `__module__` census (R15 re-ran it independently); and
+the `14.6560` % / `36.0072` % tokenizer-divergence figures, which are ungated in every place they
+appear.
+
+---
+
+## D-120 — **The package split is a relabelling, and the evidence for that is the same fact that makes two of its three new rules tautologies.** `catalog → nlp` and `nlp → catalog` never existed; the boundary gate ships green about one edge and silent about two, and says so in five places
+
+**Status:** shipped; `42` gates, the newest owing its in-situ demonstration forward ·
+**Amends:** nothing; it is the largest structural change this package has had ·
+**Evidence:** the AST walker re-run with `PACKAGE_ROOT` repointed at `18204a1`; the runtime leaf
+probe; the `19` compatibility paths by identity; `tools/gates.py --mutate architecture_boundaries` ·
+**Depends on D-119** for which tree every count below was taken on
+
+`acronymkit` was split at the **lexer contract seam** into `acronymkit.core` (a true leaf),
+`acronymkit.nlp` and `acronymkit.catalog`. `src/acronymkit` went from `40` modules to `64`.
+
+### Which finding governs the boundary, and why the distinction decides where it goes
+
+The seam is placed by **B1's lexer collision**, not by B7's prior divergence, and the two would put
+the boundary in different places.
+
+B7 measured that two code paths *had diverged* — a historical fact about two implementations that
+drifted. A boundary drawn on divergence is drawn where the code happens to differ today, and it moves
+whenever somebody reconciles the difference: converge the two paths and the argument for the seam
+evaporates while the seam stays. **B1 measured a collision in the contract itself.** The identifier
+tokenizer treats `#`, `%`, `_`, `:` and `/` as semantic tokens and enforces physical column
+constraints; the prose tokenizer treats punctuation as a clause boundary and leans on whitespace.
+Each destroys the other's input. That is a property of what the two halves *mean*, not of what they
+currently do, and no amount of reconciliation removes it — which is why it can carry a boundary and
+divergence cannot.
+
+The consequence is concrete: on B7's argument `scoring.py` (a substring aligner that diverged) would
+sit on the nlp side; on B1's it stays at the top level, because it is not a tokenizer and no contract
+collides in it. It stayed at the top level.
+
+### The byte-identity evidence, stated at the width it was measured
+
+Every catalog, extraction and propagation output was compared before and after:
+**`3,619,227` of `3,619,228` snapshot records byte-identical, the single difference being the
+harness's own record of which import path it used.** Provenance fields — `entry_id`, `source`,
+`rule`, `matched_by`, confidences — are fields and were compared.
+
+**The phrasing that shipped with it is wider than the measurement, and this is the correction.**
+The report says *"every catalog, extraction and propagation field on Socrata and SEC XBRL"*. The
+`8,430` extraction and propagation records were taken over **MED1250 and PLOD-CW**; `snapshot.py`
+runs no extraction on the governed corpora at all. Only the `3,610,791` catalog records are on
+Socrata and SEC XBRL. R15 round six graded that sentence MISLEADING and it is; the same compression
+had reached `docs/ARCHITECTURE.md`. **A phrasing tighter than the measurement is a false phrasing**,
+and the direction here is the flattering one.
+
+The recorder did not re-run the digest. The governed corpora are absent from this checkout and cold
+read six could not adjudicate it either. It is carried on one party's word, as D-110 carried C1's
+`4,260`-document digest, and it deserves the same second party it did not get then.
+
+### The negative result the gate was built on, which fired against its own author
+
+`tests/test_architecture_boundaries.py` ships `140` tests and an AST walker resolving relative
+imports, `TYPE_CHECKING` blocks, deferred imports inside function bodies, aliased imports and
+`importlib` literals. Run against the **pre-migration** tree at `18204a1` — `43` modules, `1,110`
+import statements parsed — it finds **`0` forbidden edges.**
+
+`catalog → nlp` and `nlp → catalog` never existed. That is precisely *why* the split came out
+byte-identical: there was no edge to cut. So two of the gate's three rules found nothing on the tree
+they shipped against and **could not have found anything**, and only `core → {nlp, catalog}` became
+newly possible. **A green run of this gate today is a statement about one edge and a silence about
+two.** The workstream pre-registered this as `F3`, it fired, and it is written into `blind_to` in
+`.github/gates.toml`, into `docs/GATES.md`, into `docs/ARCHITECTURE.md`, into the test module's own
+docstring and into the `InSituRound` note. Five places, not a footnote. That is the pattern working.
+
+A second claim was killed by its own test inside one run: a grep for `from acronymkit.catalog` sees
+**`3` of the `5`** evasion shapes, not the `1` of `5` the brief framed and the test first asserted. A
+deferred import inside a function and a `TYPE_CHECKING` import are both still spelled that way — what
+grep cannot see is the *scope*. The two it misses outright are the aliased import and
+`importlib.import_module` on a literal. The test is now named for `3` and re-derives it every run.
+
+A third correction went to the register itself: the mutation note claimed the edit "reaches two
+assertions and no others". Run by hand it reaches **three** — the per-file rule, `test_core_is_a_leaf`,
+and the runtime leaf probe, which reports that one aliased import in the leaf costs **six** modules
+at import time.
+
+### The compatibility decision, and what it costs a caller
+
+**`acronymkit.governed` stays as a re-export shim for the whole of the `0.x` line.** Removal needs a
+major version plus a `DeprecationWarning` announced a minor release ahead. **No warning today.**
+
+`19` public import paths are preserved. `16` of them are submodule shims that replace themselves in
+`sys.modules`, so `acronymkit.governed.tokenizer` **is** `acronymkit.catalog.tokenizer` — the same
+object, asserted by identity. The remaining three are package-level re-export shims whose *module*
+objects differ but whose exported names are identical objects, verified name-for-name at `10/10`
+(`exceptions`), `8/8` (`conformal`) and `48/48` (`governed`). A pre-split pickle whose bytes name
+`acronymkit.governed.enums` loads and resolves to `acronymkit.catalog.enums.EntryKind`.
+
+**The stated reason for the decision is `3`-for-`5`, and the leg that decides it is real.** The shim's
+docstring names five places the path is documented. Measured as a fixed string:
+`docs/DECISIONS.md` `9`, `docs/GOVERNED_NAMING.md` `3`, `README.md` `2` — and
+`docs/QUICKSTART_GOVERNED.md` **`0`**, the CLI's own help **`0`**. Cold read six caught this and was
+right; the recorder's first probe disagreed and the recorder's probe was the broken one, an
+unescaped `.` matching the CLI subcommand `acronymkit governed-batch`. The load-bearing leg survives
+regardless: `docs/DECISIONS.md` is a file no workstream may edit, so breaking the path would leave
+this project's own record citing a dead import. That argument alone carries the decision.
+
+**What a caller should take from it:** nothing breaks, nothing warns, and nothing mechanically
+reminds anyone the shims exist. The removal date is prose in one docstring. That is the cost of the
+decision and it is not priced anywhere a caller looks.
+
+### How it fails, in the workstream's own words and the recorder's
+
+**The rule is about a dependency graph and a dependency graph cannot see a data flow.** `engine.py`,
+`cli.py`, `disambiguation.py`, `models.py` and the package `__init__` are exempt and may import both
+halves — composing them is what a facade is for. Nothing stops a prose-tokenizer result being handed
+to the identifier tokenizer *inside* `engine.py`. **The contract collision the split is named after
+returns one module further out, with every rule green.**
+
+A computed import name defeats the walker entirely, and that limit ships as a deliberately
+non-firing test rather than as a sentence somebody later claims is covered. The byte-identity
+harness compares outputs, so it is blind to everything that is not one: `__module__` moved on `98`
+of `185` public names and the digest did not notice — predicted as `E3` before the run, and found by
+a separate census because the snapshot could not find it. The gate is redundant with `gates.suite`,
+which runs the same file in fifteen matrix cells; that is written into `cost_if_inert` as an argument
+*against* the gate and is why it ranks `40` of `42`.
+
+**It carries no in-situ evidence.** `--mutate architecture_boundaries` returns `DEMONSTRATED`,
+`mutated rc=1`, `restored rc=0` on CPython 3.13 win32 — which is precisely the evidence R11 says does
+not count. It is owed forward, and D-126's ceiling is what will collect it.
+
+---
+
+## D-121 — **The forty-first gate can fail on a fixture and concludes nothing about either real round.** Nothing in this repository writes the file it reads, so its live verdict on every round that has ever run is `unattributed`, and it says so on every invocation
+
+**Status:** shipped and pushed; demonstrated in situ at run `34408932625` on `5a268cd` ·
+**Amends:** D-113, whose roster defect this gate was built to catch and only half catches ·
+**Evidence:** `.github/gates.toml`'s two stamps; the artifact `lint/agent-summary.log`; the control
+directory's four states ·
+**Depends on D-119**
+
+`python tools/run_summary.py --check-agent-summary` is the `41`st gate, in the `lint` job at
+`cost_rank` `39`, `redundancy = partial`. A launcher-written `exits.toml` maps label → exit status. A
+workstream that **exited `0` and filed nothing reddens the build**; one that crashed is printed with
+its code and reddens nothing; one with no exit code is `unattributed`. The non-redundant delta over
+`gates.run_summary` is exactly one state — `absent` with exit `0` — because `invalid` and
+`unreadable` already redden its neighbour. That is why the register says `partial` and not
+`independent`.
+
+It was tested against real killed child processes on win32 and driven **through the gate** rather
+than through the reader: killed-between-JSON-and-prose reads `complete`; killed mid-write reads
+`unreadable` and not `absent`. The committed control at `.github/run-summaries/_control-agent-crash/`
+carries all four states and a roster declaring which state each label must land in, and the gate
+refuses a register with no such control — so it cannot be disarmed by deleting its only failable
+input. (It can, however, be *hidden* by a checkout three commits stale; that is D-119.)
+
+**In-situ evidence exists and was read from the artifact rather than inferred from a tick.** Run
+`34408932625` at `5a268cd`, artifact `lint/agent-summary.log`, `verdict: demonstrated, mutated rc=1,
+restored rc=0`, linux python 3.12.14, all `8` jobs green. Gates `40` → `41`, in-situ `20` → `21`,
+debt `20` and the ceiling unmoved. That is the D-106 failure — evidence sitting green in the Actions
+tab for a fortnight with nobody assigned to read it — not repeated, inside one session.
+
+### The limit, pre-registered as `F1` and published in the words it was written in
+
+*"The new gate cannot fail on anything this repository can commit."* The prediction was that it fails
+on a committed control fixture and **not** on any real round, because no real round in this tree has
+an exits record — and that `F1` would fire in that weak form. **It fired.** Both committed rounds
+report `UNATTRIBUTED` and the gate prints that every run.
+
+**The demonstration establishes that the code can fail. It does not establish that any round anybody
+ran was ever checked.** Those are different sentences and only the first has evidence.
+
+Three further escapes, all recorded by the workstream rather than found by a reader. The only rule
+forcing an exit record to exist is *"a roster claiming to be complete must carry one"*, and both real
+rounds honestly declare `roster_complete = false` — a workstream cannot enumerate its siblings — so a
+launcher that never wants to be accountable never has to be. A `--template` summary filed unchanged
+is valid and schema-compliant, so a vacuous account satisfies the rule; refusing it would make the
+cheapest route to green a paragraph of filler. And the exit record is a **self-report by the
+launcher that nothing audits**: a `0` written for a process nobody waited on buys a green build and a
+false accusation the moment a summary is missing.
+
+**What is still not done is outside this repository.** Nothing writes `exits.toml`. That is a change
+to whatever spawns the agents, and until it happens the gate's live verdict on every real round is
+`unattributed`. The gate is honest about being a gate on a fixture; the register, `docs/GATES.md` and
+the `ci.yml` step comment all carry the sentence.
+
+### The successor sampling frame, and the price it prints on itself
+
+`tools/sample_claims.py` replaces the fixed R15 pooling frame with a churn-weighted stratified draw:
+strata `round` / `recent` / `cold`, `12`/`8`/`4` of `24`, seeded, reproducible, with the boundary rule
+in code and a design-weighted estimator.
+
+**The brief's framing of the two quantities was backwards and the workstream checked rather than
+accepted it.** It said the old series estimated *the rate of claims in this repository* and the
+successor would estimate *the rate of claims about work just done*. D-068 draws `24` of `187`
+**submitted** claims; D-115 draws `24` of `36` across three workstreams; R15's rule is twelve
+sentences per workstream about its own round. **The old frame was already the narrow one, and the
+successor is the wider of the two.**
+
+**Stratification is not a precision argument and the tool refuses to let it read as one.**
+`design_effect` is printed on every draw; above `1.00` the churn-weighted draw is *less* precise
+about the repository than a uniform draw of the same size. The premise the design rests on is
+measurably weak here — widen the window to `40` commits and only `14` of `2,054` unbacked numbers sit
+in an untouched file; move the base back four commits and the `round` stratum covers `1,046` of
+`2,054`. **A round here touches half the tree.** De-weighting cold text saves little when there is
+little.
+
+**The published `--frame` transcript is labelled with one commit and mixes figures from two.** Its
+header says `at 5a268cd`; its frame size `2,054` is the **post**-year-filter tree at `30a72c1`, where
+the design effect at the shipped allocation measures `1.9983` and rounds to `2.00`; its design effect
+`2.01` is the **pre**-filter tree at `5a268cd`, where the frame is `2,182`. R15 round six graded the
+underlying claim FALSE over a `3` trees × `4` bases × `2` windows grid — `24` evaluations, which is
+the only way the `2.00`/`2.01` split becomes visible. The recorder re-ran `design_effect` on the
+reconciled tree and got `1.03` at the same allocation, which is neither figure and is the point:
+**this quantity is a property of the tree it is taken on, and no transcript of it is reproducible
+without its exact commit.** The transcript names a commit that does not produce it.
+
+One frame refinement was made at the only moment it was free — the year filter, added after an
+exploratory draw put two bare years in front of a grader and **before any graded round**. The frame
+fell `2,182` → `2,054`. It is narrow deliberately: `628` of the frame is one- and two-digit integers
+and many of those are claims.
+
+**The genuine loss in the change is the unit.** The frame is built from claim-shaped **numbers**, so
+a claim with no number in it is outside it entirely. R15 round six measured what that costs: **all
+three of its not-true verdicts are outside the successor's population** — one lives in no document,
+one lives in `.github/gates.toml` which is not in `SCAN_GLOBS`, and one has a correct digit inside a
+defective clause. The old series reached that population and this one does not.
+
+---
+
+## D-122 — **The sampled-verification series ran six rounds, not five, and the tree ships it closed at five.** The closing figure is `23` of `144` = `15.97` %, not `20` of `120` = `16.67` %, and a constant printed beside every draw of the successor still says the latter
+
+**Status:** measured by the recorder; both arithmetics re-derived independently ·
+**Amends:** `CLOSED_SERIES` in `tools/sample_claims.py` and §6 of `docs/CLAIMS-LEDGER.md`, neither
+corrected here ·
+**Evidence:** `wilson(20,120)` and `wilson(23,144)` re-run; R15 round six's own report ·
+**Depends on D-121**
+
+Item 3 of the recorder's brief: *a series that appears to continue across a redefinition is the
+defect this project most often finds in others' work, and it would be worse here.* It happened here,
+in the opposite direction from the one the brief anticipated, and the recorder's pre-registration
+predicted it as `V7`.
+
+**The frame did change.** D-121's churn-weighted successor draws from a different unit, a different
+population and different inclusion probabilities, and it correctly starts at `n = 0`.
+
+**But the old series did not stop when it was declared closed.** The agent-summary workstream closed
+it at five rounds, `20` of `120`, while **R15 round six was in flight under the same frame** —
+twenty-four submitted sentences, seed `20260910`, graded against running code. Round six returned `3`
+not true. Closing a series prospectively does not un-run a round performed under it.
+
+```
+re-derived by the recorder with the shipped wilson(), not copied from either report.
+Command output, not a benchmark measurement.
+  five rounds   5,5,6,2,2      20 of 120 = 16.67 %   Wilson [11.06, 24.35]   half-width 6.645
+  SIX rounds    5,5,6,2,2,3    23 of 144 = 15.97 %   Wilson [10.89, 22.83]   half-width 5.971
+  (four rounds  5,5,6,2        18 of  96 = 18.75 %   Wilson [12.20, 27.70]   half-width 7.750)
+```
+
+Both figures are arithmetically correct. Both describe the same series. **The tree ships only the
+first, labelled `closed`.**
+
+**The record's verdict: the submitted-sentence series is CLOSED AT `23` of `144` = `15.97` %,
+Wilson `[10.89, 22.83]`, over six rounds.** The churn-weighted successor starts at `n = 0`. There is
+no pooled figure spanning the two and there must never be one.
+
+`tools/sample_claims.py`'s `CLOSED_SERIES` hard-codes `rounds: 5`, `draws: 120`, `not_true: 20`,
+`per_round: (5,5,6,2,2)`, and `render` prints it beside every draw with the words *"IT DOES NOT CARRY
+ACROSS"*. That sentence is right and the number beside it is one round short of the series it closes.
+The recorder did not change it: the figure is pinned by five assertions in
+`tests/test_sample_claims.py` and by §6 of `docs/CLAIMS-LEDGER.md`, all in a sibling's shipped
+deliverable, and rewriting a sibling's constant and its tests at the end of a round to settle a
+question about *which round counts* is the move this record exists to refuse. It is named here, in
+`CHANGELOG.md`, and in D-125's criterion `13` verdict, and it is the next round's to close.
+
+**What round six itself measured, and its own strongest caveat.** `3` of `24` = `12.50 %`, Wilson
+`[4.34, 31.00]`; by workstream, the seam `2` of `12` and the agent-summary round `1` of `12`. Round
+five's headline was that the interval moves faster than it shrinks (`1.11` against `2.08`); a sixth
+point roughly equalises them without narrowing anything usefully — half-width `5.97` against `6.64`,
+a fall of `0.67` while the estimate moved `0.70`. chi-square `4.605`, df `5`, `p 0.466`;
+Cochran-Armitage trend `z −1.532` against round five's `−1.559`, so a sixth point moved the decline
+hint by `0.027`. **Six points have not established that anything is changing.**
+
+Round six is also the first round of this series graded under a rule **somebody else wrote down in
+advance**: round five's `PREREGISTRATION.md` was on disk, was read, and `B1`–`B5` and
+`headline = (FALSE+MISLEADING)/24` were adopted verbatim. That chain is one link long, since round
+five's rule is round four's as round five reconstructed it — but it is a chain, and the previous
+round's brief asked whether one existed at all.
+
+Its own weakest point is `UNCHECKABLE = 0`, and it is an artefact of co-location rather than of
+evidence quality: two sibling workstreams left `3.3` GB snapshot files, a module census and a
+mutation script in the same scratch directory, and the CI artifact was downloadable. **A stranger
+holding only the repository could not have checked three of the twenty-four claims.** Under a strict
+reading of the boundary rule those three are UNCHECKABLE and the headline would move.
+
+---
+
+## D-123 — **Every pre-registration this round wrote, against what happened.** Six parties, twenty-nine falsifiers, eight fired; two headline claims were killed by their own authors before a reader saw them, and one falsifier fired against the recorder
+
+**Status:** recorded ·
+**Amends:** nothing; it prices D-120 to D-122 and D-124 ·
+**Evidence:** the four pre-registration files in the round's scratch directory, all written before
+the edits they bind ·
+**Depends on D-119**
+
+| party | falsifiers | fired | the one that mattered |
+|---|---|---|---|
+| D1, the seam | `S1`–`S5`, `F1`–`F5`, `E3` | `F3` | the boundary gate finds `0` violations pre-migration: two of three rules are tautologies |
+| D5, agent summary | `F1`–`F10`, `P1`–`P4` | `F1`, `F10`, `P2`, `P3` | the gate cannot fail on anything but a fixture, published in those words |
+| R15 round six | eight, adopted from round five | `F5`, `F6`, `F7` | `UNCHECKABLE = 0` is co-location, not evidence quality |
+| cold read six | on disk before the read | — | the `18204a1` negative control is what made `F-6-01` safe to publish |
+| **the recorder** | `V1`–`V7`, `P1`–`P5` | `V4` (split), `V6`, `V7`, `P2`, `P5` | `V1` did **not** fire: the blob existed, and the lead finding survived its own falsifier |
+
+**The recorder's own bets, verbatim from the file and against the outcome.**
+
+`V1` — *"`git cat-file -e origin/main:…/exits.toml` exits non-zero. Then the bytes really are gone,
+D1's 'deleted' is right and my lead finding is wrong."* **Did not fire.** Exit `0`, landed at
+`5a268cd`. D-119 stands.
+
+`V2` — *"I bring the checkout forward and a gate is STILL red for a cause that is not the merge."*
+**Fired once, and it was not absorbed.** After the merge, `tools/gates.py --check` printed three
+problems — none of them the fixture, all of them the seam workstream's `InSituRound` arithmetic taken
+on the stale tree. Named in D-119 rather than folded into the merge.
+
+`V3` — *"the payable population across the three files I may edit is ≥ `12`; then a fourth waiver was
+avoidable and I must PAY."* **Did not fire on the deferred ledger and fired on the other one**, which
+is the finding in D-126 and is not what the falsifier was written to catch.
+
+`V4` — *"cold read six's `F-6-02` is present at `origin/main` too."* Predicted to *"fire for some
+findings and not others, and I pre-commit to reporting the split per finding."* **It split exactly
+that way**: `8` of `10` findings stand on the merged tree, `F-6-01` dissolves into D-119, and
+`F-6-02` was already fixed at `origin/main` before the read began. D-124 reports it per finding.
+
+`V5` — *"any of the eight gates is red when I hand off."* **Did not fire.** `8` of `8` green.
+
+`V6` — *"the four run-summary JSON files disagree with the four prose reports."* Predicted to fire,
+*"because `m3pd-seam.json` was written by a workstream that believed a sibling had deleted its
+fixture."* **Fired.** All four were written — the mechanism worked — and they disagree with each
+other about the same tree: `m3pd-seam.json` records `42` gates / in-situ `20` / debt `22`,
+`m3pd-agent-summary.json` records `41` / `21` / `20`, and both are internally consistent and describe
+trees three commits apart.
+
+`V7` — *"the tree ships two live series over one name."* Predicted to fire. **Fired**, and D-122 is
+the record.
+
+Magnitudes: `P1` correct (`8` records against `6`–`9` predicted). **`P2` wrong** — `2`–`5`
+definition-of-done verdicts predicted to move, `1` moved. `P3` correct (escalation, not payment, not
+a plain waiver; payable deferred population re-walked at `0`). `P4` correct (`8` of `8` green).
+**`P5` half wrong** — the merge did bring in-situ `20` → `21` and debt `22` → `21` as predicted, but
+predicted "gate count `42` → `42`" while the register's *validator*, not the count, was what went red.
+
+**What this table is worth, and what it is not.** Two headline claims died in front of their authors
+this round — the boundary gate's coverage and the agent gate's reach — and both authors published the
+death rather than the headline. That is now five consecutive rounds where the mechanism has produced
+at least one withdrawal. It remains the case that a pre-registration is only as good as the
+falsifier's *wording*: the recorder's `V3` was written against the deferred ledger and was blind to
+the value-matched one, so the round's largest instrument finding arrived **past** the falsifier
+written to catch it rather than through it.
+
+---
+
+## D-124 — **The sixth cold read's ten findings, adjudicated on the merged tree: eight stand, one dissolves into a merge state, and one was already fixed before the read began.** Its own two largest findings are the two that did not survive
+
+**Status:** measured by the recorder; nothing in the read's target files was corrected here ·
+**Amends:** `F-6-01` and `F-6-02` ·
+**Evidence:** each finding's own refuting command, re-run on the reconciled tree ·
+**Depends on D-119 and D-121**
+
+Cold read six was read-only and wrote ten findings to `docs/notes/cold-read-6-findings.md`, each
+with the exact quote, the command that refutes it, that command's output, replacement text and a
+named owner. **The recorder re-ran eight of them.**
+
+| finding | verdict on the merged tree |
+|---|---|
+| `F-6-01` fixture named by the register exists nowhere | **dissolved** — it exists at `origin/main` from `5a268cd`; D-119 |
+| `F-6-02` `--frame` transcript reproduces in one figure of six | **already fixed** at `origin/main`; the read graded a superseded copy |
+| `F-6-03` `docs/SECOND-READER.md:529` publishes `40` modules | **stands** — `find src/acronymkit -name '*.py' \| wc -l` returns `64`; rotation cost `89`, not `61` |
+| `F-6-04` `:511` says `user_facing_files()` returns `21` | **stands** — `--check` prints `rotation: 25 file(s)` |
+| `F-6-05` `:439`, `:446` say the gate is not in CI | **stands** — `ci.yml:129` runs it, since `fbf7c45` |
+| `F-6-06` six sentences narrate a two-read-stale ledger | **stands** — `--check` prints `blocked 0` |
+| `F-6-07` the shim's five-place justification | **stands** — `0` fixed-string hits in `docs/QUICKSTART_GOVERNED.md`, `0` in CLI help |
+| `F-6-08` `3 + 135` against `140`; `5,884` collected | **stands, and widened** — `140` collect, and the suite is now `6,038` |
+| `F-6-09` `bench/run_micro.py:271` prints a raising import | **stands** — `from acronymkit import Engine` raises `ImportError`; `AcronymEngine` does not |
+| `F-6-10` `:477` median `3,792` words | **stands** — `:455` says `4,362` in the same file |
+
+### The two that did not survive are the two the read led with, and the reason is one fact
+
+Both `F-6-01` and `F-6-02` are artefacts of reading a checkout three commits behind `origin/main`.
+The read's own negative control — `gates.py --check` is `rc=0` in a clean worktree at `18204a1` and
+`rc=1` here — was correct and was correctly reasoned from, and it still could not distinguish *this
+round broke it* from *this checkout never received it*. The read said so in its own disposition:
+*"the three red gates could be somebody's uncommitted work in flight… if the fixture lands in the
+same commit as the prose describing it, the finding closes itself and the right disposition is
+`fixed`."* **That sentence is what makes the finding safe to have published, and it is the correct
+disposition.** The fixture had already landed; it landed in a commit the reader's checkout did not
+have.
+
+**`F-6-02` is the sharper one.** Every figure the read flagged — `2,180` against `2,187`,
+`recent 1751/80.3 %`, `cold 429`, a two-stratum partition against the tool's three, design effect
+`2.03` — is wrong in the working-tree copy and **correct at `origin/main`**, where the transcript
+carries three strata, `2,054`, the `--base HEAD~1` invocation and a `40`-window row of `14`. The read
+graded a document nobody shipped. D-121 records the defect that *does* survive in the shipped
+transcript, which is a different one: it is labelled with a commit that does not produce it.
+
+### What this says about the reader, which is not that it was careless
+
+Eight of ten stand, including every finding that turned on a count the reader took itself. The two
+that fell are the two that turned on **absence** — a file not present, a figure not matching — and
+absence is exactly what a stale checkout manufactures. A reader cannot tell "not written" from "not
+pulled" without asking the remote, and nothing in the cold-read protocol asks it to. **That is a gap
+in the protocol, not in the read**, and it is the cheapest possible fix: a read that reports a file
+missing should run one `git cat-file -e` against every remote-tracking branch before it does.
+
+The recorder's own probe failed once in this same way, in the other direction: checking `F-6-07` with
+an unescaped `.`, matching the CLI subcommand `acronymkit governed-batch` and reporting `7` hits
+where the fixed-string answer is `0`. The reader was right and the recorder's refutation of it was
+the broken instrument. `F-2026-08-25-02` already records that this is how a protocol gets satisfied
+without being performed; it happened twice more this round, once to each party.
+
+### What the read did not do, and the ledger row nobody may write
+
+**No file was fixed** — that is the policy, section 5 having retired the fix clause, and the measured
+consequence is ten defects written down and none repaired. **`docs/cold-reads.toml` was not written
+for the fourth consecutive read.** A read-only reader cannot write it and nobody has written it for
+one since read three. `--check` reports `4 recorded` while **six** reads have run. Five findings —
+`F-5-3`, `F-5-5`, `F-5-6`, `F-5-7`, `F-5-8` — each need a `reviewed_in` date or `--check` reddens,
+and **all five reach the two-read limit at the next read**, so `OPEN AND AT THE LIMIT` goes from
+`0 of 5` to `5 of 5`. Both rows are drafted in the findings document and neither is filed.
+
+**This is the same defect as D-113's roster and D-119's unread summary: the party that must act is
+outside the round.** Three mechanisms, one shape, and it is the shape D-118 escalated.
+
+---
+
+## D-125 — **The definition of done, ninth sweep: one verdict moved, and it moved because a criterion was measured on a tree three commits stale rather than because work was done on it.** Nineteen of twenty are unchanged
+
+**Status:** swept, criterion by criterion, against the reconciled tree ·
+**Amends:** criterion `13`'s verdict ·
+**Evidence:** the eight gates in D-119; the per-criterion checks below ·
+**Depends on D-119 through D-124**
+
+Twenty criteria, checked rather than assumed. **`1` verdict moved. `19` did not.** The recorder
+predicted `2`–`5` would move and that magnitude was wrong.
+
+The one that moved is criterion `13`, the deferred ledger's policy and trajectory, and it moved on
+D-126's measurement rather than on any migration: its verdict now says that the trajectory has been
+*measuring the wrong ledger*, and that is a change in what the criterion is known to mean rather than
+progress against it.
+
+**The criteria that close by narrowing now say so in the verdict column**, which is the standing
+instruction and the reason this sweep is worth running. Three do:
+
+* criterion `15` closed in the eighth sweep for reasons that were not work on that criterion, and
+  D-117 already recorded that;
+* criterion `19` did not close in the eighth sweep and has not closed here;
+* the architecture criterion is **met more narrowly than it reads.** The package now has a
+  documented, gated boundary — and D-120 records that two of the boundary gate's three rules are
+  tautologies on the tree they shipped against. A criterion that is satisfied by a rule which could
+  not have failed is satisfied, and the verdict says by how much.
+
+**What the sweep could not check.** The `3,619,227`-record byte-identity result underwrites the
+architecture criterion and is not reproducible in this checkout. The sweep records it as carried on
+one party's word, with the second party who could not adjudicate it named. **Unmeasurable here, and
+that is the answer** rather than a verdict taken on trust and printed as `met`.
+
+---
+
+## D-126 — **The fourth consecutive waiver, and the reason is not the residue: the quota counts the wrong ledger.** There are `13` unambiguously citable numbers in the record file today, the schema cannot record migrating one of them, and recording the work honestly turns the gate red while recording it as zero passes clean
+
+**Status:** escalated to the maintainer with a measurement attached; the row is written as a waiver
+because the code has no other shape for it ·
+**Amends:** D-097, D-109 and D-118, all three of which walked the correct ledger and drew the
+correct conclusion about it ·
+**Evidence:** `tools/check_claims.py --residue` and `--migrate`, re-run; the trajectory experiment
+below ·
+**Depends on D-119**
+
+D-109 escalated four named replacements to the maintainer. D-118 recorded that the maintainer's
+answer is not in the tree and that the **escalation channel** is what has stopped working. This
+round's brief said a fourth waiver is a policy nobody follows, and told the recorder to pay it or
+escalate it. **It cannot be paid, and this record is why — with a fact none of the three previous
+walks had.**
+
+### The re-walk, which reproduces the previous verdict and moves it by one in each direction
+
+The residue in `docs/DECISIONS.md` is `42` numbers. Re-resolved against every field of
+`bench/results.json` this round: **`25` match nothing anywhere, `17` match only a coincidental value
+in an unrelated unit.** D-109 measured `26` and `16`. The split moved by one in the direction D-109
+predicted and named — *value-matched backing degrades faster than the measurement corpus grows* —
+and it is the third independent reproduction of the same terminal verdict. The residue is import
+attributions in milliseconds and microseconds that no runner saves, plus range endpoints and table
+cells whose deletion rewords a closed record. **It is terminal, and this record does not re-litigate
+that.**
+
+### The fact three walks missed, because they were all looking at the same ledger
+
+`docs/DECISIONS.md` carries **`42` deferred numbers and, separately, `42` value-matched numbers.**
+The coincidence of the two totals is almost certainly why nobody noticed there were two populations.
+Every previous walk — D-097's, D-109's, D-118's — resolved the deferred `42`. Running `--migrate`
+over the *other* `42` gives a different answer:
+
+```
+python tools/check_claims.py --migrate, docs/DECISIONS.md only.
+Command output, not a benchmark measurement.
+  AMBIGUOUS     29    several distinct candidate fields; not citable without a judgement
+  REPLICATED     6    several candidates, ONE distinct field -- citable
+  UNIQUE         7    exactly one candidate field       -- citable
+```
+
+**`13` of them are unambiguously citable today**, with named run ids and real metrics —
+`disambiguation.sdu21.most_frequent.macro_precision` → `89.03`,
+`rerank.med1250_test.min0.95.exact_f1` → `81.78`,
+`cascade.med1250_test.tier1_t0.90.exact_precision` → `91.62`, and ten more. That is genuine
+adjudication work, in the record file, available now. **The payable population in this file is not
+`1`. It is `1` on the ledger the quota reads and `13` on the ledger it does not.**
+
+### The instrument defect, measured rather than argued
+
+`trajectory_problems()` computes `fall = previous.deferred - entry.deferred` and requires
+`by_citation + by_deletion + by_fencing + by_other == fall`. **All four accounting columns are
+defined against the deferred fall.** The value-matched ledger is tracked — it may not grow, and the
+last row must equal its baseline — but no column can express a movement in it.
+
+```
+the experiment, run by the recorder against the shipped trajectory_problems().
+A round that migrates the 13 by real run-id citation and touches the deferred ledger not at all:
+
+  LedgerRound(deferred=189, value_matched=51, by_citation=13, from_record_file=13)
+    PROBLEM: the deferred ledger fell by 0 and the round accounts for 13. Say where every
+             migrated number went.
+    PROBLEM: moved 0 against a quota of 12, and records no waiver.
+
+  the SAME work, recorded as though it had not happened:
+
+  LedgerRound(deferred=189, value_matched=51, by_citation=0, from_record_file=0, waiver='x')
+    problems: 0
+```
+
+**The schema turns the gate red for recording the work and green for recording it as zero.** A
+round that did thirteen real citations must either lie about them or fail the check. That is not a
+policy that is hard to satisfy; it is a policy that penalises the only payment currently available.
+
+### Why the recorder did not simply do the thirteen anyway
+
+Three reasons, in order of weight. It would not satisfy the quota or the floor, both of which read
+`fall`, so a waiver would still be required and the round would have changed thirteen historical
+records to no recorded effect. It would couple thirteen numbers **inside closed decision records** to
+`--render`, which rewrites a placeholder to its *current* value — so a future re-render silently
+edits history, which is the released-entry hazard D-109 measured on `CHANGELOG.md`, in the one file
+where rewriting history is the specific thing forbidden. And the arithmetic is terminal either way:
+at `12` per round the file's payable `13` is exhausted in one round and every round after that is a
+forced waiver again.
+
+### The decision the maintainer is being asked to make
+
+Not "please answer D-109". One question, with the measurement that makes it decidable:
+
+**Should `MIGRATION_QUOTA` and `RECORD_FILE_FLOOR` count movement on the value-matched ledger?**
+If yes, `by_citation` needs to be defined against both falls and this round's successor can pay `13`
+of its `12` immediately. If no, then the quota is knowingly a floor on a population three
+independent walks have measured terminal, and the honest form of that is a per-file `closed`
+disposition — D-109's first escalated replacement — rather than a waiver written every round by
+whoever happens to be the recorder.
+
+**A fourth waiver is not evidence about the residue. It is the fourth measurement of the same broken
+channel**, and this one comes with the instrument defect that explains why three careful walks all
+concluded there was nothing to pay. `docs/notes/pydantic-cost.md`'s `70` — the largest population in
+the register, never probed by anybody — was assigned to nobody for a fourth round.
+
+---
+
 **Mandate III Phase C — D-110 through D-118, and they are in ASCENDING order**, like the block below
 them and unlike the rest of this file. D-110 frames the round and carries its lead finding, D-111 to
 D-113 are the three workstreams in dependency order, and D-114 to D-118 are the instruments that read

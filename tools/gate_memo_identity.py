@@ -24,9 +24,9 @@ the audit trail. So the comparison is ``to_json()``.
 
 What "forced off" means, and why it is a real code path
 -------------------------------------------------------
-:func:`acronymkit.governed.dictionary._set_memo_levels` makes
+:func:`acronymkit.catalog.dictionary._set_memo_levels` makes
 :meth:`GovernedDictionary._memo` hand out
-:class:`~acronymkit.governed.dictionary._NullMap` for a level that is off. That
+:class:`~acronymkit.catalog.dictionary._NullMap` for a level that is off. That
 map stores nothing and misses on every read. The per-token code is byte-identical
 between the arms: it still does one ``get`` and one write and cannot tell which
 map it holds. That matters because a "memo off" arm implemented as a second code
@@ -111,15 +111,15 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from acronymkit.exceptions import LexiconError  # noqa: E402
-from acronymkit.governed import (  # noqa: E402
+from acronymkit.catalog import (  # noqa: E402
     GovernedDictionary,
     NamingPolicy,
     expand_identifier,
 )
-from acronymkit.governed import dictionary as dictionary_module  # noqa: E402
-from acronymkit.governed.enums import UnknownPolicy  # noqa: E402
-from acronymkit.governed.tokenizer import split_identifier  # noqa: E402
+from acronymkit.catalog import dictionary as dictionary_module  # noqa: E402
+from acronymkit.catalog.enums import UnknownPolicy  # noqa: E402
+from acronymkit.catalog.tokenizer import split_identifier  # noqa: E402
+from acronymkit.exceptions import LexiconError  # noqa: E402
 
 #: Printed on every refusal, so a demonstration of this gate failing is
 #: attributable to the assertion rather than to the run. `docs/GATES.md` records
@@ -256,7 +256,7 @@ def run_arm(
     """Expand a corpus under one memo configuration.
 
     The dictionary is built **after** the levels are set, because
-    :func:`~acronymkit.governed.dictionary._set_memo_levels` is documented as not
+    :func:`~acronymkit.catalog.dictionary._set_memo_levels` is documented as not
     retroactively emptying a memo that already exists.
 
     Args:

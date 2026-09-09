@@ -370,7 +370,7 @@ workflow file.
 **The SBOM check asserts that pydantic is a dependency.** `publish.yml` fails the build unless
 `pydantic`, `pydantic-core` and `typing-extensions` all appear as components in both SBOMs. That is
 true today and is the right check today. [D-027](DECISIONS.md) removed pydantic from
-`acronymkit.governed` only; if the rest of [D-023](DECISIONS.md)'s migration is ever finished, this
+`acronymkit.catalog` only; if the rest of [D-023](DECISIONS.md)'s migration is ever finished, this
 step turns into a release-blocking failure whose message will not mention the migration. Update it in
 the same commit that removes the dependency.
 
@@ -386,7 +386,7 @@ re-run `build` and `release-assets` rather than re-tagging.
 
 **A changelog bullet in the current `0.3.0` section says the pydantic migration is "recommended, not
 executed" and that "no code has changed".** [D-027](DECISIONS.md) executed it for
-`acronymkit.governed`, so that sentence is false as written and the section has no `Changed` entry
+`acronymkit.catalog`, so that sentence is false as written and the section has no `Changed` entry
 for the migration. `CHANGELOG.md` is not this file's to edit; check it has been fixed before you tag,
 because it is the first thing a reader of the release notes will hit.
 

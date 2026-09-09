@@ -69,7 +69,7 @@ def predict_acronymkit_propagated(documents: Sequence, **config_overrides: objec
     an unrun derivation is how a claim like that turns out to be wrong.
     """
     from acronymkit import AcronymEngine, Config
-    from acronymkit.propagation import propagate
+    from acronymkit.nlp.propagation import propagate
 
     engine = AcronymEngine(Config(**config_overrides))
     predictions: dict[str, list[Pair]] = {}

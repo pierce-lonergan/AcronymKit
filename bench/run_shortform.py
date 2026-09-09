@@ -134,7 +134,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
-import acronymkit.extractor as extractor_module  # noqa: E402
+import acronymkit.nlp.extractor as extractor_module  # noqa: E402
 from acronymkit._pseudo_precision import (  # noqa: E402
     estimate_precisions,
     harvest_candidates,
@@ -147,7 +147,7 @@ from acronymkit._strategies import (  # noqa: E402
     split_long_form,
 )
 from acronymkit.config import Config  # noqa: E402
-from acronymkit.extractor import (  # noqa: E402
+from acronymkit.nlp.extractor import (  # noqa: E402
     AbbreviationExtractor,
     find_best_long_form,
     is_valid_long_form,
@@ -239,7 +239,7 @@ def trim_span_unbalanced(
 
     Transcribed rather than imported. This is the "off" side of the
     ``balanced_trim`` switch and it must keep meaning what it meant when the
-    variant table was recorded, whatever ``acronymkit.extractor`` does later.
+    variant table was recorded, whatever ``acronymkit.nlp.extractor`` does later.
     """
     budget = limit
     while start < end and budget > 0 and not text[start].isalnum():
@@ -253,7 +253,7 @@ def trim_span_unbalanced(
 
 
 #: How far back from the right edge the balance scan looks. Matches
-#: ``acronymkit.extractor._MAX_BALANCE_SCAN``; spelled out here for the same
+#: ``acronymkit.nlp.extractor._MAX_BALANCE_SCAN``; spelled out here for the same
 #: reason the pre-fix trim is.
 _MAX_BALANCE_SCAN = 32
 

@@ -47,7 +47,7 @@ import os
 import time
 from typing import TYPE_CHECKING, Callable, Iterable, Optional
 
-from .exceptions import ConfigurationError
+from .core.exceptions import ConfigurationError
 from .models import AcronymResult, BatchResult
 
 if TYPE_CHECKING:  # pragma: no cover - typing only; see "Import cost" above

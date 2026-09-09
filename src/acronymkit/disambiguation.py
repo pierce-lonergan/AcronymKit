@@ -136,12 +136,12 @@ and platforms.
 
 Import policy
 -------------
-:class:`~acronymkit.tokenizer.Tokenizer` and
-:class:`~acronymkit.extractor.AbbreviationExtractor` are imported at module
+:class:`~acronymkit.nlp.tokenizer.Tokenizer` and
+:class:`~acronymkit.nlp.extractor.AbbreviationExtractor` are imported at module
 level. That is safe here because neither module imports this one -- the
 dependency graph ``disambiguation -> {tokenizer, extractor} -> {config, enums,
 models, stopwords}`` is acyclic -- and neither import performs I/O: resource
-files are read when a :class:`~acronymkit.tokenizer.Tokenizer` is *constructed*,
+files are read when a :class:`~acronymkit.nlp.tokenizer.Tokenizer` is *constructed*,
 which this module defers until the first call that actually needs one.
 """
 
@@ -153,15 +153,14 @@ from pathlib import Path
 from typing import Iterable, Iterator, Mapping, Optional, Sequence
 
 from .config import Config, ScoringWeights
-from .conformal import ConformalGate
-from .enums import EngineTier
-from .exceptions import (
+from .core.conformal import ConformalGate
+from .core.exceptions import (
     ConfigurationError,
     LexiconError,
     ResourceNotFoundError,
     TierUnavailableError,
 )
-from .extractor import AbbreviationExtractor
+from .enums import EngineTier
 from .models import (
     AcronymPair,
     DisambiguationCandidate,
@@ -169,7 +168,8 @@ from .models import (
     EngineMetadata,
     Token,
 )
-from .tokenizer import Tokenizer
+from .nlp.extractor import AbbreviationExtractor
+from .nlp.tokenizer import Tokenizer
 
 __all__ = ["ExpansionDictionary", "LexicalDisambiguator"]
 
@@ -468,7 +468,7 @@ class ExpansionDictionary:
         """Build an index from extractor output.
 
         This is how a document teaches the disambiguator its own local
-        vocabulary: run :class:`~acronymkit.extractor.AbbreviationExtractor`
+        vocabulary: run :class:`~acronymkit.nlp.extractor.AbbreviationExtractor`
         over the corpus, feed the pairs in here, and every abbreviation the
         corpus defined becomes a candidate everywhere else it is used.
 
@@ -938,7 +938,7 @@ class LexicalDisambiguator:
         ``overlap`` (:data:`WEIGHT_OVERLAP`)
             Content-word agreement between the context bag and the expansion
             bag. Both bags are produced by the configured
-            :class:`~acronymkit.tokenizer.Tokenizer`, so stop words are excluded
+            :class:`~acronymkit.nlp.tokenizer.Tokenizer`, so stop words are excluded
             from both, comparison is case-folded, and the acronym itself is
             removed from the context bag. The term is the *mean* over the
             expansion's words of that word's best similarity against any

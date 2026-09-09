@@ -1,4 +1,4 @@
-"""Behavioural tests for :mod:`acronymkit.tokenizer`.
+"""Behavioural tests for :mod:`acronymkit.nlp.tokenizer`.
 
 The tokenizer is the contract every downstream subsystem depends on, so this
 module pins the guarantees rather than the implementation:
@@ -27,7 +27,7 @@ from acronymkit.config import Config
 from acronymkit.enums import HyphenPolicy, NumeralPolicy, StopWordCategory, TokenRole
 from acronymkit.exceptions import TokenizationError
 from acronymkit.models import Token
-from acronymkit.tokenizer import (
+from acronymkit.nlp.tokenizer import (
     Tokenizer,
     is_roman_numeral,
     normalize,

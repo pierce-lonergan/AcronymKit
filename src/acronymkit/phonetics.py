@@ -40,8 +40,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping, Optional
 
+from .core.exceptions import ResourceNotFoundError
 from .enums import Language
-from .exceptions import ResourceNotFoundError
 from .resources import has_resource, read_json_resource
 
 __all__ = [

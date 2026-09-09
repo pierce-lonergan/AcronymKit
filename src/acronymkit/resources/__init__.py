@@ -36,7 +36,7 @@ from functools import cache, lru_cache
 from pathlib import Path
 from typing import Any
 
-from ..exceptions import ResourceNotFoundError
+from ..core.exceptions import ResourceNotFoundError
 
 __all__ = [
     "available_languages",

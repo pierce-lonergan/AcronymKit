@@ -343,7 +343,7 @@ def test_the_entry_carries_the_licence_it_was_measured_under() -> None:
     entry = gold.evaluate(_arm([("incident_number", "Incident Number")]))
     assert entry["licence_url"] == gold.LICENCES["socrata"]["licence_url"]
     assert entry["licence_read_on"] == "2026-08-23"
-    assert entry["system"].startswith("acronymkit.governed.expand_identifier")
+    assert entry["system"].startswith("acronymkit.catalog.expand_identifier")
 
 
 # ---------------------------------------------------------------------------

@@ -50,7 +50,7 @@ from acronymkit.nlp.base import (
 from acronymkit.nlp.heuristic import DEFAULT_POS, MIN_STEM_LENGTH, SUFFIX_POS, guess_pos
 from acronymkit.nlp.nltk_backend import NLTK_LANGUAGE_CODES, penn_to_universal
 from acronymkit.nlp.spacy_backend import MODEL_BY_LANGUAGE
-from acronymkit.tokenizer import Tokenizer
+from acronymkit.nlp.tokenizer import Tokenizer
 from conftest import HAS_NLP_BACKEND, requires_nlp
 
 #: Names a Tier 1 backend may report.

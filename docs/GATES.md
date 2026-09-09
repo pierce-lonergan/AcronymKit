@@ -1526,7 +1526,8 @@ staleness window: a gate that turns red with the passage of time fires on an unr
 ## The forty-first gate: a crashed agent is now a different fact from a silent one
 
 `gates.agent_summary` is `python tools/run_summary.py --check-agent-summary`, in the `lint`
-environment, at `cost_rank` 39 of 41.
+environment, at `cost_rank` 39 of 42. (It was written as `39 of 41`; the denominator moved when
+`gates.architecture_boundaries` landed in the same round, and its own rank did not.)
 
 **It exists because the thirty-ninth gate's own `blind_to` says it cannot do this.** That entry
 reads, in as many words: *"an agent that dies before its penultimate tool call files nothing, and
@@ -1625,6 +1626,104 @@ missing.
 
 ---
 
+## The forty-second gate: the package boundary, and two of its three edges are tautologies
+
+`gates.architecture_boundaries` is `python -m pytest tests/test_architecture_boundaries.py`, in the
+`lint` environment, at `cost_rank` 40 of 42.
+
+**What it holds.** The package is split at a **lexer contract seam**: `acronymkit.core` (conformal
+risk arithmetic, the exception hierarchy, immutable span coordinates) is a leaf both halves may
+depend on; `acronymkit.nlp` holds prose chunking, candidate extraction, parenthetical matching and
+document propagation; `acronymkit.catalog` holds identifier tokenisation, symbol handling, casing
+decomposition and dictionary conformance. `catalog` never imports `nlp`, `nlp` never imports
+`catalog`, `core` imports neither — not at run time, not inside a function, not under
+`typing.TYPE_CHECKING`.
+
+**An AST walk, and the advantage over a grep is measured rather than asserted.** Five shapes write
+the same forbidden edge. A grep for `from acronymkit.catalog` finds **three** of them and misses
+**two** outright: `import acronymkit.catalog as _c`, and `importlib.import_module` on a literal. The
+two it does find — the deferred import inside a function body and the one inside
+`if TYPE_CHECKING:` — it finds only as text and cannot tell from a runtime dependency. The `3` of
+`5` is re-derived on every run by
+`TestTheInstrument::test_a_grep_finds_three_of_the_five`, and it fired the first time it ran:
+the test was written asserting `1` of `5`, because the brief it came from counted the deferred
+import among the misses, and a deferred import is still spelled `from acronymkit.catalog...`.
+**The instrument's own advantage over the instrument it replaces was a claim tighter than its
+measurement, and it survived exactly one run.**
+
+### The mutation is deliberately a shape the grep would miss
+
+`--mutate architecture_boundaries` adds `import acronymkit.nlp.tokenizer as _probe` to
+`src/acronymkit/core/spans.py` — the aliased form, one of the two a grep cannot see. A probe
+written as a plain from-import would have demonstrated the rule at the one shape every instrument
+catches, which is the weakest demonstration available and the one that leaves the AST work
+unevidenced.
+
+Run by hand on the mutated tree it gives `3 failed, 135 passed`, and the third failure is the one
+the register's first draft of that note did not predict:
+
+```
+python -m pytest tests/test_architecture_boundaries.py, one aliased import added to
+src/acronymkit/core/spans.py. Command output, not a benchmark measurement. CPython 3.13
+on win32; the tree restored from bytes read beforehand and re-run green.
+
+  architecture boundary crossed: src/acronymkit/core/spans.py:47 (import) -- acronymkit.core.spans
+    is in layer 'core' and imports acronymkit.nlp.tokenizer in layer 'nlp'.
+  architecture boundary crossed: import acronymkit.core bound ['acronymkit.nlp',
+    'acronymkit.nlp.base', 'acronymkit.nlp.heuristic', 'acronymkit.nlp.nltk_backend',
+    'acronymkit.nlp.spacy_backend', 'acronymkit.nlp.tokenizer']
+```
+
+The second line is a **runtime** assertion, not a static one: a fresh interpreter imports
+`acronymkit.core`, touches every name in its `__all__`, and reports what appeared in `sys.modules`.
+One aliased import in the leaf costs six modules at import time, which is a cost the static rule
+cannot price. `verified_locally_on` carries that date; the in-situ column is owed, because the
+commit that adds a gate cannot hold the CI run that demonstrates it.
+
+### Two of its three edges could not have failed here, and the register says so
+
+`catalog -> nlp` and `nlp -> catalog` **were never present in this tree**. That is not a happy
+accident, it is the reason the whole split came out byte-identical over `3,619,227` output records:
+the seam already existed in the import graph and the split relabelled it. So on the commit that
+shipped this gate, those two rules found nothing and *could not have found anything*. The edge that
+became newly possible is `core -> {nlp, catalog}`, because `core` did not exist until that commit.
+
+**A green run of this gate today is a statement about one edge and a silence about two**, and the
+mutation above is the only evidence any of the three can fail. That is R11 applied to a rule whose
+subject is mostly hypothetical — which is the honest description of every boundary rule on the day
+it ships.
+
+### What it cannot see
+
+**The facade is exempt and that is the loophole.** `engine.py`, `cli.py`, `disambiguation.py`,
+`models.py` and the package `__init__` are in no layer and may import both halves, because
+composing them is what a facade is for. Nothing here stops a prose-tokenizer result being handed to
+the identifier tokenizer inside `engine.py`: the contract collision would be back, one module
+further out, with every rule green. **The rule is about a dependency graph and a dependency graph
+cannot see a data flow.**
+
+**A computed import name defeats it.** `importlib.import_module(name)` where `name` is a variable
+is invisible to every static instrument. It is pinned as a deliberately-**failing-to-fire** test —
+`test_a_computed_import_name_is_invisible` asserts the walker returns nothing — so the limit is a
+test rather than a sentence somebody later claims is covered.
+
+**And it is redundant with `gates.suite`, which is why it ranks 40 of 42.** `python -m pytest` runs
+this same file in fifteen matrix cells, so a boundary violation reddens CI whether or not this
+entry exists. What the entry buys is a named mutation aimed at the seam, a failure in the cheap
+lint job that names the seam rather than one red case among 5,884, and a rule that is visible to
+somebody reading `.github/gates.toml` rather than only to somebody reading `tests/`.
+
+### It reads the installed package, not `src/`, and that is on purpose
+
+Four instances are on record here of a test that reads checkout-only paths and therefore reddens or
+vacates in the extracted-sdist and installed-wheel jobs; the newest was a prose rule reading `src/`,
+`docs/` and `README.md` as text, which reddened two jobs at once. This rule reads `.py` files, and
+`.py` files **ship** — so it resolves its root from `acronymkit.__file__` and runs identically in a
+checkout, in an extracted sdist and against an installed wheel. The one checkout-only assertion
+here is the marker check against `.github/gates.toml`, which skips with a reason and says so.
+
+---
+
 ## Running it yourself
 
 ```
@@ -1691,7 +1790,7 @@ say so — a reader comparing two trajectory rows will.
 **Every local demonstration in this round was run in a mirror of the tree, not in the tree.** The two
 new gates' mutations were verified by copying the working tree to a scratch directory and running
 `--mutate` there, because `gates.memo_identity`'s probe edits
-`src/acronymkit/governed/dictionary.py` and another workstream was editing that file at the time.
+`src/acronymkit/catalog/dictionary.py` and another workstream was editing that file at the time.
 `--mutate` restores from bytes read beforehand, and a restore that overwrites somebody else's
 concurrent write is a worse failure than a weaker probe. The mirror excludes `data/`, so
 `memo_identity` was demonstrated against the generated fixture corpus alone — which is what a runner

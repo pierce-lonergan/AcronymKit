@@ -69,7 +69,7 @@ from bench import corpora  # noqa: E402
 
 if TYPE_CHECKING:  # the library is imported lazily, inside the functions
     from acronymkit.models import Token
-    from acronymkit.tokenizer import Tokenizer
+    from acronymkit.nlp.tokenizer import Tokenizer
 
 #: Ranks reported in the recall curve.
 CUTOFFS = (1, 5, 10, 25)
@@ -435,7 +435,7 @@ def coverage_streams() -> dict[str, tuple[Tokenizer, int, bool]]:
     """
     from acronymkit import Config
     from acronymkit.enums import NumeralPolicy
-    from acronymkit.tokenizer import Tokenizer
+    from acronymkit.nlp.tokenizer import Tokenizer
 
     base: dict[str, object] = {"max_acronym_length": MAX_ACRONYM_LENGTH}
     every_stop_word = all_stop_words()

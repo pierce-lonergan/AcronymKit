@@ -1,11 +1,11 @@
 # Governed naming
 
-For the person wiring `acronymkit.governed` into a schema-governance pipeline. It answers one
+For the person wiring `acronymkit.catalog` into a schema-governance pipeline. It answers one
 question — *given the bare column token `TXN_ID` and our data standard, what does it mean?* — and it
 answers it out of the standard, never out of a model.
 
 ```python
-from acronymkit.governed import GovernedDictionary, expand_identifier
+from acronymkit.catalog import GovernedDictionary, expand_identifier
 
 nds = GovernedDictionary.from_long_to_short({"Transaction": "TXN", "Identifier": "ID"})
 expand_identifier("TXN_ID", nds).phrase          # 'Transaction Identifier'
@@ -18,8 +18,18 @@ cannot disagree — a catalog change that moves an abbreviation moves all three 
 The eight names an integration needs are also on the top-level package, so
 `from acronymkit import expand_identifier, GovernedDictionary` works too. `normalize` is the one
 that changes spelling on the way out — it is `acronymkit.normalize_name`, because
-`acronymkit.tokenizer.normalize` already exists and does something else. Either import path resolves
+`acronymkit.nlp.tokenizer.normalize` already exists and does something else. Either import path resolves
 lazily and costs nothing until it is used.
+
+> **This package was called `acronymkit.governed` and that path still works.** It is now
+> `acronymkit.catalog`, because the library is split at the boundary between its two tokenizers:
+> this one treats `#`, `%`, `_`, `:` and `/` as semantic tokens and may not lose a character, while
+> the prose tokenizer discards them and NFKC-normalises what is left. **`acronymkit.governed` and
+> all thirteen of its submodules still import and resolve to the same objects** —
+> `acronymkit.governed.tokenizer is acronymkit.catalog.tokenizer` — for the whole of the `0.x` line.
+> Nothing this package computes changed. Every `governed_*` run id, every `Governed*` type name and
+> every CLI verb is unchanged: *governed* is the posture, *catalog* is the thing.
+> See [docs/ARCHITECTURE.md](ARCHITECTURE.md).
 
 **If your standard is in a spreadsheet and your pipeline is in another language**, start with
 [docs/QUICKSTART_GOVERNED.md](QUICKSTART_GOVERNED.md) instead — it goes from a CSV to a whole schema
@@ -76,7 +86,7 @@ Standards** (`NDS`), with synthetic entry ids; it describes no real organisation
 it into a file and the rest of this page is executable.
 
 ```python
-from acronymkit.governed import (
+from acronymkit.catalog import (
     EntryKind, ExpansionSource, GovernedDictionary, GovernedEntry,
 )
 
@@ -158,7 +168,7 @@ Pass `custom=` to any verb and it is layered for that call only. The dictionary 
 modified.
 
 ```python
-from acronymkit.governed import expand_token
+from acronymkit.catalog import expand_token
 
 expand_token("KYC", nds).to_dict()
 # {'raw': 'KYC', 'long': 'Kyc', 'is_known': False, 'source': 'passthrough',
@@ -214,7 +224,7 @@ to sit inside a loop over a schema.
 an overlay that **contradicts** what the catalog already says.
 
 ```python
-from acronymkit.governed import NamingPolicy
+from acronymkit.catalog import NamingPolicy
 
 overlaid = nds.with_custom({"ID": "Identity"})
 strict   = NamingPolicy(allow_override=False)
@@ -318,7 +328,7 @@ four say the same thing, deliberately, because a consumer might only read one of
 A whole physical name, token by token.
 
 ```python
-from acronymkit.governed import expand_identifier
+from acronymkit.catalog import expand_identifier
 
 result = expand_identifier("TXN_APPLNT_ID", nds)
 result.phrase           # 'Transaction Applicant Identifier'
@@ -344,7 +354,7 @@ Splitting understands the conventions physical names are written in — separato
 acronym runs and letter/digit boundaries — and is available on its own:
 
 ```python
-from acronymkit.governed import split_identifier
+from acronymkit.catalog import split_identifier
 
 split_identifier("TXN_APPLNT_DOB_DT")       # ('TXN', 'APPLNT', 'DOB', 'DT')
 split_identifier("creditBureauVendorCode")  # ('credit', 'Bureau', 'Vendor', 'Code')
@@ -373,7 +383,7 @@ The reverse direction: a logical name rendered as `UPPER_SNAKE`, word by word, t
 dictionary's reverse index.
 
 ```python
-from acronymkit.governed import to_physical_name
+from acronymkit.catalog import to_physical_name
 
 name = to_physical_name("Customer Account Open Date", nds)
 name.physical      # 'CUST_ACCT_OPEN_DT'
@@ -413,7 +423,7 @@ Never a bare boolean. `False` is not actionable: a name fails because of *someth
 something is usually one token out of six.
 
 ```python
-from acronymkit.governed import is_compliant
+from acronymkit.catalog import is_compliant
 
 is_compliant("TXN_APPLNT_ID", nds).compliant     # True
 ```
@@ -458,7 +468,7 @@ reviewer reading "`FRAUD`: unapproved abbreviation, did you mean `FRD`?" learns 
 Applies the corrections the vocabulary justifies, in one pass.
 
 ```python
-from acronymkit.governed import normalize
+from acronymkit.catalog import normalize
 
 normalize("custmr_acct_num", nds)            # 'CUST_ACCT_NBR'
 normalize("custmrAcctNum", nds)              # 'CUST_ACCT_NBR'
@@ -494,8 +504,8 @@ it uses nothing external — no corpus, no frequency table, no model:
 | +1 per character | length tiebreak |
 
 ```python
-from acronymkit.governed import score_breakdown
-from acronymkit.governed.scoring import rank_candidates
+from acronymkit.catalog import score_breakdown
+from acronymkit.catalog.scoring import rank_candidates
 
 score_breakdown("Idaho", "ID")
 # {'us_state': 100.0, 'gerund': 0.0, 'adverb': 0.0, 'past_tense': 0.0,
@@ -531,7 +541,7 @@ that can drift — one call site left on the default policy while the rest moved
 bug no type checker sees.
 
 ```python
-from acronymkit.governed.namer import GovernedNamer
+from acronymkit.catalog.namer import GovernedNamer
 
 namer = GovernedNamer(nds, custom={"KYC": "Know Your Customer"})
 
@@ -622,12 +632,12 @@ glossary — because a governed standard keeps those in separate files from the 
 
 Nobody hands out a JSON array of `GovernedEntry` rows. A governance function keeps its standard in a
 workbook: a sheet of long form and preferred abbreviation, a sheet of tokens that may stand in a
-physical name, a sheet of class words, a pin sheet, and a term glossary. `acronymkit.governed.loaders`
+physical name, a sheet of class words, a pin sheet, and a term glossary. `acronymkit.catalog.loaders`
 reads those, so the script that used to open five files and merge them lives in one place instead of
 in every caller's repository.
 
 ```python
-from acronymkit.governed.loaders import load_bundle
+from acronymkit.catalog.loaders import load_bundle
 
 bundle = load_bundle("tests/fixtures/governed")
 len(bundle.entries)                                # 68
@@ -703,10 +713,10 @@ first day — *what will this do to our schema, and what is our catalog missing?
 means calling `expand_identifier` once per column and reducing the results. That reduction is
 mechanical, every team would write it slightly differently, and the differences would all be in the
 same two places: what counts as an unknown token worth acting on, and what a round trip that does
-not return its input actually means. So it is written once, in `acronymkit.governed.audit`.
+not return its input actually means. So it is written once, in `acronymkit.catalog.audit`.
 
 ```python
-from acronymkit.governed.audit import audit_identifiers, render_audit, suggest_catalog_additions
+from acronymkit.catalog.audit import audit_identifiers, render_audit, suggest_catalog_additions
 
 corpus = ["CUST_ACCT_KYC_ID", "CUSTOMER_ACCOUNT_ID", "TXN_APPLNT_ID",
           "CUSTMR_ACCT_NUM", "KYC_REVIEW_DT"]
@@ -791,7 +801,7 @@ one thing this subsystem can say to somebody who has a schema, has the labels th
 carries, and does not yet have a glossary. Which is everybody, on day zero.
 
 ```python
-from acronymkit.governed.gap import catalog_gap, render_gap
+from acronymkit.catalog.gap import catalog_gap, render_gap
 
 schema = [("CUSTOMER_NAME",     "Customer Name"),
           ("TXN_APPLNT_ID",     "Transaction Applicant Identifier"),
@@ -912,7 +922,7 @@ requirement for labels entirely. Scored over the same population it calls
 (77.87<!--claim:catalog_gap.socrata.word_list_control.false_positive_pct:.2f--> %) appear verbatim as a
 whole word in a caption, so they were reachable and the classifier was wrong about them. The causes
 are structural rather than tunable — other languages, ordinals, domain vocabulary, concatenations.
-**So `acronymkit.governed.gap` imports no lexicon**, and a column with no label is reported as
+**So `acronymkit.catalog.gap` imports no lexicon**, and a column with no label is reported as
 unlabelled rather than guessed at. Run id `catalog_gap.socrata.word_list_control`, verdict
 `REJECTED`. That arm can refute the classifier and cannot confirm it, which is stated on the entry.
 
@@ -1034,7 +1044,7 @@ to a character that has no case to change. The separator set is closed and writt
 everything outside it is reported rather than dropped:
 
 ```python
-from acronymkit.governed.tokenizer import ACCOUNTED_SEPARATORS, split_identifier_parts
+from acronymkit.catalog.tokenizer import ACCOUNTED_SEPARATORS, split_identifier_parts
 
 sorted(ACCOUNTED_SEPARATORS)      # ['"', "'", '-', '.', '/', '[', ']', '_', '`']
 ```
@@ -1090,7 +1100,7 @@ no catalog row can settle.
 Two smaller rules in the same family:
 
 ```python
-from acronymkit.governed.tokenizer import split_identifier, strip_qualifier
+from acronymkit.catalog.tokenizer import split_identifier, strip_qualifier
 
 split_identifier("1ST_TXN_DT")           # ('1ST', 'TXN', 'DT')
 split_identifier("1STATE")               # ('1', 'STATE')
@@ -1106,7 +1116,7 @@ writer saying a new word starts there. `strip_qualifier` drops a leading `schema
 qualifier from a fully qualified name, which is the shape an information-schema export arrives in.
 
 `ACCOUNTED_SEPARATORS`, `IdentifierParts`, `split_identifier_parts` and `strip_qualifier` are defined
-in `acronymkit.governed.tokenizer` and re-exported from `acronymkit.governed` alongside
+in `acronymkit.catalog.tokenizer` and re-exported from `acronymkit.catalog` alongside
 `split_identifier`, so the shorter import works too and resolves lazily like every other name on that
 package. None of the five reaches the top-level `acronymkit`, which carries only the eight names an
 integration needs. A port has to reproduce the separator set and the ordinal suffixes exactly; the
@@ -1155,7 +1165,7 @@ they were already on. It is reached by copying the policy, or by `--unknown reje
 command:
 
 ```python
-from acronymkit.governed import UnknownPolicy
+from acronymkit.catalog import UnknownPolicy
 
 strict_unknown = NamingPolicy.governed_default().model_copy(
     update={"unknown": UnknownPolicy.REJECT}
@@ -1192,7 +1202,7 @@ about any corpus and nothing measured on it transfers to one.
 ## The four invariants
 
 Four claims, each with the test that carries it. Every example below was run against
-`src/acronymkit/governed/` and the fixture corpus, and its output is pasted as it came.
+`src/acronymkit/catalog/` and the fixture corpus, and its output is pasted as it came.
 
 | Invariant | The statement | Test that carries it, in `tests/test_governed.py` |
 |---|---|---|
@@ -1393,7 +1403,7 @@ DERIVED from data/governed_gold/*.json through split_identifier_parts; no judgem
 Run by this workstream; the probe is a scratch script and is NOT committed, so the figures are
 re-derivable from the four lines of code below and are not gated by CI.
 
-  from acronymkit.governed.tokenizer import split_identifier_parts
+  from acronymkit.catalog.tokenizer import split_identifier_parts
   vals = sorted({row[COLUMN] for row in json.load(open(PATH))["payload"]})
   hits = [v for v in vals if split_identifier_parts(v).unaccounted]
 

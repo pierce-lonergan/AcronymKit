@@ -17,7 +17,7 @@ inspect them::
     acronymkit version
     acronymkit doctor
 
-*Governed naming* (:mod:`acronymkit.governed`): expand a database identifier
+*Governed naming* (:mod:`acronymkit.catalog`): expand a database identifier
 against a vocabulary somebody has already written down, render the reverse
 direction, and check a name against the standard::
 
@@ -165,9 +165,9 @@ from typing import (
 from pydantic import ValidationError
 
 from .config import Config
+from .core.exceptions import AcronymKitError, LexiconError
 from .engine import AcronymEngine
 from .enums import EngineTier, Language, ScoringStrategy
-from .exceptions import AcronymKitError, LexiconError
 from .models import (
     AcronymCandidate,
     AcronymResult,
@@ -183,17 +183,17 @@ if TYPE_CHECKING:
     # command needs seven more Pydantic models, and ``acronymkit generate``
     # should not build their core schemas to find out it does not want them.
     # These are the annotations only.
-    from .governed.audit import CatalogSuggestion
-    from .governed.dictionary import GovernedDictionary
-    from .governed.models import (
+    from .catalog.audit import CatalogSuggestion
+    from .catalog.dictionary import GovernedDictionary
+    from .catalog.models import (
         ComplianceResult,
         GovernedEntry,
         IdentifierExpansion,
         PhysicalName,
         TokenExpansion,
     )
-    from .governed.namer import GovernedNamer
-    from .governed.policy import NamingPolicy
+    from .catalog.namer import GovernedNamer
+    from .catalog.policy import NamingPolicy
 
 __all__ = ["cli", "main"]
 
@@ -238,7 +238,7 @@ _SCALAR_OPTIONS: dict[str, str] = {
 }
 
 #: Values accepted by ``--policy``, each the name of a
-#: :class:`~acronymkit.governed.policy.NamingPolicy` classmethod. Spelling them
+#: :class:`~acronymkit.catalog.policy.NamingPolicy` classmethod. Spelling them
 #: as the constructor names rather than inventing CLI-flavoured aliases means
 #: ``--policy frequency_baseline`` and ``NamingPolicy.frequency_baseline()``
 #: cannot come to mean different things, and the list is resolved by
@@ -251,7 +251,7 @@ _POLICY_PRESETS = (
 )
 
 #: Values accepted by ``--unknown``, each the value of a
-#: :class:`~acronymkit.governed.enums.UnknownPolicy` member. Two of the three
+#: :class:`~acronymkit.catalog.enums.UnknownPolicy` member. Two of the three
 #: members, and the omission is deliberate: ``neural`` behaves as passthrough in
 #: this release, so offering it here would be a third spelling of a flag that
 #: does nothing, and the preset that declares the opt-in — ``neural_optin`` —
@@ -292,7 +292,7 @@ _BATCH_OPS = ("expand", "physical", "check", "normalize", "audit")
 _JSONL_SEPARATORS = (",", ":")
 
 #: Keys a ``--dictionary`` object may carry beside its entries, each named
-#: exactly for the :class:`~acronymkit.governed.dictionary.GovernedDictionary`
+#: exactly for the :class:`~acronymkit.catalog.dictionary.GovernedDictionary`
 #: keyword argument it supplies. A governed standard normally keeps these in
 #: files of their own; the CLI has one flag for the vocabulary, so it reads
 #: them from the one file and does nothing when they are absent.
@@ -653,7 +653,7 @@ def _is_catalog_document(document: Any) -> bool:
     Returns:
         ``True`` for a bare array of rows, or for an object carrying them under
         ``"entries"`` — the two layouts
-        :meth:`~acronymkit.governed.dictionary.GovernedDictionary.from_json`
+        :meth:`~acronymkit.catalog.dictionary.GovernedDictionary.from_json`
         accepts. Anything else is treated as a plain token mapping.
     """
     if isinstance(document, list):
@@ -818,10 +818,10 @@ def _governed_dictionary(click: Any, options: dict[str, Any]) -> GovernedDiction
         A directory holding a whole standard — catalog, allow-lists, class
         words, pin sheet and term glossary — or one JSON object carrying the
         same sections. See
-        :func:`~acronymkit.governed.loaders.load_bundle` for the file names it
+        :func:`~acronymkit.catalog.loaders.load_bundle` for the file names it
         accepts and how the pin sheet is merged.
     ``catalog``
-        Full :class:`~acronymkit.governed.models.GovernedEntry` rows, as a bare
+        Full :class:`~acronymkit.catalog.models.GovernedEntry` rows, as a bare
         array or under an ``"entries"`` key. Keys listed in
         :data:`_VOCABULARY_KEYS` are read from the same object when present.
     ``short_to_long``
@@ -855,7 +855,7 @@ def _governed_dictionary(click: Any, options: dict[str, Any]) -> GovernedDiction
         click.UsageError: If the file is unreadable, is not JSON, does not hold
             the declared layout, or holds a malformed row.
     """
-    from .governed.dictionary import GovernedDictionary
+    from .catalog.dictionary import GovernedDictionary
 
     path = str(options["dictionary_path"])
     source = Path(path)
@@ -903,7 +903,7 @@ def _load_governed_file(
         click.UsageError: Carrying whatever the loader refused, which already
             names the file and the column.
     """
-    from .governed.loaders import load_bundle, load_csv, load_long_to_short_csv
+    from .catalog.loaders import load_bundle, load_csv, load_long_to_short_csv
 
     try:
         if layout == "bundle":
@@ -932,14 +932,14 @@ def _governed_overlay(
 
     Two value shapes, matching what the library takes: a bare string is the
     long form and nothing more, and an object is a whole
-    :class:`~acronymkit.governed.models.GovernedEntry`, so an overlay can carry
+    :class:`~acronymkit.catalog.models.GovernedEntry`, so an overlay can carry
     its own provenance handle, confidence and kind rather than borrowing the
     catalog's.
 
     An entry object may leave out ``token`` and ``source``, which are otherwise
     required fields. Both are filled in here — ``token`` from the mapping key,
     ``source`` as ``custom`` — because
-    :class:`~acronymkit.governed.dictionary.GovernedDictionary` rewrites both to
+    :class:`~acronymkit.catalog.dictionary.GovernedDictionary` rewrites both to
     exactly those values on the way in whatever the caller wrote. Demanding
     that a caller type a field whose value is discarded teaches them that the
     field means something, and it does not. Nothing else is defaulted: the
@@ -961,7 +961,7 @@ def _governed_overlay(
     """
     if not value:
         return None
-    from .governed.models import GovernedEntry
+    from .catalog.models import GovernedEntry
 
     document = _read_json_argument(click, "--custom", value)
     if not isinstance(document, dict):
@@ -993,7 +993,7 @@ def _governed_overlay(
 
 
 def _governed_policy(name: str, unknown: Optional[str] = None) -> NamingPolicy:
-    """Return the named :class:`~acronymkit.governed.policy.NamingPolicy` preset.
+    """Return the named :class:`~acronymkit.catalog.policy.NamingPolicy` preset.
 
     ``unknown`` is the one field of the preset a command line may change, and it
     is a field rather than a fifth preset because "reject unknown tokens" is
@@ -1019,8 +1019,8 @@ def _governed_policy(name: str, unknown: Optional[str] = None) -> NamingPolicy:
         requested ``unknown`` handling. The presets are memoised and frozen, so
         the copy is what keeps an override from reaching the next caller.
     """
-    from .governed.enums import UnknownPolicy
-    from .governed.policy import NamingPolicy
+    from .catalog.enums import UnknownPolicy
+    from .catalog.policy import NamingPolicy
 
     constructor: Callable[[], NamingPolicy] = getattr(NamingPolicy, name)
     policy = constructor()
@@ -1615,13 +1615,13 @@ def _governed_namer(click: Any, options: dict[str, Any]) -> GovernedNamer:
         options: The command callback's keyword arguments.
 
     Returns:
-        A :class:`~acronymkit.governed.namer.GovernedNamer` over the requested
+        A :class:`~acronymkit.catalog.namer.GovernedNamer` over the requested
         vocabulary and policy.
 
     Raises:
         click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
     """
-    from .governed.namer import GovernedNamer
+    from .catalog.namer import GovernedNamer
 
     dictionary, policy, custom = _governed_context(click, options)
     return GovernedNamer(dictionary, policy, custom=custom)
@@ -1738,7 +1738,7 @@ def _batch_operation(op: str, namer: GovernedNamer) -> Callable[[str], dict[str,
     are paid for by the process rather than by the corpus.
 
     ``audit`` is the one entry that is not a verb: it runs
-    :func:`~acronymkit.governed.audit.audit_identifiers` over the single name
+    :func:`~acronymkit.catalog.audit.audit_identifiers` over the single name
     and returns the per-identifier record, which is the shape a governance
     pipeline writes into its findings table — known, compliant, which tokens
     are missing, which reason codes fired, and what the governed form would be.
@@ -1762,7 +1762,7 @@ def _batch_operation(op: str, namer: GovernedNamer) -> Callable[[str], dict[str,
     if op == "normalize":
         return lambda subject: {"name": subject, "normalized": namer.normalize(subject)}
 
-    from .governed.audit import IdentifierAudit, audit_identifiers
+    from .catalog.audit import IdentifierAudit, audit_identifiers
 
     def audit_one(subject: str) -> dict[str, Any]:
         """Audit one name, filling in the record the audit keeps only when notable."""
@@ -1881,7 +1881,7 @@ def _batch_identifiers(stream: Any, problems: list[str]) -> Iterator[str]:
     The reading half of :func:`_run_batch` without the answering half, for
     ``governed-audit``, which consumes a corpus rather than answering it record
     by record. A generator rather than a list, because
-    :func:`~acronymkit.governed.audit.audit_identifiers` consumes its argument
+    :func:`~acronymkit.catalog.audit.audit_identifiers` consumes its argument
     exactly once and a schema export should not be held in memory to be counted.
 
     Args:
@@ -2027,7 +2027,7 @@ def _vocabulary_options(click: Any) -> Callable[[_Decorator], _Decorator]:
     making up — which is the single thing the subsystem exists not to do. It
     accepts a directory as well as a file, because a standard is five files and
     a flag that took only one of them would send every caller back to writing
-    the merge script :func:`~acronymkit.governed.loaders.load_bundle` exists to
+    the merge script :func:`~acronymkit.catalog.loaders.load_bundle` exists to
     delete.
 
     ``--policy`` names one of the four presets rather than exposing the nine
@@ -2434,7 +2434,7 @@ def build_cli() -> Any:
             LexiconError: If the policy is ``UnknownPolicy.REJECT`` and the
                 vocabulary does not contain the token.
         """
-        from .governed.expansion import expand_token
+        from .catalog.expansion import expand_token
 
         dictionary, policy, custom = _governed_context(click, options)
         expansion = expand_token(token, dictionary, policy, custom=custom)
@@ -2461,7 +2461,7 @@ def build_cli() -> Any:
             LexiconError: If the policy is ``UnknownPolicy.REJECT`` and any
                 token is not in the vocabulary.
         """
-        from .governed.expansion import expand_identifier
+        from .catalog.expansion import expand_identifier
 
         dictionary, policy, custom = _governed_context(click, options)
         expansion = expand_identifier(identifier, dictionary, policy, custom=custom)
@@ -2486,7 +2486,7 @@ def build_cli() -> Any:
         Raises:
             click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
         """
-        from .governed.naming import to_physical_name
+        from .catalog.naming import to_physical_name
 
         dictionary, policy, custom = _governed_context(click, options)
         rendered = to_physical_name(logical, dictionary, policy, custom=custom)
@@ -2520,7 +2520,7 @@ def build_cli() -> Any:
         Raises:
             click.UsageError: If ``--dictionary`` or ``--custom`` is unusable.
         """
-        from .governed.compliance import normalize
+        from .catalog.compliance import normalize
 
         dictionary, policy, custom = _governed_context(click, options)
         normalized = normalize(name, dictionary, policy, custom=custom)
@@ -2553,7 +2553,7 @@ def build_cli() -> Any:
             SystemExit: With :data:`EXIT_FAILURE` when the name is not
                 compliant. The output is printed first.
         """
-        from .governed.compliance import is_compliant
+        from .catalog.compliance import is_compliant
 
         dictionary, policy, custom = _governed_context(click, options)
         result = is_compliant(name, dictionary, policy, custom=custom)
@@ -2725,7 +2725,7 @@ def build_cli() -> Any:
                 read. The report is printed first, because a corpus with one bad
                 line is still a corpus worth reporting on.
         """
-        from .governed.audit import audit_identifiers, render_audit, suggest_catalog_additions
+        from .catalog.audit import audit_identifiers, render_audit, suggest_catalog_additions
 
         dictionary, policy, custom = _governed_context(click, options)
         stream, close_it = _batch_stream(click, file)
@@ -2918,7 +2918,7 @@ def build_cli() -> Any:
                 both named columns, or if ``--dictionary``/``--custom`` is
                 unusable.
         """
-        from .governed.gap import catalog_gap, render_gap
+        from .catalog.gap import catalog_gap, render_gap
 
         dictionary = (
             _governed_dictionary(click, options)

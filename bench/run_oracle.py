@@ -39,7 +39,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
 from acronymkit._strategies import split_long_form  # noqa: E402
-from acronymkit.extractor import is_valid_short_form  # noqa: E402
+from acronymkit.nlp.extractor import is_valid_short_form  # noqa: E402
 from bench import corpora  # noqa: E402
 from bench.run_extraction import (  # noqa: E402
     EXTERNAL_SYSTEMS,

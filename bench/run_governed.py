@@ -75,14 +75,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
-from acronymkit.governed import (  # noqa: E402
+from acronymkit.catalog import (  # noqa: E402
     GovernedDictionary,
     expand_identifier,
     expand_token,
     is_compliant,
     to_physical_name,
 )
-from acronymkit.governed.tokenizer import split_identifier  # noqa: E402
+from acronymkit.catalog.tokenizer import split_identifier  # noqa: E402
 
 #: The fixture catalog and corpus. Synthetic throughout — see the corpus README.
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "governed"

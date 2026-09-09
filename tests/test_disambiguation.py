@@ -27,9 +27,9 @@ from acronymkit.exceptions import (
     ResourceNotFoundError,
     TierUnavailableError,
 )
-from acronymkit.extractor import AbbreviationExtractor
 from acronymkit.models import DisambiguationResult, EngineMetadata
-from acronymkit.tokenizer import Tokenizer
+from acronymkit.nlp.extractor import AbbreviationExtractor
+from acronymkit.nlp.tokenizer import Tokenizer
 
 # ---------------------------------------------------------------------------
 # Fixtures

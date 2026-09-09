@@ -41,6 +41,30 @@ jobs:
         run: python -m ruff format --check src tests tools bench
       - name: Mypy
         run: python -m mypy
+      - name: The lexer contract seam holds -- catalog never imports nlp, nlp never imports catalog, core imports neither
+        # THE PACKAGE IS SPLIT AT A MEASURED SEAM AND THIS IS WHAT HOLDS IT
+        # SPLIT. Two tokenizers here have irreconcilable contracts: the prose
+        # one treats punctuation as a clause boundary and NFKC-normalises what
+        # is left; the identifier one treats `#`, `%`, `_`, `:` and `/` as
+        # semantic and may not lose a character. Each destroys the other's
+        # input -- character loss on 14.6560 % of distinct Socrata captions and
+        # 36.0072 % of distinct SEC XBRL labels. So `acronymkit.catalog` never
+        # imports `acronymkit.nlp`, `acronymkit.nlp` never imports
+        # `acronymkit.catalog`, and `acronymkit.core` -- conformal arithmetic,
+        # the exception hierarchy, span coordinates -- imports neither.
+        #
+        # AN AST WALK RATHER THAN A GREP, AND THE DIFFERENCE IS MEASURED. Five
+        # shapes write the same forbidden edge; a grep for
+        # `from acronymkit.catalog` finds three of them and misses two outright
+        # (`import acronymkit.catalog as _c`, and `importlib.import_module` on a
+        # literal), and cannot tell the two it finds from a runtime dependency.
+        # The registered mutation is deliberately one of the two it misses.
+        #
+        # REDUNDANT WITH `Test`, ON PURPOSE AND SAID OUT LOUD: this file also
+        # runs inside `python -m pytest`. What this step adds is a named
+        # mutation aimed at the seam and a failure that names the seam rather
+        # than one red case among 5,884.
+        run: python -m pytest tests/test_architecture_boundaries.py
       - name: The train/test manifest parses, and every corpus cites its licence
         # bench/splits.toml is where operating rule 2 (MED1250 is a tuning
         # split) and operating rule 4 (licences come from terms, never a badge)

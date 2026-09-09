@@ -17,8 +17,8 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import Optional
 
+from ..core.exceptions import AcronymKitError
 from ..enums import Language, StopWordCategory, TokenRole
-from ..exceptions import AcronymKitError
 from ..models import Token
 from ..stopwords import StopWordRegistry
 from .base import Annotation, apply_annotations

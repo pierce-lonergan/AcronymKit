@@ -1,4 +1,4 @@
-"""Tests for :mod:`acronymkit.extractor` -- the Schwartz & Hearst implementation.
+"""Tests for :mod:`acronymkit.nlp.extractor` -- the Schwartz & Hearst implementation.
 
 The algorithm trades recall for precision, so most of what is pinned here is a
 *refusal* to fire: enumerations, cross-references, prose parentheticals and
@@ -18,14 +18,14 @@ from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from acronymkit.config import Config
-from acronymkit.extractor import (
+from acronymkit.models import AcronymPair
+from acronymkit.nlp.extractor import (
     AbbreviationExtractor,
     _trim_span,
     find_best_long_form,
     is_valid_long_form,
     is_valid_short_form,
 )
-from acronymkit.models import AcronymPair
 from conftest import EXTRACTION_CASES, timing_budget
 
 # ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-"""Acceptance gate for :mod:`acronymkit.governed.audit`.
+"""Acceptance gate for :mod:`acronymkit.catalog.audit`.
 
 The audit is arithmetic over answers the three verbs already gave, so the
 strongest thing this suite can assert is exactly that: for every count, running
@@ -41,8 +41,7 @@ from typing import Any, Optional
 
 import pytest
 
-from acronymkit.exceptions import ConfigurationError
-from acronymkit.governed import (
+from acronymkit.catalog import (
     ComplianceReasonCode,
     EntryKind,
     ExpansionSource,
@@ -56,13 +55,14 @@ from acronymkit.governed import (
     normalize,
     to_physical_name,
 )
-from acronymkit.governed.audit import (
+from acronymkit.catalog.audit import (
     CatalogSuggestion,
     CorpusAudit,
     audit_identifiers,
     render_audit,
     suggest_catalog_additions,
 )
+from acronymkit.exceptions import ConfigurationError
 from test_governed import ALL_POLICIES, CORPUS, EMPTY, NDS
 
 # --------------------------------------------------------------------------

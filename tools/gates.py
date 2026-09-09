@@ -658,6 +658,52 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
             "checked, and those are different sentences."
         ),
     ),
+    InSituRound(
+        label="M3-PD (the seam)",
+        gates=42,
+        in_situ=21,
+        owed_forward=1,
+        added_gates=(),
+        waiver=(
+            "ONE GATE ARRIVED WITH THE PACKAGE SPLIT AND IT CANNOT CARRY EVIDENCE IN THE COMMIT "
+            "THAT CREATES IT. gates.architecture_boundaries is `python -m pytest "
+            "tests/test_architecture_boundaries.py`: an AST import-boundary rule holding the "
+            "lexer contract seam the package was split at -- catalog never imports nlp, nlp "
+            "never imports catalog, core imports neither, in any of five import shapes and "
+            "through a compatibility path or not. It is `automated`, its mutation is one aliased "
+            "import added to src/acronymkit/core/spans.py, and it is runnable on a runner today, "
+            "so it is a DEBT and not a limit: debt 20 -> 21 in this commit, against the ceiling "
+            "of 20 M3-PD (the agent-summary round) left. gate-mutation.yml triggers on "
+            ".github/gates.toml, .github/workflows/*.yml and tools/gates.py and this commit "
+            "touches all three, so the push that lands this work is the run that owes the "
+            "demonstration -- the same route M3-PC-operator used to pay its own waiver inside "
+            "one session at run 34352662794. IF THAT RUN DOES NOT LAND, THIS ROW IS THE RECORD "
+            "OF A PROMISE and the next round is entitled to say so. RANKED 40 OF 42, and the "
+            "rank is an argument against the gate: `gates.suite` already runs this file in "
+            "fifteen matrix cells, so inert it costs nothing that gate does not already catch. "
+            "The top-of-ranking rule is not engaged and `added_gates` is deliberately empty."
+        ),
+        note=(
+            "Registration, not demonstration. 41 -> 42 gates, in-situ unchanged at 21, debt 20 "
+            "-> 21. THE 20/22 THIS ROW SHIPPED WITH WERE MEASURED ON AN UNMERGED TREE and the "
+            "recorder corrected them to the register's own arithmetic; D-119 has the account. "
+            "ruff and ruff_format move 40 -> 41 and 41 -> 42; nothing else in the "
+            "ordering moves, because (repository, silent) is a bucket nothing else occupies and "
+            "it sits between the evidence_apparatus block and the two loud lint gates. "
+            "THE BRIEF SAID `do not raise the debt` AND THIS ROW RAISES IT BY ONE. That is "
+            "reported rather than dressed up: for a gate added in the commit that creates it, "
+            "`owed_forward` IS the mechanism -- the debt-may-not-rise rule fires before any "
+            "waiver is consulted, so the only alternatives were to demonstrate a different gate "
+            "in situ (this workstream cannot push) or to not ship the gate. "
+            "THE HONEST LIMIT, WHICH IS LARGER THAN THE GATE: two of its three edges are "
+            "TAUTOLOGIES on this tree. catalog -> nlp and nlp -> catalog were never present "
+            "before the split -- that is precisely why the split came out byte-identical over "
+            "3,619,227 output records -- so those two rules found nothing and could not have "
+            "found anything here. Only core -> {nlp, catalog} became newly possible, because "
+            "core did not exist until this commit. A green run of this gate today is a "
+            "statement about one edge and a silence about two."
+        ),
+    ),
 )
 
 

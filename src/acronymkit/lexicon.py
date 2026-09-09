@@ -39,8 +39,8 @@ from functools import cache
 from pathlib import Path
 from typing import Any, Optional
 
+from .core.exceptions import LexiconError, ResourceNotFoundError
 from .enums import Language
-from .exceptions import LexiconError, ResourceNotFoundError
 from .resources import read_lines_resource
 
 __all__ = ["Lexicon"]

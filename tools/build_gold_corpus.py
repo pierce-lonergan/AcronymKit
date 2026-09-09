@@ -782,7 +782,7 @@ def propose_acronymkit(texts: Mapping[str, str]) -> Dict[str, List[Tuple[str, st
     """
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from acronymkit.config import Config
-    from acronymkit.extractor import AbbreviationExtractor
+    from acronymkit.nlp.extractor import AbbreviationExtractor
 
     extractor = AbbreviationExtractor(
         Config(
