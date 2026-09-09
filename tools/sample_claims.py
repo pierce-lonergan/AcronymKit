@@ -91,6 +91,7 @@ import importlib.util
 import json
 import math
 import random
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -129,6 +130,27 @@ DEFAULT_RECENT_COMMITS = 20
 #: claim nobody can check is not a claim shown to be true, and excluding it
 #: would let a round improve its rate by making claims harder to check.
 VERDICTS: Tuple[str, ...] = ("TRUE", "FALSE", "MISLEADING", "UNCHECKABLE")
+
+#: A bare four-digit integer in this range is a **date**, not a claim, and is
+#: excluded from the frame.
+#:
+#: **ADDED AFTER THE FIRST EXPLORATORY DRAW AND BEFORE THE FIRST GRADED ONE,
+#: WHICH IS THE ONLY MOMENT IT IS FREE.** ``check_claims``' own docstring says
+#: the residue is "mostly years, defaults and rank cutoffs"; the first draw
+#: under seed 20260909 put two of them in front of a grader and made the point
+#: concretely. Because the successor series stands at ``n = 0``, refining the
+#: frame costs nothing today and would cost the whole series after round one --
+#: so it is done now and recorded here rather than deferred into a footnote.
+#:
+#: It is deliberately narrow, and it applies to the **unarmed** residue only.
+#: ``628`` of the frame's numbers are one- or two-digit integers and many of
+#: those ARE claims ("14 records", "31 came out of"), so no blanket
+#: small-integer rule is applied. Measured effect of this one: the frame falls
+#: from ``2182`` to ``2054``, so ``128`` numbers leave. ``130`` numbers in the
+#: tree are year-shaped and ``2`` of them are on the DEFERRED ledger -- armed by
+#: a metric keyword or a unit, so they are measurements that happen to look like
+#: years, and dropping those would hide a real debt.
+YEAR_LIKE = re.compile(r"^(?:19|20|21)\d{2}$")
 
 #: Which verdicts count as **not true**. Fixed here, before any draw, because
 #: D-115 records that round four's boundary rule is not on disk anywhere and
@@ -302,6 +324,12 @@ def build_frame(
     items: List[FrameItem] = []
     for claim in claims:
         if claim.backing not in ("deferred", "unexamined"):
+            continue
+        if claim.backing == "unexamined" and YEAR_LIKE.match(claim.text):
+            # A DATE IS NOT A CLAIM. Only the unarmed residue is filtered: a
+            # number on the DEFERRED ledger was armed by a metric keyword or a
+            # unit, so a four-digit figure there is a measurement that happens
+            # to look like a year and dropping it would hide a real debt.
             continue
         relative = claim.path.resolve().relative_to(root.resolve()).as_posix()
         if not known:

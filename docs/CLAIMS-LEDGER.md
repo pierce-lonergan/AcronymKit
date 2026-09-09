@@ -525,34 +525,47 @@ summary, so the draws were not independent either.
 ### What the frame actually looks like here, measured rather than assumed
 
 ```
-$ python tools/sample_claims.py --frame        # on a quiet checkout at 18204a1
+$ python tools/sample_claims.py --frame --base HEAD~1        # at 5a268cd
         command output, not a benchmark measurement. Re-run it; it moves with the tree.
 
-  frame: 2180 unbacked claim-shaped number(s) in the scan set
-  stratum   N       share    drawn per round of 24
-  round     varies  varies   12
-  recent    1751    80.3 %    8      (files touched in the last 20 commits)
-  cold       429    19.7 %    4      (everything else)
+  frame: 2054 unbacked claim-shaped number(s) in the scan set
+  stratum   N     share    drawn per round of 24
+  round       59    2.9 %   12       (files this round's own diff touched)
+  recent    1564   76.1 %    8       (files touched in the last 20 commits)
+  cold       431   21.0 %    4       (everything else)
 
-  the cold stratum against the window that defines it, same tree:
-    last  5 commits    cold  918 of 2180
-    last 20 commits    cold  429 of 2180
-    last 40 commits    cold   16 of 2180
+  the same frame, moving only the window that defines `recent`:
+    last  5 commits    cold  1008 of 2054     design effect 2.14
+    last 20 commits    cold   431 of 2054     design effect 2.01
+    last 40 commits    cold    14 of 2054     design effect 2.79
+  and moving only the base, at a 20-commit window:
+    base HEAD~4        round 1046 of 2054     design effect 1.02
 ```
 
 **This repository has almost no cold text, which is the premise the change rests on and it is
-weak here.** Widen the window to `40` commits and `16` of `2180` numbers sit in a file nobody has
-touched; one round's own diff (`HEAD~3..HEAD`) covers files carrying `1102` of `2180`. De-weighting
-cold text saves little when there is little.
+weak here.** Widen the window to `40` commits and `14` of `2054` numbers sit in a file nobody has
+touched; move the round base back four commits and the round stratum covers `1046` of `2054`. **A
+round here touches half the tree**, so `round`, `recent` and `cold` is a coarse partition of a
+population that is almost entirely churn. De-weighting cold text saves little when there is little.
 
 **The price is a number and it is printed on every draw.** The design effect of the `12`/`8`/`4`
 allocation — the ratio of the design-weighted estimator's variance to a uniform draw's, under the
-null that every stratum carries the same rate — measures `1.01` to `2.78` on this tree depending on
-the window, and `2.03` at the shipped default. **Above `1.00` the churn-weighted draw is _less_
-precise about the repository than a uniform draw of the same size.** Stratification beats simple
-random sampling only when the strata differ in what is being measured; if churned and cold text carry
-the same not-true rate, this design has bought relevance and paid for it in precision. That is the
-honest summary of the change and the tool refuses to print the pooled rate without it.
+null that every stratum carries the same rate — measures `1.02` to `2.79` across the rows above and
+`2.01` at the shipped default. **Above `1.00` the churn-weighted draw is _less_ precise about the
+repository than a uniform draw of the same size.** Stratification beats simple random sampling only
+when the strata differ in what is being measured; if churned and cold text carry the same not-true
+rate, this design has bought relevance and paid for it in precision. That is the honest summary of
+the change and the tool refuses to print the pooled rate without it.
+
+**One frame refinement was made after the first exploratory draw, and this is the only moment it was
+free.** That draw put two bare years in front of a grader — `check_claims`' own docstring says the
+unarmed residue is *"mostly years, defaults and rank cutoffs"* — so a four-digit integer in
+`1900`–`2199` with no arming rule on it is now excluded as a date. The frame falls from `2182` to
+`2054`, `128` numbers. It is narrow deliberately: `628` of the frame is one- and two-digit integers
+and many of those *are* claims, so no blanket small-integer rule is applied, and the `2` year-shaped
+numbers on the **deferred** ledger are kept, because a figure armed by a metric unit is a measurement
+that happens to look like a year and dropping it would hide a real debt. **A frame edited after a
+graded round would invalidate that round.** This series stands at `n = 0`, so it does not.
 
 ### Pre-registered: what would make the discontinuity worth it
 

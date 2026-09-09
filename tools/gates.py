@@ -615,12 +615,13 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
     InSituRound(
         label="M3-PD (the gate on whether an agent filed at all)",
         gates=41,
-        in_situ=20,
-        owed_forward=1,
-        added_gates=(),
+        in_situ=21,
+        run="34408932625",
+        commit="5a268cd",
         waiver=(
-            "ONE GATE ARRIVED AND IT CANNOT CARRY EVIDENCE IN THE COMMIT THAT CREATES IT, AND "
-            "THE WAIVER NAMES WHEN IT IS PAID RATHER THAN DEFERRING IT. gates.agent_summary is "
+            "ONE GATE ARRIVED, COULD NOT CARRY EVIDENCE IN THE COMMIT THAT CREATED IT, AND WAS "
+            "PAID IN THE SAME SESSION. THE WAIVER NAMED WHEN IT WOULD BE PAID RATHER THAN "
+            "DEFERRING IT. gates.agent_summary is "
             "`python tools/run_summary.py --check-agent-summary`: gates.run_summary checks the "
             "SHAPE of a round's self-assessment and says in as many words that an absence may "
             "not redden a build, because absence covered both `the agent died` and `the agent "
@@ -630,10 +631,12 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
             "is runnable on a runner today, so it is a DEBT and not a limit: debt 20 -> 21 in "
             "this commit, against the ceiling of 20 M3-PC-operator left. gate-mutation.yml "
             "triggers on .github/gates.toml, .github/workflows/*.yml and tools/gates.py and "
-            "this commit touches all three, so the push that lands this work is the run that "
-            "owes the demonstration -- which is exactly how M3-PC-operator paid its own waiver "
-            "inside one session at run 34352662794. IF THAT RUN DOES NOT LAND, THIS ROW IS THE "
-            "record of a promise and the next round is entitled to say so. RANKED 39 OF 41, "
+            "this commit touches all three, so the push that landed this work is the run that "
+            "took the demonstration: 34408932625 at 5a268cd, job 'Mutate the lint gates', "
+            "verdict `demonstrated`, mutated rc=1 restored rc=0, on linux python 3.12.14, read "
+            "out of the uploaded artifact rather than inferred from a green tick. debt 20 -> 21 "
+            "-> 20 inside one session, so the ceiling is unmoved; the quota of 3 is NOT met and "
+            "that is what this waiver is for. RANKED 39 OF 41, "
             "BELOW BOTH run_summary AND second_reader, and the rank is an argument against the "
             "gate: its live input is missing for every real round in the register, so inert it "
             "returns the register to the state it was already in rather than creating a new "
@@ -641,8 +644,8 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
             "deliberately empty."
         ),
         note=(
-            "Registration, not demonstration. 40 -> 41 gates, in-situ unchanged at 20, debt "
-            "20 -> 21. ruff and ruff_format move 39 -> 40 and 40 -> 41; nothing else in the "
+            "Registered AND demonstrated. 40 -> 41 gates, in-situ 20 -> 21, debt unchanged "
+            "at 20. ruff and ruff_format move 39 -> 40 and 40 -> 41; nothing else in the "
             "ordering moves, because (evidence_apparatus, silent) is a bucket the new gate "
             "enters at the bottom of. THE HONEST LIMIT, WHICH IS LARGER THAN THE GATE: nothing "
             "in this repository writes exits.toml, so both real rounds are UNATTRIBUTED and "

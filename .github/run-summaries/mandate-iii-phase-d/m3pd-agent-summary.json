@@ -1,0 +1,71 @@
+{
+  "label": "m3pd-agent-summary",
+  "status": "complete",
+  "headline": "A workstream that exits 0 and files no valid summary now reddens the build, demonstrated in situ the same session; and the five-round R15 series is closed at 16.67 % over 120 draws rather than continued, because the successor frame measures a different quantity -- the wider one, which is the opposite of the direction the brief assumed.",
+  "shipped": [
+    "gates.agent_summary, the 41st gate: `python tools/run_summary.py --check-agent-summary`, in the ci.yml lint job, cost_rank 39 of 41, in-situ demonstrated at run 34408932625 on commit 5a268cd",
+    "tools/run_summary.py: an exits.toml reader, audit_round, check_agent_summary, render_audit, is_control, round_directories, load_exits, the Exits dataclass, and a [control] table on the roster that is refused outside a control directory",
+    ".github/run-summaries/_control-agent-crash/: a committed control carrying all four states, whose roster declares the state each label must land in",
+    ".github/run-summaries/mandate-iii-phase-d/: this round's roster, roster_complete = false, no exits.toml, and a note saying why an agent may not write its own",
+    "tools/sample_claims.py: the churn-weighted stratified successor sampling frame, with a design-effect line that is an argument against its own design",
+    "tests/test_run_summary.py 87 -> 135 tests; tests/test_sample_claims.py, 35 new",
+    "docs/CLAIMS-LEDGER.md section 6 closes the series and specifies the successor; docs/GATES.md gains the 41st gate and corrects a stale count; CONTRIBUTING.md's gate block goes 8 -> 10 and documents exits.toml"
+  ],
+  "run_ids": [
+    "34408932625",
+    "34352662794"
+  ],
+  "files_changed": [
+    "tools/run_summary.py",
+    "tools/sample_claims.py",
+    "tools/gates.py",
+    "tests/test_run_summary.py",
+    "tests/test_sample_claims.py",
+    ".github/gates.toml",
+    ".github/workflows/ci.yml",
+    "docs/GATES.md",
+    "docs/CLAIMS-LEDGER.md",
+    "CONTRIBUTING.md",
+    ".github/run-summaries/_control-agent-crash/round.toml",
+    ".github/run-summaries/_control-agent-crash/exits.toml",
+    ".github/run-summaries/_control-agent-crash/exited-clean-and-filed.json",
+    ".github/run-summaries/_control-agent-crash/killed-after-filing.json",
+    ".github/run-summaries/_control-agent-crash/killed-mid-write.json",
+    ".github/run-summaries/mandate-iii-phase-d/round.toml",
+    ".github/run-summaries/mandate-iii-phase-d/m3pd-agent-summary.json"
+  ],
+  "pre_registration": "10 falsifiers and 4 magnitudes, written to scratch before any edit. F1 FIRED IN ITS WEAK FORM, AS PREDICTED: the gate can only be made to fail on a committed control fixture, because no real round carries an exit record and nothing here writes one -- published in those words in gates.toml's blind_to, in docs/GATES.md and in the commit message, rather than called coverage. F10 FIRED as predicted: the truncated fixture reddened run_summary --check until control directories were excluded by name, and broke nothing else. F3 did not fire -- killed-after-filing reads complete, killed-mid-write reads unreadable, never-filed reads absent, on real killed child processes on win32. F8 did not fire: Wilson(20,120) reproduced to (11.06, 24.35) from an independent implementation. F9 did not fire: 600 draws is 25 rounds TOTAL and 20 more, not the brief's '25 more'. F2/F4/F5/F6/F7 did not fire. P1 correct (41 gates, 21 in situ, debt 20, ceiling unmoved). P2 WRONG: predicted 25-45 new tests, got 83. P3 WRONG: predicted the cold stratum is largest by 3x; `recent` is largest at 76 % and cold is 21 %. P4 correct (zero draws carry across the frame change).",
+  "how_it_fails": "The gate concludes NOTHING about either real round in the register, because nothing writes exits.toml and both are UNATTRIBUTED -- the demonstration is against a fixture and establishes that the code can fail, not that any round anybody ran was checked. The roster_complete = false escape means a launcher that never wants to be accountable never has to be. A vacuous --template summary satisfies the rule. The exit record is a self-report by the launcher that nothing audits. On the sampler: the round stratum is 12 draws, so its own interval after one round is wider than anything the closed series published; the frame is built from claim-shaped NUMBERS, so a claim with no number in it -- most of a workstream's twelve -- is outside it entirely, and that is a population the old series reached and this one does not. Two of docs/CLAIMS-LEDGER.md's four conditions remain unmet and the second grader has still never been run.",
+  "not_done": [
+    "Nothing writes exits.toml. That is a change to whatever spawns the agents, it is still outside this repository, and until it happens the gate's live verdict on every real round is `unattributed`.",
+    "No graded round of the successor frame. It stands at n = 0 by construction; this round drew a sample only to exercise the mechanism and graded nothing.",
+    "gates.second_reader, the 40th gate, still has no section in docs/GATES.md. Named in that page's header rather than written by a round that did not build it.",
+    "docs/SECOND-READER.md's rotation cursor has stalled for a third consecutive read and this round did not touch it.",
+    "The claims gate still does not scan .github/run-summaries/, so every number in this file is an unbacked claim that reddens nothing.",
+    "No cold read of the three user-facing documents this round edited: docs/CLAIMS-LEDGER.md, docs/GATES.md and CONTRIBUTING.md."
+  ],
+  "gates": {
+    "pytest": "green: 5881 passed, 10 skipped, 1 xfailed of 5892 collected, on an ISOLATED worktree at 18204a1 carrying only this round's changes",
+    "ruff": "green on the isolated worktree; RED on the shared checkout -- 20 I001/F401 in src/ from a sibling workstream's uncommitted package split, none of them this work's",
+    "ruff_format": "green: 158 files already formatted",
+    "mypy": "green: no issues found in 100 source files",
+    "claims": "green: unbacked 0, deferred 189 of 189, value-matched 64 of 64",
+    "splits": "green: splits manifest OK, 10 corpora, 3 reserved arms",
+    "gates": "green: 41 gates, 21 in situ, debt 20, ceiling 20; RED on the shared checkout because a sibling moved the file gates.memo_identity mutates",
+    "second_reader": "green: findings open 5, fixed 10; cursor unchanged and still stalled"
+  },
+  "claims_for_sampling": [
+    "Setting `killed-before-filing = 0` in .github/run-summaries/_control-agent-crash/exits.toml makes `python tools/run_summary.py --check-agent-summary` exit 1 with exactly one problem; restoring 137 makes it exit 0.",
+    "`python tools/gates.py --check` prints `41 gate(s)`, `CARRYING IN-SITU EVIDENCE: 21 of 41` and `in-situ quota: debt 20, ceiling 20` on this tree.",
+    "gates.agent_summary's verified_in_situ_run is 34408932625 and its verified_in_situ_commit is 5a268cd; the artifact lint/agent-summary.log from that run reads `verdict: demonstrated`, `mutated: rc=1`, `restored: rc=0`, `platform: linux python 3.12.14`.",
+    "The suite on an isolated worktree holding only this round's changes is 5881 passed, 10 skipped, 1 xfailed of 5892 collected; the baseline at 18204a1 was 5798 passed, 10 skipped, 1 xfailed of 5809.",
+    "tests/test_run_summary.py collects 135 tests where it collected 87 at 18204a1, and tests/test_sample_claims.py collects 35.",
+    "`tools/sample_claims.py`'s wilson(20, 120) returns bounds that round to (11.06, 24.35), and wilson(18, 96) has a half-width that rounds to 7.75.",
+    "`python tools/sample_claims.py --frame --base HEAD~1` reports a frame of 2054 unbacked claim-shaped numbers; before the year filter was added the same command reported 2182.",
+    "design_effect for the shipped 12/8/4 allocation measures 2.01 at base HEAD~1 with a 20-commit window, and 2.79 at a 40-commit window.",
+    "At a 40-commit window the `cold` stratum holds 14 of 2054 numbers; at base HEAD~4 with a 20-commit window the `round` stratum holds 1046 of 2054.",
+    "docs/DECISIONS.md D-068 records the first R15 round as `24 of 187 submitted claims`, so every round of the closed series drew from workstream submissions rather than from document text.",
+    "`tools/run_summary.py`'s check() excludes directories whose name starts with `_` and check_agent_summary() includes them; tests/test_run_summary.py asserts both directions.",
+    "CONTRIBUTING.md's `## The gates` block lists ten commands while `tools/run_summary.py`'s GATE_KEYS has eight entries, and `run_summary` is not one of the eight while `second_reader` is."
+  ]
+}

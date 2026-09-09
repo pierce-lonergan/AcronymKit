@@ -335,3 +335,24 @@ class TestThisCheckout:
         # without the seed.
         assert sc.main(["--draw"]) == 1
         assert "seed" in capsys.readouterr().out
+
+
+class TestTheYearFilter:
+    """A date is not a claim, and the exclusion is narrow on purpose."""
+
+    def test_a_bare_year_is_year_shaped(self) -> None:
+        for text in ("1999", "2026", "2100", "2199"):
+            assert sc.YEAR_LIKE.match(text), text
+
+    def test_a_number_that_is_not_a_year_is_not_caught(self) -> None:
+        # 628 of the frame is one- and two-digit integers and many of those are
+        # claims. Nothing here may reach them.
+        for text in ("14", "31", "2.03", "1,697", "22000", "187", "5"):
+            assert not sc.YEAR_LIKE.match(text), text
+
+    def test_the_deferred_ledger_is_not_filtered(self) -> None:
+        # A four-digit figure ARMED by a metric keyword is a measurement that
+        # happens to look like a year. Dropping it would hide a real debt, and
+        # the deferred ledger is a ratchet that may not silently shrink.
+        source = LOADER.read_text(encoding="utf-8")
+        assert 'claim.backing == "unexamined" and YEAR_LIKE.match' in source

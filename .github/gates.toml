@@ -1018,6 +1018,9 @@ expect = "fail"
 expect_failure_matching = "agent-summary register refused"
 artifact = "lint/agent-summary.log"
 verified_locally_on = 2026-09-09
+verified_in_situ_on = 2026-09-09
+verified_in_situ_run = "34408932625"
+verified_in_situ_commit = "5a268cd"
 note = """
 The probe flips ONE exit status in the control fixture: `killed-before-filing`
 goes from 137 to 0, so a workstream that filed nothing is reported as having
@@ -1033,13 +1036,22 @@ The marker it matches is `tools/run_summary.py`'s AGENT_SUMMARY_MARKER, pinned
 against this register by tests/test_run_summary.py so the two copies cannot
 drift in silence -- which is what turns a future demonstration INERT.
 
-NO IN-SITU EVIDENCE IN THE COMMIT THAT CREATES IT, and the waiver on
-IN_SITU_TRAJECTORY names when it is paid rather than deferring it:
-gate-mutation.yml triggers on .github/gates.toml, .github/workflows/*.yml and
-tools/gates.py, and this commit touches all three, so the push that lands this
-work is the run that owes the demonstration. Locally it returns mutated rc=1
-matching the marker and restored rc=0, which is precisely the evidence R11 says
-does not count.
+PAID IN THE SAME SESSION. The waiver named when it would be paid rather than
+deferring it: gate-mutation.yml triggers on .github/gates.toml,
+.github/workflows/*.yml and tools/gates.py, and the commit that created this
+gate touched all three, so the push that landed it fired the workflow. Run
+34408932625 at commit 5a268cd, job 'Mutate the lint gates, in the lint
+environment', artifact lint/agent-summary.log:
+
+  verdict:   demonstrated
+  mutated:   rc=1
+  restored:  rc=0
+  captured:  2026-09-09T21:49:16+00:00
+  platform:  linux python 3.12.14
+
+The captured output is the gate naming the mutated label -- 'killed-before-filing:
+exited 0 and its summary is ABSENT' -- and printing the other three states beside
+it, so the log shows WHICH rule fired rather than only that something did.
 """
 edits = [
   { file = ".github/run-summaries/_control-agent-crash/exits.toml", find = "killed-before-filing = 137", replace = "killed-before-filing = 0" },

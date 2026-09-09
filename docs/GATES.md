@@ -25,7 +25,7 @@ paragraph.
 
 ## Read this before the table
 
-**The register holds forty-one gates and twenty of them carry in-situ evidence.** Run
+**The register holds forty-one gates and twenty-one of them carry in-situ evidence.** Run
 `python tools/gates.py --check` rather than trusting that sentence; it is the number this page has
 got wrong most often, and it was wrong here by a whole round until somebody adding the forty-first
 gate noticed.
@@ -1571,14 +1571,7 @@ by deleting the only input it can currently fail on. `tools/run_summary.py --che
 `_`-prefixed directories, because the control holds a deliberately truncated JSON file and the gate
 that refuses broken files may not be the gate that reads the fixture built out of them.
 
-### It has no in-situ evidence, and the local run that is not evidence
-
-```
-python tools/gates.py --mutate agent_summary     -- command output, 2026-09-09, Windows,
-                                                    a developer machine
-  agent_summary                          DEMONSTRATED  mutated rc=1, restored rc=0
-  1 demonstrated, 0 INERT or UNRESTORED, 0 not automated
-```
+### It carries in-situ evidence, taken by the push that created it
 
 The probe flips one integer in the control's exit record: `killed-before-filing` goes from `137` to
 `0`, so a workstream that filed nothing is reported as having exited cleanly. That is the narrowest
@@ -1588,11 +1581,32 @@ moved is whether the absence is somebody's bad luck. A mutation that deleted the
 would fire the control-expectation rule as well, and a demonstration that fires two rules at once
 does not say which one it demonstrated.
 
-**That run is exactly the evidence R11 says does not count.** The debt is `20 → 21` and one gate is
-owed forward. `gate-mutation.yml` triggers on `.github/gates.toml`, `.github/workflows/*.yml` and
-`tools/gates.py`, all three of which this commit touches, so the run that lands this work is the run
-that owes it — which is how the thirty-ninth and fortieth gates paid their own waivers inside one
-session at run `34352662794`.
+```
+lint/agent-summary.log, from GitHub Actions run 34408932625 at commit 5a268cd.
+Read out of the uploaded artifact, not inferred from a green tick.
+
+  gate:      agent_summary
+  command:   python tools/run_summary.py --check-agent-summary
+  expect:    fail          must say: agent-summary register refused
+  verdict:   demonstrated  mutated: rc=1   restored: rc=0
+  captured:  2026-09-09T21:49:16+00:00     platform: linux python 3.12.14
+  edits:     ['.github/run-summaries/_control-agent-crash/exits.toml:replace']
+
+  and the captured output names WHICH rule fired:
+    killed-after-filing   exit 137  CRASHED AFTER FILING (complete)
+    killed-mid-write      exit 137  CRASHED MID-WRITE (unreadable, and that is not absent)
+    exited 0 and filed: ['exited-clean-and-filed']
+    PROBLEM: killed-before-filing: exited 0 and its summary is ABSENT.
+```
+
+**The waiver named when it would be paid and it was paid the same session.** `gate-mutation.yml`
+triggers on `.github/gates.toml`, `.github/workflows/*.yml` and `tools/gates.py`, all three of which
+the commit creating this gate touched, so the push that landed the work took the demonstration —
+the third consecutive round to close its own debt this way, after the thirty-ninth and fortieth
+gates did it at run `34352662794`. The debt went `20 → 21 → 20` inside one session and the ceiling
+is unmoved. **The quota of three is still not met**, which is what the waiver on the trajectory row
+is for; a round that adds one gate and demonstrates that one gate has paid its own way and nothing
+else's.
 
 ### How it fails
 
