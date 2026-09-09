@@ -390,6 +390,26 @@ class TestDocumentResult:
 # ---------------------------------------------------------------------------
 # the claim
 # ---------------------------------------------------------------------------
+#: Every source this class reads as TEXT, not as an import.
+#:
+#: An installed distribution carries none of them: `src/` is not laid down,
+#: `README.md` and `CHANGELOG.md` are metadata rather than files on disk, and
+#: `bench/results.json` is a checkout artefact. The class read them unguarded and
+#: contributed twelve unexpected failures to the installed-suite job on its first
+#: CI run -- the fourth instance this project has recorded of a test that reads
+#: checkout-only files without saying so.
+#:
+#: A CLASS-level skip and not a module-level one, deliberately: the other 49
+#: tests in this file exercise `propagate()` through the imported package and
+#: must keep running against the installed distribution, which is where a
+#: packaging defect in the new module would actually show up.
+_CLAIM_SOURCES = (*CLAIM_FILES, "bench/results.json")
+
+
+@pytest.mark.skipif(
+    not all((REPO_ROOT / name).is_file() for name in _CLAIM_SOURCES),
+    reason="the prose rule reads source text an installed distribution does not carry",
+)
 class TestTheClaim:
     """The B6 trap, guarded in the crudest way that can actually fail."""
 

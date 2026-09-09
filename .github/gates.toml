@@ -930,6 +930,9 @@ expect = "fail"
 expect_failure_matching = "run-summary register refused"
 artifact = "lint/run-summary.log"
 verified_locally_on = 2026-09-09
+verified_in_situ_on = 2026-09-09
+verified_in_situ_run = "34352662794"
+verified_in_situ_commit = "fbf7c45"
 note = """
 The probe puts an unreadable `status` on the one committed summary. It is the
 narrowest edit that reaches the schema half of this gate without touching the
@@ -2185,6 +2188,9 @@ expect = "fail"
 expect_failure_matching = 'rotation cursor'
 artifact = "lint/second-reader.log"
 verified_locally_on = 2026-09-09
+verified_in_situ_on = 2026-09-09
+verified_in_situ_run = "34352662794"
+verified_in_situ_commit = "fbf7c45"
 note = """
 The cursor sentence on the policy page against the newest read in the ledger.
 That disagreement is the one failure mode section 3 predicted this policy would

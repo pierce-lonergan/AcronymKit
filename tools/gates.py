@@ -579,18 +579,20 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
     InSituRound(
         label="M3-PC-operator (the eighth gate CI never ran)",
         gates=40,
-        in_situ=18,
-        owed_forward=1,
+        in_situ=20,
+        run="34352662794",
+        commit="fbf7c45",
         waiver=(
-            "TWO GATES ARE RUNNABLE ON A RUNNER AND CARRY NO IN-SITU STAMP: run_summary "
-            "and second_reader. That is a debt, not a limit, and this waiver does not "
-            "excuse it -- it names when it is paid. This commit edits .github/gates.toml, "
-            ".github/workflows/ci.yml and tools/gates.py, which are three of the four "
-            "push paths gate-mutation.yml watches, so pushing it FIRES that workflow. "
-            "The evidence is to be harvested from that run in the same session rather "
-            "than left in the Actions tab, which is the failure M3-PB spent a fortnight "
-            "inside and D-106 recorded twice. If the next round finds this waiver still "
-            "standing with a green run behind it, the waiver is the defect."
+            "PAID IN THE SAME SESSION, WHICH IS THE WHOLE POINT OF THE WAIVER. When "
+            "this round was written, run_summary and second_reader were runnable on a "
+            "runner and carried no in-situ stamp -- a debt, not a limit. The waiver did "
+            "not excuse it; it named when it would be paid: this commit touches three of "
+            "gate-mutation.yml's four trigger paths, so pushing it fires that workflow. "
+            "It did. Run 34352662794 at commit fbf7c45 returned DEMONSTRATED for both, "
+            "`mutated rc=1, restored rc=0`, and the stamps were taken from that log "
+            "before the session ended. M3-PB spent a fortnight with its evidence sitting "
+            "unread in the Actions tab and D-106 recorded that twice; this is the same "
+            "situation handled the other way round."
         ),
         note=(
             "ADDING A GATE THAT WAS ALREADY BEING RUN. `tools/second_reader.py --check` "
