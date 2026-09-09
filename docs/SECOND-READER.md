@@ -314,14 +314,26 @@ showing a gate is *blind*: a developer checkout has every file the gate scans an
 it needs, so it is the most favourable environment the gate will ever see. A blind spot demonstrated
 there is a blind spot everywhere.
 
-*Caught:* both `README.md` and `docs/EVALUATION.md` claim CI fails the build when a performance
+*Caught:* both `README.md` and `docs/EVALUATION.md` claimed CI fails the build when a performance
 figure "anywhere in the docs or the source" is not traceable to a benchmark run. Injecting one
-sentence of invented latency into `README.md` and running `python tools/check_claims.py` returns
-zero and reports every number backed. The gate's own docstring says the honest claim is that nothing
-is dropped silently rather than that everything is checked; two user-facing pages state the stronger
+sentence of invented latency into `README.md` and running `python tools/check_claims.py` returned
+zero and reported every number backed. The gate's own docstring says the honest claim is that nothing
+is dropped silently rather than that everything is checked; two user-facing pages stated the stronger
 version. The positive control was run in the same sitting — an armed uncited figure in the same
-position fails with exit 1 — so the finding is that the arming vocabulary does not reach the claim,
-not that the gate is broken.
+position fails with exit 1 — so the finding was that the arming vocabulary did not reach the claim,
+not that the gate was broken.
+
+*And then closed, which is the part worth reading.* The wording in both pages was corrected first and
+the hole was left open, on the ground that closing it would falsify seven documents (the count was published as six until a cold read found `docs/SOURCING.md` by checking the rule rather than the exit code) — including
+this one. **That is circular debt**: a blind spot preserved so that the documents describing the
+blind spot stay accurate. The arming vocabulary was widened (`latency` and `duration` as keywords,
+the spelled-out sub-second units as units), the same injection now returns `1` and names `README.md`,
+and six documents were corrected in the same commit. **A seventh, `docs/SOURCING.md`, was missed**, and the next cold read found it by checking `'latency' in _KEYWORDS` rather than the exit code — which is the argument for reading the rule and not the report. The three that print a measured mutation
+battery had their batteries **re-run**; none had a digit edited. What the closure did not reach — the
+plurals `latencies` and `durations`, a bare `seconds`, a speedup `3.2x`, a byte figure — is published
+in `docs/GATES.md` and pinned by `tests/test_claims_gate_coverage.py`, because a closure reported as
+total is the same defect one level up. **The finding a cold read produces is worth what the round
+after it does**, and this one is the counter-example to a report that only ever gets re-quoted.
 
 ---
 

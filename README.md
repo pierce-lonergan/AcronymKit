@@ -709,10 +709,19 @@ python tools/fetch_data.py --verify      # re-check every checksum
 - Every *measured* figure in this README is traceable to [`bench/results.json`](bench/results.json),
   and CI fails the build if a performance claim **that the gate can recognise** cannot be traced back
   to a benchmark run. The word matters and it used to say *anywhere*, which was false: the gate arms
-  a number when a metric keyword sits near it or a unit follows it, so a sentence naming a median
-  latency in microseconds passes untouched while one naming an accuracy percentage in the same
-  position fails the build. Both were injected to check it, and the test that pins the difference is
-  `tests/test_claims_gate_coverage.py`. What the gate cannot recognise it
+  a number when a metric keyword sits near it or a unit follows it, so what it recognises is a
+  **vocabulary**, not a category. That vocabulary was one-sided until this round closed it — a
+  sentence naming a median latency in microseconds passed untouched while one naming an accuracy
+  percentage in the same position failed the build, and on `2026-08-25` this page was found carrying
+  exactly such a sentence with every gate in the repository green. `latency` and `duration` are now
+  metric keywords and the spelled-out sub-second units are units, so both sentences now fail; both
+  were re-injected against this file to check it rather than argued about, and the test that pins the
+  behaviour is `tests/test_claims_gate_coverage.py`. **What the closure did not close is published
+  rather than left to be discovered**: the plurals `latencies` and `durations` are outside it because
+  the keyword rule matches whole words, a bare `seconds` was refused on purpose because it would arm
+  dates and intervals, a speedup written `3.2x` is not a free-standing number at all, a memory figure
+  in `KB` has no unit in the rule, and any metric named in a word nobody put on the list is invisible
+  — closing two keywords and three units is not closing the class. What the gate cannot recognise it
   **counts and publishes** rather than ignoring — `python tools/check_claims.py` prints the
   unrecognised residue on every run, and `--residue` names it line by line. **Three structural counts
   are left in this README**, none of them a benchmark result and each re-derivable from the tree:

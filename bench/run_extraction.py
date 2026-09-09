@@ -51,13 +51,45 @@ def predict_acronymkit(documents: Sequence, **config_overrides: object) -> dict[
     }
 
 
+def predict_acronymkit_propagated(documents: Sequence, **config_overrides: object) -> dict:
+    """The extractor with A2 document-scoped propagation applied on top.
+
+    **This arm exists to show that this corpus's convention cannot see A2, and
+    the reason is two conventions deep.** MED1250's gold records *definitions*,
+    one row per defined pair, so a propagated occurrence is not a new pair -- it
+    is the same pair at another position, and a pair scorer has no position.
+    :func:`dedupe_per_document` then collapses the repeats before scoring,
+    uniformly for every system, so the propagated rows vanish entirely rather
+    than landing as false positives.
+
+    So the identity between this row and the ``acronymkit`` row is a
+    **derivation and not a result**: it follows from the two conventions and
+    would hold whatever propagation did. It is run and recorded anyway, because
+    "the published MED1250 figure does not move" is the claim a reader needs, and
+    an unrun derivation is how a claim like that turns out to be wrong.
+    """
+    from acronymkit import AcronymEngine, Config
+    from acronymkit.propagation import propagate
+
+    engine = AcronymEngine(Config(**config_overrides))
+    predictions: dict[str, list[Pair]] = {}
+    for document in documents:
+        pairs = engine.extract_definitions(document.text)
+        result = propagate(document.text, pairs)
+        predictions[document.uid] = [(o.short_form, o.long_form) for o in result.occurrences]
+    return predictions
+
+
 #: Baselines that must run under a different interpreter. ``pyab3p`` ships
 #: wheels only up to CPython 3.12 and ``scispacy`` declares
 #: ``requires-python <3.13``, so both are driven out-of-process via
 #: ``bench/external.py``. Point ``--interpreter`` at a Python that has them.
 EXTERNAL_SYSTEMS = ("abbreviations", "abbreviation_extractor", "pyab3p", "scispacy")
 
-SYSTEMS = {"acronymkit": predict_acronymkit}
+SYSTEMS = {
+    "acronymkit": predict_acronymkit,
+    "acronymkit_propagated": predict_acronymkit_propagated,
+}
 
 
 def predict_external(

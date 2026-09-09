@@ -470,7 +470,7 @@ environment = "lint"
 step = "Ruff"
 command = "python -m ruff check src tests tools bench"
 defect_class = "static_analysis"
-cost_rank = 37
+cost_rank = 39
 blast_radius = "repository"
 silence = "loud"
 redundancy = "sole"
@@ -507,7 +507,7 @@ environment = "lint"
 step = "Ruff format check"
 command = "python -m ruff format --check src tests tools bench"
 defect_class = "static_analysis"
-cost_rank = 38
+cost_rank = 40
 blast_radius = "repository"
 silence = "loud"
 redundancy = "sole"
@@ -743,6 +743,9 @@ expect = "fail"
 expect_failure_matching = "the following do not match:"
 artifact = "lint/figures.log"
 verified_locally_on = 2026-09-08
+verified_in_situ_on = 2026-09-09
+verified_in_situ_run = "34308556192"
+verified_in_situ_commit = "4ef57c8"
 note = """
 REGISTERED BY A DIFFERENT WORKSTREAM FROM THE ONE THAT WROTE THE SCRIPT, which is why the marker
 above is a literal rather than `module.FAILURE_MARKER`: `tools/render_figures.py` declares no such
@@ -760,6 +763,23 @@ demonstrates it. That is the case `docs/GATES.md` has described a waiver for sin
 written; the top-of-ranking rule had no such escape until this round, so a correctly-ranked new
 gate could only be landed by ranking it dishonestly low. `added_gates` on the trajectory row is
 the attribution, and the next round's due-date check is what asks whether the run happened.
+
+HARVESTED 2026-09-09, AND THE ROUND THAT REGISTERED THIS GATE HAD ALREADY BEEN DEMONSTRATED WHEN
+IT SAID SO. The registration round wrote "NO IN-SITU EVIDENCE, AND IT IS RANK 3 ... the run that
+lands this work is the run that owes the demonstration". That run is 34308556192, it fired on the
+push of 4ef57c8, and its job "Mutate the lint gates, in the lint environment" reports
+`8 demonstrated, 0 INERT or UNRESTORED, 0 not automated` -- figures and memo_identity among them,
+both `mutated rc=1, restored rc=0`, both under the `expect_failure_matching` rule. THIS IS D-106
+HAPPENING AGAIN, ONE ROUND LATER AND TWO DAYS FASTER: the evidence was in the Actions tab and the
+register was still printing the debt. The overall run is red on a different job
+("Reintroduce each historical breakage against a real sdist"), which 017cb37 is the fix for; the
+lint-environment job it is harvested from is green on its own.
+
+STALENESS, STATED RATHER THAN LEFT TO --evidence-provenance: the stamp is at 4ef57c8 and HEAD is
+017cb37, two commits later. Neither of those commits touches this gate's dependency set -- the diff
+4ef57c8..017cb37 is MANIFEST.in, tests/test_governed_fast_construction.py and
+tests/test_packaging_manifest.py -- so the gate demonstrated there is the gate shipping here. That
+stops being true the moment this commit lands, because it moves .github/gates.toml.
 """
 edits = [
   { file = "docs/figures/refusal-curve-light.svg", find = "</svg>", replace = "<!-- probe --></svg>" },
@@ -807,6 +827,9 @@ expect = "fail"
 expect_failure_matching = "MEMO CHANGED AN ANSWER"
 artifact = "lint/memo_identity.log"
 verified_locally_on = 2026-09-08
+verified_in_situ_on = 2026-09-09
+verified_in_situ_run = "34308556192"
+verified_in_situ_commit = "4ef57c8"
 note = """
 THE MUTATION BREAKS THE GATE'S OWN PREMISE RATHER THAN THE MEMO, and that is the stronger of the
 two available probes.
@@ -824,9 +847,108 @@ workstream, and `--mutate` restores from bytes read beforehand. A restore that o
 else's concurrent write is a worse failure than a weaker probe.
 
 NO IN-SITU EVIDENCE YET: the run that takes it is the one that lands this commit.
+
+HARVESTED 2026-09-09, AND THE ROUND THAT REGISTERED THIS GATE HAD ALREADY BEEN DEMONSTRATED WHEN
+IT SAID SO. The registration round wrote "NO IN-SITU EVIDENCE, AND IT IS RANK 3 ... the run that
+lands this work is the run that owes the demonstration". That run is 34308556192, it fired on the
+push of 4ef57c8, and its job "Mutate the lint gates, in the lint environment" reports
+`8 demonstrated, 0 INERT or UNRESTORED, 0 not automated` -- figures and memo_identity among them,
+both `mutated rc=1, restored rc=0`, both under the `expect_failure_matching` rule. THIS IS D-106
+HAPPENING AGAIN, ONE ROUND LATER AND TWO DAYS FASTER: the evidence was in the Actions tab and the
+register was still printing the debt. The overall run is red on a different job
+("Reintroduce each historical breakage against a real sdist"), which 017cb37 is the fix for; the
+lint-environment job it is harvested from is green on its own.
+
+STALENESS, STATED RATHER THAN LEFT TO --evidence-provenance: the stamp is at 4ef57c8 and HEAD is
+017cb37, two commits later. Neither of those commits touches this gate's dependency set -- the diff
+4ef57c8..017cb37 is MANIFEST.in, tests/test_governed_fast_construction.py and
+tests/test_packaging_manifest.py -- so the gate demonstrated there is the gate shipping here. That
+stops being true the moment this commit lands, because it moves .github/gates.toml.
 """
 edits = [
   { file = "src/acronymkit/governed/dictionary.py", find = "        \"\"\"Discard the answer, so nothing is ever remembered.\"\"\"", replace = "        dict.__setitem__(self, key, value)" },
+]
+
+[gates.run_summary]
+environment = "lint"
+step = "Every round files a machine-readable account of itself, and an absence is a verdict"
+command = "python tools/run_summary.py --check"
+defect_class = "claim_backing"
+cost_rank = 37
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+RANKED LAST IN ITS BUCKET ON PURPOSE, and the argument is against this gate rather than for it.
+Every other evidence_apparatus gate protects a demonstration that some OTHER check can fail. This
+one protects a narrative record, which is one step further from any user than any of them, and it
+would be an easy gate to rank flatteringly because its own workstream wrote its rank. Inert, a
+round's self-assessment can be malformed, mislabelled, missing eleven of its twelve sampling
+claims, or written to a schema that has drifted from the one CONTRIBUTING.md publishes, and every
+one of those reads as a filed report. Nothing downstream re-derives a summary.
+"""
+detects = """
+A committed run summary that is not one: a missing field, an unknown key (a
+misspelt field is a dropped field), a `status` outside {complete, partial}, a
+`gates` object that does not report all eight commands, a
+`claims_for_sampling` that is not exactly twelve, a `label` that disagrees with
+its own filename, a dotted `run_ids` entry that resolves to no run in
+bench/results.json, a round directory with no roster, and a field list in
+CONTRIBUTING.md that has drifted from tools/run_summary.py.
+"""
+blind_to = """
+THREE THINGS, AND THE FIRST IS THE WHOLE POINT OF THE MECHANISM'S LIMIT.
+
+1. A REPORT THAT NEVER HAPPENED. This makes a lost report recoverable; it does
+   not make one happen. An agent that dies before its penultimate tool call
+   files nothing, and neither this gate nor anything else here can tell that
+   from an agent that was never launched. The roster narrows it to "who was
+   expected" and narrowing is not closing. Closing it needs the LAUNCHER to
+   write a start record when it spawns an agent; that is outside this
+   repository.
+
+2. TRUTH. Every rule here is about shape. A summary whose twelve sampling
+   claims are all false validates perfectly, and the measured not-true rate on
+   this class of output is 18.75 %.
+
+3. NUMBERS INSIDE A SUMMARY. `.github/run-summaries/` is in none of
+   tools/check_claims.py's seven SCAN_GLOBS, so a sentence reading "F1 rose to
+   99.9 %" inside a committed summary is an unbacked claim that reddens
+   nothing. Same shape as the figure hole R16 was written for, one channel
+   further out. Named, priced, not closed here: SCAN_GLOBS carries two ratchets
+   this gate's workstream does not own.
+
+And `absent` and `vacuous` are DELIBERATELY not failures. A round in which an
+agent died must stay committable exactly as it happened; if absence reddened
+the build, the cheapest route to green would be deleting the roster entry,
+which is the gate becoming a machine for hiding what it exists to reveal. Both
+states are printed on every run.
+"""
+[gates.run_summary.mutation]
+kind = "automated"
+expect = "fail"
+expect_failure_matching = "run-summary register refused"
+artifact = "lint/run-summary.log"
+verified_locally_on = 2026-09-09
+note = """
+The probe puts an unreadable `status` on the one committed summary. It is the
+narrowest edit that reaches the schema half of this gate without touching the
+roster half, and the marker it matches is `tools/run_summary.py`'s
+FAILURE_MARKER -- pinned against the source by
+tests/test_run_summary.py::TestTheRegisterAndTheScriptAgree so the two copies
+cannot drift in silence, which is what turns a future demonstration INERT.
+
+NO IN-SITU EVIDENCE YET, and the honest reason is that the workstream that
+wrote this gate cannot push. The commit that adds a gate cannot hold the CI run
+that demonstrates it; gate-mutation.yml triggers on .github/gates.toml,
+.github/workflows/*.yml and tools/gates.py, all three of which this commit
+touches, so the run that lands this work is the run that owes the
+demonstration. Locally it returns DEMONSTRATED (mutated rc=1 matching the
+marker, restored rc=0) -- which is precisely the evidence R11 says does not
+count.
+"""
+edits = [
+  { file = ".github/run-summaries/mandate-iii-phase-c/run-summary.json", find = "\"status\": \"complete\"", replace = "\"status\": \"shipped\"" },
 ]
 
 # ===========================================================================
@@ -2035,3 +2157,39 @@ the file-keyed entries, because any OTHER error in the file now reaches the
 job. It is an argument against reading "the list shrank" as "the coverage
 grew". It did not grow. It is 2 of 5 before and 2 of 5 after.
 """
+
+[gates.second_reader]
+environment = "lint"
+step = "The cold-read ledger is consistent with the policy page"
+command = "python tools/second_reader.py --check"
+defect_class = "claim_backing"
+cost_rank = 38
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Backs the only mechanism in this repository that reads PROSE. Inert, the rotation cursor stops
+advancing and nobody learns: two consecutive reads served the same file that way, and the count that
+bought trigger B was that a document nobody edits is a document nobody re-reads. It is also the only
+check that a user-facing file exists which no trigger can reach -- the rule that caught four SVG
+figures shipping outside both triggers.
+"""
+detects = """
+A rotation cursor that disagrees with the ledger; a user-facing file the rotation
+cannot reach; a finding with no disposition; an open finding past the read limit;
+a published trigger that names a pathspec the module does not run.
+"""
+[gates.second_reader.mutation]
+kind = "automated"
+expect = "fail"
+expect_failure_matching = 'rotation cursor'
+artifact = "lint/second-reader.log"
+verified_locally_on = 2026-09-09
+note = """
+The cursor sentence on the policy page against the newest read in the ledger.
+That disagreement is the one failure mode section 3 predicted this policy would
+have, and it fired for real the first time somebody wrote the ledger row.
+"""
+edits = [
+  { file = "docs/SECOND-READER.md", find = "cursor docs/SECOND-READER.md", replace = "cursor docs/GATES.md" },
+]

@@ -295,6 +295,13 @@ _SUBMODULES = frozenset(
         "backronym",
         "batch",
         "config",
+        # ``conformal`` shipped in the previous round and was never added here,
+        # so ``import acronymkit; acronymkit.conformal`` raised AttributeError
+        # while ``from acronymkit import conformal`` worked -- the import system
+        # falls back to loading the submodule, ``__getattr__`` does not. Nothing
+        # asserts this set is complete against the package directory, which is
+        # why a whole module could go missing from it silently.
+        "conformal",
         "diagnostics",
         "disambiguation",
         "engine",
@@ -307,6 +314,7 @@ _SUBMODULES = frozenset(
         "models",
         "nlp",
         "phonetics",
+        "propagation",
         "resources",
         "scoring",
         "stopwords",

@@ -412,18 +412,33 @@ the mutated file's and move with any edit to this page; rc and "is the file name
   rc=1  A  a cited value edited: 93.55 -> 99.99                       docs/POSITIONING.md:129
   rc=1  B  that citation repointed at run id monoculture.nope.*       docs/POSITIONING.md:129
   rc=1  C  prose line added: "... accuracy reached 99.94 % ..."       docs/POSITIONING.md:70
-  rc=0  D  prose line added: "Median latency ... 41 microseconds"     <file not named>
+  rc=1  D  prose line added: "Median latency ... 41 microseconds"     docs/POSITIONING.md named
   rc=0  E  "(2 declared" -> "(9 declared" inside the fenced block above   <file not named>
+
+row D re-run after the arming vocabulary was widened; below it, what the widening
+did not reach, injected the same way into this file
+
+  rc=0  R1 "Median latencies ... fell to 41.37 this quarter"          <file not named>
+  rc=0  R2 "A full governed sweep took 41.37 seconds"                 <file not named>
+  rc=0  R3 "... is 41.37x faster than the baseline"                   <file not named>
+  rc=0  R4 "... holds 41.37 KB of resident state"                     <file not named>
 ```
 
-**A, B and C are the gate working**: a wrong value, a dead run id and a bare accuracy percentage all
-turn the build red and name the line. **D and E are the two holes, and they are in this page's own
-floor.** `latency` is not in the gate's arming vocabulary and a spelled-out `microseconds` is not in
-its unit vocabulary, so an invented latency claim on this page would never be seen — the blind spot
-`docs/DECISIONS.md` D-060 found in `README.md`, reproduced here rather than carried on that record's
-word. And the two fenced blocks above are outside the gate entirely, which D-052 says is
-mechanically indistinguishable from hiding: the command is printed with each one so that a reader
-can re-derive it, and that convention is the only thing separating them.
+**A, B, C and D are the gate working**: a wrong value, a dead run id, a bare accuracy percentage and
+an invented latency all turn the build red and name the line. **D used to be a hole and is now the
+correction**: `latency` was not in the gate's arming vocabulary and a spelled-out `microseconds` was
+not in its unit vocabulary, so an invented latency claim on this page was never seen — the blind spot
+`docs/DECISIONS.md` D-060 found in `README.md` and this page reproduced rather than carrying on that
+record's word. It is closed, and the row above is the **re-run**, not an edited digit.
+
+**E is still a hole, and R1 to R4 are the residue the closure left.** The two fenced blocks above are
+outside the gate entirely, which D-052 says is mechanically indistinguishable from hiding: the
+command is printed with each one so that a reader can re-derive it, and that convention is the only
+thing separating them. And the closure closed two keywords and three units, not a class — the plural
+`latencies` misses because the keyword rule matches whole words, a bare `seconds` was refused because
+it would arm dates, a speedup written `41.37x` is not a free-standing number, and byte figures have
+no unit in the rule. **A closure reported as total would be the same defect one level up**, so the
+residue is printed here rather than described.
 
 **One consequence, reported here and closed by the next reader:** `docs/SECOND-READER.md`'s
 trigger-B rotation was a fixed list of fourteen files and this was not one of them, so the rotation

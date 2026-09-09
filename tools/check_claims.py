@@ -71,7 +71,8 @@ arm, and they fail in different directions:
 * **proximity** -- the number sits within :data:`_PROXIMITY` characters of a
   metric keyword used as a word. This is the original rule.
 * **unit** -- the number is immediately followed by a metric unit (:data:`_UNIT_AFTER_NUMBER`):
-  ``96 %``, ``62.40 µs``, ``4,219 docs/s``. No keyword required.
+  ``96 %``, ``62.40 µs``, ``41 microseconds``, ``4,219 docs/s``. No keyword
+  required.
 
 Either way the number must be free-standing and in prose, and each of those two
 conditions removes a class of false positive this check used to raise, without
@@ -96,6 +97,37 @@ saw it -- not because 96 was too far from a keyword, but because that line has
 in :data:`_KEYWORDS`. Proximity is a rule about distance, and the miss was about
 vocabulary. Widening the window from 48 to 480 would not have armed it; a rule
 that reads the number's own shape does.
+
+The arming asymmetry, closed
+----------------------------
+Both rules are vocabularies, so both had a hole with a name. Until this change
+an uncited **latency** figure in microseconds exited ``0`` and an uncited
+**accuracy** percentage in the same position exited ``1`` -- ``latency`` was not
+in :data:`_KEYWORDS` and a spelled-out ``microseconds`` was not in
+:data:`_UNIT_AFTER_NUMBER`. That was measured five times and fixed none of them,
+and on 2026-08-25 it was observed *live*: this module's own test probe leaked
+into ``README.md``, the front page carried ``Median latency for a governed
+expansion fell to 41 microseconds in this release.``, and this gate exited ``0``
+without naming the file. Every gate in the repository was green.
+
+The narrow widening -- ``latency`` and ``duration`` as keywords, the three
+spelled-out sub-second units -- is now taken. **Re-derived free immediately
+before it was taken**, because a fact nothing re-runs is the class this
+repository keeps finding stale: across the whole scanned set, **not one line
+carrying either new keyword has a free-standing prose number within
+:data:`_PROXIMITY` characters of it**, and **no prose number anywhere in the scan
+set is followed by a spelled-out sub-second unit**. So no number changed arming
+class, neither ratchet moved, and no row was owed to :data:`LEDGER_TRAJECTORY` --
+the registers are where they were. (How many lines carry the words is not
+published, because it rises whenever a page describes the closure -- this
+docstring included -- and drifts under every other workstream. The two **zeros**
+are the measurement, and a test re-derives them.)
+
+**Which means the widening was not calibrated by this tree, only permitted by
+it.** Zero firings measure the documents, not the rule. What the rule does is
+demonstrated by injection instead: the same sentence that used to exit ``0`` now
+exits ``1`` and names the file, in each of ``README.md``,
+``docs/EVALUATION.md``, ``docs/POSITIONING.md`` and ``docs/DECISIONS.md``.
 
 Nothing is dropped silently
 ---------------------------
@@ -227,6 +259,40 @@ each such widening is another ratchet-lowering commit rather than a free win.
 ``--classify`` reports a second, larger instance of the same blind spot: numbers
 in a table cell under a metric column heading, which neither arming rule can see
 because a table names its metric once in the header.
+
+**Closing the latency asymmetry closed two keywords and three units, and that is
+all it closed.** The vocabulary is still a list, so a performance claim written
+in words the list does not hold is still invisible. Measured by injecting one
+sentence at a time into each of ``README.md``, ``docs/EVALUATION.md``,
+``docs/POSITIONING.md`` and ``docs/DECISIONS.md`` and reading the exit code, all
+four files agreeing:
+
+* ``Median latencies ... fell to 41.37`` -- **rc=0**. :func:`keyword_positions`
+  matches whole words, so the plurals ``latencies`` and ``durations`` arm
+  nothing. The singular is in the list; the plural a working engineer reaches
+  for is not.
+* ``... is 41.37x faster than the baseline`` -- **rc=0**, and *before* any
+  arming rule runs: the trailing ``x`` welds the token into ``41.37x``, which
+  :func:`iter_claim_numbers` does not yield as a number at all. Widening
+  :data:`_UNIT_AFTER_NUMBER` would not reach it; the free-standing rule would
+  have to change, and that rule is shared with the value ledger.
+* ``... holds 41.37 KB of resident state`` -- **rc=0**. Memory and byte figures
+  are outside both rules; ``KB``/``MB``/``bytes`` were considered above and not
+  taken.
+* ``... took 41.37 seconds`` -- **rc=0**, and *deliberately*: every duration in
+  this tree is sub-second, and a rule matching bare ``seconds`` would arm dates,
+  interval lengths and the word wherever it follows a number. The cost of that
+  choice is that a whole-corpus timing in seconds is not armed by its unit.
+* every synonym nobody listed -- ``throughput`` is in the list, ``QPS``,
+  ``p99``, ``overhead``, ``speedup``, ``cold start`` and ``time to first
+  token`` are not. The rule that caught ``F₁ > 96 %`` was a rule about shape;
+  this one is a rule about vocabulary, and a vocabulary is a list somebody
+  finishes writing.
+
+**A closure reported as total would be the same defect one level up**, so: the
+two documented structural holes -- the table cell under a metric column heading,
+and anything fenced or code-spanned -- are untouched by this change and remain
+the larger population.
 
 **A classification is not an adjudication.** ``gate-able`` means a measurement
 somewhere has that value -- the property D-052 refused to treat as a backing.
@@ -472,6 +538,7 @@ _UNIT_AFTER_NUMBER = re.compile(
     r"^[ \t]*(?:"
     r"%"  # 92.32 %, 92.32%
     r"|[µμumn]s\b"  # 62.40 µs / µs / us / ms / ns
+    r"|(?:nano|micro|milli)seconds?\b"  # 41 microseconds, 139.60 milliseconds
     r"|[A-Za-z]*/(?:s|sec|second)s?\b"  # 4,219 docs/s, 96,532 identifiers/second
     r")"
 )
@@ -490,6 +557,26 @@ _KEYWORDS = (
     "accuracy",
     "exact match",
     "mean absolute error",
+    # Added when the arming asymmetry D-060 measured five times was closed. A
+    # sentence naming a median latency in microseconds used to pass while one
+    # naming an accuracy percentage in the same position failed the build, and on
+    # 2026-08-25 that hole was observed live rather than by injection: this
+    # repository's own test probe leaked into ``README.md``, the front page
+    # carried an invented performance figure, and this gate exited 0 without
+    # naming the file.
+    #
+    # Re-derived free before it was taken, against the whole scanned tree: not
+    # one line carrying either word has a free-standing prose number within
+    # :data:`_PROXIMITY` characters of it, and no prose number in the scan set
+    # is followed by a spelled-out sub-second unit, so neither ledger moves. That is a fact about this tree and not about the
+    # rule -- the next document to write ``median latency 41 microseconds`` in
+    # prose gets a red build, which is the point.
+    #
+    # Both are matched as whole words by :func:`keyword_positions`, so the
+    # plurals ``latencies`` and ``durations`` arm nothing. See the residue
+    # section of this docstring.
+    "latency",
+    "duration",
 )
 
 #: Characters that weld a keyword into a longer word. Underscore is *not* one
@@ -2602,6 +2689,68 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
             "third does not have to be written."
         ),
     ),
+    LedgerRound(
+        label="M3-PC (the third waiver)",
+        deferred=189,
+        value_matched=64,
+        note=(
+            "Mandate III Phase C. 9 records were added, D-110 through D-118, so the pin went red "
+            "at 118 against 109 before a word of migration was written -- the sixth consecutive "
+            "round in which the binding did its job. IT MIGRATED NOTHING AND TOOK THE THIRD "
+            "CONSECUTIVE WAIVER. The round's brief said in terms that a third waiver is a policy "
+            "nobody is following, and D-118 agrees with that sentence rather than arguing with "
+            "it. THE FINDING IS NOT THE RESIDUE AND THIS ROW IS NOT ANOTHER PROBE. D-097 measured "
+            "the 42 in docs/DECISIONS.md terminal; D-109 re-measured them terminal against a "
+            "bench/results.json 3,771 numeric leaves larger, and measured CHANGELOG.md's 28 "
+            "terminal on the released-entry hazard; and D-109 then ESCALATED FOUR NAMED "
+            "REPLACEMENTS TO THE MAINTAINER -- a per-file 'closed' disposition backed by the "
+            "probe, a floor re-sized against the reachable population, a fix to the one-sided "
+            "arming rule, or assigning the residue rather than the quota. NOTHING IN THIS TREE "
+            "ANSWERS IT. MIGRATION_QUOTA is still 12, RECORD_FILE_FLOOR is still 12, no 'closed' "
+            "disposition exists, and docs/notes/pydantic-cost.md's 70 -- the largest population "
+            "in the register, never probed by anybody -- was assigned to nobody for a third "
+            "round. The recorder re-walked its own three files rather than inheriting the "
+            "verdict: the 42 are import-attribution milliseconds and microseconds no runner "
+            "saves, plus range endpoints and table cells whose deletion rewords a closed record; "
+            "CHANGELOG.md's 28 sit in released sections; docs/DEFINITION-OF-DONE.md holds exactly "
+            "1. The payable population across the three files the recorder may edit is 1, against "
+            "a quota of 12 and a floor of 12. THE ONE-SIDED ARMING ASYMMETRY IS STILL OPEN AND IS "
+            "STILL THE ONLY FIX THAT MAKES THE REGISTER BIGGER AND THE INSTRUMENT BETTER: a line "
+            "reading 134.7, 139.6, 150.4 and 154.7 ms defers exactly one of four, because the "
+            "unit follows the last. The claims gate's ARMING VOCABULARY was widened in this same "
+            "round -- latency and duration became metric keywords and the spelled-out sub-second "
+            "units became units -- and it changed the arming class of 0 of 2246 claim-shaped "
+            "numbers on the scanned set, so it moved neither ledger and owed no row of its own. "
+            "That is a different hole from this one. 73 of 115 in seven bound rounds; the "
+            "trajectory is now 316, 262, 231, 213, 201, 189, 189, 189, 189. This row plus a pin "
+            "re-taken at 118 is what closes it."
+        ),
+        waiver=(
+            "THIRD CONSECUTIVE WAIVER, and D-118 records that the thing which has stopped working "
+            "is the ESCALATION CHANNEL rather than the residue. Citation: no probe was re-run "
+            "here, and that is deliberate. D-097 and D-109 ran it twice against a growing corpus "
+            "and both returned the same verdict -- the residue in docs/DECISIONS.md is "
+            "milliseconds and microseconds of an import attribution that no runner saves, and "
+            "every value match it has is a coincidence in the wrong unit about something else. A "
+            "third probe would be exactly the paperwork this waiver exists to name. What WAS "
+            "re-derived is the payable population across the three files this workstream may edit "
+            "-- docs/DECISIONS.md 42, CHANGELOG.md 28, docs/DEFINITION-OF-DONE.md 1 -- of which 1 "
+            "is reachable, against a quota of 12 and a per-file floor of 12. Deletion: unchanged; "
+            "the reachable instances were taken by M2-P6 and M3-PA, and what remains rewords a "
+            "closed record or leaves a malformed table or range. THE SUBSTANTIVE POINT: D-109 "
+            "escalated four replacements, the maintainer's answer is not in this tree, and the "
+            "round's brief then instructed the recorder to pay the quota or escalate it -- which "
+            "is the escalation returning to the party that filed it. This is the same defect as "
+            "three other findings in the same block: a roster must be written by whoever launches "
+            "a round and no round can write it for itself (D-113); a cold reader may not write "
+            "the ledger the policy requires, so two of six reads have no row (D-116); and a "
+            "gate-mutation run sat green for a fortnight because reading it is a person's job "
+            "nobody was assigned (D-113). Four mechanisms, one defect -- the party that must act "
+            "is outside the round. A waiver is free text nothing grades, which "
+            "docs/CLAIMS-LEDGER.md section 2 names as the mechanism by which a first inconvenient "
+            "round becomes a permanent exemption; two rounds was a limit and three is the policy."
+        ),
+    ),
 )
 
 #: How many records :data:`RECORD_FILE` held when the newest round was appended.
@@ -2627,7 +2776,7 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
 #: the gate reads, and ``label`` puts the words "which round paid for this"
 #: into the diff. It is a deterrent, not a mechanism, and calling it a mechanism
 #: would be the same overclaim this policy exists to stop.
-RECORD_FILE_PIN = RecordPin(label="M3-PB (the eight briefs)", records=109)
+RECORD_FILE_PIN = RecordPin(label="M3-PC (the third waiver)", records=118)
 
 
 def count_records(text: str) -> int:

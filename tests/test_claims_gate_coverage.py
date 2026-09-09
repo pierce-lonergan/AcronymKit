@@ -11,40 +11,59 @@ This module is the narrow mechanical part of that class, and it is narrow on
 purpose. It cannot verify that prose is true. It can verify two things that
 together make the specific failure expensive:
 
-1. **The blind spot still exists.** An uncited latency figure in microseconds
-   passes the gate; an uncited accuracy percentage in the same position fails it.
-   If somebody widens the arming rules so the latency case starts failing, this
-   test goes red and points at the sentences that would then be understating the
-   gate. A blind spot that is *measured* is a different object from one that is
-   merely present.
+1. **The blind spot is closed, and stays closed.** An uncited latency figure in
+   microseconds now fails the gate, exactly as an uncited accuracy percentage in
+   the same position always did. If somebody reverts the arming vocabulary, this
+   test goes red and points at the seven documents that would then be overstating
+   the gate. The assertion below used to run the other way -- it pinned the hole
+   open so it could not quietly change -- and inverting it is the whole of this
+   round's change to this module.
 2. **The two copies of the sentence agree.** *One sentence written in two places
    and corrected in one* is the shape this repository has hit four times: the
    mypy floor rationale (twice, in two files), the ``socrata`` scan-glob note,
    and this. Where the same claim is duplicated, the duplication itself is
    checkable even when the claim is not.
 
-3. **The price of closing the blind spot stays at zero, or this goes red.** The
-   narrow widening -- ``latency`` and ``duration`` as metric keywords,
-   spelled-out ``microseconds``/``milliseconds``/``nanoseconds`` as units --
-   was measured against the whole scanned tree and moves **no** number into any
-   backing class. That is the fact a refusal to widen currently rests on, and a
-   fact nothing re-derives is the class this repository keeps finding stale. If
-   a later round writes a latency figure into a scanned document, the widening
-   stops being free, this test says so, and the decision gets re-taken instead
-   of inherited.
+3. **The widening is present in the shipped rules, not merely equivalent to
+   them.** ``latency`` and ``duration`` are metric keywords and the three
+   spelled-out sub-second units are units. Asserting the vocabulary directly is
+   what stops the injection test above passing for some unrelated reason -- an
+   exit code standing in for a specific claim is this repository's most repeated
+   confound.
+
+4. **The residue is pinned too.** Closing this closed two keywords and three
+   units. It did not close the plurals ``latencies`` and ``durations``, a bare
+   ``seconds``, a speedup ``x``, or a memory figure in ``KB`` -- each of those is
+   injected below and each must still exit ``0``. **A closure reported as total
+   would be the same defect one level up**, so the parts that are still open are
+   a passing test rather than a sentence.
 
 **What this does not do.** It does not check that the corrected wording is
 accurate -- only that the two copies match and that the behaviour they describe
 is still the behaviour. A third copy in a file nobody listed here is invisible to
 it, and so is a rewording that keeps both copies consistent and both wrong.
 
-**Why the widening was measured and not taken.** It costs the deferred ratchet
-nothing. It costs six shipped documents their accuracy: ``README.md``,
-``docs/EVALUATION.md``, ``docs/DEFINITION-OF-DONE.md``, ``docs/POSITIONING.md``,
-``docs/SECOND-READER.md`` and ``docs/DECISIONS.md`` all state that an uncited
-latency in microseconds passes, and three of them print a MEASURED mutation
-battery whose ``rc=0`` row would invert. None of those files belongs to the
-workstream that owns this one. See ``docs/GATES.md``, "The claims gate's hole".
+**Why the widening was taken, having been measured and refused twice.** The
+refusal rested on a real cost: it costs the deferred ratchet nothing, but it cost
+seven shipped documents their accuracy -- ``docs/SOURCING.md`` was the seventh and
+was missed on the first pass -- ``README.md``, ``docs/EVALUATION.md``,
+``docs/DEFINITION-OF-DONE.md``, ``docs/POSITIONING.md``, ``docs/SECOND-READER.md``
+and ``docs/DECISIONS.md`` all stated that an uncited latency in microseconds
+passes, and three of them print a MEASURED mutation battery whose ``rc=0`` row
+inverts. **Keeping a known blind spot open to preserve the descriptive accuracy
+of the documents documenting it is circular debt**, and the thesis of this
+library is refusing silent failures and deleting checks that cannot fail. All
+six were corrected in the same commit that widened the rules, and the three
+batteries were **re-run** rather than having their digits edited. See
+``docs/GATES.md``, "The claims gate's hole, closed".
+
+**The freeness was re-derived before it was taken, not inherited.** Across the
+whole scanned set, not one line carrying ``latency`` or ``duration`` has a
+free-standing prose number within the proximity window, and no prose number is
+followed by a spelled-out sub-second unit -- so no number changed arming class
+and neither ratchet moved. Which also means **the widened rule was permitted by
+this tree and calibrated by nothing**: zero firings measure the documents, not
+the rule. That is why the injections below exist.
 """
 
 from __future__ import annotations
@@ -249,8 +268,12 @@ def _require_an_unmutated_green_gate() -> None:
     unmutated tree exits zero. On 2026-08-25 it was not: another workstream
     added a decision record, ``RECORD_FILE_PIN`` went stale, the gate exited
     ``1`` for a reason with nothing to do with latency, and
-    ``test_the_measured_blind_spot_is_still_there`` reported *"the claims gate
-    now catches an uncited latency-in-microseconds figure"*. It does not. An
+    the injection test then called ``test_the_measured_blind_spot_is_still_there``
+    reported *"the claims gate now catches an uncited latency-in-microseconds
+    figure"*. It did not, then. **It does now** -- the vocabulary was widened in
+    a later round -- and that makes the confound sharper rather than moot: a
+    right answer produced by a broken inference is still a broken inference, and
+    the same skip would be needed to tell the two apart today. An
     exit code standing in for a specific claim is the same confound the
     ``gates.suite`` demonstration carries, and it is worth naming twice.
 
@@ -289,12 +312,14 @@ def test_the_positive_control_fails_the_build() -> None:
     )
 
 
-def test_the_measured_blind_spot_is_still_there() -> None:
-    """An uncited latency in microseconds passes, and the docs say so.
+def test_the_closed_blind_spot_stays_closed() -> None:
+    """An uncited latency in microseconds fails the build, and the docs say so.
 
-    If this starts failing, the gate got wider and that is good news -- but the
-    two sentences checked above are then understating it, and they must be
-    corrected in the same commit that widens the rules.
+    This assertion used to read ``== 0`` and to say that a red build here was a
+    widening to be adopted. The widening was adopted; the row inverted; the six
+    documents were corrected in the same commit. If this goes back to ``0``, the
+    arming vocabulary was narrowed and those seven documents are now overstating
+    the gate -- which is the failure this module exists to make expensive.
     """
     _require_an_unmutated_green_gate()
     code = _or_skip(
@@ -302,16 +327,63 @@ def test_the_measured_blind_spot_is_still_there() -> None:
             "Median latency for a governed expansion fell to 41 microseconds in this release."
         )
     )
-    assert code == 0, (
-        "the claims gate now catches an uncited latency-in-microseconds figure. That is a "
-        "WIDENING, not a regression. Update the coverage sentences in README.md and "
-        "docs/EVALUATION.md, which currently tell readers this case is not caught, and "
-        "then change this test to match the new coverage."
+    assert code == 1, (
+        "the claims gate no longer catches an uncited latency-in-microseconds figure. "
+        "That is a NARROWING and it re-opens the hole that was found live on the front "
+        "page on 2026-08-25. Either restore 'latency' to _KEYWORDS and the spelled-out "
+        "sub-second units to _UNIT_AFTER_NUMBER, or correct README.md, docs/EVALUATION.md, "
+        "docs/DEFINITION-OF-DONE.md, docs/POSITIONING.md, docs/SECOND-READER.md and "
+        "docs/DECISIONS.md, which all now state that this case is caught."
     )
 
 
-def test_the_blind_spot_has_a_named_cause_rather_than_being_folklore() -> None:
-    """The arming rules must actually lack the terms, not merely happen to miss them."""
+#: What the gate still cannot see, one sentence each, all of them exiting ``0``.
+#:
+#: This is the residue of the closure, pinned rather than described. Closing the
+#: latency asymmetry closed two keywords and three units; these are the classes
+#: of performance claim that remain invisible, and a round that closes one of
+#: them turns the matching row red and has to say so.
+_UNCAUGHT_RESIDUE = (
+    # The keyword rule matches whole words, so the plural misses.
+    ("plural keyword", "Median latencies for governed expansion fell to 41.37 this quarter."),
+    # Deliberately not armed: a bare `seconds` would arm dates and intervals.
+    ("bare seconds", "A full governed sweep took 41.37 seconds in this release."),
+    # `41.37x` is not free-standing, so no arming rule is ever consulted.
+    ("speedup multiplier", "Governed expansion is 41.37x faster than the baseline."),
+    # Memory and byte figures were considered for the unit rule and not taken.
+    ("memory in KB", "Governed expansion holds 41.37 KB of resident state in this release."),
+)
+
+
+@pytest.mark.parametrize(
+    "sentence", [text for _, text in _UNCAUGHT_RESIDUE], ids=[name for name, _ in _UNCAUGHT_RESIDUE]
+)
+def test_the_residue_the_closure_left_behind_is_still_uncaught(sentence: str) -> None:
+    """The closure is partial, and each part still open is a passing test.
+
+    **A closure reported as total would be the same defect one level up.** The
+    module docstring lists these four; this runs them through the real gate so
+    the list cannot drift from the behaviour. A red row here is good news and
+    means the vocabulary got wider again -- update the docstring, ``docs/GATES.md``
+    and the residue section of ``tools/check_claims.py`` in the same commit.
+    """
+    _require_an_unmutated_green_gate()
+    code = _or_skip(_run_gate_with_injection(sentence))
+    assert code == 0, (
+        f"the claims gate now catches {sentence!r}. That is a WIDENING beyond the one this "
+        "module records. Move this case out of _UNCAUGHT_RESIDUE and correct every document "
+        "that publishes the residue list."
+    )
+
+
+def test_the_closure_has_a_named_cause_rather_than_being_folklore() -> None:
+    """The arming rules must actually hold the terms, not merely happen to catch them.
+
+    The injection above reads a whole-process exit code, which is the confound
+    this repository has hit three times in one round. This asserts the mechanism
+    directly, so a green injection for some unrelated reason cannot be read as
+    the vocabulary being present.
+    """
     tool = _load_tool()
 
     # The two arming rules are different KINDS of object, which this test got
@@ -327,31 +399,47 @@ def test_the_blind_spot_has_a_named_cause_rather_than_being_folklore() -> None:
     )
     assert isinstance(unit_rule, re.Pattern), (
         "_UNIT_AFTER_NUMBER is no longer a compiled pattern; re-derive what the unit "
-        "arming rule actually matches before trusting the assertion below"
+        "arming rule actually matches before trusting the assertions below"
     )
 
     lowered = {str(k).lower() for k in keywords}
-    assert "latency" not in lowered, (
-        "'latency' is now a metric keyword, so the blind spot above has a different cause "
-        "than the docs state. Re-derive the coverage sentences."
-    )
-    assert unit_rule.match(" microseconds") is None, (
-        "spelled-out 'microseconds' is now matched by the unit arming rule; the documented "
-        "cause of the blind spot is stale."
+    for keyword in _WIDENED_KEYWORDS:
+        assert keyword in lowered, (
+            f"{keyword!r} is not a metric keyword any more, so the closure the seven documents "
+            "describe has been reverted. Re-derive the coverage sentences."
+        )
+    for unit in (" microseconds", " milliseconds", " nanoseconds", "microsecond", " microseconds."):
+        assert unit_rule.match(unit) is not None, (
+            f"the unit arming rule no longer matches {unit!r}; the documented cause of the "
+            "closure is stale."
+        )
+    # And the residue has a named cause too: a whole-word keyword misses its own
+    # plural, which is why `_UNCAUGHT_RESIDUE` leads with `latencies`.
+    assert tool.keyword_positions("median latencies fell") == []
+    assert unit_rule.match(" seconds") is None, (
+        "a bare 'seconds' is now a unit. That arms dates and interval lengths; it was "
+        "refused on purpose. Re-derive the residue list before accepting it."
     )
 
 
-#: The narrow widening D-052 did not consider, measured rather than argued about.
-#: ``latency`` and ``duration`` as keywords; the three spelled-out sub-second
-#: units as units. Deliberately NOT a bare ``seconds``: every duration in this
-#: tree is sub-second, and a rule matching ``seconds`` would arm dates, counts of
-#: seconds in an interval, and the word wherever it follows a number.
+#: The narrow widening D-052 did not consider, measured rather than argued about
+#: and now **shipped**. ``latency`` and ``duration`` as keywords; the three
+#: spelled-out sub-second units as units. Deliberately NOT a bare ``seconds``:
+#: every duration in this tree is sub-second, and a rule matching ``seconds``
+#: would arm dates, counts of seconds in an interval, and the word wherever it
+#: follows a number.
 _WIDENED_KEYWORDS = ("latency", "duration")
-_WIDENED_UNIT_AFTER_NUMBER = re.compile(
+
+#: The arming rules as they stood before the closure. Kept so that the freeness
+#: of the widening can be **re-derived on every run against the live tree**
+#: rather than inherited from the round that took it: if a later document writes
+#: a latency figure that the old rules could not see, the widening stops being
+#: free retroactively, the ledgers this repository ratchets shut are the ones
+#: that would have moved, and the test below says so.
+_PRE_WIDENING_UNIT_AFTER_NUMBER = re.compile(
     r"^[ \t]*(?:"
     r"%"
     r"|[µμumn]s\b"
-    r"|(?:nano|micro|milli)seconds?\b"
     r"|[A-Za-z]*/(?:s|sec|second)s?\b"
     r")"
 )
@@ -386,11 +474,13 @@ def _armings(tool: ModuleType, text: str, suffix: str) -> list:
 
 
 def _newly_armed(tool: ModuleType, monkeypatch: pytest.MonkeyPatch, **widened: object) -> list:
-    """Numbers the widened rules arm that the shipped rules do not.
+    """Numbers on which the shipped rules and ``widened`` disagree.
 
     One read per file, two evaluations of the same bytes. Returns
-    ``(path, line, number, shipped_arming, widened_arming)`` for every
-    disagreement.
+    ``(path, line, number, shipped_arming, other_arming)`` for every
+    disagreement. The direction is not baked in: pass the pre-widening rules to
+    ask what the closure cost, or a deliberately over-wide rule to check that
+    the comparison can detect anything at all.
     """
     shipped = {"_KEYWORDS": tool._KEYWORDS, "_UNIT_AFTER_NUMBER": tool._UNIT_AFTER_NUMBER}
     project = tool.Project.at(REPO_ROOT)
@@ -417,32 +507,44 @@ def _newly_armed(tool: ModuleType, monkeypatch: pytest.MonkeyPatch, **widened: o
     return differences
 
 
-def test_the_measured_price_of_closing_the_blind_spot_is_still_zero(
+def test_the_measured_price_of_the_closure_is_still_zero(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Widening the arming rules must arm nothing new, or the refusal is re-taken.
+    """The shipped rules must arm nothing the pre-widening rules did not.
 
     D-052 refused a wide widening because arming on everything would relabel
     over a thousand numbers nobody had adjudicated. A NARROW one is a different
     object and it was measured: on this tree it arms nothing new at all, so it
-    would neither fail the build nor grow ``DEFERRED_BASELINE``, which the
-    trajectory forbids from growing.
+    neither fails the build nor grows ``DEFERRED_BASELINE``, which the trajectory
+    forbids from growing.
+
+    **The direction of this comparison flipped when the widening shipped.** It
+    used to ask what the un-taken widening would cost; it now asks whether the
+    taken one is still costing zero, which is the same arithmetic and a live
+    question rather than a historical one. If a document acquires a latency
+    figure in prose, this goes red *and so does the gate*, and the failure here
+    is the one that names the number.
 
     The measurement carries its own positive control below, because a comparison
     that cannot detect a difference reports zero for either reason.
     """
     tool = _load_tool()
+    narrowed = tuple(k for k in tool._KEYWORDS if k not in _WIDENED_KEYWORDS)
+    assert len(narrowed) == len(tool._KEYWORDS) - len(_WIDENED_KEYWORDS), (
+        "_KEYWORDS no longer carries the widened vocabulary, so this comparison would "
+        "measure nothing. See test_the_closure_has_a_named_cause_rather_than_being_folklore."
+    )
     moved = _newly_armed(
         tool,
         monkeypatch,
-        _KEYWORDS=(*tool._KEYWORDS, *_WIDENED_KEYWORDS),
-        _UNIT_AFTER_NUMBER=_WIDENED_UNIT_AFTER_NUMBER,
+        _KEYWORDS=narrowed,
+        _UNIT_AFTER_NUMBER=_PRE_WIDENING_UNIT_AFTER_NUMBER,
     )
     assert moved == [], (
-        f"the narrow widening now arms {len(moved)} number(s) the shipped rules do not, "
-        f"e.g. {moved[:3]}. Its price used to be zero and that is what the refusal to take it "
-        "rested on. Re-take the decision: either cite the number that moved, or widen and "
-        "correct the six documents listed in this module's docstring in the same commit."
+        f"the shipped rules arm {len(moved)} number(s) the pre-widening rules did not, "
+        f"e.g. {moved[:3]}. The closure's price was zero on the tree it was taken against and "
+        "the two ratchets are pinned shut. Cite the number that moved, or record the ratchet "
+        "shift in LEDGER_TRAJECTORY with its by_citation/by_deletion/by_fencing/by_other split."
     )
 
 

@@ -9,6 +9,756 @@ Newest first.
 
 ---
 
+**Mandate III Phase C — D-110 through D-118, and they are in ASCENDING order**, like the block below
+them and unlike the rest of this file. D-110 frames the round and carries its lead finding, D-111 to
+D-113 are the three workstreams in dependency order, and D-114 to D-118 are the instruments that read
+them. Read them down the page rather than up.
+
+---
+
+## D-110 — **The overclaim the round was told to hunt for is not in the tree, and the thing that was wrong is a *report*.** One workstream's summary names a shipped `README.md` paragraph that does not exist, its own prose gate passes on that file vacuously, and its machine-readable summary — validated `complete` — repeats the same false line
+
+**Status:** measured by the recorder against the working tree; nothing corrected in the offending file,
+which is not the recorder's ·
+**Amends:** nothing; it prices the three reports D-111 to D-113 rest on ·
+**Evidence:** the eight gates below; `grep -ic propagat README.md`; `tests/test_propagation.py`'s
+`CLAIM_FILES`; the tree-wide paragraph sweep below ·
+**No experiment number spent — experiment eleven is still free**
+
+Three workstreams, one cold read and one sampled-verification round. **All eight gates are green and
+all eight were run by the recorder, first time, with no retry.**
+
+```
+the eight gates, run by the recorder on the finished tree. Command output, not a benchmark
+measurement. CPython on win32; a single quiet checkout with no sibling suite running.
+  python -m pytest tests                      5798 passed, 10 skipped, 1 xfailed   rc=0
+  python -m ruff check src tests tools bench  All checks passed!                   rc=0
+  python -m ruff format --check ...           156 files already formatted          rc=0
+  python -m mypy                              no issues found in 99 source files   rc=0
+  python tools/check_claims.py                unbacked 0 | deferred 189 | vm 64    rc=0
+  python tools/splits.py --check              splits manifest OK                   rc=0
+  python tools/gates.py --check               CARRYING IN-SITU EVIDENCE 18 of 39   rc=0
+  python tools/second_reader.py --check       findings open 5, fixed 10            rc=0
+```
+
+**The recorder's own falsifier `V1` fired against the recorder.** It was written as *"at least one gate
+is red or non-deterministic when I run it"*, because three separate parties had reported instability:
+cold read `6` saw `pytest` red in `5` of `7` runs, C3's `F8` fired on a red baseline, and R15 reported
+`2` of `3` full runs red. All three were right about a tree that four agents were writing at once, and
+all three are wrong about the tree that is left. **Concurrency, not defect** — and the honest reading is
+that no gate result taken *during* a Phase C round is a statement about the finished tree. Only the
+recorder's is, because the recorder runs last on a quiet checkout.
+
+### The brief's most-feared finding is absent, and it was checked rather than accepted
+
+The round was told: *if any shipped sentence implies a **selective** conformal guarantee, that is the
+round's most serious finding and it leads the record.* It does not, and this is not C1's word for it.
+
+```
+the rule from tests/test_propagation.py, re-implemented by the recorder and run over EVERY
+markdown file in the tree plus every module under src/ -- 54 paragraphs wide, against the
+4 files the shipped test checks. Command output, not a benchmark measurement.
+  paragraphs mentioning propagation, tree-wide            54
+  of those, asserting a bound with no "joint" in them      0
+  per file:  src/acronymkit/propagation.py  22
+             docs/EVALUATION.md             13
+             CHANGELOG.md                    2
+             README.md                       0   <-- and there is the finding
+```
+
+`propagate()`'s docstring, the module docstring, the `JOINT_NOT_SELECTIVE` constant and the
+`CHANGELOG.md` entry each state the bound as **joint** and then deny the selective reading in the same
+paragraph. The disclosure is correct at every surface that carries it.
+
+### What leads instead: a surface that does not exist, guarded by a test that cannot say so
+
+C1's report states *"`README.md`: one opt-in paragraph"* and lists `README.md` among its changed files.
+**`README.md` contains zero occurrences of `propagat` and zero occurrences of `A2`.** The only change to
+that file this round is a sibling workstream's single-hunk edit to the honest-scope list about the
+claims gate — `13` insertions against `4` deletions by `git diff --stat`, and nothing else. Nothing in this repository can say whether the paragraph was written and destroyed on a
+shared checkout or never written at all; C3 records destroying a different sibling's uncommitted edit
+with `git checkout --` in this same round, and an unstaged file destroyed that way leaves no blob, no
+reflog entry and no dangling object.
+
+**The instrument built to guard exactly this surface reports nothing, and it is not broken.**
+`CLAIM_FILES` names four files and three of the class's tests are parametrised over it, so `README.md`
+contributes exactly three passing test cases — named, collected and green. Every one of them is
+`assert not offenders` over a list built by filtering paragraphs on `"propagat" in block.lower()`. **On a file with no propagation text the filter
+returns empty and the assertion passes**, which is correct behaviour and is indistinguishable from the
+file being correct. C1's own report says the strengthened rule *"fires when applied to both surfaces
+rather than one"* — that count was taken on a tree where one of the two surfaces was already empty.
+
+**And the machine-readable summary carries the same false line.** `m3pc-a2.json` validates `complete`
+against the schema C3 shipped, and its `files_changed` array ends `"README.md"`. C3's own report says a
+JSON summary *"is still self-assessment — cheaper to write, not more trustworthy"*. **This is that
+sentence's first live instance, produced in the same round, and it is worth more than the sentence
+was:** the schema checks that twelve claims are present and that a label matches a filename. It cannot
+check that a named file was touched, and `git diff --name-only` can.
+
+> **The class is R16's, one channel further out.** A figure inside an image was an unchecked claim; a
+> *file name inside a round's own account of itself* is an unchecked claim, and this round shipped the
+> register that makes those accounts durable without shipping anything that reads one against the tree.
+> The cheapest possible check — every path in `files_changed` appears in `git diff --name-only` — is a
+> few lines and nobody has written it.
+
+### What the recorder verified per workstream, and what it carried
+
+Item 1 of the brief, answered rather than assumed. **Verified against running code, by the recorder,
+this round:** the tree-wide propagation sweep above; `README.md`'s zero paragraphs; `latency` and
+`duration` in `check_claims._KEYWORDS`; `docs/SOURCING.md` matching `SCAN_GLOBS`; the six-state reader
+and the exit codes of `--validate`, `--report --strict` and `--check`; a field-by-field diff of all
+`700` pre-existing run ids in `bench/results.json` against `017cb37`; `render_figures.py --check`; test
+counts of `49`, `87` and `12`; the five alpha rows of `conformal.sdu21.exchangeable`; and all eight
+gates.
+
+**Carried on trust, and named:** the `4,260`-document byte-identity digest (C1 ran it; R15 re-ran it
+independently with its own serialisation and its own control — two parties, neither of them the
+recorder); the `16`-cell claims injection matrix (C2 ran it; R15 re-ran all sixteen cells in a mirror);
+GitHub Actions run `34308556192` (R15 read it with `gh`; the recorder verified only that the two
+in-situ stamps in `.github/gates.toml` name that run and that commit); and the two gate-mutation
+mirrors.
+
+---
+
+## D-111 — **A2 ships opt-in, and the coverage claim it was commissioned on is withdrawn by the workstream that shipped it.** `+3.07` recall points, not the `+10` it bet; no published figure moved; the conformal gate is documented as **joint** at every surface and has never been run over a corpus
+
+**Status:** shipped — `src/acronymkit/propagation.py`, `tests/test_propagation.py`, two bench runners,
+`17` new run ids, `docs/EVALUATION.md`, `CHANGELOG.md` · **NOT breaking** ·
+**Amends:** D-092's *"A5 widens candidate generation and A2 does not"* stands; the A2 decision D-085
+left to the maintainer is taken, and taken as **opt-in with no default path** ·
+**Evidence:** `spans.plod.*.propagated`, `extraction.med1250.acronymkit_propagated`;
+`one_sense.pmc_oa.a2.*`; `conformal.sdu21.exchangeable` ·
+**No experiment number spent**
+
+The rule is U3's measured one, verbatim: commit to the **first** definition of a short form in document
+order, license every **whole-token** occurrence of it **at or after** that point, **term-shaped** short
+forms only. No engine, no `Config` field, no CLI verb and no default path reaches it.
+
+### The recall win is real, is a third of what the round bet, and is measured at the wrong scope
+
+On PLOD-CW `all` / `tight` / `HIGH_PRECISION`, short-form exact recall moves from
+36.53<!--claim:spans.plod.all.tight.acronymkit.high_precision.native.short_form.exact_recall:.2f--> %
+to
+39.60<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_recall:.2f--> %,
+which is `3.07` points — `96` offered spans,
+88<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_true_positives_new_from_propagation:,-->
+of them gold,
+0<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_true_positives_lost_versus_definitions:,-->
+lost. The definitional oracle ceiling over the same seven members moves
+37.50<!--claim:spans.plod.all.tight.oracle_definitional.short_form.exact_recall:.2f--> % to
+40.85<!--claim:spans.plod.all.tight.oracle_definitional_propagated.short_form.exact_recall:.2f--> %.
+
+**C1's ship-stopper `F2` fired on its own work and it published that first.** The pre-registration
+required a rise of at least ten points or the coverage claim was withdrawn. It got `3.07`, and **the
+`5.95` x coverage multiple is withdrawn as a claim about scored data**, surviving only as an occurrence
+count on PMC-OA. The stated reason is the useful part: PLOD-CW's *documents* are `1,351` passages
+averaging about `37` tokens, so this measures a document-scoped rule at the smallest scope on which it
+is still document-scoped. **No corpus in this project can score A2 at article scope** — PMC-OA's gold
+records one located occurrence per roster pair, so propagated occurrences score as false positives
+against a gold that never wrote them down, and MED1250's gold is definitions. *Unscorable here* is the
+finding, and it is weaker than *A2 buys little*.
+
+### One published sentence about precision is wider than the cell it was measured on
+
+C1 reports `93.66` to `93.73` and concludes *"propagation does not cost precision on this corpus"*.
+R15 graded that MISLEADING and the recorder reproduced the grounds from `bench/results.json`:
+
+```
+short_form.exact_precision, PLOD-CW all, native -> propagated. Derived from bench/results.json.
+  tight   biomedical      91.90 -> 92.11   +0.21
+  tight   general         93.58 -> 93.66   +0.08
+  tight   high_precision  93.66 -> 93.73   +0.07
+  spaced  biomedical      92.84 -> 92.69   -0.15
+  spaced  general         94.40 -> 94.12   -0.28
+  spaced  high_precision  94.48 -> 94.19   -0.29
+```
+
+Propagation adds false positives in all six cells. Precision holds in the `tight` arm only because true
+positives grow faster. **The right sentence is that it costs up to `0.29` points of exact precision on
+the spaced arm and gains up to `0.21` on the tight one**, and that sentence is in this record because
+`docs/EVALUATION.md` is not the recorder's file to correct.
+
+### Nothing that was already published moved, and that was measured rather than argued
+
+The recorder flattened every run in `bench/results.json` at `017cb37` and on this tree and diffed field
+by field.
+
+```
+python -- 700 pre-existing run ids, every field, base 017cb37 vs the finished tree.
+Command output, not a benchmark measurement.
+  run ids: base 700, live 717   added 17   removed 0
+  fields that moved on any pre-existing run id:  elapsed_seconds 40, docs_per_second 40
+  accuracy / precision / recall / F1 / TP / FP / FN / counts:  0 moved
+  python tools/render_figures.py --check   -> byte-identical, rc=0
+```
+
+Wall-clock and its derived rate are the whole of the movement, which is what R18 exists to make
+unremarkable. **The brief's own premise — *"every published recall figure moves"* — is false**, and it
+was measured rather than repeated. C1 also reports catching itself about to publish the opposite: a
+first `--save` that omitted four external baselines shrank the oracle unions and moved two *cited*
+numbers for a reason with nothing to do with A2, caught only because the file had been md5-snapshotted
+first. That near-miss is a reason to keep snapshotting, and it is not a gate.
+
+### The gate is documented honestly and is unmeasured
+
+The bound a `ConformalGate` supplies is **joint** — on answering-and-being-wrong across all instances,
+refusals included — and every surface says so and denies the selective reading in the same paragraph
+(D-110's sweep). The measured selective error is quoted at the call site. **Three things about it are
+open and the second is new here:**
+
+- **The gate is never run over a corpus.** Every propagated benchmark arm is ungated, because no
+  calibration set of definition-shaped results exists and building one from the evaluation corpus would
+  be circular. Its cost in recall and its benefit in correctness are both unmeasured, and
+  `document_result()` builds candidate scores from extractor confidences — a different distribution
+  from anything `conformal.sdu21.*` was calibrated on. **This is the largest gap in the workstream.**
+- **The multiple `4.38` is the maximum of five and is written unconditionally in two places.** Cold
+  read `6` found it and the recorder confirmed it against `bench/results.json`:
+
+```
+conformal.sdu21.exchangeable, mondrian_by_arity. Derived from bench/results.json.
+  alpha  selective_error_pct  multiple of alpha
+  0.05          21.92               4.38
+  0.10          28.85               2.88
+  0.20          37.02               1.85
+  0.30          41.02               1.37
+  0.50          48.42               0.97   <-- below alpha, not above it
+```
+
+  `propagate()`'s docstring and `CHANGELOG.md` both say *"measured at `4.38` times `alpha`"* with no
+  alpha named, and `tests/test_propagation.py` pins that loose form. The module docstring does name
+  `alpha = 0.05` and also gives the `alpha = 0.20` figure, so the module is right and the two shortest
+  restatements of it are not. **This is the reciprocal of the feared error**: it overstates the danger,
+  so a caller is misled toward caution. It is still a phrasing tighter than the measurement.
+- **The second gap is the module's own and is stated in the module.** Whatever the gate says about the
+  *definition* does not transfer to the occurrences that definition licenses; that step is
+  one-sense-per-discourse, priced between
+  0.581<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_floor_correctness_pct_of_licensed:.3f--> %
+  and
+  9.68<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_ceiling_correctness_pct_of_licensed:.2f--> %
+  of licensed occurrences and held by no conformal argument at all.
+
+### How this fails
+
+`88` new gold spans are `88` spans, `7` of them on the test split, with no interval on the propagated
+half's own accuracy. `term_shaped` excludes single letters and lower-case markers — the population an
+extractor collides on most — because they were outside the frame the cost bounds were taken over, and
+the shipped rule carries no figure about them. **The new bench arms are in no CI job and no
+`.github/gates.toml` entry**, because the in-situ debt is at its ceiling; nothing re-derives them.
+`propagate()` is unreachable from `AcronymEngine`, the CLI and `ExtractionResult`. Its interaction with
+`legend_syntax=True` is untested. And the one-sense violation rate on **governed or regulatory prose,
+the genre this library is positioned for, is still unmeasured** — biomedicine rosters its abbreviations
+and a schema's documentation does not, so nothing here transfers to the half the front page leads with.
+
+---
+
+## D-112 — **The claims gate's arming blind spot is closed after five measurements and one refusal, it fired zero times on the tree it was closed against, and there were seven documents describing it rather than six.** The seventh is still describing it in the present tense
+
+**Status:** shipped — `tools/check_claims.py`, `tools/check_external.py`, two test modules, six documents
+plus `docs/GATES.md` and `docs/CLAIMS-LEDGER.md` · **Amends:** D-060's disposition
+*"blocked on ownership of six documents"*, withdrawn by the maintainer; the two appended corrections in
+this file are that withdrawal rather than a re-statement of it ·
+**Evidence:** `'latency' in check_claims._KEYWORDS`; the re-derived arming comparison; the mutation
+batteries re-run in four documents · **No experiment number spent**
+
+`latency` and `duration` are metric keywords; `(?:nano|micro|milli)seconds?` is a unit. D-060 measured
+the hole five times and refused to close it because six documents said it was open and would become
+false. **That refusal rested on a circular premise — the six documents were false only because the hole
+was open — and the maintainer withdrew it.**
+
+### The widening fired zero times, twice, and that is the measurement rather than a clean bill
+
+Freeness was re-derived independently of the existing test, before the edit and after it: one read per
+file, both rule sets against identical bytes.
+
+```
+python -- the shipped arming rules against the pre-widening ones, over check_claims' own
+scan set. Re-derived by C2 twice and by R15 once with its own implementation.
+Command output, not a benchmark measurement.
+  scanned                                 72 files, 2246 claim-shaped numbers
+  numbers that change arming class                                          0
+  positive control, "the" added as a keyword           726 (C2) / 799 (R15) move
+  positive control, a unit rule matching anything                1905 numbers move
+```
+
+**Zero is the result and it is not the flattering reading of itself.** It establishes that these
+documents contain no latency-shaped claim in prose. It establishes nothing about whether the rule is
+well calibrated, because the rule never fired. C2 published that reading in four places rather than the
+other one. It also killed a volatile figure it had already published — a line count of how many lines
+in the tree carry `latency` or `duration`, which moved twice as the tree moved and as its own pages
+described the closure — and removed it everywhere rather than re-quoting it. **The two zeros are the
+measurement; the line count was not.**
+
+### The false-positive cost, measured on a proxy, and every one of them is a proximity artifact
+
+Outside `SCAN_GLOBS` — `4,528` claim-shaped numbers by C2's count — `12` arming classes change, `11`
+newly armed and `1` re-attributed, and `4` are false positives: three fragments of the ISO date
+`2026-08-25` and the `400` of `font-weight="400"`, all four armed because the word `latency` sits
+within `48` characters. **All four come from the proximity rule; the spelled-out-unit rule produced
+none.** Three of the four are in a sentence this round wrote, which is the sharp version: had it been in
+a scanned file, the build would have gone red demanding a citation for a calendar date. R15 re-derived
+the `12` disagreements line by line and could not reconstruct C2's exact denominator — its two nearest
+reconstructions bracket the published rate — so the **count** is confirmed and the **rate** is one
+party's file list.
+
+### What is still invisible, and the seventh document
+
+The closure is two keywords and three units. Still `rc=0`, each injected into four documents and
+confirmed: the plurals `latencies` and `durations` (whole-word matching), a bare `seconds` (refused on
+purpose — it would arm dates), a speedup written with a trailing `x` (not a free-standing number at all,
+so no arming rule is ever consulted), a byte figure in `KB` (no unit in the rule), and every unlisted
+synonym. The two larger structural holes — a metric named once in a table header, and anything inside a
+code span or fenced block — are untouched, and the second of those is the one every number in this file
+sits behind.
+
+**And the count of documents was wrong.** Cold read `6` found a seventh, and the recorder confirmed it
+at the rule rather than at an exit code: `'latency' in _KEYWORDS` is `True`, `docs/*.md` is in
+`SCAN_GLOBS`, and `docs/SOURCING.md:632` still reads, present tense, *"`latency` is not in the gate's
+arming vocabulary … an invented latency claim on this page would never be seen"* — seven lines beneath
+an `rc=0` row, at `:625`, for the mutation that now reds. The word *six* is consequently wrong in `docs/GATES.md`,
+`docs/SECOND-READER.md` and three places in `tests/test_claims_gate_coverage.py`. **In this file it is
+corrected in place**; the other four are not the recorder's and are carried forward as open.
+
+> **A page carrying a *demonstrated* battery is the worst place for this class**, because the battery
+> is the reader's evidence and a stale `rc=0` row reads as a measurement rather than as prose. The rule
+> that would have caught it does not exist: nothing re-runs a published mutation battery when the gate
+> it documents changes.
+
+---
+
+## D-113 — **A round's account of itself is now a file a gate reads.** Its first live round reports `1` filed where `5` filed, because the roster naming who was expected was written by a workstream instead of by whoever launched them
+
+**Status:** shipped — `tools/run_summary.py`, `tests/test_run_summary.py` (`87` tests),
+`.github/gates.toml` `gates.run_summary` at `cost_rank` `37` of `39`, a ninth `ci.yml` lint step,
+`MANIFEST.in`, `CONTRIBUTING.md`, `docs/GATES.md`, `.github/run-summaries/mandate-iii-phase-c/` ·
+**Amends:** nothing; it is the first mechanical answer to D-095, D-096 and D-098 ·
+**Evidence:** the reader run against both round directories, below ·
+**No experiment number spent**
+
+D-098's closing sentence was that **a round's self-assessment is the only artefact a round produces
+that no gate reads**, and that it had been lost three times for three unrelated reasons. A round is now
+a directory holding `round.toml` — the roster — and one `<label>.json` per workstream. The reader
+returns six distinguishable states, and `absent` is computable **only against the roster**, which is
+D-096's lesson made mechanical: an empty directory is equally consistent with *nobody filed* and
+*nobody was launched*.
+
+### The mechanism was exercised for real, which is the thing that was in doubt
+
+Five parties wrote a summary to the shared scratchpad without being made to. Four validate `complete`
+against the shipped schema. **One does not:**
+
+```
+python tools/run_summary.py --validate, over the five summaries in the shared scratchpad.
+Command output, not a benchmark measurement.
+  cold-read-6.json                 COMPLETE   rc=0
+  m3pc-a2.json                     COMPLETE   rc=0
+  m3pc-r15-round-five.json         COMPLETE   rc=0
+  run-summary.json                 COMPLETE   rc=0
+  M3-PC-claims-gate-closure.json   INVALID    rc=1
+    'label' is 'M3-PC-claims-gate-closure', which is not a label matching ^[a-z0-9][a-z0-9-]{0,63}$
+    'gates' does not report ['ruff_format']
+```
+
+**The one that is invalid is the one whose report does not claim to have validated it.** Three of the
+four valid summaries say in their prose that they were checked against the shipped validator; the
+invalid one says nothing about it. That is the mechanism working exactly as far as somebody chose to
+run it and no further — nothing runs the validator over the scratchpad, and `--report --strict` returns
+`rc=0` on that directory because a summary nobody rostered is `unexpected` rather than a gap.
+
+### The number the register prints for its own first round is `1`, and five filed
+
+```
+python tools/run_summary.py --report, both directories. Command output, not a benchmark
+measurement.
+  .github/run-summaries/mandate-iii-phase-c   complete 1, unexpected 1, absent 0
+  the shared scratchpad                       complete 1, unexpected 4, absent 0
+  python tools/run_summary.py --check         "1 round(s), 1 filed, 0 gap(s)"   rc=0
+```
+
+Both rosters name one workstream — the one that could honestly declare itself — and every other filed
+summary is `unexpected`. **The committed register's headline says `1 filed` while two summaries sit in
+that directory and five sit in the scratchpad.** C3 disclosed this precisely, declared
+`roster_complete = false`, made `--report` print its absences as a lower bound, and refused to guess a
+sibling's label on the grounds that a fabricated `absent` row is worse than a missing one. **That
+refusal is right and the consequence is still that the first live round under-reports itself by four
+fifths**, and a maintainer reading `complete 1, unexpected 4` would read a round in which four agents
+did not file.
+
+**The recorder did not extend the roster**, and says why rather than leaving it implicit: naming four
+siblings would either create four false `absent` rows, or require copying four agents' self-assessments
+into a committed register under the recorder's hand, which is the salvage D-095 was written about.
+**The fix is one write by whatever spawns the agents, and it is outside this repository** — C3 says so,
+and this round is the demonstration that saying so is not the same as it happening.
+
+### The kill tests are real and the third one is the one that measures the claim
+
+Three tests kill an actual child process: one after an atomic write (recovered `complete`), one
+mid non-atomic write (`unreadable`, distinct from `absent`), and one **inside** `write_summary` with
+`os.replace` stalled, asserting the target does not exist and a `.tmp` sibling does. C3 records that the
+first two fired *after* `write_summary` returned and therefore established nothing about the window
+inside it — *"a phrasing tighter than the measurement"*, caught by its author and fixed with a third
+test rather than with a reworded sentence.
+
+### What it does not do, and the debt it opened
+
+**It makes a lost report recoverable; it does not make a report happen.** An agent that dies before its
+penultimate tool call files nothing, and no gate here distinguishes that from an agent that was never
+launched. The roster narrows it to *who was expected*, and narrowing is not closing. Two smaller holes:
+a JSON summary is still self-assessment — D-110 is that sentence's first live instance — and
+`.github/run-summaries/` is in none of `check_claims.py`'s `SCAN_GLOBS`, so a number inside a summary is
+an unbacked claim nothing reddens. **The new gate carries no in-situ evidence and owes it forward**:
+`gates.py --check` prints `debt 21, ceiling 21 | M3-PC (the run-summary gate) cut -1, owes 1 forward`,
+and the workstream that registered it cannot push the commit that would demonstrate it.
+
+### The second half of this workstream is a debt paid by reading a log
+
+`figures` and `memo_identity` had been demonstrated in GitHub Actions run `34308556192` at commit
+`4ef57c8` **two days before anybody read it**, and the register printed a lower number throughout.
+Reading it took the in-situ count from `16 of 38` to `18 of 39` and paid the two owed forward. **This is
+D-106 exactly, in the same file, for the second time in three rounds** — and the fix is the same one
+D-106 did not install: harvesting a gate-mutation run is still a person typing `gh run view`, and this
+round did it again and installed nothing that makes the next round do it.
+
+---
+
+## D-114 — **Every pre-registration this round wrote, against what happened.** Five of the six parties placed bets that could lose, four lost one outright, a fifth lost one only under its own alternative reading, and the recorder wrote the first recorder pre-registration this project has
+
+**Status:** process record · **Amends:** D-098's finding that the pre-registration rule *"is written for
+a workstream that places a bet, and a reader and a recorder both read as though they place none"* — the
+recorder wrote one this time · **Evidence:** five scratch files, each written before its work ·
+**No experiment number spent**
+
+```
+pre-registrations and outcomes, Mandate III Phase C. Not a benchmark measurement.
+
+  C1  7 falsifiers, 4 magnitudes    F2 FIRED: recall rose 3.07 points against a bet of ten, so
+                                    the coverage claim was withdrawn by its own author.
+                                    F5 WRONG IN DIRECTION: predicted propagation could only
+                                    LOWER MED1250 F1 via duplicate pairs; the scorer dedupes
+                                    before scoring, so the figure cannot move at all.
+                                    F1/F3/F4/F7 did not fire.  P1 falsified low, P2 falsified
+                                    high, P3 confirmed, P4 pinned by test not measured.
+  C2  6 falsifiers, 4 magnitudes    F3 PARTLY FIRED: 0 false positives on the scanned set and
+                                    4 of 4528 on the proxy, under its own threshold, so
+                                    reported as a measured cost rather than a clean closure.
+                                    F1/F2/F4/F5/F6 did not fire.  P1-P4 all correct.
+  C3  9 falsifiers                  F4 FIRED but is recorded as resolved-before-written,
+                                    because the check preceded the file.  F8 FIRED: predicted a
+                                    green baseline, got red, from a sibling's in-flight edit.
+                                    F1/F2/F3/F5/F6/F7/F9 did not fire.
+  R15 7 falsifiers                  F4 FIRED under the maximal reading of its own boundary rule
+                                    and not under its considered one.  F1/F2/F3/F5/F6/F7 no.
+  read  a labelled reconstruction   the fourth consecutive read whose main finding arrived
+                                    outside the rotation.
+  rec  9 falsifiers, 4 magnitudes   V1 FIRED: predicted at least one red gate, all eight came
+                                    back green first time.  V7 FIRED: predicted criterion 19
+                                    closes, it does not.  V2/V3/V4/V5/V6/V8/V9 did not fire.
+                                    P1 correct (9 records against a band of 8-12).  P2 correct
+                                    (deferred unmoved).  P3 WRONG: predicted the met-count
+                                    rises by one; no verdict moved at all.  P4 correct.
+```
+
+**The two most useful outcomes are both self-inflicted.** C1's `F5` was wrong about the *direction* of
+an effect because its model of the scorer was one convention short — it predicted a loss, and the
+mechanism makes the figure structurally immovable, which is a stronger result than the one it bet on.
+The recorder's `V1` predicted a red gate on the strength of three independent reports of instability and
+got eight green; those reports were right about the trees they ran on and wrong about this one, which is
+a fact about concurrency rather than about anybody's honesty.
+
+**`V8` is the one worth stating in full, because it is nearly a false finding.** It was written as
+*"C2's account of its own edits to this file is accurate; I predict the diff shows more than three edit
+sites, because I counted six hunks before writing this."* It did not fire, and the resolution is smaller
+than it looked:
+
+```
+git diff docs/DECISIONS.md, counted three ways. Command output, not a benchmark measurement.
+  diff hunks                                              6
+  appended blockquote "Correction, ..." blocks            2
+  inline one-clause parentheticals added                  4
+  "## D-<n>" headings: base 109, live 109, list identical  -- nothing added, renumbered or restated
+```
+
+C2's report says *"three appended corrections"*, which matches neither `2` nor `6`. **The load-bearing
+half of its sentence — that no record was added, renumbered or restated — is exactly true and was
+checked**, and the count beside it is off by one unit nobody defined. This is recorded rather than
+graded because it is the same shape as R15's boundary problem `B1`: the numbers are close, the unit is
+undeclared, and whether that is an error depends on a rule nobody wrote down.
+
+---
+
+## D-115 — **The fifth sampled-verification round returns `2` of `24` not true for a second consecutive round, pooling to `16.67` % — and the round's own load-bearing finding is that a fifth point does not narrow the interval.** The sampler measured the futility of its own instrument and published it
+
+**Status:** measured, read-only; seed `20260909`, `24` of `36` claims across `3` workstreams ·
+**Amends:** nothing; D-107's three unmet conditions are still unmet and the third got worse ·
+**Evidence:** the sampler's boundary and seven falsifiers, both written before grading ·
+**No experiment number spent**
+
+```
+R15 round five, seed 20260909. A grading pass, not a benchmark measurement.
+  sampled                     24 of 36 across 3 workstreams
+  FALSE 1 | MISLEADING 1 | UNCHECKABLE 2 | TRUE 20
+  headline (FALSE+MISLEADING)/24                    8.33 %   Wilson [2.32, 25.85]
+  by workstream        C1 1 of 11 | C2 1 of 6 | C3 0 of 7
+  five rounds, counts of 24:      5, 5, 6, 2, 2  =  20 of 120  =  16.67 %
+  Wilson 95 % CI                                    11.06 % - 24.35 %
+  binomial homogeneity chi-square 4.200, df 4, p = 0.380
+  cross-check: the same code returns 2.462 / df 3 / p 0.482 for round four,
+               matching D-107's published 0.48
+  post hoc and unpowered: Cochran-Armitage z -1.559, p 0.119
+```
+
+### The instrument finding, which is worth more than the rate
+
+```
+does a fifth point narrow the interval? Derived, not a benchmark measurement.
+  half-width, four rounds -> five            7.75 -> 6.64 points   (a fall of 1.11)
+  point estimate moved in the same step      18.75 -> 16.67        (2.08)
+  a sixth round of 24 buys about                                    0.8 more points
+  reaching +/- 3 points needs roughly                               25 rounds
+```
+
+**The interval is still moving faster than it is shrinking.** Pooling more rounds of `24` is not the
+route to a usable number, and the sampler says so against its own continuation. Its boundary rule `B1`
+alone — whether a sentence with exact numbers and a wider scope clause counts as true — spans `8.33` %
+to `33.33` % on this round's twenty-four, **wider than the entire four-round spread it is meant to be
+measured against.** A reader who takes `8.33` % as this round's rate is taking one grader's placement of
+one line.
+
+### The two failures, and what they cost
+
+The one FALSE is C2's report of the suite: *"`5809` tests, `0` failures, `11` skipped"*. The recorder's
+own quiet run returns `5798 passed, 10 skipped, 1 xfailed` out of `5809` collected. The total and the
+zero failures are right, and the `1` xfail was folded into *skipped*. **That erases a live known defect
+by reporting it as a skip** — `test_a_cased_non_letter_should_separate_like_any_other_symbol`, `163`
+code points misclassified. The one MISLEADING is C1's precision sentence, decomposed in D-111.
+
+Both UNCHECKABLE verdicts turn on **process detail with no artefact anywhere**: six mutation transcripts
+of an untracked test file, and C3's account of destroying a sibling's uncommitted edit with
+`git checkout --`. An unstaged file destroyed that way leaves no blob, no reflog entry and no dangling
+object, so nothing in this repository can confirm or refute it. **That is a class this project has now
+priced: a self-report about a working tree is unfalsifiable by construction**, and disclosure is the
+only instrument that reaches it. C3 disclosed.
+
+### The conditions
+
+D-107's three conditions all remain unmet and **the third is worse rather than better**: `24` of `36`
+across `3` workstreams against `24` of `96` across `8`. Two thirds of a `12`-claim pool is not the same
+sampling operation as a quarter of a `96`-claim pool, and `11` of the `24` came from one summary, so the
+draws are not independent. **Condition four — a second grader on the same sample — is unmet for the
+fifth round running**, and `20` TRUE verdicts by one reader is precisely the shape that most needs a
+second.
+
+**And the boundary is a reconstruction.** Round four's own pre-registration file is not on disk anywhere
+the sampler could find, so *"the first round graded under a rule somebody else wrote"* means *graded
+under this grader's reading of D-107's prose*. Quote `16.67` % `[11.1, 24.4]` as five graders' pooled
+rate. **Do not quote it as this project's.**
+
+---
+
+## D-116 — **The sixth cold read found seven defects and wrote no ledger row, which is now two of six reads with none.** Its main finding arrived outside the rotation for the fourth consecutive read, and the gate that counts reads printed `4 recorded` throughout
+
+**Status:** findings recorded in `docs/notes/cold-read-6-findings.md` only; `docs/cold-reads.toml`
+unedited, per the read-only rule · **Amends:** nothing; it is D-081, D-096 and D-108 for the fourth
+time · **Evidence:** `python tools/second_reader.py --check`; the reader's own refutation commands, two
+of which the recorder re-ran · **No experiment number spent**
+
+```
+python tools/second_reader.py --check, run by the recorder after the sixth read finished.
+Command output, not a benchmark measurement.
+  cold reads: 4 recorded; newest 2026-09-08
+  rotation: 25 file(s); trigger B serves docs/SECOND-READER.md next
+  findings: open 5, fixed 10, blocked 0, permanent 0  (of 15)
+  rc=0
+```
+
+**Six reads have run and the register holds four.** Reads `3` and `6` have no row. The cursor has not
+advanced: read `6` reports that trigger B served `docs/SECOND-READER.md`, which trigger A had already
+served, and `--check` still says trigger B serves `docs/SECOND-READER.md` next. **That is the third
+consecutive stall**, and the gate is green through all of it for the reason D-096 named and nothing has
+fixed: *it cannot tell "no read happened" from "a read happened and could not record it".* The blocking
+decision is still one sentence nobody has taken — whether the read-only boundary is prose or filesystem.
+
+The seven findings are `F-6-1` (the seventh document, D-112), `F-6-2` (the unconditional multiple,
+D-111), `F-6-3` and `F-6-4` (an `80` that is `40` records at two field-values each; *"some forty points
+below"* where the arithmetic gives `32.52`), `F-6-5` and `F-6-6` (`CONTRIBUTING.md` conflates eight
+commands with eight keys; `tools/second_reader.py --check` is in no CI job and no `gates.toml` entry
+while a test floors the count at seven with the message *"CI runs seven"*), and `F-6-7` (the `pytest`
+instability D-110 could not reproduce on a quiet tree).
+
+**`F-6-6` is the one to carry forward.** The eighth gate this project's briefs have named for four
+rounds is **not in CI and not in the gate register**, so the `39` gates `tools/gates.py` counts do not
+include the gate that audits the cold reads. Nobody had noticed, because the briefs name it and the
+register does not, and the register is what gets counted.
+
+### The reader's own two disclosures, repeated here rather than softened
+
+**`F-6-2` is the reciprocal error and the reader says so rather than banking it at the severity the
+brief primed.** An unconditional multiple overstates the danger; a caller is misled toward caution. And
+**the read reached its own headline finding by method, not by mechanism** — trigger B served a file
+trigger A had already served, so no untouched file was covered, and `docs/SOURCING.md` was found by
+grepping every `latency` in the tree. Four consecutive reads have now produced their main finding
+outside the rotation, which is a measurement of the rotation.
+
+---
+
+## D-117 — **The definition of done, eighth sweep: no verdict moved.** Criterion `19` did not close and the round's brief said it should; criterion `15`'s two remaining open items closed for reasons that were not work on that criterion, and the verdict column now says so
+
+**Status:** shipped — `docs/DEFINITION-OF-DONE.md` · **Amends:** the seventh sweep's cells for criteria
+`3`, `9`, `14`, `15`, `17`, `18` and `19` · **Evidence:** each of those rows re-derived by running the
+command in it; the other thirteen carried and marked carried · **No experiment number spent**
+
+```
+the eighth sweep. Command output and derivations, not a benchmark measurement.
+  criteria                             20
+  verdicts that moved                   0
+  cells re-derived by the recorder      3, 9, 14, 15, 17, 18, 19   (7 of 20)
+  cells carried, and marked carried     the other 13
+  met / partly met / not met           unchanged
+```
+
+**Criterion `19` — W11 decided — does not close, and the brief predicted it would.** The recorder's `V7`
+was written to fire on exactly this. W11 asks whether **`extract()`** may emit a short form with an
+absent or low-confidence long form. A2 ships a **separate opt-in module**, leaves `extract()`
+byte-identical, is unreachable from the engine and the CLI, and puts no occurrences on
+`ExtractionResult`. Every propagated occurrence carries the definition A2 committed to, so no long form
+is absent — it is elsewhere in the document. **A2 makes the W11 decision cheaper to take and does not
+take it**, and the criterion asks for a product decision recorded out loud. It stays *not met, not
+started*, and its evidence cell now names the adjacent thing that was built instead.
+
+**Criterion `15` moves inside an unchanged verdict, and both of its closures are somebody else's work.**
+`gates.figures` now carries in-situ evidence (`top of the cost ranking: 3 of 3 demonstrated`), from a CI
+run read a fortnight late; and `MANIFEST.in` ships `docs/figures/*.svg`, added at `017cb37` after a
+build job went red in an extracted tree. **The third item is unchanged: no shipped document links the
+figures**, so the mechanism still defends a directory rather than a page. **This is a criterion
+improving by narrowing what was open rather than by the rule being better served, and the verdict column
+says that in those words.**
+
+**Criterion `18` gains a fourth full-corpus identity proof and no fourth gate.** A2's byte-identity pass
+over `4,260` documents and `10,625` pairs is R19's shape applied to something that is not an
+optimisation, so the obligation count stays at three; what rises is the count proved by **an uncommitted
+scratch script**, from one to two. `tools/gate_record_identity.py` still does not exist.
+
+**Criterion `3` loses one item from its close-list and gains nothing.** *"Widen the unit vocabulary"* is
+partly done (D-112); *"widen the scan to `tools/` and `bench/`"* and *"migrate the deferred ledger"* are
+not, and the ledger stood still for a third round (D-118).
+
+**Criteria `9`, `14` and `17`.** `9` rises from `16 of 38` to `18 of 39` and stays *not met*. `14`
+records a sixth read, a second unwritten row and a third stalled cursor (D-116) and stays *met*, which
+is the uncomfortable pairing this page keeps producing. `17` did not move: it is still **one entry
+point**, and the round that added `17` bench arms carrying `elapsed_seconds` and `docs_per_second` added
+no work count to any of them, so R17's own criterion gained volume and no coverage.
+
+---
+
+## D-118 — **The third consecutive waiver, and the finding is not the residue.** D-109 escalated four replacements to the maintainer, the maintainer's answer is not in the tree, and the round's brief handed the escalation back to the recorder — so the escalation channel is the thing that has stopped working
+
+**Status:** shipped — `docs/DECISIONS.md` (`9` records added), `tools/check_claims.py`'s trajectory row
+and pin · **Amends:** D-109's escalation, re-filed unanswered rather than restated ·
+**Evidence:** `python tools/check_claims.py --residue`; the walk below ·
+**No experiment number spent — experiment eleven is still free**
+
+Nine records were added — D-110 through D-118 — so `RECORD_FILE_PIN` went red before a word of migration
+was written. That is the binding working for the sixth round running.
+
+### The payment: `0`, for the third time, and the walk was re-run rather than inherited
+
+`docs/DECISIONS.md` stays at `42`. The recorder's `V2` was written as *"I can pay the quota out of
+`docs/DECISIONS.md`, and the two prior waivers were therefore premature"*, and it did not fire. The
+residue is the same population three previous walks resolved to field names: import-attribution
+milliseconds and microseconds from D-023 and its neighbours that **no runner saves**, plus range
+endpoints and table cells whose deletion rewords a closed record or leaves a malformed table. `V3` —
+that the payable population across the recorder's three files reaches twelve — did not fire either:
+`CHANGELOG.md`'s `28` sit in released sections and are terminal under D-109's released-entry hazard, and
+`docs/DEFINITION-OF-DONE.md` holds exactly `1`.
+
+**The one-sided arming asymmetry D-109 named is still there and is still the only fix that makes the
+register bigger and the instrument better.** One line of this file reads *"measured `134.7`, `139.6`,
+`150.4` and `154.7` ms across four sessions"* and defers exactly one of the four, because the unit
+follows the last. D-112's widening closed a *vocabulary* hole and did not touch this one.
+
+### What has actually stopped working
+
+D-109 escalated four options to the maintainer — a per-file `closed` disposition backed by the probe, a
+floor re-sized against the reachable population, a fix to the arming rule, or assigning the residue
+rather than the quota — and closed with *"doing nothing is also an answer and it has a cost: the next
+recorder writes a third waiver, and by then the word will mean nothing."*
+
+**Nothing in this tree answers it.** `MIGRATION_QUOTA` is `12`, `RECORD_FILE_FLOOR` is `12`,
+`RECORD_FILE` is unchanged, no `closed` disposition exists, and `docs/notes/pydantic-cost.md`'s `70` —
+the largest population in the register, never probed by anybody — was assigned to nobody again. The
+round's brief instructed the recorder to *"pay it or escalate it explicitly"*, which is the escalation
+returning to the party that filed it.
+
+> **This is the same shape as three other findings in this block, and that is why it is the last
+> record.** D-113: a roster must be written by whoever launches the round, and no round can write it for
+> itself. D-116: a cold reader may not write the ledger the policy requires, so the row is owed to
+> somebody who is not in the loop. D-113 again: a gate-mutation run sat green for a fortnight because
+> reading it is a person's job nobody was assigned. **Four mechanisms, one defect — the party that must
+> act is outside the round, and the round's only instrument is to write it down again.** A third waiver
+> is not evidence about the residue. It is evidence that this project has no channel to a decision-maker,
+> and the burn-down `316, 262, 231, 213, 201, 189, 189, 189, 189` is what that looks like from inside.
+
+### R11: what the gate can and cannot see on the nine records added here
+
+Six mutations, one at a time, each restored from bytes read before it and md5-verified, with an
+unmutated control before and after. **All six fire and each names what moved.**
+
+```
+python tools/check_claims.py -- command output, not a benchmark measurement. The quoted
+strings are the first problem line each run printed.
+  rc=0  control, unmutated
+  rc=1  A  pin left at the previous round's count
+           "docs/DECISIONS.md now holds 118 record(s); RECORD_FILE_PIN says 109."
+  rc=1  B  pin label left naming the previous round
+           "RECORD_FILE_PIN names round 'M3-PB (the eight briefs)'; the newest round is
+            'M3-PC (the third waiver)'."
+  rc=1  C  the whole waiver= expression replaced by ""     TWO problems:
+           "moved 0 against a quota of 12, and records no waiver."
+           "moved 0 number(s) out of docs/DECISIONS.md against a floor of 12, and records
+            no waiver."
+  rc=1  D  deferred 189 -> 188 with no accounting
+           "the deferred ledger fell by 1 and the round accounts for 0 (citation 0,
+            deletion 0, fencing 0, other 0)."
+  rc=1  E  a new cited value edited by one digit
+           "stale rendered value: file says '36.54',
+            spans.plod...native.short_form.exact_recall is now '36.53'."
+  rc=1  F  a new citation repointed at a dead field
+           "'spans.plod...oracle_definitional_propagated.short_form.exact_recallx' is not
+            in bench/results.json. Did you mean: ..."
+  rc=0  restored, both files md5 identical
+```
+
+**`C`'s first cut came back `rc=0` and that is this round's own instance of the defect D-109 recorded
+in the same mutation, one round earlier, in the opposite direction.** D-109's first `C` removed the
+whole `waiver=(...)` expression, left an unmatched parenthesis, and exited `1` on a `SyntaxError` —
+**a crash read as a detection.** This round's first `C` replaced only the *last* string literal in a
+thirty-line implicit concatenation, so the waiver was still several hundred characters long and the
+gate correctly said nothing — **a bad mutation read as an inert gate.** Both are `rc` mistaken for
+evidence. Both were caught only by reading the output rather than the return value. The row above is
+the re-cut, which replaces the entire expression.
+
+> **That is now five recorded instances in this project of a check reporting the wrong thing for the
+> right-looking reason, and two of them are consecutive rounds of the same battery** — the one whose
+> whole purpose is to catch it. The lesson `C` teaches is not about waivers. It is that **a mutation
+> battery needs its own control on the mutation**, and nothing in `tools/` provides one: an author has
+> to notice by hand that the thing they meant to break is broken.
+
+**And the same limit as the last two rounds, stated for the third time because it is now the whole
+compliance story.** `C` shows only that a round cannot *silently* skip the quota. It cannot show that a
+waiver's content means anything, because a waiver is free text nothing grades.
+`docs/CLAIMS-LEDGER.md` §2 names that as the mechanism by which a first inconvenient round becomes a
+permanent exemption. **Two rounds was a limit. Three is the policy.**
+
+### What this round left undone in the recorder's own files
+
+The word *six* is corrected in this file and in `docs/DEFINITION-OF-DONE.md` where it counts the
+documents describing D-060's blind spot. It is **still wrong in `docs/GATES.md`,
+`docs/SECOND-READER.md` and three places in `tests/test_claims_gate_coverage.py`**, and
+`docs/SOURCING.md` still describes the hole in the present tense above a stale `rc=0` row. None of those
+four is the recorder's file, and no mechanism re-runs a published mutation battery when the gate it
+documents changes.
+
+---
+
 **Mandate III Phase B — D-098 through D-109, and they are in ASCENDING order.** Every other block in
 this file is newest-first. These twelve are numbered by dependency and laid out in that order, so
 D-098 (what happened to the round) comes before the eight workstreams it frames, and D-109 (the ledger)
@@ -1565,11 +2315,13 @@ it is the one thing here that a gate cannot grade on content. What `C` proves is
 means anything. That is the honest limit and it is the same limit `docs/CLAIMS-LEDGER.md` §2 names.
 
 **`G`'s red is worth reading beside D-091's `E`.** One round ago a prose insertion of a median
-latency in spelled-out microseconds went green, because `latency` is not in the arming vocabulary and
-a spelled-out `microseconds` is not in the unit vocabulary — the fifth measurement of that hole with
-no fix. `recall` and a bare `%` are both in the vocabulary, so `G` reds. **The hole is unchanged; this
-round simply did not step in it**, and a sixth measurement of it would still be worth less than the
-first attempt to close it.
+latency in spelled-out microseconds went green, because `latency` was not in the arming vocabulary and
+a spelled-out `microseconds` was not in the unit vocabulary — the fifth measurement of that hole with
+no fix. `recall` and a bare `%` are both in the vocabulary, so `G` reds. **The hole was unchanged; this
+round simply did not step in it**, and a sixth measurement of it would still have been worth less than
+the first attempt to close it. *(The attempt was made: the vocabulary now holds `latency`, `duration`
+and the spelled-out sub-second units, and D-091's `E` re-runs `rc=1`. What is still outside it is
+published in `docs/GATES.md`.)*
 
 **And quoting D-091's counter-example verbatim was itself a red build, which is the best thing that
 happened to this paragraph.** The sentence above originally reproduced that insertion word for word,
@@ -1582,7 +2334,9 @@ take that widening rests on its measured price being exactly zero on this tree, 
 *describing* the hole would have raised the price of *closing* it. The quotation was paraphrased
 instead. **A test that guards a decision's premise caught a document about that decision breaking the
 premise**, and it did it in the round that had just finished congratulating itself for resolving
-sixteen field names by hand.
+sixteen field names by hand. *(The widening was subsequently taken and the test renamed
+`test_the_measured_price_of_the_closure_is_still_zero`; the number quoted here is still invisible,
+because it is still inside a code span, which is the hole this paragraph is not about.)*
 
 ### The ledger's seventh observation
 
@@ -3525,6 +4279,12 @@ D-084 each found it here, and D-079 found a live instance on the front page. **I
 five measurements and no fix**, and the sixth measurement of a hole is worth less than the first
 attempt to close it.
 
+> **Correction, appended when the hole was closed.** The row above is left as this round measured
+> it. Re-run against this file after `latency` and `duration` became metric keywords and the
+> spelled-out sub-second units became units, same sentence, same injection point:
+> `rc=1`, `docs/DECISIONS.md` named. The paragraph above is now history rather than behaviour, and
+> the sentence *"a hole with five measurements and no fix"* was the last true statement of it.
+
 ### What is left, counted per record rather than estimated
 
 ```
@@ -4517,6 +5277,26 @@ pinned by a test plus its own positive control. Disposition: blocked on ownershi
 and if a later round writes a latency figure into a scanned document the widening stops being free,
 that test goes red, and the decision is re-taken rather than inherited.
 
+> **Correction, appended when the disposition was discharged.** The refusal above stood on a cost
+> that was real and on a premise that was circular: the six documents were false *only because the
+> hole was open*, so keeping the hole open to keep them accurate is debt that pays interest to
+> itself. The maintainer withdrew it. The widening was **re-derived free against the live tree
+> immediately before it was taken** — no number changes arming class, both ratchets unmoved, no row
+> owed to `LEDGER_TRAJECTORY` — and all six documents were corrected in the same commit, the three
+> mutation batteries **re-run** rather than having their digits edited. The paragraph above is the
+> record of the refusal and is left standing as one. What the closure does *not* reach is published
+> in `docs/GATES.md` rather than implied. The test named below was renamed
+> `test_the_measured_price_of_the_closure_is_still_zero` and now compares the shipped rules against
+> the pre-widening ones, which is the same arithmetic asked in the live direction.
+>
+> **Second correction, appended by the recorder in the same round.** *"All six"* is the whole
+> population as this record counted it and **the population is seven.** `docs/SOURCING.md` carries the
+> same battery and the same present-tense sentence, was never in anybody's list, and still says the
+> gate cannot see a latency claim, seven lines beneath an `rc=0` row for the mutation that now reds.
+> It was found by the sixth cold read, by grepping the tree rather than by any rotation. So the
+> disposition is discharged for six documents of seven, and the count *six* is itself now wrong in `docs/GATES.md`,
+> `docs/SECOND-READER.md` and `tests/test_claims_gate_coverage.py`. D-112.
+
 ### And the hole was found live, not staged
 
 `README.md` was found carrying the sentence
@@ -4534,7 +5314,9 @@ a code span, which is a correct typography for a quoted literal and is also D-05
 is silent about it either way, and the only thing separating the two readings is that the string is
 quoted as a defect rather than asserted as a figure. The price of the widening is zero on this tree
 **for as long as nobody writes a latency figure into a scanned document**, and this round demonstrated
-how easily that happens.
+how easily that happens. *(That test was renamed `test_the_measured_price_of_the_closure_is_still_zero`
+when the widening shipped; it now asks the same question against the pre-widening rules, so it still
+reds the first time a scanned document acquires a latency figure the old rules could not see.)*
 
 ### How it fails
 
@@ -4670,7 +5452,9 @@ the gate cannot see. The alternative arms every configuration value in the tree.
 that fencing is indistinguishable from hiding; this gate makes that hole one document wider.
 
 **The appeal vocabulary is a list, so a paraphrase walks past it.** "The authors measured `99.9` %"
-fires nothing. That is D-060's latency blind spot in a second gate, built in knowingly.
+fires nothing. That is D-060's latency blind spot in a second gate, built in knowingly. *(The
+claims-gate half of that comparison has since been closed for `latency` and `duration`; this gate's
+appeal vocabulary has not been widened, so the sentence still describes `tools/check_external.py`.)*
 
 **The gate's one false positive is a judgement and the denominator is three.** Calling a retraction
 that quotes its own withdrawn figures a false positive is a call; one reclassification moves the rate by

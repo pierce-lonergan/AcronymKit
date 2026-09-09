@@ -512,6 +512,104 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
             "two copies cannot drift in silence."
         ),
     ),
+    InSituRound(
+        label="M3-PC (the second harvest nobody had read either)",
+        gates=38,
+        in_situ=18,
+        run="34308556192",
+        commit="4ef57c8",
+        waiver=(
+            "THE QUOTA IS 3 AND ONLY 2 WERE PAYABLE, BECAUSE 2 IS ALL THE DEBT THAT COULD BE "
+            "PAID. After this harvest every one of the 18 gates this harness can mutate carries "
+            "in-situ evidence; `demonstrable_without_evidence()` is empty. The 20 that remain "
+            "are 5 inline, 13 manual and 2 control refusals, and not one of them can be mutated "
+            "by this harness in any environment it can build -- so the only currency left is "
+            "extracting an inline gate into a script, which this round did not do. A quota that "
+            "cannot be met by demonstrating gates that exist is met by a sentence saying so."
+        ),
+        note=(
+            "D-106 HAPPENING AGAIN, ONE ROUND LATER AND TWO DAYS FASTER. M3-PB registered "
+            "figures and memo_identity owing 2 forward and wrote that the run landing that "
+            "commit would take the evidence. It did: run 34308556192 fired on the push of "
+            "4ef57c8, and its job 'Mutate the lint gates, in the lint environment' reports "
+            "8 demonstrated, 0 INERT or UNRESTORED, 0 not automated -- both owed gates among "
+            "them, mutated rc=1 and restored rc=0, under the expect_failure_matching rule. The "
+            "register went on printing 16 of 38 for two days while the log sat in the Actions "
+            "tab. That is the same failure docs/GATES.md named in its own words a fortnight "
+            "ago, and NOTHING IN THIS REPOSITORY CLOSES IT: harvesting is still a person "
+            "deciding to run `gh run view`. The overall run is RED, on a different job -- "
+            "'Reintroduce each historical breakage against a real sdist' -- which 017cb37 is "
+            "the fix for; the lint-environment job is green on its own and that is the job "
+            "these two verdicts come from. debt 22 -> 20, quota 3, paid 2. NOT A NEW "
+            "MEASUREMENT: this round ran no mutation of its own on a runner and could not."
+        ),
+    ),
+    InSituRound(
+        label="M3-PC (the run-summary gate)",
+        gates=39,
+        in_situ=18,
+        owed_forward=1,
+        waiver=(
+            "ONE GATE ARRIVED AND IT CANNOT CARRY EVIDENCE IN THE COMMIT THAT CREATES IT. "
+            "gates.run_summary is `python tools/run_summary.py --check`: the round's own "
+            "self-assessment is the one artefact no gate read, and three consecutive rounds "
+            "kept their work and lost their account of it for three unrelated reasons (D-095, "
+            "D-098). It is `automated` with a declared mutation and it is runnable on a runner "
+            "today, so it is a debt rather than a limit -- debt 20 -> 21, under the ceiling of "
+            "22 that M3-PB left and under the 24 M3-PA left. gate-mutation.yml triggers on "
+            ".github/gates.toml, .github/workflows/*.yml and tools/gates.py, and this commit "
+            "touches all three, so the run that lands this work is the run that owes the "
+            "demonstration. IT IS RANKED 37 OF 39 AND THE RANK IS AN ARGUMENT AGAINST ITSELF: "
+            "the workstream that wrote the gate wrote the rank, so it is placed LAST in the "
+            "evidence_apparatus bucket -- every other gate in that bucket protects a "
+            "demonstration that some other check can fail, and this one protects a narrative "
+            "record, which is one step further from any user. The top-of-ranking rule is "
+            "therefore not engaged and `added_gates` is deliberately empty."
+        ),
+        note=(
+            "Registration, not demonstration. 38 -> 39 gates, in-situ unchanged at 18, debt "
+            "20 -> 21. ruff and ruff_format move 37 -> 38 and 38 -> 39; nothing else in the "
+            "ordering moves, because (evidence_apparatus, silent) is a bucket the new gate "
+            "enters at the bottom of. The honest limit of the gate itself is on the gate's own "
+            "`blind_to` and in the step's comment in ci.yml: it makes a lost report "
+            "RECOVERABLE and cannot make a report HAPPEN, and an agent that dies before its "
+            "penultimate tool call is indistinguishable here from one that was never launched."
+        ),
+    ),
+    InSituRound(
+        label="M3-PC-operator (the eighth gate CI never ran)",
+        gates=40,
+        in_situ=18,
+        owed_forward=1,
+        waiver=(
+            "TWO GATES ARE RUNNABLE ON A RUNNER AND CARRY NO IN-SITU STAMP: run_summary "
+            "and second_reader. That is a debt, not a limit, and this waiver does not "
+            "excuse it -- it names when it is paid. This commit edits .github/gates.toml, "
+            ".github/workflows/ci.yml and tools/gates.py, which are three of the four "
+            "push paths gate-mutation.yml watches, so pushing it FIRES that workflow. "
+            "The evidence is to be harvested from that run in the same session rather "
+            "than left in the Actions tab, which is the failure M3-PB spent a fortnight "
+            "inside and D-106 recorded twice. If the next round finds this waiver still "
+            "standing with a green run behind it, the waiver is the defect."
+        ),
+        note=(
+            "ADDING A GATE THAT WAS ALREADY BEING RUN. `tools/second_reader.py --check` "
+            "has been run by hand at the close of every round since the second-reader "
+            "policy shipped, and cold read six found it was in NO workflow step and NO "
+            "register entry -- so the one check that adjudicates the mechanism for "
+            "reading documents was itself the check nothing read. That is D-058's shape "
+            "aimed at the policy written to catch it. Registered at cost_rank 40, added "
+            "to the lint job, and demonstrated the same commit: mutating the cursor "
+            "sentence on the policy page gives `mutated rc=1, restored rc=0`, which is "
+            "the one failure mode section 3 predicted this policy would have and which "
+            "fired for real the first time somebody wrote the ledger row. Gates 39 -> "
+            "40, in_situ 18 -> 19, so the debt is unchanged at 21 rather than raised: "
+            "the gate arrives carrying its own evidence. LOCAL, NOT IN SITU -- the "
+            "stamp is verified_locally_on and the in-situ column stays owed until "
+            "gate-mutation.yml runs it on a runner, which is the same distinction "
+            "M3-PB spent a fortnight not making."
+        ),
+    ),
 )
 
 

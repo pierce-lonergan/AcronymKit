@@ -107,8 +107,10 @@ What it cannot see, stated before anybody quotes a coverage number off it
   does not see, because the figure is code-spanned.
 * **The appeal vocabulary is a list, so a paraphrase escapes it.** "the authors
   measured 99.9 %" contains no listed phrase. This is the same class of hole
-  ``check_claims`` has in its arming vocabulary (D-060: it cannot see a latency
-  claim), and it is why ``docs/SECOND-READER.md`` exists.
+  ``check_claims`` had in its arming vocabulary (D-060: it could not see a
+  latency claim). That one was closed for ``latency`` and ``duration``; this
+  gate's vocabulary has not been widened, and the hole named here is live. It is
+  why ``docs/SECOND-READER.md`` exists.
 * **It scans prose, not runners.** :data:`SCAN_GLOBS` is ``check_claims``'s set.
   ``bench/`` and ``tools/`` are outside it; ``--audit`` reports what is there so
   the omission is a number rather than an assumption.

@@ -262,6 +262,44 @@ ledger trajectory: 7 rounds | M3-PB (the salvage) moved 0
   | deferred 189, value-matched 64 | quota 12 per round, record-file floor 12
 ```
 
+### The round that widened the gate and moved no row, recorded because an unrecorded shift is the failure
+
+A widening changes what the gate *sees*, so it can move a bare number from `unexamined` into a
+backing class — and both backing classes are ratchets that may not grow. **A widening that moves the
+register is not a failure; an unrecorded one is.** So the round that closed the latency arming
+asymmetry — `latency` and `duration` as metric keywords, `nanoseconds`/`microseconds`/`milliseconds`
+as units — is recorded here even though its answer is zero:
+
+| | before | after |
+|---|---|---|
+| `sum(DEFERRED_BASELINE.values())` | `189` across ten files | `189` across ten files |
+| `sum(VALUE_MATCHED_BASELINE.values())` | `64` across three files | `64` across three files |
+| numbers changing arming class | — | `0` |
+| `by_citation` / `by_deletion` / `by_fencing` / `by_other` | — | nothing to split |
+| rows appended to `LEDGER_TRAJECTORY` | — | **none, and none owed** |
+
+**No row was appended, and that is the correct outcome rather than an omission.**
+`trajectory_problems` requires a row when a baseline moves and `record_file_problems` requires one
+when `docs/DECISIONS.md` gains a record; neither happened, and appending a row that migrated nothing
+would have spent a third consecutive waiver on a round that had no debt to pay. What the round owed
+was the *measurement*, and the measurement is that the widening was free.
+
+**Why it was free, since "free" is the kind of word that hides an unasked question.** Across the
+whole scanned set, not one line carrying `latency` or `duration` has a free-standing prose number
+within the proximity window, and no prose number anywhere in the scan set is followed by a
+spelled-out sub-second unit. (How many lines carry the words is not quoted: it rises whenever a page
+describes the closure, this one included. The two zeros are the measurement.) The vocabulary and the figures never met, because every latency figure
+this tree publishes is cited, written with a symbol unit the old rule already armed, or inside a code
+span. **Which also means the widened rule fired zero times and was therefore calibrated by nothing
+here** — see [`docs/GATES.md`](GATES.md) for the injections that demonstrate it instead, and for the
+residue it does not reach.
+
+**The freeness is re-derived, not inherited.**
+`tests/test_claims_gate_coverage.py::test_the_measured_price_of_the_closure_is_still_zero` runs the
+same comparison against the live tree on every suite run, with a positive control beside it. The
+first document to write a latency figure into prose reds that test *and* the gate, and the gate names
+the number.
+
 ### What the first bound round actually did, and what it did not
 
 All 31 came out of `docs/DECISIONS.md`, which took its ledger from **115 to 84**. Thirty became

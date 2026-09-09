@@ -276,6 +276,82 @@ def predict_acronymkit_native(
     return predictions, time.perf_counter() - started
 
 
+def predict_acronymkit_propagated(
+    documents: Sequence[corpora.SpanDocument], style: str, **overrides: object
+) -> tuple[dict[str, SpanPrediction], float, int]:
+    """The same extractor, with A2 document-scoped propagation applied on top.
+
+    Native offsets, for the same reason :func:`predict_acronymkit_native` uses
+    them: a propagated occurrence is a position rather than a string, and asking
+    the string localiser to find it would find the *first* occurrence of the
+    short form every time and collapse the whole arm to one span per short form.
+
+    **Long-form spans are the definition arm's, unchanged.** A2 licenses a short
+    form at a position where the document does not write the long form at all, so
+    there is no long-form span to propose there. That is not an omission: it is
+    why the long-form rows of the two arms are identical, and it is half of the
+    decomposition this arm exists to supply.
+
+    **Read the scope this corpus gives the rule before reading its numbers.**
+    PLOD-CW is distributed as blank-line-separated passages of a few dozen tokens,
+    so ``corpora.read_plod_cw`` yields passages and *not* articles. A rule scoped
+    to a document is scoped here to a passage, which is the smallest scope on
+    which A2 is still A2 and is far smaller than the PMC-OA articles
+    ``one_sense.pmc_oa.a2.*`` priced it on.
+
+    Returns:
+        ``(spans, elapsed_seconds, propagated_span_count)``.
+    """
+    from acronymkit import AcronymEngine, Config
+    from acronymkit.propagation import SOURCE_PROPAGATED, propagate
+
+    engine = AcronymEngine(Config(**overrides))
+    predictions: dict[str, SpanPrediction] = {}
+    propagated_spans = 0
+    started = time.perf_counter()
+    for document in documents:
+        text, offsets = document.render(style)
+        pairs = engine.extract_definitions(text)
+        result = propagate(text, pairs)
+        propagated_spans += sum(1 for o in result.occurrences if o.source == SOURCE_PROPAGATED)
+        predictions[document.uid] = SpanPrediction(
+            _distinct([char_span_to_tokens(o.span, offsets) for o in result.occurrences]),
+            _distinct([char_span_to_tokens(pair.long_form_span, offsets) for pair in pairs]),
+        )
+    return predictions, time.perf_counter() - started, propagated_spans
+
+
+def decompose(matched_propagated: dict[str, set], matched_native: dict[str, set]) -> dict:
+    """Split the propagated arm's true positives into the two causes at once.
+
+    Two things move a recall figure here and they must not be pooled: the
+    definition-scoped arm's own reach, and the spans propagation added. The
+    partition is computed on the *matched gold index* sets rather than on counts,
+    so it is exact rather than inferred, and the ``lost`` column is reported even
+    though it should be empty -- a propagated arm offers a superset of the
+    definition arm's spans, and greedy one-to-one overlap matching does not
+    guarantee that survives, so the check is run rather than assumed.
+
+    Args:
+        matched_propagated: ``score()``'s second return for the propagated arm.
+        matched_native: the same for the definition-scoped arm.
+
+    Returns:
+        Three counts per ``label.convention`` key, plus the arithmetic check.
+    """
+    record: dict = {}
+    for key in matched_propagated:
+        propagated, native = matched_propagated[key], matched_native[key]
+        shared = propagated & native
+        record[f"{key}_true_positives_also_reached_by_definitions"] = len(shared)
+        record[f"{key}_true_positives_new_from_propagation"] = len(propagated - native)
+        record[f"{key}_true_positives_lost_versus_definitions"] = len(native - propagated)
+        record[f"{key}_decomposition_sums"] = len(shared) + len(propagated - native) == len(
+            propagated
+        )
+    return record
+
+
 def predict_all_caps(documents: Sequence[corpora.SpanDocument]) -> dict[str, SpanPrediction]:
     """The trivial baseline: every all-caps token of length 2+ is a short form.
 
@@ -571,6 +647,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     for style in styles:
         rows: list[tuple[str, dict[str, SpanScore]]] = []
         matched_by_system: dict[str, dict[str, set]] = {}
+        # Kept OUT of matched_by_system on purpose: folding the propagated rows
+        # into the published oracle unions would move two figures nobody asked to
+        # move. The A2 ceiling is computed as its own record below.
+        propagated_by_system: dict[str, dict[str, set]] = {}
         suffix = "" if style == "tight" else f"_{style}"
         corpus_key = f"plod_cw_{args.split}{suffix}"
         text_documents = corpora.read_plod_cw_text(split=args.split, style=style)
@@ -579,7 +659,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             settings = EXTRACTION_PROFILES[ExtractionProfile.coerce(profile)]
 
             native, elapsed = predict_acronymkit_native(documents, style, **settings)
-            native_scores, _ = score(documents, native)
+            native_scores, native_matched = score(documents, native)
             rows.append((f"acronymkit/{profile} (native spans)", native_scores))
             recorded[f"spans.plod.{args.split}.{style}.acronymkit.{profile}.native"] = entry(
                 native_scores,
@@ -591,6 +671,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 documents=len(documents),
                 elapsed_seconds=round(elapsed, 4),
                 docs_per_second=round(len(documents) / max(elapsed, 1e-9), 1),
+            )
+
+            propagated, prop_elapsed, propagated_spans = predict_acronymkit_propagated(
+                documents, style, **settings
+            )
+            propagated_scores, propagated_matched = score(documents, propagated)
+            rows.append((f"acronymkit/{profile} (propagated)", propagated_scores))
+            propagated_by_system[f"acronymkit/{profile}"] = propagated_matched
+            recorded[f"spans.plod.{args.split}.{style}.acronymkit.{profile}.propagated"] = entry(
+                propagated_scores,
+                corpus=corpus_key,
+                system="acronymkit",
+                profile=profile,
+                span_source="native offsets, A2 document-scoped propagation",
+                scope_note=(
+                    "PLOD-CW passages of a few dozen tokens, not articles; "
+                    "document scope here is passage scope"
+                ),
+                detokenisation=style,
+                documents=len(documents),
+                propagated_short_form_spans=propagated_spans,
+                elapsed_seconds=round(prop_elapsed, 4),
+                docs_per_second=round(len(documents) / max(prop_elapsed, 1e-9), 1),
+                **decompose(propagated_matched, native_matched),
             )
 
             started = time.perf_counter()
@@ -670,6 +774,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         recorded[f"spans.plod.{args.split}.{style}.oracle"] = everything
         recorded[f"spans.plod.{args.split}.{style}.oracle_definitional"] = definitional
+
+        # The ceiling artefact, priced. `oracle_definitional` is the union of
+        # every definition extractor in the table, and its short-form recall is
+        # bounded by where a definition is *written*. Substituting this library's
+        # propagated rows for its definition-scoped rows -- every other member
+        # unchanged -- says how much of that ceiling was the scope rather than the
+        # algorithms. Recorded beside the original rather than replacing it.
+        substituted = dict(matched_by_system)
+        substituted.update(propagated_by_system)
+        recorded[f"spans.plod.{args.split}.{style}.oracle_definitional_propagated"] = union_recall(
+            substituted,
+            [name for name in substituted if name != TRIVIAL_ROW],
+            gold_totals,
+            "definition extractors, acronymkit propagated",
+            context,
+        )
 
         print(f"=== detokenisation: {style} ===")
         print(render(rows))

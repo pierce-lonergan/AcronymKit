@@ -708,6 +708,13 @@ class TestArming:
             ("the harness sustained 4,219 rows/s", "4,219"),
             ("the corpus ran at 96,532 identifiers/second", "96,532"),
             ("attributed at 92.32% by the original authors", "92.32"),
+            # Moved here from `test_ordinary_prose_numbers_arm_nothing` by the
+            # round that closed the latency asymmetry. A spelled-out sub-second
+            # unit is now a unit, so this line arms on its shape and needs no
+            # keyword -- which is the whole point of the second rule.
+            ("that is 30 milliseconds of headroom", "30"),
+            ("one call took 41 microseconds end to end", "41"),
+            ("the tick is 5.00 nanoseconds wide", "5.00"),
         ],
     )
     def test_a_unit_arms_a_number_with_no_keyword_anywhere(self, line: str, number: str) -> None:
@@ -725,7 +732,15 @@ class TestArming:
             # `s` inside a longer word is not seconds, and a path is not a rate.
             ("we ship 12 useful presets", "12"),
             ("all 44 tools/scripts are runnable", "44"),
-            ("that is 30 milliseconds of headroom", "30"),
+            # The residue the latency widening left behind, pinned so that
+            # "the blind spot is closed" cannot be read as "closed entirely".
+            # `latencies` and `durations` are plurals and the keyword rule
+            # matches whole words; a bare `seconds` was refused on purpose,
+            # because it would arm dates and interval lengths.
+            ("median latencies fell to 41 this quarter", "41"),
+            ("a full sweep took 12.50 seconds", "12.50"),
+            ("it is 3.20x faster than the baseline", "3.20"),
+            ("the table holds 41.37 KB of resident state", "41.37"),
         ],
     )
     def test_ordinary_prose_numbers_arm_nothing(self, line: str, number: str) -> None:

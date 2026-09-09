@@ -102,6 +102,20 @@ include bench/splits.toml
 # sdist asking to be taken on trust.
 include .github/gates.toml
 include docs/cold-reads.toml
+# THE SEVENTH TIME, CAUGHT BY THE GUARD THE SIXTH ONE PRODUCED RATHER THAN BY A
+# RED BUILD. `.github/gates.toml` ships and `gates.run_summary` declares a
+# mutation editing `.github/run-summaries/mandate-iii-phase-c/run-summary.json`;
+# `tests/test_packaging_manifest.py::test_every_file_a_gate_mutation_edits_is_shipped_by_the_manifest`
+# failed locally on the commit that added the gate, which is the whole point of
+# deriving that rule from the register instead of remembering it.
+#
+# Shipping is the right fix rather than moving the probe, and it is the same
+# argument that already ships gates.toml and cold-reads.toml: a round's
+# self-assessment is a governance register whose purpose is to be inspected, and
+# `python tools/run_summary.py --check` reads it -- so in an extracted tree
+# without it the shipped gate could not pass, which is the class MANIFEST.in has
+# now learned six times.
+recursive-include .github/run-summaries *.json *.toml
 recursive-include .github/workflows *.yml
 
 # The provenance and licence terms of every third-party data asset. SECURITY.md

@@ -27,6 +27,11 @@ proving, over millions of records, that not one byte of output moved.
 **Documentation** headed *what a governed catalog is worth on a real schema*. It is the only
 measurement anybody has of that question and it says less than its headline sounds like it says.
 
+**And A2 shipped.** `acronymkit.propagation.propagate()` extends a confirmed definition across a
+document, opt-in, changing no output you already had — see the first entry under **Added**, which
+also says what it is worth on the one corpus that can score it and why that is less than the round
+that commissioned it expected.
+
 **If you call `expand_identifier` in a hot loop, or you were hoping for a second-opinion verifier
 on `extract()`**, the first three **Documentation** entries are the ones for you. Neither changes
 any behaviour; both change what you should expect next.
@@ -84,6 +89,51 @@ any behaviour; both change what you should expect next.
     that removal is a minor-release event. `docs/DECISIONS.md` D-038.
 
 ### Added
+
+- **`acronymkit.propagation.propagate()` — one definition licenses the rest of the document, and it
+  is opt-in.** A2 ships. Give it the text and the pairs `extract()` returned and it commits to the
+  **first** definition of each short form in document order, then licenses every whole-token
+  occurrence of that short form at or after it. Nothing else in the library calls it: no engine, no
+  `Config` field and no default path, so upgrading changes no output you already had.
+  - **Not a breaking change, and that was checked rather than reasoned about.** Every field of every
+    `AcronymPair` the default path returns, over every document of every corpus `bench.corpora` can
+    read — `4,260` documents at three extraction profiles, `10,625` pairs — digests identically at
+    `017cb37` and on this tree, while a control that changes one character of one long form digests
+    differently. The pass is quoted in
+    [`docs/EVALUATION.md`](docs/EVALUATION.md#not-breaking-and-the-byte-identity-pass-that-says-so).
+  - **What it buys, on the only corpus that can score it.** Short-form span exact recall on PLOD-CW
+    moves from `36.53<!--claim:spans.plod.all.tight.acronymkit.high_precision.native.short_form.exact_recall:.2f-->` %
+    to `39.60<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_recall:.2f-->` %
+    at `HIGH_PRECISION`, and precision does not fall:
+    `93.66<!--claim:spans.plod.all.tight.acronymkit.high_precision.native.short_form.exact_precision:.2f-->` %
+    to `93.73<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_precision:.2f-->` %.
+    That is `88<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_true_positives_new_from_propagation:,-->`
+    gold spans reached that were not reached before, and `0<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_true_positives_lost_versus_definitions:,-->`
+    lost. **It is three points and the round pre-registered ten**, so the coverage multiple this was
+    commissioned on is withdrawn as a claim about scored data — see the evaluation section.
+  - **It cannot move any published extraction figure**, and both halves of that were run rather than
+    argued. MED1250 scores definitions and de-duplicates repeated pairs before scoring, so
+    `extraction.med1250.acronymkit_propagated` agrees with `extraction.med1250.acronymkit` on every
+    compared field; and both committed figures re-render byte-identical.
+  - **The optional `gate=` argument takes a `ConformalGate`, and read what it bounds before you trust
+    it.** It gates the *definition*, and what it buys there is a **joint** bound: on answering and
+    being wrong across all instances, the refused ones included. It does not bound the share of the
+    gate's answers that are wrong, which is that rate divided by the answer rate and was measured at
+    up to `4.38` times `alpha` on `conformal.sdu21.exchangeable` — the multiple at the tightest of
+    five alphas, falling to `0.97` at the loosest, so the overshoot is worst where a caller would
+    set it. Nor does anything it says reach the
+    occurrences the definition licenses — that step is one-sense-per-discourse, priced between
+    `0.581<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_floor_correctness_pct_of_licensed:.3f-->` %
+    and `9.68<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_ceiling_correctness_pct_of_licensed:.2f-->` %
+    of licensed occurrences and held by no conformal argument at all.
+    `acronymkit.propagation.gate_disclosure(gate)` returns the guarantee, that gap and the second one
+    in a single string, because the three are only honest together.
+  - **`acronymkit.conformal` is reachable as a package attribute again.** It shipped last round
+    without being added to the lazy submodule table, so `import acronymkit; acronymkit.conformal`
+    raised `AttributeError` while `from acronymkit import conformal` worked. Both work now. Nothing
+    asserts that table is complete against the package directory, which is how a whole module went
+    missing from it silently.
+
 
 - **`acronymkit governed-gap` — point it at a schema and it tells you what a catalog would have to
   cover, without a catalog.** It reads the same `identifier,label` CSV
@@ -915,6 +965,63 @@ any behaviour; both change what you should expect next.
   added; what four documents cite as "criterion 9" is criterion `10` from now on. Nine of fourteen
   read met, which is the highest that page has ever read, and the page says in its own words why that
   is not straightforwardly good news. `docs/DEFINITION-OF-DONE.md`, `docs/DECISIONS.md` D-069.
+
+- **CI now fails the build on an invented latency or duration figure, and it did not before.**
+  `tools/check_claims.py` arms a number when a metric keyword sits near it or a unit follows it, and
+  that vocabulary was one-sided: a sentence naming a median latency in spelled-out microseconds passed
+  untouched while an accuracy percentage in the same position failed. **`latency` and `duration` are
+  metric keywords now and the spelled-out sub-second units are units.** If you write documentation for
+  this project, a performance sentence of that shape now needs a run id.
+  - **The widening changed nothing on this tree, and that is the measurement rather than a clean bill.**
+    It moved the arming class of `0` of the `2246` claim-shaped numbers across the `72` files the gate
+    scans, re-derived twice before the change and once independently after. Zero firings establishes
+    that these documents contain no latency-shaped claim in prose. **It establishes nothing about
+    whether the rule is well calibrated**, because the rule never fired.
+  - **What it does not reach is published rather than left to be found**: the plurals `latencies` and
+    `durations`, a bare `seconds` (refused on purpose — it would arm dates), a speedup written with a
+    trailing `x`, a memory figure in `KB`, and any metric named in a word nobody put on the list.
+    Closing two keywords and three units is not closing the class.
+  - **A cost, measured on files outside the scanned set**: `4` numbers in `4,528` are newly armed and
+    are not performance claims — three fragments of an ISO date and a `font-weight`, all four because
+    the word `latency` sits within `48` characters. All four come from the proximity rule.
+    `docs/DECISIONS.md` D-112.
+
+- **A round of work on this project now files a machine-readable account of itself, and a gate reads
+  it.** `tools/run_summary.py` ships with a schema, a validator, a six-state reader and a `--check`
+  registered as the thirty-ninth CI gate. Contributor-facing; no library behaviour changes. The reason
+  is in `docs/DECISIONS.md` D-095, D-098 and D-113: three consecutive rounds kept their work and lost
+  their self-assessment, for three unrelated reasons, and **a round's account of itself was the only
+  artefact no gate read.**
+  - **It makes a lost report recoverable. It does not make a report happen.** An agent that dies before
+    filing files nothing, and nothing here distinguishes that from an agent nobody launched. Closing
+    that needs whatever spawns the work to write a roster, which is outside this repository.
+  - **Its first live round demonstrates the limit rather than describing it.** Five parties filed a
+    summary and the register reports `1`, because the roster naming who was expected was written by one
+    of the workstreams instead of by whoever launched them. D-113.
+
+- **The claims-migration quota took a third consecutive waiver, and the record says the escalation
+  channel is what has stopped working.** Nothing was migrated out of the deferred ledger for a third
+  round. The residue in the decision log was measured unreachable by three independent walks, the
+  changelog's own residue is frozen history that a citation would rewrite, and the four replacements the
+  previous round escalated to the maintainer are unanswered in the tree. **A third waiver is not
+  evidence about the residue; it is evidence that this project has no channel to a decision-maker.**
+  `docs/DECISIONS.md` D-118.
+
+- **The measured not-true rate of this project's own reporting is `16.67` % pooled over five rounds,
+  and the round that measured it found that measuring it again will not help.** A fifth seeded sample
+  of `24` claims returned `2` not true. Pooling five rounds moves the interval's half-width by about a
+  point while the point estimate moves twice that, so **the interval is still moving faster than it is
+  shrinking**, and reaching a useful width would take roughly twenty-five more rounds at this size.
+  Quote it as five graders' pooled rate and not as this project's. **Nothing about the library's
+  measured behaviour is implicated** — every published accuracy figure is gated against
+  `bench/results.json`. `docs/DECISIONS.md` D-115.
+
+- **The definition of done stands at twenty criteria and no verdict moved at the eighth sweep.** The
+  round's own brief forecast that the W11 criterion — whether `extract()` may emit a short form with an
+  absent long form — would close, and it did not: A2 ships as a separate opt-in module and leaves
+  `extract()` byte-identical, so the question is cheaper to answer and still unanswered. One criterion
+  improved twice and **neither improvement was work on that criterion**; the verdict column says so.
+  `docs/DEFINITION-OF-DONE.md`, `docs/DECISIONS.md` D-117.
 
 ## [0.3.0] — 2026-08-11
 

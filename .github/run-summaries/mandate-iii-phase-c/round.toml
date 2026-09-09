@@ -1,0 +1,38 @@
+# The roster for one round: who was expected to file a summary.
+#
+# WHY THIS FILE IS THE LOAD-BEARING HALF.
+#
+# `tools/run_summary.py` can read every `<label>.json` in this directory without
+# help. What it cannot do without a roster is say that somebody DID NOT file --
+# an empty directory is equally consistent with "nobody filed" and "nobody was
+# launched", and D-096 records what a check that cannot draw that distinction
+# costs: the cold-read gate stayed green through two consecutive rounds in which
+# no ledger row was written.
+#
+# So `absent` is a verdict against this list, and against nothing else.
+
+round = "mandate-iii-phase-c"
+
+# A WORKSTREAM, NOT THE LAUNCHER, AND THAT IS THIS ROSTER'S FLAW RATHER THAN THE
+# MECHANISM'S. A roster is supposed to be written by whoever spawns the round,
+# because only the launcher knows who was spawned.
+roster_written_by = "the run-summary workstream of Mandate III Phase C"
+
+# FALSE, AND THE FALSE VALUE IS THE HONEST ONE.
+#
+# This workstream can evidence that siblings were running -- `git status` in this
+# shared checkout showed four files being written by processes that are not this
+# one, including one uncommitted edit to `tools/check_claims.py` -- and it cannot
+# name a single one of their labels without guessing. Guessing a label would put
+# a fabricated `absent` row in a register whose whole purpose is to make absence
+# mean something. So the roster is declared incomplete, `--report` prints the
+# absences as a LOWER BOUND, and the next round's launcher writes a real one.
+roster_complete = false
+
+expected = ["run-summary"]
+
+note = """
+The first round this register has ever held, and it holds one row because one
+agent could only honestly declare itself. Read the `complete` below as evidence
+that the format works and NOT as evidence that Phase C had one workstream.
+"""

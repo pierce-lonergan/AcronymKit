@@ -85,7 +85,7 @@ the package floor rather than to your interpreter.
 
 ## The gates
 
-Seven commands. All seven must be green before you push, and CI runs all seven:
+Eight commands. All eight must be green before you push, and CI runs all eight:
 
 ```bash
 python -m pytest tests
@@ -95,6 +95,7 @@ python -m mypy
 python tools/check_claims.py
 python tools/splits.py --check
 python tools/gates.py --check
+python tools/run_summary.py --check
 ```
 
 **That block said six, and had done since `tools/gates.py` shipped.** `python tools/gates.py --check`
@@ -102,20 +103,78 @@ runs in the `lint` job, in the step named *Every CI gate is registered, and says
 failed on purpose*, and both this file and `docs/SECOND-READER.md` told a reader there were six. A
 list of the gates is exactly the kind of prose no gate reads — so this one is now read:
 `tests/test_second_reader_policy.py` parses the block above, requires each command's script to exist,
-runs `--help` on it, and requires the flag named here to be a flag it accepts.
+runs `--help` on it, and requires the flag named here to be a flag it accepts. It went to seven when
+that was corrected and to **eight** when `tools/run_summary.py` shipped.
 
-The last three are the ones most often missed, and they are the three that fail on a *document*
-rather than on code. `tools/check_claims.py` refuses a new performance or accuracy figure that does
-not cite a run id in `bench/results.json`; `tools/splits.py --check` refuses a corpus with no
-declared role, task or licence, and refuses a read of a reserved corpus arm; `tools/gates.py --check`
-refuses a CI job that no gate register accounts for. On Windows, set `PYTHONIOENCODING=utf-8` before
-the report modes of `check_claims.py`.
+The last four are the ones most often missed, and they are the four that fail on a *document* or a
+*record* rather than on code. `tools/check_claims.py` refuses a new performance or accuracy figure
+that does not cite a run id in `bench/results.json`; `tools/splits.py --check` refuses a corpus with
+no declared role, task or licence, and refuses a read of a reserved corpus arm; `tools/gates.py
+--check` refuses a CI job that no gate register accounts for; `tools/run_summary.py --check` refuses
+a round whose self-assessment is malformed and refuses a schema that has drifted from the field list
+published below. On Windows, set `PYTHONIOENCODING=utf-8` before the report modes of
+`check_claims.py`.
 
 Two of those gates carry ratchets that **may not grow** — the value-matched register and the
 deferred register. If your change raises either, the fix is to cite the figure, not to raise the
 baseline.
 
 Public classes and functions need Google-style docstrings with `Args:` / `Returns:` / `Raises:`.
+
+## Finishing a workstream: file the summary before you write the prose
+
+**Three consecutive rounds kept their work and lost their account of it, for three unrelated
+reasons** — a retry cap on over-long output, a budget that ran out mid-work, and a budget that ran
+out after the work was filed (`docs/DECISIONS.md` D-095, D-098). Each time the code survived only
+because it happened to be in the tree. So execution state is now separate from narrative reporting,
+and the separation is an ordering rule:
+
+> **Write `<label>.json` to the round directory as your penultimate tool call, before you compose
+> any long prose.** If you then blow your ceiling formatting paragraphs, the record already exists.
+
+Get a skeleton, fill it in, and check it:
+
+```bash
+python tools/run_summary.py --template my-workstream > .github/run-summaries/<round>/my-workstream.json
+python tools/run_summary.py --validate .github/run-summaries/<round>/my-workstream.json
+python tools/run_summary.py --report .github/run-summaries/<round>/
+```
+
+The file name's stem **is** the `label` inside it, and the fields are exactly these — no more (an
+unknown key is refused, because a misspelt field is a dropped field) and no fewer:
+
+<!-- run-summary:fields -->
+```
+label
+status
+headline
+shipped
+run_ids
+files_changed
+pre_registration
+how_it_fails
+not_done
+gates
+claims_for_sampling
+```
+
+`status` is `complete` or `partial`; `gates` reports all eight commands above by key
+(`pytest`, `ruff`, `ruff_format`, `mypy`, `claims`, `splits`, `gates`, `second_reader`);
+`claims_for_sampling` carries **exactly twelve** uncurated checkable sentences.
+`python tools/run_summary.py --check` reads that list out of this file and refuses it if it has
+drifted from the code, so the block above is checked rather than merely written down.
+
+Whoever launches the round writes `round.toml` beside the summaries, naming every workstream
+expected to file. **That roster is what makes an absence sayable**: without it an empty directory
+cannot be told from a round nobody launched, which is the distinction D-096 records the cost of.
+A summary that is absent, or that is filed and says nothing, is *reported* by `--check` and does
+**not** fail the build — a round in which an agent died has to stay recordable exactly as it
+happened, or the only route to green is to delete the roster entry.
+
+**What this does not do, stated where you meet it:** it makes a lost report *recoverable*. It does
+not make a report *happen*. An agent that dies before its penultimate call files nothing, and no
+gate here can tell that from an agent that was never launched. Closing that needs the launcher to
+write a start record; nothing in this repository can.
 
 ## Changing a user-facing document
 

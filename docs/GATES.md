@@ -25,8 +25,19 @@ paragraph.
 
 ## Read this before the table
 
-**Sixteen of the thirty-eight gates carry in-situ evidence. The count went UP by four, and not one
-of the four was earned by this round.**
+**Eighteen of the thirty-nine gates carry in-situ evidence, and for the second consecutive round
+the payment was a log nobody had read.** The two gates `M3-PB` registered owing evidence forward —
+`figures` and `memo_identity` — were demonstrated on a runner two days later, and the register went
+on printing `16 of 38` until somebody ran `gh run view`. The thirty-ninth gate is
+[`gates.run_summary`](#the-thirty-ninth-gate-the-account-of-a-round-is-now-an-artefact-a-gate-reads),
+added by this round and owing its own demonstration forward. **Every command output quoted in the
+rest of this section was captured before those two changes and reads `38`; the transcripts are left
+as they were taken rather than re-stamped, which is the convention this page has for every dated
+block.**
+
+The paragraph this replaces read *"Sixteen of the thirty-eight gates carry in-situ evidence. The
+count went UP by four, and not one of the four was earned by this round."* Its second sentence is
+still the interesting one, and it is now true twice.
 
 The previous version of this page opened *"Twelve of the thirty-six"* and closed by saying that
 `gates.suite`'s evidence had been withdrawn, that three newly-extracted gates carried a local
@@ -1117,13 +1128,22 @@ nothing as an error, which is correct behaviour in a checkout and a false positi
 
 ---
 
-## The claims gate's hole: measured, costed, and not closed
+## The claims gate's hole, closed — and what it did not close
 
-The gate at rank one is **demonstrably partly inert**, and has been since before it was ranked. An
-uncited latency figure in microseconds exits `0`; an uncited accuracy percentage in the same position
-exits `1`. D-060 found it, [`docs/POSITIONING.md`](POSITIONING.md) reproduced it on a second page,
-and `tests/test_claims_gate_coverage.py` pins it so it cannot quietly change. Two vocabulary gaps
-cause it: `latency` is not a metric keyword, and a spelled-out `microseconds` is not a unit.
+The gate at rank one **was demonstrably partly inert**, from before it was ranked until this round.
+An uncited latency figure in microseconds exited `0`; an uncited accuracy percentage in the same
+position exited `1`. D-060 found it, [`docs/POSITIONING.md`](POSITIONING.md) reproduced it on a
+second page, and `tests/test_claims_gate_coverage.py` pinned it so it could not quietly change. Two
+vocabulary gaps caused it: `latency` was not a metric keyword, and a spelled-out `microseconds` was
+not a unit.
+
+**Both are now in the vocabulary.** `latency` and `duration` are metric keywords;
+`nanoseconds`/`microseconds`/`milliseconds` are units. The refusal that had stood for five
+measurements rested on a cost that was real and a premise that was circular — the seven documents (the count was published as six until a cold read found `docs/SOURCING.md` by checking the rule rather than the exit code)
+below were false *only because the hole was open* — and **keeping a known blind spot open to
+preserve the descriptive accuracy of the documents documenting it is debt that pays interest to
+itself.** The maintainer withdrew it. All six were corrected in the same commit, and the three that
+print a measured mutation battery had theirs **re-run** rather than having a digit edited.
 
 D-052 refused to widen the arming rules, on the ground that arming on everything would relabel over a
 thousand numbers nobody had adjudicated. **A narrow widening is a different object, and it was
@@ -1132,12 +1152,14 @@ grow, so a widening that armed even one new uncited number would either redden t
 baseline upward, and the trajectory forbids the second.
 
 ```
-tools/check_claims.py loaded by path, its arming rules replaced, collect_claims
-re-run over all 64 scanned files -- command output, not a benchmark measurement
+tools/check_claims.py loaded by path, its arming rules replaced, every scanned file
+read ONCE and both rule sets evaluated against the same bytes -- command output,
+not a benchmark measurement. Re-derived immediately before the widening was taken,
+because a fact nothing re-runs is the class this repository keeps finding stale.
 
-  control (shipped rules)     1828 claim-shaped numbers
-                              unarmed 1549 | unit-armed 191 | keyword-armed 88
-                              unexamined 1549 | deferred 213 | value-matched 64 | allowlisted 2
+  scanned set as read              2246 claim-shaped numbers across 72 files
+    under the pre-widening rules   unarmed 1987 | unit-armed 171 | keyword-armed 88
+    under the shipped rules        unarmed 1987 | unit-armed 171 | keyword-armed 88
 
   + latency, duration as keywords            0 numbers change class
   + microseconds/milliseconds/nanoseconds
@@ -1146,42 +1168,114 @@ re-run over all 64 scanned files -- command output, not a benchmark measurement
 
   positive controls on that comparison, because a comparison that cannot detect a
   difference reports zero for either reason:
-  + the word "the" as a keyword             617 change class
-  + a unit rule matching anything          1526 change class
+  + the word "the" as a keyword              726 change class
+  + a unit rule matching anything           1905 change class
 ```
 
-**The measured price of closing this hole is zero.** It would fail no build and grow no ledger.
+**The measured price of closing this hole was zero, and it stayed zero after it was closed.** No
+build reddened, `DEFERRED_BASELINE` stayed at `189` across ten files, `VALUE_MATCHED_BASELINE` stayed
+at `64` across three, and **no row was owed to `LEDGER_TRAJECTORY`** — a widening that moves the
+register must record the round with its `by_citation`/`by_deletion`/`by_fencing`/`by_other` split,
+and this one moved nothing to split. The totals in the block move with the tree; the committed
+re-derivation is
+`tests/test_claims_gate_coverage.py::test_the_measured_price_of_the_closure_is_still_zero`, which now
+compares the shipped rules against the pre-widening ones and reds the first time a scanned document
+acquires a latency figure the old rules could not see.
 
-**And the firing count of the new vocabulary on this tree is zero, which means I measured nothing
-about whether the widened rule is well calibrated.** Not one prose number in any scanned file sits
-within the proximity window of `latency` or `duration`, and not one is followed by a spelled-out time
-unit. What the measurement establishes is that *this tree contains no latency-shaped claim*; it
-establishes nothing about how the widened rule would behave on a tree that did.
+**Why it was free is more interesting than that it was free.** **Not one line of the scanned set
+carrying `latency` or `duration` has a free-standing prose number within the proximity window**, and
+**no prose number anywhere in the scan set is followed by a spelled-out sub-second unit**. Every
+latency figure this tree publishes is either cited, written with a symbol unit the old rule already
+armed, or inside a code span. The vocabulary and the figures never met. **How many lines carry the
+words is deliberately not published**: it rises whenever a page describes the closure — this one
+included — and it drifted twice while this section was being written. The two zeros are the
+measurement, and `tests/test_claims_gate_coverage.py` re-derives them on every run.
 
-### So it is refused, and here is the disposition
+**Which means the firing count on this tree is zero, so nothing was measured about whether the
+widened rule is well calibrated.** What the block establishes is that *this tree contained no
+latency-shaped claim in prose*, which is a statement about the documents and not about the rule. The
+rule is demonstrated by injection instead — see the batteries in
+[`docs/EVALUATION.md`](EVALUATION.md), [`docs/POSITIONING.md`](POSITIONING.md) and
+[`docs/DEFINITION-OF-DONE.md`](DEFINITION-OF-DONE.md), all re-run.
 
-**Blocked on ownership of six documents.** The widening is one edit to `tools/check_claims.py`. What
-it costs is that six shipped files immediately state something false:
+### The false-positive cost, measured rather than assumed
 
-| file | what it says today |
-|---|---|
-| `README.md` | *"latency in microseconds passes untouched while one naming an accuracy percentage in the same position"* fails |
-| [`docs/EVALUATION.md`](EVALUATION.md) | *"an uncited latency in microseconds passes and an uncited accuracy"* percentage does not |
-| [`docs/DEFINITION-OF-DONE.md`](DEFINITION-OF-DONE.md) | prints a battery whose latency row is `rc=0` |
-| [`docs/POSITIONING.md`](POSITIONING.md) | prints a battery whose row `D` is `rc=0` |
-| [`docs/SECOND-READER.md`](SECOND-READER.md) | describes the same injection returning zero |
-| [`docs/DECISIONS.md`](DECISIONS.md) | D-060 is the record of the blind spot; D-070 and D-072 re-quote it |
+A wider arming rule demands citations for numbers that are not claims, and that friction is how a
+gate gets disabled. On the scanned set the cost is exactly zero, because nothing fired — which is a
+measurement of the documents, not of the rule. So the same comparison was run over the `132` files
+this project writes that the scan set does **not** cover — `tests/`, `tools/`, `bench/`,
+`benchmarks/`, `examples/`, `.github/` — as a proxy for prose this repository plausibly produces:
 
-Three of those print a **measured** mutation battery whose `rc=0` row would invert. None of the six
-belongs to this workstream, and correcting a published measurement in a file assigned to somebody
-else is how two copies of one sentence end up disagreeing — the shape this repository has now hit
-five times. Widening without correcting them would leave six documents making a false claim about a
-gate, which is precisely the class D-060 exists to record.
+```
+same one-read/two-evaluations comparison, over everything outside SCAN_GLOBS
+  4528 claim-shaped numbers across 132 files
+    12 change arming class: 11 newly armed, 1 re-attributed unit -> keyword
 
-**What ships instead is the measurement, pinned so the refusal cannot go stale.**
-`tests/test_claims_gate_coverage.py` now re-derives the zero on every run, with its own positive
-control beside it. If a later round writes a latency figure into a scanned document, the widening
-stops being free, that test goes red, and the decision is re-taken rather than inherited.
+  armed on a real duration figure, which is the rule working              7
+    "that is 30 milliseconds of headroom" and two sibling fixtures        3
+    the coverage module's own injected probe                             1
+    the probe quoted in tools/check_claims.py's docstring                 1
+    "41 microseconds, 139.60 milliseconds" in the unit rule's comment     2
+
+  armed on a number that is not a claim -- FALSE POSITIVES               4
+    2026 / 08 / 25, the three fragments of an ISO date, armed because
+      the word "latency" is within 48 characters of it in an
+      assertion message                                                  3
+    font-weight="400", armed by "median latency" later on the line       1
+
+  re-attributed, so no new citation demanded                             1
+    41.20 in "median latency 41.20 ms": unit-armed before, keyword now   1
+```
+
+**Four false positives in `4528` numbers — `0.088` %, and worth naming rather than rounding away.**
+Every one is a **proximity** artifact: the keyword rule arms a *neighbourhood*, so a date or a font
+weight sitting beside the word `latency` becomes a claim. The unit rule produced none, which is the
+argument for reading a number's own shape wherever a rule can. Three of the four are in a sentence
+**this round wrote** — an assertion message that mentions `latency` and a date in the same breath —
+which is the friction demonstrated rather than estimated: had that sentence been in a scanned file,
+it would have reddened the build and demanded a citation for a calendar date.
+
+All twelve are outside `SCAN_GLOBS`, so the gate never sees them and today's cost is zero. **This is
+a bound on the friction, not an incident**, and it is measured on one repository's prose rather than
+on prose in general.
+
+### Six documents corrected, and the disposition discharged
+
+The widening is one edit to `tools/check_claims.py`. What it cost is that six shipped files
+immediately stated something false. All six were corrected in the same commit:
+
+| file | what it said | what it says now |
+|---|---|---|
+| `README.md` | a latency in microseconds *"passes untouched"* | both cases fail; residue published |
+| [`docs/EVALUATION.md`](EVALUATION.md) | *"an uncited latency in microseconds passes"* | battery re-run, row `D` is `rc=1` |
+| [`docs/DEFINITION-OF-DONE.md`](DEFINITION-OF-DONE.md) | a battery whose latency row is `rc=0` | re-run rows appended below the originals |
+| [`docs/POSITIONING.md`](POSITIONING.md) | a battery whose row `D` is `rc=0` | battery re-run, row `D` is `rc=1` |
+| [`docs/SECOND-READER.md`](SECOND-READER.md) | the same injection returning zero | the finding, and the round that closed it |
+| [`docs/DECISIONS.md`](DECISIONS.md) | D-060's record; D-070 and D-072 re-quote it | corrections appended, no record added or restated |
+
+**No digit was edited.** Each battery row that inverted was produced by re-running the injection
+against the same file, one mutation at a time, restored from bytes read before it and md5-verified.
+
+### What the closure did not close
+
+Two keywords and three units. That is the size of it, and **a closure reported as total would be the
+same defect one level up**. Injected one sentence at a time into `README.md`,
+[`docs/EVALUATION.md`](EVALUATION.md), [`docs/POSITIONING.md`](POSITIONING.md) and
+[`docs/DECISIONS.md`](DECISIONS.md), all four files agreeing:
+
+| still invisible | example | why |
+|---|---|---|
+| plurals | `Median latencies ... fell to 41.37` | `keyword_positions` matches whole words; `latencies` and `durations` are not `latency` and `duration` |
+| a bare `seconds` | `A full sweep took 41.37 seconds` | refused on purpose — it would arm dates, interval lengths and any number followed by the word |
+| speedup multipliers | `... is 41.37x faster` | not a free-standing number at all, so no arming rule is consulted; the fix is to the token rule, which the value ledger shares |
+| memory and byte figures | `... holds 41.37 KB` | `KB`/`MB`/`bytes` were considered for the unit rule and not taken |
+| unlisted metric words | `p99`, `QPS`, `overhead`, `cold start`, `time to first token` | the rule that caught `F₁ > 96 %` reads a number's shape; this one reads a vocabulary, and a vocabulary is a list somebody finishes writing |
+| a metric named once in a table header | any cell under it | neither arming rule can see a column heading; `--classify` reports this as the larger population |
+| anything fenced or code-spanned | this table's own examples | D-052: mechanically indistinguishable from hiding |
+
+Each of the first four is pinned by
+`tests/test_claims_gate_coverage.py::test_the_residue_the_closure_left_behind_is_still_uncaught`, so
+a later widening that reaches one of them turns a row red and has to update this table.
 
 ### The blind spot, observed in anger rather than by injection
 
@@ -1282,6 +1376,109 @@ python tools/gates.py --mutate control_always_green
 ```
 
 ---
+
+## The thirty-ninth gate: the account of a round is now an artefact a gate reads
+
+`gates.run_summary` is `python tools/run_summary.py --check`, in the `lint` environment, at
+`cost_rank` 37 of 39.
+
+**The defect it is for is not in the code, and that is why it went unguarded for three rounds.**
+Eight gates check the code, the numbers, the splits, this register and the cold-read ledger.
+Nothing checked that the round said what it did — and D-095, then the first attempt at Phase B,
+then its second, each kept the work and lost the self-assessment, for three unrelated reasons: a
+retry cap on over-long output, a budget that ran out mid-work, a budget that ran out after the work
+was filed. Each time the code survived because it happened to be in the tree, which is luck.
+
+So execution state is now separate from narrative reporting. A workstream writes
+`<label>.json` into `.github/run-summaries/<round>/` as its **penultimate** tool call, before any
+long prose, and an agent that then dies formatting paragraphs has already filed. The gate validates
+the shape of every committed record — unknown key refused, exactly twelve sampling claims, all
+eight gate keys, a `label` that matches its own filename, a dotted `run_ids` entry that resolves in
+`bench/results.json` — and refuses a field list in `CONTRIBUTING.md` that has drifted from the code.
+
+**What it deliberately does not fail on, because the omission is the design.** A workstream that
+filed nothing, and one that filed a stub saying nothing, are both *printed* and neither is red. A
+round in which an agent died has to stay committable exactly as it happened; if `absent` reddened
+the build, the cheapest route to green would be deleting the roster entry, and the gate would
+become a machine for hiding what it exists to reveal. What it does enforce is that those two states
+are **different verdicts** — which is precisely the distinction `--check` could not make for the
+cold-read ledger, and D-096 records what that cost across two rounds.
+
+**The rank is an argument against the gate rather than for it.** The workstream that wrote the gate
+wrote its rank, so it is placed *last* in the `evidence_apparatus` bucket: every other gate there
+protects a demonstration that some other check can fail, and this one protects a narrative record,
+which is one step further from any user than any of them. `ruff` and `ruff_format` move to 38 and
+39 and nothing else in the ordering moves.
+
+### It has no in-situ evidence, and the local run that is not evidence
+
+```
+python tools/gates.py --mutate run_summary        -- command output, 2026-09-09, Windows,
+                                                     in a MIRROR of the working tree
+  run_summary                            DEMONSTRATED  mutated rc=1, restored rc=0
+  1 demonstrated, 0 INERT or UNRESTORED, 0 not automated
+```
+
+The probe puts an unreadable `status` on the one committed summary and requires the gate's own
+output to contain `tools/run_summary.py`'s `FAILURE_MARKER`; the marker's two copies — the register's
+and the script's — are pinned against each other by `tests/test_run_summary.py`, because a marker
+that drifts turns every future demonstration into `INERT` while the register reports a gate nobody
+can demonstrate.
+
+**That run is exactly the evidence R11 says does not count**, and it was taken in a *mirror* rather
+than in the working tree because several agents were editing this checkout at the time and
+`--mutate` restores from bytes read beforehand — the lost-update hazard D-098 records happening to
+`docs/DECISIONS.md`. The debt is `20 → 21` and one gate is owed forward; `gate-mutation.yml`
+triggers on `.github/gates.toml`, `.github/workflows/*.yml` and `tools/gates.py`, all three of which
+this commit touches, so the run that lands this work is the run that owes it.
+
+### The two owed forward were paid by a log nobody had read, one round after the last time
+
+`M3-PB` registered `figures` and `memo_identity` with no evidence and wrote that the run landing
+that commit would take it. It did:
+
+```
+gh run view 34308556192, job "Mutate the lint gates, in the lint environment"   -- captured log
+  claims                                 DEMONSTRATED  mutated rc=1, restored rc=0
+  figures                                DEMONSTRATED  mutated rc=1, restored rc=0
+  gate_manifest                          DEMONSTRATED  mutated rc=1, restored rc=0
+  memo_identity                          DEMONSTRATED  mutated rc=1, restored rc=0
+  mypy                                   DEMONSTRATED  mutated rc=1, restored rc=0
+  ruff                                   DEMONSTRATED  mutated rc=1, restored rc=0
+  ruff_format                            DEMONSTRATED  mutated rc=1, restored rc=0
+  splits_manifest                        DEMONSTRATED  mutated rc=1, restored rc=0
+  8 demonstrated, 0 INERT or UNRESTORED, 0 not automated
+push of 4ef57c8, 2026-09-09T03:48:48Z
+```
+
+Three things a reader should not have to take on trust. **First, the overall run is RED** — on a
+different job, "Reintroduce each historical breakage against a real sdist", which `017cb37` is the
+fix for; the lint-environment job these verdicts come from is green on its own, and a harvest that
+quoted only the green half without saying so would be the thing this page keeps finding. **Second,
+the stamp is at `4ef57c8` and HEAD is `017cb37`, two commits later**; the diff between them is
+`MANIFEST.in` and two test files, none of them in either gate's dependency set, so the gate
+demonstrated there is the gate shipping here — and that stops being true the moment this commit
+lands, because it moves `.github/gates.toml`. **Third, this is the same failure as a fortnight ago
+and it is two days faster.** The evidence sat in the Actions tab while the register printed the
+debt. Nothing here closes that: harvesting is still a person deciding to run `gh run view`.
+
+### What this gate cannot do, said where a reader meets it
+
+**It makes a lost report recoverable. It does not make a report happen.** An agent that dies before
+its penultimate tool call files nothing, and no gate in this repository can tell that from an agent
+that was never launched. The roster narrows it to *who was expected* and narrowing is not closing:
+a roster is written by hand, before the round, by somebody who may be wrong about it — and this
+round's roster was written by a workstream rather than by the launcher, so it declares itself
+incomplete and `--report` prints its absences as a lower bound. **Closing it needs the launcher to
+write a start record when it spawns an agent**, at which point `absent` splits into *started and
+never filed* and *never started*. That is a change to whatever runs the round, and nothing inside
+this repository can make it.
+
+Two smaller holes, named rather than implied. A JSON summary an agent writes about itself is still
+self-assessment — cheaper to write, not more trustworthy. And `.github/run-summaries/` is in none of
+`tools/check_claims.py`'s `SCAN_GLOBS`, so a number inside a committed summary is an unbacked claim
+that reddens nothing: the shape R16 was written for, one channel further out, priced and not closed
+here because `SCAN_GLOBS` carries two ratchets this gate's workstream does not own.
 
 ## Where the regress stops, and why there
 

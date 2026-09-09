@@ -29,8 +29,13 @@ Every number on this page is written into [`bench/results.json`](../bench/result
 runners, and `tools/check_claims.py` fails the build if a performance figure
 **that the gate can recognise** is not traceable back to it. It used to say *any* figure, in this
 file and in `README.md`, and that was false in both: the gate arms a number by metric-keyword
-proximity or a trailing unit, so an uncited latency in microseconds passes and an uncited accuracy
-percentage in the same position fails. What it cannot recognise it counts and publishes — see the residue line
+proximity or a trailing unit, so what it recognises is a vocabulary rather than a category. That
+vocabulary was one-sided — an uncited latency in microseconds passed while an uncited accuracy
+percentage in the same position failed — and this round closed it: `latency` and `duration` are
+metric keywords and the spelled-out sub-second units are units, so both cases now fail. The
+mutation battery below was **re-run** rather than edited, and its row `D` inverted. What is still
+outside the vocabulary is named there too, because a closure reported as total is the same defect
+one level up. What it cannot recognise it counts and publishes — see the residue line
 that `tools/check_claims.py` prints on every run.
 
 The two copies of that sentence are now checked against each other by
@@ -2360,18 +2365,49 @@ with an edit above them.
   rc=1  A  a cited value edited: 5.73 -> 9.99                    docs/EVALUATION.md named
   rc=1  B  that citation repointed at run id one_sense.nope.*    docs/EVALUATION.md named
   rc=1  C  prose line added: "... accuracy reached 99.94 % ..."  docs/EVALUATION.md named
-  rc=0  D  prose line added: "Median latency ... 41 microseconds"  <file not named>
+  rc=1  D  prose line added: "Median latency ... 41 microseconds"  docs/EVALUATION.md named
   rc=0  E  the same cited value put back inside a code span      <file not named>
   rc=1  F  a class count edited: 738 -> 739                      docs/EVALUATION.md named
+
+row D re-run after the arming vocabulary was widened; the four rows below are the
+residue that widening did NOT reach, injected the same way into this file
+
+  rc=0  R1 "Median latencies ... fell to 41.37 this quarter"     <file not named>
+  rc=0  R2 "A full governed sweep took 41.37 seconds"            <file not named>
+  rc=0  R3 "... is 41.37x faster than the baseline"              <file not named>
+  rc=0  R4 "... holds 41.37 KB of resident state"                <file not named>
 ```
 
-**A, B, C and F are the gate working.** A wrong value, a dead run id, a bare accuracy percentage and
-a wrong integer all turn the build red and name the line.
+**A, B, C, D and F are the gate working.** A wrong value, a dead run id, a bare accuracy percentage,
+an invented latency and a wrong integer all turn the build red and name the line.
 
-**D is D-060's latency blind spot, reproduced here rather than carried on that record's word.** `latency` is not in the gate's
-arming vocabulary and a spelled-out `microseconds` is not in its unit vocabulary, so an invented
-performance figure on this page would never be seen. That is why the splitter cost above is in a
-fenced block with its provenance printed rather than in prose.
+**D used to read `rc=0`, and that row is the reason this section changed.** `latency` was not in the
+gate's arming vocabulary and a spelled-out `microseconds` was not in its unit vocabulary, so an
+invented performance figure on this page was never seen — the blind spot D-060 recorded, measured
+five times without being closed, and found live on `README.md` on `2026-08-25`. It is closed, and the
+row above is the re-run rather than an edited digit. **The failure it produces is a ratchet failure
+rather than an unbacked-claim failure**, which is worth knowing: `41` happens to equal a measurement
+in `bench/results.json`, so the injected sentence lands on the value-matched register, which is shut
+— `21 value-matched claim(s), baseline 20`. A latency figure matching nothing (`41.37`) fails the
+other way, as `1 unbacked claim(s)` with the line.
+
+**R1 to R4 are what the closure did not close, and they are printed because a closure reported as
+total is the same defect one level up.** The keyword rule matches whole words, so the plural
+`latencies` misses; a bare `seconds` was refused on purpose because it arms dates and interval
+lengths; `41.37x` is not a free-standing number, so no arming rule is ever consulted; and byte
+figures are outside the unit rule. Each is pinned by
+`tests/test_claims_gate_coverage.py::test_the_residue_the_closure_left_behind_is_still_uncaught`.
+That is also why the splitter cost above is in a fenced block with its provenance printed rather than
+in prose.
+
+**How the re-run rows were taken, because an exit code is only about one sentence while the unmutated
+tree is green.** Every row above was preceded by a control run of the same command on the unmutated
+tree, and the file was restored from bytes read before the mutation and md5-verified afterwards.
+Twice during that work a residue row read `rc=1` and would have been a finding; neither reproduced,
+both coincided with another workstream writing to this checkout, and the four residue rows were
+therefore re-run four times each against a verified-green control before being published. **A
+measurement that cannot say whose tree it measured is not a measurement**, and on a shared checkout
+that is a live hazard rather than a maxim.
 
 **E is not a reproduction of a known hole. It is a defect this section shipped and then found in
 itself, and it is the most useful thing here.** Every figure in the section was drafted inside
@@ -2417,7 +2453,182 @@ id, and a mutation to any of them reddens the build and names the line.
   38.8<!--claim:one_sense.pmc_oa.a2_projected_genuine.genuine.projected_groups:.1f--> to about
   fifty-one, which changes no verdict above.
 - **Nothing here changes `extract()`.** This section measures the assumption a change would rest on
-  and stops.
+  and stops. The change itself shipped in the round after, as an opt-in function rather than as a new
+  behaviour of `extract()`, and is the section immediately below.
+
+## A2 ships opt-in, and the coverage claim that justified it does not survive its own corpus
+
+`acronymkit.propagation.propagate()` implements the rule the section above priced: *commit to the
+first definition of a short form in document order, license every whole-token occurrence of that
+short form at or after it, term-shaped short forms only.* It is **opt-in** -- no engine, no `Config`
+field and no default path reaches it -- and the reason is the pre-registration below rather than
+caution.
+
+### The pre-registration, and the falsifier that fired
+
+Written to a scratch file before the module existed: seven falsifiers and four magnitude predictions.
+The two that decide this section, condensed -- the scratch file is the record and this is not its
+wording character for character:
+
+> **F1 (ship-stopper).** If the propagated arm's short-form span precision on PLOD-CW (all, tight,
+> `HIGH_PRECISION`, exact) falls **below `80.00` %**, more than one licensed span in five is not a
+> gold abbreviation span, and I do not ship propagation as a supported path at all.
+>
+> **F2 (no-go on the coverage claim).** If short-form span **exact recall** does not rise by at least
+> **`+10.00` percentage points** over the definition-scoped arm, the `5.95`x multiple does not
+> transfer to a corpus that can score it. The code may still ship opt-in; the coverage claim is
+> withdrawn.
+
+**F1 did not fire and F2 did.** Precision came in at
+93.73<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_precision:.2f--> %,
+which is *above* the definition-scoped arm's
+93.66<!--claim:spans.plod.all.tight.acronymkit.high_precision.native.short_form.exact_precision:.2f--> % --
+the licensed spans are as clean as the definitions that licensed them. Exact recall moved from
+36.53<!--claim:spans.plod.all.tight.acronymkit.high_precision.native.short_form.exact_recall:.2f--> % to
+39.60<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_recall:.2f--> % --
+**`+3.07` points, not the `+10` the bet required.** So the mechanism ships and the sentence that a
+five-and-a-bit-fold coverage multiple is something this project has shown on scored data is
+withdrawn. `one_sense.pmc_oa.a2.*` counts occurrences against no gold, and it stays an occurrence
+count.
+
+### The two causes, decomposed, because two things move this number at once
+
+A recall figure here moves for the definition-scoped arm's own reach **and** for propagation, and the
+run partitions them on matched gold-span indices rather than on counts, so the split is exact rather
+than inferred:
+
+| PLOD-CW `all`, tight, `HIGH_PRECISION`, short-form spans | exact | overlap |
+|---|---:|---:|
+| definition-scoped true positives | 1,048<!--claim:spans.plod.all.tight.acronymkit.high_precision.native.short_form.exact_true_positives:,--> | 1,061<!--claim:spans.plod.all.tight.acronymkit.high_precision.native.short_form.overlap_true_positives:,--> |
+| of them, still reached with propagation on | 1,048<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_true_positives_also_reached_by_definitions:,--> | 1,061<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.overlap_true_positives_also_reached_by_definitions:,--> |
+| **new, and reached only because of propagation** | **88<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_true_positives_new_from_propagation:,-->** | **88<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.overlap_true_positives_new_from_propagation:,-->** |
+| lost against the definition-scoped arm | 0<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_true_positives_lost_versus_definitions:,--> | 0<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.overlap_true_positives_lost_versus_definitions:,--> |
+| propagated spans offered | 96<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.propagated_short_form_spans:,--> | 96<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.propagated_short_form_spans:,--> |
+
+`96` spans offered, `88` of them gold, `0` gold spans lost: **the propagated half is right about nine
+times in ten**, which is why precision does not move and is the most favourable single fact in this
+section. It is also `88` spans.
+
+**The long-form rows do not move at all, and that is structural rather than lucky.** A2 licenses a
+short form at a position where the document does not write the long form, so there is no long-form
+span to propose there:
+0<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.long_form.exact_true_positives_new_from_propagation:,-->
+new long-form true positives on the exact convention. Every long-form figure in this document is
+untouched by A2 by construction.
+
+### The recall-ceiling artefact was real, and it was small
+
+`spans.plod.*.oracle_definitional` is the union of all seven definition extractors, and its
+short-form recall stops where a definition is *written* rather than anywhere the algorithms put it. Substituting this library's three propagated rows for its three definition-scoped rows
+and leaving the other four members untouched moves that ceiling from
+37.50<!--claim:spans.plod.all.tight.oracle_definitional.short_form.exact_recall:.2f--> % to
+40.85<!--claim:spans.plod.all.tight.oracle_definitional_propagated.short_form.exact_recall:.2f--> % exact --
+1,076<!--claim:spans.plod.all.tight.oracle_definitional.short_form.exact_true_positives:,--> gold spans to
+1,172<!--claim:spans.plod.all.tight.oracle_definitional_propagated.short_form.exact_true_positives:,-->. So
+the scope was worth about three points of a ceiling that sits some forty points below the trivial
+all-caps rule's recall on the same corpus. **The artefact is real and it is not what was keeping this
+number low.**
+
+### Why the win is small here, and it is the corpus rather than the rule
+
+**PLOD-CW is not a corpus of documents.** It is distributed as blank-line-separated passages, and
+`bench.corpora.read_plod_cw` yields one per passage:
+1,351<!--claim:spans.plod.all.corpus.documents:,--> of them over
+50,000<!--claim:spans.plod.all.corpus.tokens:,--> tokens, which is about thirty-seven tokens each. A rule
+scoped to a document is scoped here to a passage -- the smallest scope on which A2 is still A2, and
+orders of magnitude smaller than the PMC Open Access articles `one_sense.pmc_oa.a2.*` priced it on.
+
+**This is the finding and not an excuse, because there is no second corpus.** PLOD-CW is the only
+corpus in this project carrying exhaustive short-form span gold; PMC-OA's gold is one located
+occurrence per roster pair, so a propagated occurrence there scores as a false positive against a
+gold that never recorded it, and MED1250's gold is definitions. **No corpus available to this project
+can score a document-scoped rule at document scope**, so the `5.95`x is unscorable here rather than
+disconfirmed. That is a weaker statement than "A2 buys little" and it is the one the evidence
+supports.
+
+### Which published figures moved: none of the scored ones
+
+Every runner was re-run and both figures re-rendered.
+
+- `python bench/run_spans.py --split all --save` and `--split test --save`, both with all four
+  external baselines under the pinned 3.12 interpreter, added `16` run ids and moved **zero**
+  non-wall-clock fields on any pre-existing run id -- the whole span table reproduced exactly on a
+  second machine. `elapsed_seconds` and `docs_per_second` moved on `80` pre-existing records; both
+  are wall clock, neither is cited anywhere, and R18 leaves them unarmed notes.
+- `python tools/render_figures.py` re-rendered both figures in both themes and all four SVGs came
+  back **byte-identical** to what was committed. `tools/render_figures.py --check` exits `0`.
+- **MED1250 cannot see A2 at all**, and the reason is two conventions deep. Its gold records
+  definitions, so a licensed occurrence is not a new pair; and `dedupe_per_document` collapses
+  repeated pairs before scoring, uniformly for every system, so the propagated rows vanish rather
+  than landing as false positives. `extraction.med1250.acronymkit_propagated` agrees with
+  `extraction.med1250.acronymkit` on all `16` compared fields, exact F1
+  84.21<!--claim:extraction.med1250.acronymkit_propagated.exact_f1:.2f--> against
+  84.21<!--claim:extraction.med1250.acronymkit.exact_f1:.2f-->. **That is a derivation and not a result** --
+  it follows from the two conventions and would hold whatever propagation did. It was run because
+  "the published figure does not move" is the claim a reader needs, and an unrun derivation is how a
+  claim like that turns out to be wrong.
+
+### Not breaking, and the byte-identity pass that says so
+
+R19, over every document of every corpus `bench.corpora` can read -- `4,260` documents at three
+extraction profiles, `10,625` pairs -- comparing every field of every `AcronymPair` the default path
+returns, `src/` at `017cb37` against the working tree:
+
+```
+python r19_identity.py <src tree> [perturb]   -- scratch script, command output, not a
+benchmark measurement. sha256 over [profile, corpus, uid, every field of every pair],
+every corpus bench.corpora reads, three profiles. The script asserts the resolved
+acronymkit.__file__ sits under the tree named on the command line.
+
+  before   017cb37     56d2dd9f666840ab4cd0af128971ca7c9a1621769f9fa4f1d812f4825ae861af
+  after    working     56d2dd9f666840ab4cd0af128971ca7c9a1621769f9fa4f1d812f4825ae861af
+  CONTROL  perturbed   1c99ddba829679fcef7fe8dcf7247c797572b353254aa8dc36f86f14534ee979
+```
+
+The control appends one character to the long form of one pair out of `10,625` and the digest
+changes, so "identical" is a result rather than the only answer the comparison could give. **A2 is an
+addition and not a breaking change**, and `CHANGELOG.md` records it under **Added**.
+
+### The gate, and the guarantee it is not
+
+`propagate(text, pairs, gate=...)` takes a caller-built `ConformalGate` and propagates only where the
+gate answers on the document's own definitions *and* its answer is the definition A2 committed to.
+What that buys is a **joint** bound and not a selective one: the bound is on answering-and-being-wrong
+over all instances, the refused ones included, and it does not bound the error rate among the
+answers. That rate is the joint rate divided by the answer rate, and on
+`conformal.sdu21.exchangeable` it was
+21.92<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.selective_error_pct:.2f--> % at
+`alpha` of `0.05` -- `4.38` times `alpha` -- and
+37.02<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.selective_error_pct:.2f--> % at
+`0.20`. Bounding the selective rate needs risk-controlled selective classification, which is not
+implemented; when it lands, this gate tightens.
+
+**And a second gap sits on top of the first, which is propagation's own rather than conformal's.**
+The joint bound is about the *definition*. Whether a licensed occurrence means what its definition
+meant is one-sense-per-discourse, which no conformal argument reaches -- it is held only by the floor
+and ceiling this document already publishes,
+0.581<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_floor_correctness_pct_of_licensed:.3f--> % to
+9.68<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_ceiling_correctness_pct_of_licensed:.2f--> % of
+licensed occurrences. A confident definition propagated into a document that reuses the short form
+for something else is wrong at every licensed site and the gate cannot see it.
+`acronymkit.propagation.gate_disclosure()` returns all three parts in one string so that no surface
+can quote one of them alone.
+
+### What this does not establish
+
+- **Nothing here is a held-out number.** `bench/splits.toml` files PLOD-CW as tuning and
+  contaminated. The `+3.07` points are a tuning-split measurement of a rule whose cost was priced on
+  a different corpus in a different genre.
+- **The gate was not exercised on any corpus in this section.** Every propagated arm above runs
+  **ungated**, because no calibration set of definition-shaped results exists and building one from
+  the evaluation corpus would be the circularity this project keeps finding elsewhere. The gate is
+  held by unit test and by construction; its effect on a recall figure is unmeasured.
+- **`term_shaped` excludes the population an extractor collides on most.** Single letters and
+  lower-case markers sit outside the frame the cost bounds were taken over, so they sit outside the
+  shipped rule too. This section has no figure about them.
+- **`88` new spans are `88` spans.** On the `test` split the same arm gains `7`. Neither is a sample
+  size anybody should build an argument on, and no interval on the propagated half's own accuracy is
+  computed here.
 
 ## Operating points, not a single setting
 

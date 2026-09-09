@@ -4,12 +4,13 @@ Why this file exists
 --------------------
 ``tools/check_claims.py`` adjudicates every published number in this repository
 and its ``SCAN_GLOBS`` names markdown, Python and one TOML file. **It cannot read
-an SVG.** And in the formats it *can* read it still has a measured hole:
-``tests/test_claims_gate_coverage.py`` drives an uncited latency figure in
-microseconds through the real gate and asserts it passes, which is D-060's
-finding in ``README.md`` kept alive as a test rather than as a memory. A chart is
-that defect with better typography and a wider blast radius, because a chart is
-screenshotted and re-published without its source.
+an SVG.** In the formats it *can* read, the latency hole D-060 found is now
+closed -- ``tests/test_claims_gate_coverage.py`` drives that same uncited figure
+through the real gate and asserts it **fails** -- but the same module pins four
+classes of performance claim the widened vocabulary still cannot see, and none of
+the arming rules reads a canvas at all. A chart is that defect with better
+typography and a wider blast radius, because a chart is screenshotted and
+re-published without its source.
 
 ``tools/render_figures.py`` is the answer and this file is the part of the answer
 that can fail. What is pinned here, and why each item is here rather than trusted:

@@ -622,17 +622,27 @@ measurement. Line numbers are the mutated file's and move with any edit above th
   rc=1  A  a cited value edited: 91.37 -> 99.99                       docs/SOURCING.md:449
   rc=1  B  that citation repointed at run id governed_gold.nope.*     docs/SOURCING.md:449
   rc=1  C  prose line added: "... accuracy reached 99.94 % ..."       docs/SOURCING.md:93
-  rc=0  D  prose line added: "Median latency ... 41 microseconds"     <file not named>
+  rc=1  D  prose line added: "Median latency ... 41 microseconds"     docs/SOURCING.md
   rc=0  E  "15842" -> "99999" inside section 5's fenced block         <file not named>
 ```
 
 **A, B and C are the gate working.** A wrong cited value, a dead run id and a bare accuracy
 percentage each turn the build red and name the line.
 
-**D and E are the two holes, and they are the same two.** `latency` is not in the gate's arming
-vocabulary and a spelled-out `microseconds` is not in its unit vocabulary, so an invented latency
-claim on this page would never be seen — the blind spot `docs/DECISIONS.md` D-060 found in
-`README.md`, reproduced on a third page rather than carried on that record's word. And every fenced
+**D IS CLOSED AND E IS NOT, AND THIS PAGE WAS THE SEVENTH.** The paragraph here used to read:
+*"`latency` is not in the gate's arming vocabulary and a spelled-out `microseconds` is not in its
+unit vocabulary, so an invented latency claim on this page would never be seen."* Both halves are
+now false. `'latency' in _KEYWORDS` is `True`, the unit rule matches a spelled-out `microseconds`,
+and **the battery above was re-run rather than edited**: mutation D exits `1` and names this file.
+
+The round that closed the blind spot corrected six documents. **There were seven.** This page was
+missed because the count came from a brief rather than from a search, and a cold reader found it by
+checking the rule instead of the exit code — `docs/GATES.md`,
+`tests/test_claims_gate_coverage.py`, `docs/SECOND-READER.md` and `docs/DEFINITION-OF-DONE.md` all
+still said *six*. **A number that came from somebody's list rather than from a grep is the shape
+this repository keeps finding**, and it found it again inside the fix for the previous instance.
+
+**E remains a hole and is untouched by the widening.** Every fenced
 block on this page is outside the gate entirely, which D-052 says is mechanically indistinguishable
 from hiding: section 0's traffic figures, section 4's power table and section 5's sizing block could
 all be edited to say anything. The command is printed above each one so a reader can re-derive it,

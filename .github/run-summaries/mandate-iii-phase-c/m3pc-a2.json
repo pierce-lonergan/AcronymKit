@@ -1,0 +1,81 @@
+{
+  "label": "m3pc-a2",
+  "status": "complete",
+  "headline": "A2 ships opt-in and byte-identical on the default path, but its own pre-registration fired: document-scoped propagation is worth +3.07 points of short-form span exact recall on PLOD-CW against a bet of +10, because PLOD-CW is passages of about 37 tokens and no corpus in this project can score a document-scoped rule at document scope.",
+  "shipped": [
+    "src/acronymkit/propagation.py -- propagate(), Occurrence, PropagationResult, term_shaped(), whole_token_occurrences(), document_result(), gate_disclosure(), and the two disclosure constants JOINT_NOT_SELECTIVE and PROPAGATION_GAP",
+    "optional gate=ConformalGate on propagate(): propagates only where the gate ANSWERS on the document's own definitions and its answer equals the definition A2 committed to; six exhaustive refusal codes",
+    "tests/test_propagation.py -- 49 tests in three groups, including a prose rule over four surfaces that was mutation-tested six ways",
+    "bench/run_spans.py -- predict_acronymkit_propagated() and decompose(); 16 new run ids across two splits and two detokenisations",
+    "bench/run_extraction.py -- predict_acronymkit_propagated(); 1 new run id",
+    "src/acronymkit/__init__.py -- 'propagation' added to _SUBMODULES, and 'conformal' which shipped last round without being added",
+    "docs/EVALUATION.md -- a new section, 27 rendered citations",
+    "CHANGELOG.md -- entry under Added, plus a line in the Unreleased summary",
+    "README.md -- an opt-in paragraph under Extraction"
+  ],
+  "run_ids": [
+    "spans.plod.all.tight.acronymkit.high_precision.propagated",
+    "spans.plod.all.tight.acronymkit.general.propagated",
+    "spans.plod.all.tight.acronymkit.biomedical.propagated",
+    "spans.plod.all.spaced.acronymkit.high_precision.propagated",
+    "spans.plod.all.spaced.acronymkit.general.propagated",
+    "spans.plod.all.spaced.acronymkit.biomedical.propagated",
+    "spans.plod.all.tight.oracle_definitional_propagated",
+    "spans.plod.all.spaced.oracle_definitional_propagated",
+    "spans.plod.test.tight.acronymkit.high_precision.propagated",
+    "spans.plod.test.tight.acronymkit.general.propagated",
+    "spans.plod.test.tight.acronymkit.biomedical.propagated",
+    "spans.plod.test.spaced.acronymkit.high_precision.propagated",
+    "spans.plod.test.spaced.acronymkit.general.propagated",
+    "spans.plod.test.spaced.acronymkit.biomedical.propagated",
+    "spans.plod.test.tight.oracle_definitional_propagated",
+    "spans.plod.test.spaced.oracle_definitional_propagated",
+    "extraction.med1250.acronymkit_propagated"
+  ],
+  "files_changed": [
+    "src/acronymkit/propagation.py (new)",
+    "tests/test_propagation.py (new)",
+    "src/acronymkit/__init__.py",
+    "bench/run_spans.py",
+    "bench/run_extraction.py",
+    "bench/results.json",
+    "docs/EVALUATION.md",
+    "CHANGELOG.md",
+    "README.md"
+  ],
+  "pre_registration": "Written to scratchpad/prereg-a2-phase-c.md before any src/ edit and before any new measurement. Seven falsifiers, four magnitude predictions. F1 (SHIP-STOPPER: propagated short-form span exact precision on PLOD-CW all/tight/HIGH_PRECISION below 80.00 % => ship nothing) did NOT fire: 93.73 %, above the definition-scoped arm's 93.66 %. F2 (NO-GO on the coverage claim: exact recall not rising at least +10.00 points) FIRED: +3.07 vs native, +3.25 vs the published localised arm, so the 5.95x multiple is withdrawn as a claim about scored data and stays an occurrence count on PMC-OA. F3 (not byte-identical => breaking) did not fire: sha256 over every field of every pair, 4,260 documents x 3 profiles, 10,625 pairs, identical at 017cb37 and on this tree, with a perturbed control that differs. F4 (a committed figure moves) did not fire: all four SVGs byte-identical. F5 predicted propagation could only LOWER MED1250 exact F1; WRONG in direction -- dedupe_per_document collapses repeats before scoring, so all 16 compared fields are identical and the figure cannot move at all. My model of the scorer was one convention short. F7 (decomposition must sum exactly) held: 1048 shared + 88 new = 1136, 0 lost, on both conventions and all three profiles. P1 (recall 55-80 %) falsified badly at 39.60 %. P2 (precision 80-92 %) falsified upward at 93.73 %. P3 (PLOD passages are ~37 tokens so the win is smaller than PMC-OA suggests) CONFIRMED: 1,351 passages over 50,000 tokens. P4 (gating never licenses more than not gating) pinned by test rather than measured on a corpus.",
+  "how_it_fails": "WHAT THE ADVERSARIAL PASS KILLED, kept here because this schema has no field for it: The brief asserted 'every published recall figure moves' and told me to say by how much. It does not, and I measured rather than reported it: with A2 opt-in the whole spans table re-ran with all four external baselines and moved ZERO non-wall-clock fields on any pre-existing run id, both figures re-rendered byte-identical, and MED1250 is structurally blind to propagation. My first spans re-run DID move published figures -- oracle_definitional short-form exact recall 37.50 -> 36.91 and its true positives 1076 -> 1059, both cited in docs -- because I omitted the four external baselines and shrank the union's membership. I caught it by diffing results.json against a snapshot taken before the run, restored the snapshot, and re-ran under the pinned 3.12 interpreter with all four. Had I not snapshotted, two cited numbers would have moved for a reason that had nothing to do with A2.  ||  HOW THE SHIPPED WORK FAILS: The +3.07 points is a tuning-split number on a corpus whose 'documents' are ~37-token passages, so it measures A2 at passage scope and nothing here measures it at article scope; the 5.95x is unscorable in this project rather than disconfirmed, which is weaker than 'A2 buys little' and is what the evidence supports. The 88 new gold spans are 88 spans (7 on the test split) with no interval computed. The conformal gate is exercised only by unit test: every propagated benchmark arm runs UNGATED, because no calibration set of definition-shaped results exists and building one from the evaluation corpus would be circular -- so the gate's effect on any recall figure is unmeasured and its exchangeability assumption is untested for this use. term_shaped excludes single letters and lower-case markers, which is the population an extractor collides on most, so the shipped rule has no figure about them. The prose rule guarding the joint/selective claim is crude by construction: two of my first six mutations came back green (a duplicated 'joint' elsewhere in the paragraph satisfied a presence rule, and a multi-line mutation did not apply), which is D-104's own inert-mutation failure reproduced in my instrument before I strengthened it; it is still evadable by rewording. Both disclosure constants hardcode four measured numbers that only a test ties back to bench/results.json -- check_claims can reach them only through a '# measured:' marker, which checks the run id exists and not the value.",
+  "not_done": [
+    "The gate is never run over a corpus: no propagated benchmark arm uses gate=, so its cost in coverage and its benefit in correctness are both unmeasured",
+    "No article-scope scored measurement of A2 anywhere; PMC-OA gold is one located occurrence per roster pair and would score propagated occurrences as false positives",
+    "No confidence interval on the propagated half's own accuracy (96 offered, 88 gold)",
+    "bench/run_spans.py and bench/run_extraction.py's new arms are not registered in .github/gates.toml -- the in-situ debt is already at its ceiling and another workstream owes 1 forward",
+    "propagate() is not reachable from AcronymEngine or from the CLI; a caller must import acronymkit.propagation directly",
+    "The one-sense violation rate on governed or regulatory prose -- the genre this library is positioned for -- is still unmeasured, so nothing here transfers to it",
+    "docs/DECISIONS.md not edited, per the brief; the recorder owns it"
+  ],
+  "gates": {
+    "pytest": "5798 passed, 10 skipped, 1 xfailed, rc=0 on the final run (baseline at 017cb37 was 5652/10/1; the delta is my 49 tests plus other workstreams'). THREE full runs in this session showed transient failures that did not reproduce in isolation or on re-run, all three in files that read or mutate tracked files while sibling agents write them: tests/test_claims_gate_coverage.py (refused to inject its README probe because a second process was in the checkout -- 0 probe residue left, verified), tests/test_extractor.py::test_the_legend_scan_stays_sub_quadratic_across_a_doubling (a wall-clock ratio under load), and four tests in tests/test_second_reader_policy.py while a sibling was writing docs/SECOND-READER.md. This is D-098's shared-checkout hazard, hit three times by one workstream in one session.",
+    "ruff": "check: All checks passed! rc=0.",
+    "mypy": "Success: no issues found in 99 source files, rc=0 (was 97).",
+    "claims": "rc=0. 2451 checked | cited 2381 | value-matched 64 | allowlisted 2 | marker 4 | unbacked 0. value-matched ratchet 64 of 64 unchanged; deferred ratchet 189 of 189 unchanged -- it briefly read 193 and was brought back by four '# measured:' markers rather than by fencing. Figures gate: python tools/render_figures.py re-rendered 2 figures x 2 themes; all four SVGs byte-identical to the committed bytes. --check rc=0.",
+    "splits": "splits manifest OK, rc=0. No corpus declaration changed.",
+    "gates": "gate manifest OK, rc=0. CARRYING IN-SITU EVIDENCE: 18 of 39. I registered no new gate and took on no new debt.",
+    "second_reader": "cold-read policy OK, rc=0. findings open 5, fixed 10, blocked 0, permanent 0 (of 15) -- unchanged by this round.",
+    "ruff_format": "format --check: 156 files already formatted, rc=0."
+  },
+  "claims_for_sampling": [
+    "acronymkit.propagation.propagate() is opt-in: no engine, no Config field and no default path calls it, and tests/test_propagation.py has 49 tests over it.",
+    "Short-form span exact recall on PLOD-CW all/tight/HIGH_PRECISION moves from 36.53 % (native definition-scoped) to 39.60 % (propagated), which is +3.07 points.",
+    "Exact precision on that same cell moves from 93.66 % to 93.73 %, so propagation does not cost precision on this corpus.",
+    "The propagated arm offers 96 short-form spans beyond the definitions and 88 of them land on gold, with 0 gold spans lost against the definition-scoped arm.",
+    "The decomposition sums exactly on every profile and both conventions: 1048 shared plus 88 new equals the propagated arm's 1136 exact true positives.",
+    "A2 adds no long-form spans at all: long_form.exact_true_positives_new_from_propagation is 0, because a licensed occurrence has no long form written at that position.",
+    "The definitional oracle ceiling over the same seven members moves from 37.50 % to 40.85 % short-form exact recall when this library's three rows are swapped for their propagated versions.",
+    "PLOD-CW is 1,351 passages over 50,000 tokens, about 37 tokens each, so document scope on that corpus is passage scope.",
+    "Re-running bench/run_spans.py on both splits with all four external baselines moved zero non-wall-clock fields on any pre-existing run id and added 16 new ones.",
+    "extraction.med1250.acronymkit_propagated agrees with extraction.med1250.acronymkit on all 16 compared fields including exact F1 84.21, because dedupe_per_document collapses repeated pairs before scoring.",
+    "The default path is byte-identical between 017cb37 and this tree over 4,260 documents at three profiles and 10,625 pairs, sha256 56d2dd9f..., while a one-character control perturbation gives 1c99ddba... -- so A2 is not a breaking change.",
+    "The gate is documented as a JOINT bound at every surface, the measured selective error of 21.92 % at alpha=0.05 (4.38x alpha) is quoted at the call site, and six mutations of that prose were run of which two came back green before the instrument was strengthened."
+  ]
+}

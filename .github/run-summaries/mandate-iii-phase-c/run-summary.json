@@ -1,0 +1,66 @@
+{
+  "label": "run-summary",
+  "status": "complete",
+  "headline": "A round's account is now an artefact a gate reads, an absence is a different verdict from a stub, and the mechanism was tested by killing three real writers -- but it makes a lost report recoverable and cannot make a report happen.",
+  "shipped": [
+    "tools/run_summary.py -- schema, validator (unknown key refused), reader, and the --check gate",
+    "tests/test_run_summary.py -- 87 tests, three of which kill a real child process",
+    ".github/gates.toml -- gates.run_summary at cost_rank 37 of 39; ruff and ruff_format move to 38 and 39",
+    ".github/workflows/ci.yml -- a ninth step in the lint job",
+    ".github/run-summaries/mandate-iii-phase-c/ -- the first round directory, roster and this file",
+    "MANIFEST.in -- the round directory ships, because a shipped register may not point at an unshipped file",
+    "CONTRIBUTING.md -- the ordering rule, the checked field list, and the eighth gate command",
+    "docs/GATES.md -- the thirty-ninth gate, the harvest, and what the gate cannot do",
+    "tools/gates.py -- two InSituRound rows: the harvest that paid 2, the registration that owes 1",
+    ".github/gates.toml -- in-situ stamps for figures and memo_identity, harvested from run 34308556192"
+  ],
+  "run_ids": [
+    "34308556192"
+  ],
+  "files_changed": [
+    "tools/run_summary.py",
+    "tests/test_run_summary.py",
+    "tools/gates.py",
+    ".github/gates.toml",
+    ".github/workflows/ci.yml",
+    ".github/run-summaries/mandate-iii-phase-c/round.toml",
+    ".github/run-summaries/mandate-iii-phase-c/run-summary.json",
+    "CONTRIBUTING.md",
+    "docs/GATES.md",
+    "MANIFEST.in"
+  ],
+  "pre_registration": "Nine falsifiers written to scratch before any file was created. F1 (a killed writer's record unreadable) did not fire: three real kills, all recovered as predicted. F2 (a rosterless design reports absence soundly) did not fire: absence stayed uncomputable without a roster, so the roster ships. F3 (the gate landable only at a flattering rank) did not fire: owed_forward plus a waiver took it at 37 of 39. F5 (mutation INERT or UNRESTORED) did not fire: DEMONSTRATED in two mirrors. F6 (docs-code drift silent) did not fire. F7 (a discriminator exists between died-before-filing and never-launched) did not fire, so the limit is stated rather than closed. TWO FIRED. F4 fired before the file was written and is recorded as such: I predicted no gate-mutation run newer than 34099756605 existed and was wrong -- run 34308556192 had demonstrated the two owed gates two days earlier and nobody had read it, which is D-106 again. F8 fired: the baseline was not green, because a concurrent workstream's in-flight edit had two tests red, and I destroyed that edit with git checkout before understanding it.",
+  "how_it_fails": "It makes a lost report RECOVERABLE and does not make a report HAPPEN. An agent that dies before its penultimate tool call files nothing, and no gate here can tell that from an agent that was never launched; the roster narrows it to who was expected, and this round's roster was written by a workstream rather than the launcher, so it declares itself incomplete and its absences are a lower bound. Closing it needs the launcher to write a start record. Two smaller holes: a JSON summary is still self-assessment, cheaper to write and not more trustworthy, and .github/run-summaries/ is outside tools/check_claims.py's SCAN_GLOBS, so a number inside a summary is an unbacked claim nothing reddens.",
+  "not_done": [
+    "No in-situ evidence for the new gate. It is owed forward; this workstream cannot push, so the run that lands the commit is the run that owes it.",
+    "The register holds one round with one workstream, so the committed data exercises `complete` and nothing else. The other five states are exercised only in tests and by the mutation.",
+    "SCAN_GLOBS was not extended to .github/run-summaries/, so numbers inside a summary are ungated. That file carries two ratchets this workstream does not own.",
+    "Nothing checks that a roster names every workstream actually launched. roster_complete is a self-report about a self-report.",
+    "Harvesting a gate-mutation run is still a person deciding to run `gh run view`. This round did it and installed nothing that makes the next round do it.",
+    "A concurrent workstream's uncommitted edit to tools/check_claims.py was destroyed by my `git checkout --` and restored from two hunks visible in my transcript. I cannot rule out that a third hunk existed."
+  ],
+  "gates": {
+    "pytest": "5798 passed, 10 skipped, 1 xfailed",
+    "ruff": "All checks passed!",
+    "ruff_format": "156 files already formatted",
+    "mypy": "no issues found in 99 source files",
+    "claims": "unbacked 0 | value-matched 64 of 64 | deferred 189 of 189",
+    "splits": "splits manifest OK",
+    "gates": "39 gates, in-situ 18 of 39, debt 21, ceiling 21, 1 owed forward",
+    "second_reader": "findings open 5, fixed 10, blocked 0, permanent 0"
+  },
+  "claims_for_sampling": [
+    "tools/run_summary.py refuses a summary carrying an unknown key, one whose claims_for_sampling is not exactly twelve entries, and one whose label disagrees with its filename stem.",
+    "The reader distinguishes six states -- complete, partial, vacuous, invalid, unreadable, absent -- and tests/test_run_summary.py::TestTheReader::test_every_state_is_reachable_and_distinct asserts all six against one directory in one call.",
+    "`absent` is computed against a roster declared in round.toml and is not computable from a directory listing, which is why a rosterless --report exits 2 while still printing every summary it found.",
+    "A child process killed with Popen.kill after an atomic write is read back as `complete`, and the prose file it would have written next does not exist on disk.",
+    "A child process killed part-way through a non-atomic write is read back as `unreadable`, and a roster label with no file at all is `absent` in the same report.",
+    "A child process killed inside write_summary with os.replace stalled leaves no file at the target path and a .tmp sibling in the round directory.",
+    "gates.run_summary is registered at cost_rank 37 of 39, and ruff and ruff_format moved from 37 and 38 to 38 and 39 with nothing else in the ordering changing.",
+    "python tools/gates.py --mutate run_summary returned `DEMONSTRATED  mutated rc=1, restored rc=0` in two separate mirrors of the working tree on 2026-09-09.",
+    "The new gate carries no in-situ evidence and IN_SITU_TRAJECTORY records it as one gate owed forward under a waiver, with the debt at 21 against a ceiling of 21.",
+    "figures and memo_identity came back DEMONSTRATED in GitHub Actions run 34308556192 at commit 4ef57c8, which is what raised the register's in-situ count from 16 of 38 to 18 of 39.",
+    "python tools/run_summary.py --check does not fail on a workstream that filed nothing or filed a stub that says nothing, and TestTheGate asserts both of those separately.",
+    "I destroyed a concurrent workstream's uncommitted edit to tools/check_claims.py with git checkout --, recovered two hunks verbatim from my own transcript and re-applied them, and cannot establish that no third hunk existed."
+  ]
+}

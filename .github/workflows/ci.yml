@@ -88,6 +88,21 @@ jobs:
         # only reports its flattering totals is the document this repository
         # keeps finding stale.
         run: python tools/gates.py --check
+      - name: The cold-read ledger is consistent with the policy page
+        # THE EIGHTH GATE, WHICH WAS RUN EVERY ROUND AND NEVER BY CI.
+        #
+        # `tools/second_reader.py --check` adjudicates the second-reader policy:
+        # that the rotation cursor in docs/SECOND-READER.md agrees with the
+        # newest read in docs/cold-reads.toml, that every user-facing file in
+        # the tree is reachable by the rotation, and that every finding carries
+        # a disposition. It has been run by hand at the end of every round since
+        # the policy shipped, and a cold read found it was in NO workflow and NO
+        # gates.toml entry -- so the one check on the mechanism that reads the
+        # documents was itself the check nothing read.
+        #
+        # That is the D-058 shape aimed at the policy written to catch it: a
+        # gate that cannot fail where it matters, because it never ran there.
+        run: python tools/second_reader.py --check
       - name: Every committed figure is what bench/results.json renders
         # R16. `tools/check_claims.py` adjudicates every published number in
         # this repository and it reads markdown, Python and one TOML file. It
@@ -120,6 +135,35 @@ jobs:
         # That is a smaller run than a developer machine makes and the register
         # says so under `blind_to`.
         run: python tools/gate_memo_identity.py
+      - name: Every round files a machine-readable account of itself, and an absence is a verdict
+        # THE ONE ARTEFACT NO GATE READ. Eight gates check the code, the numbers,
+        # the splits, the register and the second reader; nothing checked that
+        # the round said what it did -- and three consecutive rounds kept their
+        # work and lost their self-assessment, for three unrelated reasons
+        # (D-095, D-098). A retry cap on over-long output; a budget that ran out
+        # mid-work; a budget that ran out after the work was filed. Each time the
+        # code was recoverable only because it happened to be in the tree.
+        #
+        # The fix splits execution state from narrative reporting: a JSON record
+        # written as the PENULTIMATE tool call, before any long prose, so an
+        # agent that dies formatting paragraphs has already filed. This step
+        # validates the shape of every record committed under
+        # .github/run-summaries/ -- unknown key refused, exactly twelve sampling
+        # claims, all eight gate keys, a label that matches its filename -- and
+        # refuses a schema that has drifted from the field list published in
+        # CONTRIBUTING.md.
+        #
+        # WHAT IT DELIBERATELY DOES NOT FAIL ON: a workstream that filed nothing,
+        # or filed a stub that says nothing. Both are printed and neither is red.
+        # A round in which an agent died has to stay committable exactly as it
+        # happened; if `absent` reddened the build, the only route to green would
+        # be deleting the roster entry, which would turn this gate into a machine
+        # for hiding the thing it exists to reveal.
+        #
+        # And it makes a lost report RECOVERABLE, not certain: an agent that dies
+        # before its penultimate call files nothing, and nothing here can tell
+        # that from an agent that was never launched.
+        run: python tools/run_summary.py --check
 
   resources:
     name: Validate bundled resources
