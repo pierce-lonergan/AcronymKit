@@ -9,7 +9,8 @@
     ".github/run-summaries/mandate-iii-phase-d/: this round's roster, roster_complete = false, no exits.toml, and a note saying why an agent may not write its own",
     "tools/sample_claims.py: the churn-weighted stratified successor sampling frame, with a design-effect line that is an argument against its own design",
     "tests/test_run_summary.py 87 -> 135 tests; tests/test_sample_claims.py, 35 new",
-    "docs/CLAIMS-LEDGER.md section 6 closes the series and specifies the successor; docs/GATES.md gains the 41st gate and corrects a stale count; CONTRIBUTING.md's gate block goes 8 -> 10 and documents exits.toml"
+    "docs/CLAIMS-LEDGER.md section 6 closes the series and specifies the successor; docs/GATES.md gains the 41st gate and corrects a stale count; CONTRIBUTING.md's gate block goes 8 -> 10 and documents exits.toml",
+    "pushed as 5a268cd and 30a72c1; gate-mutation run 34408932625 came back green on all 8 jobs, and the new lint step 'A workstream that exited cleanly filed an account of itself' is green in CI run 34410589119 on the final commit"
   ],
   "run_ids": [
     "34408932625",
