@@ -1,0 +1,6 @@
+{
+  "label": "killed-mid-write",
+  "status": "complete",
+  "headline": "Killed mid-write. The bytes below stop where the process did.",
+  "shipped": [
+    "nothing: this is a control fi

@@ -470,7 +470,7 @@ environment = "lint"
 step = "Ruff"
 command = "python -m ruff check src tests tools bench"
 defect_class = "static_analysis"
-cost_rank = 39
+cost_rank = 40
 blast_radius = "repository"
 silence = "loud"
 redundancy = "sole"
@@ -507,7 +507,7 @@ environment = "lint"
 step = "Ruff format check"
 command = "python -m ruff format --check src tests tools bench"
 defect_class = "static_analysis"
-cost_rank = 40
+cost_rank = 41
 blast_radius = "repository"
 silence = "loud"
 redundancy = "sole"
@@ -952,6 +952,97 @@ count.
 """
 edits = [
   { file = ".github/run-summaries/mandate-iii-phase-c/run-summary.json", find = "\"status\": \"complete\"", replace = "\"status\": \"shipped\"" },
+]
+
+[gates.agent_summary]
+environment = "lint"
+step = "A workstream that exited cleanly filed an account of itself"
+command = "python tools/run_summary.py --check-agent-summary"
+defect_class = "claim_backing"
+cost_rank = 39
+blast_radius = "evidence_apparatus"
+silence = "silent"
+redundancy = "partial"
+cost_if_inert = """
+RANKED BELOW gates.run_summary AND gates.second_reader, AND THE ARGUMENT IS AGAINST THIS GATE.
+run_summary protects the SHAPE of a narrative record; this one protects the FACT that a record
+exists, which is one further step from any user, and its live input for every real round in the
+register today is missing. Inert, an agent that ran to completion and filed nothing reads exactly
+like an agent that was killed, which is the state the register was already in before this gate --
+so the cost of it going inert is a return to the status quo ante rather than a new defect. That is
+a weaker cost-if-inert than any gate above it and the rank says so. The workstream that wrote this
+gate wrote this rank, and the rank is placed at the bottom of the evidence_apparatus bucket for
+exactly that reason; a reader who thinks a gate over agent accountability belongs above a linter is
+making an argument this ranking rejects with a reason rather than by omission.
+"""
+detects = """
+A workstream on a round's roster whose `exits.toml` records exit status 0 and
+whose summary is absent, invalid or unreadable. Also: an exit record that is
+malformed, that carries an unknown key, that records a non-integer status, that
+names a label the roster does not, or that declares itself complete while
+omitting a rostered workstream; a roster that declares roster_complete = true
+and files no exit record at all; a control directory whose reader verdicts have
+drifted from the states its [control] table declares; and a register holding no
+control that asserts both `absent` and `unreadable`.
+"""
+blind_to = """
+FOUR THINGS, AND THE FIRST IS THE ONE THAT DECIDES HOW MUCH THIS GATE IS WORTH
+TODAY.
+
+1. EVERY REAL ROUND. `exits.toml` is written by whatever SPAWNS the agents, and
+   as of this commit no such program writes one. Both real rounds in the
+   register are therefore UNATTRIBUTED and this gate concludes nothing about
+   either. It prints that count on every run rather than passing in silence,
+   and the gate is demonstrated against a committed control fixture --
+   which establishes that the code can fail, NOT that any round anybody ran was
+   ever checked. Those are different sentences and only the first is evidenced.
+
+2. A ROSTER THAT DECLARES ITSELF INCOMPLETE. The rule "a complete roster must
+   carry an exit record" is escapable by writing `roster_complete = false`,
+   which is what both real rounds do. That escape is deliberate -- a workstream
+   genuinely cannot enumerate its siblings -- and it means a launcher that
+   never wants to be accountable never has to be.
+
+3. A VACUOUS SUMMARY. `--template` output filed unchanged satisfies this gate.
+   Refusing it would make the cheapest route to green a paragraph of filler,
+   which is the opposite of what the mechanism is for.
+
+4. TRUTH, exactly as for gates.run_summary. The exit record is a self-report by
+   the launcher and nothing here audits it; a launcher that writes `0` for a
+   process it never waited on gets a green build and a false accusation
+   whenever the summary is missing.
+"""
+[gates.agent_summary.mutation]
+kind = "automated"
+expect = "fail"
+expect_failure_matching = "agent-summary register refused"
+artifact = "lint/agent-summary.log"
+verified_locally_on = 2026-09-09
+note = """
+The probe flips ONE exit status in the control fixture: `killed-before-filing`
+goes from 137 to 0, so a workstream that filed nothing is reported as having
+exited successfully. That is the narrowest edit that reaches THIS gate's own
+rule rather than any rule it shares with gates.run_summary -- the summary is
+still absent, the control's declared state is still `absent`, and the only
+thing that moved is whether the absence is somebody's bad luck. It is also why
+the mutation target is the exits file and not a summary file: deleting a
+summary would fire the control-expectation rule as well, and a demonstration
+that fires two rules at once does not say which one it demonstrated.
+
+The marker it matches is `tools/run_summary.py`'s AGENT_SUMMARY_MARKER, pinned
+against this register by tests/test_run_summary.py so the two copies cannot
+drift in silence -- which is what turns a future demonstration INERT.
+
+NO IN-SITU EVIDENCE IN THE COMMIT THAT CREATES IT, and the waiver on
+IN_SITU_TRAJECTORY names when it is paid rather than deferring it:
+gate-mutation.yml triggers on .github/gates.toml, .github/workflows/*.yml and
+tools/gates.py, and this commit touches all three, so the push that lands this
+work is the run that owes the demonstration. Locally it returns mutated rc=1
+matching the marker and restored rc=0, which is precisely the evidence R11 says
+does not count.
+"""
+edits = [
+  { file = ".github/run-summaries/_control-agent-crash/exits.toml", find = "killed-before-filing = 137", replace = "killed-before-filing = 0" },
 ]
 
 # ===========================================================================

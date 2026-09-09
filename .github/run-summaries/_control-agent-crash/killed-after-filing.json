@@ -1,0 +1,39 @@
+{
+  "label": "killed-after-filing",
+  "status": "complete",
+  "headline": "Killed between the JSON and the prose: the record survives and reads COMPLETE.",
+  "shipped": [
+    "nothing: this is a control fixture, not a workstream"
+  ],
+  "run_ids": [],
+  "files_changed": [],
+  "pre_registration": "None. A fixture places no bet; it exists so gates.agent_summary has an input it can be run against on a runner.",
+  "how_it_fails": "This is the case the penultimate-tool-call rule was written for. It fails if the writer is not atomic -- then the same kill lands in the window and produces killed-mid-write.json instead, which is the other fixture beside this one.",
+  "not_done": [
+    "everything: no work is described here"
+  ],
+  "gates": {
+    "pytest": "not run: fixture",
+    "ruff": "not run: fixture",
+    "ruff_format": "not run: fixture",
+    "mypy": "not run: fixture",
+    "claims": "not run: fixture",
+    "splits": "not run: fixture",
+    "gates": "not run: fixture",
+    "second_reader": "not run: fixture"
+  },
+  "claims_for_sampling": [
+    "Claim 1 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 2 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 3 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 4 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 5 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 6 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 7 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 8 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 9 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 10 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 11 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 12 of 12: this file is a control fixture and asserts nothing about the library."
+  ]
+}

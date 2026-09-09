@@ -85,7 +85,7 @@ the package floor rather than to your interpreter.
 
 ## The gates
 
-Eight commands. All eight must be green before you push, and CI runs all eight:
+Ten commands. All ten must be green before you push, and CI runs all ten:
 
 ```bash
 python -m pytest tests
@@ -95,8 +95,20 @@ python -m mypy
 python tools/check_claims.py
 python tools/splits.py --check
 python tools/gates.py --check
+python tools/second_reader.py --check
 python tools/run_summary.py --check
+python tools/run_summary.py --check-agent-summary
 ```
+
+> **This block said eight, and two of the ten were missing from it in opposite directions.**
+> `tools/second_reader.py --check` has run in the `lint` job since it was registered as the fortieth
+> gate and was never listed here; `tools/run_summary.py --check-agent-summary` is the forty-first and
+> arrived with this edit. **Do not read the length of this list as the number of gate keys a run
+> summary reports.** That is eight and it is a different eight — the schema below carries
+> `second_reader` and not `run_summary`, because it is frozen to the standing brief every agent is
+> handed, and adding a key mid-round would make every summary already written to that brief invalid.
+> Two lists of eight that are not the same eight is exactly the shape cold read six found in this
+> file, one round earlier.
 
 **That block said six, and had done since `tools/gates.py` shipped.** `python tools/gates.py --check`
 runs in the `lint` job, in the step named *Every CI gate is registered, and says whether it has ever
@@ -104,7 +116,10 @@ failed on purpose*, and both this file and `docs/SECOND-READER.md` told a reader
 list of the gates is exactly the kind of prose no gate reads — so this one is now read:
 `tests/test_second_reader_policy.py` parses the block above, requires each command's script to exist,
 runs `--help` on it, and requires the flag named here to be a flag it accepts. It went to seven when
-that was corrected and to **eight** when `tools/run_summary.py` shipped.
+that was corrected, to **eight** when `tools/run_summary.py` shipped, and to **ten** when the two
+omissions above were found. The test floors the count and does not pin it, which is why an omission
+could sit here for a round: it asserts every command listed is runnable, and nothing asserts that
+every command CI runs is listed.
 
 The last four are the ones most often missed, and they are the four that fail on a *document* or a
 *record* rather than on code. `tools/check_claims.py` refuses a new performance or accuracy figure
@@ -171,10 +186,29 @@ A summary that is absent, or that is filed and says nothing, is *reported* by `-
 **not** fail the build — a round in which an agent died has to stay recordable exactly as it
 happened, or the only route to green is to delete the roster entry.
 
+**And whoever launches the round should write `exits.toml` beside the roster**, once it has waited
+on the agents:
+
+```toml
+written_by = "the orchestration script"
+complete = true          # is every workstream that was LAUNCHED listed here?
+
+[codes]
+some-workstream = 0      # exited cleanly
+another-one     = 137    # killed
+```
+
+That file is what turns an absence into an accusation. `python tools/run_summary.py
+--check-agent-summary` reddens the build when a workstream **exited 0 and filed nothing** — a
+workstream that ran to completion and left no account of itself is nobody's bad luck — and it
+*prints* a workstream that crashed, with its exit code, without failing anything. A round with no
+`exits.toml` is reported as **unattributed** on every CI run: nothing is concluded and the count is
+visible.
+
 **What this does not do, stated where you meet it:** it makes a lost report *recoverable*. It does
-not make a report *happen*. An agent that dies before its penultimate call files nothing, and no
-gate here can tell that from an agent that was never launched. Closing that needs the launcher to
-write a start record; nothing in this repository can.
+not make a report *happen*. An agent that dies before its penultimate call files nothing, and
+without an exit record no gate here can tell that from an agent that was never launched. With one,
+it can — and the exit record is still a self-report by the launcher that nothing audits.
 
 ## Changing a user-facing document
 

@@ -774,3 +774,525 @@ def test_no_optional_field_exists(monkeypatch: Optional[pytest.MonkeyPatch] = No
     """
     assert len(rs.REQUIRED_FIELDS) == len(rs.FIELD_NAMES) == 11
     assert len(set(rs.FIELD_NAMES)) == 11
+
+
+# ---------------------------------------------------------------------------
+# who FINISHED: the exit record, and the gate over it
+# ---------------------------------------------------------------------------
+#
+# Everything above this line is about the SHAPE of what was filed. Everything
+# below is about whether it was filed at all, which is a question no amount of
+# reading the round directory can answer: an empty slot is equally consistent
+# with an agent killed at minute three and an agent that ran to completion and
+# wrote nothing. D-113 recorded that as the mechanism's limit. `exits.toml` --
+# written by whatever SPAWNED the round -- is the second file that splits them,
+# and `check_agent_summary` is the gate that acts on the split.
+
+
+def _exits(
+    directory: Path,
+    codes: Dict[str, int],
+    complete: bool = False,
+    extra: str = "",
+) -> Path:
+    """An exit record, as a launcher would leave one."""
+    directory.mkdir(parents=True, exist_ok=True)
+    body = (
+        'written_by = "a test"\n'
+        f"complete = {'true' if complete else 'false'}\n"
+        f"{extra}"
+        "[codes]\n" + "".join(f"{label} = {code}\n" for label, code in codes.items())
+    )
+    path = directory / rs.EXITS_NAME
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def _agent_mirror(tmp_path: Path) -> Path:
+    """A root holding one round and one control, both green."""
+    root = tmp_path / "root"
+    rounds = root / ".github" / "run-summaries"
+    control = rounds / "_control"
+    _roster(
+        control,
+        ["filed", "gone", "torn"],
+        complete=True,
+        extra='[control]\nfiled = "complete"\ngone = "absent"\ntorn = "unreadable"\n',
+    )
+    _file(control, "filed", _valid("filed"))
+    _file(control, "torn", '{"label": "torn", "status": "comp')
+    _exits(control, {"filed": 0, "gone": 137, "torn": 137}, complete=True)
+    (rounds / "r1").mkdir(parents=True, exist_ok=True)
+    _roster(rounds / "r1", ["one"])
+    _file(rounds / "r1", "one", _valid("one"))
+    return root
+
+
+@needs_parser
+class TestTheExitRecord:
+    """The launcher's file, refused in both directions."""
+
+    def test_a_missing_exit_record_is_not_a_problem(self, tmp_path: Path) -> None:
+        # MOST ROUNDS WILL NOT HAVE ONE. If a missing record were an error the
+        # gate would be red on every real round in the register from the day it
+        # shipped, and the cheapest fix would be to fabricate the file.
+        _roster(tmp_path, ["one"])
+        record, problems = rs.load_exits(tmp_path)
+        assert record is None and problems == []
+
+    @pytest.mark.parametrize("key", list(rs.EXITS_REQUIRED))
+    def test_every_required_key_is_required(self, tmp_path: Path, key: str) -> None:
+        _exits(tmp_path, {"one": 0})
+        text = (tmp_path / rs.EXITS_NAME).read_text(encoding="utf-8")
+        kept = [line for line in text.splitlines() if not line.startswith(f"{key} =")]
+        if key == "codes":
+            kept = [line for line in kept if line != "[codes]" and not line.startswith("one =")]
+        (tmp_path / rs.EXITS_NAME).write_text("\n".join(kept) + "\n", encoding="utf-8")
+        _, problems = rs.load_exits(tmp_path)
+        assert any(key in problem for problem in problems), problems
+
+    def test_an_unknown_key_is_refused(self, tmp_path: Path) -> None:
+        # Same rule and the same reason as the summary schema: a misspelt
+        # `complete` silently becomes False and turns a refusal into a shrug.
+        _exits(tmp_path, {"one": 0}, extra="completed = true\n")
+        _, problems = rs.load_exits(tmp_path)
+        assert any("unknown key" in problem for problem in problems), problems
+
+    def test_a_non_integer_exit_status_is_refused(self, tmp_path: Path) -> None:
+        (tmp_path / rs.EXITS_NAME).write_text(
+            'written_by = "a test"\ncomplete = false\n[codes]\none = "green"\n',
+            encoding="utf-8",
+        )
+        _, problems = rs.load_exits(tmp_path)
+        assert any("integer" in problem for problem in problems), problems
+
+    def test_a_boolean_is_not_an_exit_status(self, tmp_path: Path) -> None:
+        # `True == 1` in Python, so a bare isinstance(value, int) check accepts
+        # `one = true` and reads it as a clean exit. It is not one.
+        (tmp_path / rs.EXITS_NAME).write_text(
+            'written_by = "a test"\ncomplete = false\n[codes]\none = true\n',
+            encoding="utf-8",
+        )
+        _, problems = rs.load_exits(tmp_path)
+        assert any("integer" in problem for problem in problems), problems
+
+    def test_a_label_that_is_not_a_slug_is_refused(self, tmp_path: Path) -> None:
+        (tmp_path / rs.EXITS_NAME).write_text(
+            'written_by = "a test"\ncomplete = false\n[codes]\n"Not A Label" = 0\n',
+            encoding="utf-8",
+        )
+        _, problems = rs.load_exits(tmp_path)
+        assert any("not a label" in problem for problem in problems), problems
+
+    def test_a_negative_status_is_a_crash_and_not_an_error(self, tmp_path: Path) -> None:
+        # `subprocess` reports -9 for SIGKILL on POSIX and 1 for
+        # TerminateProcess on Windows. Nothing here may read the value beyond
+        # `== 0`, or the rule is wrong on one platform.
+        _roster(tmp_path, ["one"])
+        _exits(tmp_path, {"one": -9})
+        audit = rs.audit_round(tmp_path)
+        assert audit.problems == ()
+        assert audit.crashed == (("one", -9, "absent"),)
+
+
+@needs_parser
+class TestWhoFinished:
+    """The one rule, and every case it deliberately does not reach."""
+
+    def test_exited_zero_and_filed_nothing_is_a_defect(self, tmp_path: Path) -> None:
+        # THE WHOLE DELIVERABLE, IN ONE ASSERTION.
+        _roster(tmp_path, ["one"])
+        _exits(tmp_path, {"one": 0})
+        problems = rs.audit_round(tmp_path).problems
+        assert any("exited 0" in problem for problem in problems), problems
+
+    def test_exited_zero_and_filed_is_green(self, tmp_path: Path) -> None:
+        _roster(tmp_path, ["one"])
+        _file(tmp_path, "one", _valid("one"))
+        _exits(tmp_path, {"one": 0})
+        audit = rs.audit_round(tmp_path)
+        assert audit.problems == ()
+        assert audit.accounted == ("one",)
+
+    def test_a_stub_satisfies_the_rule_and_the_hole_is_deliberate(self, tmp_path: Path) -> None:
+        # NAMED RATHER THAN CLOSED. Refusing a stub would make the cheapest
+        # route to green a paragraph of filler, which is the opposite of what
+        # `--template` is for.
+        _roster(tmp_path, ["one"])
+        _file(tmp_path, "one", rs.template("one"))
+        _exits(tmp_path, {"one": 0})
+        assert "vacuous" in rs.FILED_STATES
+        assert rs.audit_round(tmp_path).problems == ()
+
+    @pytest.mark.parametrize("state", ["invalid", "unreadable"])
+    def test_exited_zero_and_filed_something_broken_is_a_defect(
+        self, tmp_path: Path, state: str
+    ) -> None:
+        _roster(tmp_path, ["one"])
+        if state == "invalid":
+            _file(tmp_path, "one", _valid("one", status="shipped"))
+        else:
+            _file(tmp_path, "one", '{"label": "one", "sta')
+        _exits(tmp_path, {"one": 0})
+        problems = rs.audit_round(tmp_path).problems
+        assert any(state.upper() in problem for problem in problems), problems
+
+    def test_a_crash_is_reported_and_is_not_a_defect(self, tmp_path: Path) -> None:
+        # THE OMISSION IS THE DESIGN, and it is the same argument
+        # `gates.run_summary` makes about `absent`: a round in which an agent
+        # died must stay committable exactly as it happened.
+        _roster(tmp_path, ["one"])
+        _exits(tmp_path, {"one": 137})
+        audit = rs.audit_round(tmp_path)
+        assert audit.problems == ()
+        assert audit.crashed == (("one", 137, "absent"),)
+
+    def test_a_crash_after_filing_is_reported_separately(self, tmp_path: Path) -> None:
+        _roster(tmp_path, ["one"])
+        _file(tmp_path, "one", _valid("one"))
+        _exits(tmp_path, {"one": 137})
+        audit = rs.audit_round(tmp_path)
+        assert audit.problems == ()
+        assert audit.crashed == (("one", 137, "complete"),)
+        assert "CRASHED AFTER FILING" in rs.render_audit(audit)
+
+    def test_no_exit_code_is_unattributed_and_concludes_nothing(self, tmp_path: Path) -> None:
+        _roster(tmp_path, ["one", "two"])
+        _file(tmp_path, "one", _valid("one"))
+        _exits(tmp_path, {"one": 0})
+        audit = rs.audit_round(tmp_path)
+        assert audit.problems == ()
+        assert audit.unattributed == ("two",)
+
+    def test_a_round_with_no_record_at_all_is_unattributed(self, tmp_path: Path) -> None:
+        _roster(tmp_path, ["one"])
+        audit = rs.audit_round(tmp_path)
+        assert audit.problems == ()
+        assert audit.unattributed == ("one",)
+        assert "UNATTRIBUTED" in rs.render_audit(audit)
+
+    def test_a_complete_roster_with_no_exit_record_is_refused(self, tmp_path: Path) -> None:
+        # The party that can enumerate the round is the party that reaped it.
+        # Without this rule the gate passes vacuously forever on a register
+        # nobody ever writes an exit record into.
+        _roster(tmp_path, ["one"], complete=True)
+        _file(tmp_path, "one", _valid("one"))
+        problems = rs.audit_round(tmp_path).problems
+        assert any(rs.EXITS_NAME in problem for problem in problems), problems
+
+    def test_an_incomplete_roster_with_no_exit_record_is_not_refused(self, tmp_path: Path) -> None:
+        # AND THIS IS THE ESCAPE, DECLARED RATHER THAN HIDDEN. A workstream
+        # genuinely cannot enumerate its siblings, so a roster that says so is
+        # honest -- and a launcher that never wants to be accountable never has
+        # to be. Named in the register's `blind_to`.
+        _roster(tmp_path, ["one"], complete=False)
+        _file(tmp_path, "one", _valid("one"))
+        assert rs.audit_round(tmp_path).problems == ()
+
+    def test_an_exit_code_for_somebody_nobody_rostered_is_refused(self, tmp_path: Path) -> None:
+        _roster(tmp_path, ["one"])
+        _file(tmp_path, "one", _valid("one"))
+        _exits(tmp_path, {"one": 0, "ghost": 0})
+        problems = rs.audit_round(tmp_path).problems
+        assert any("ghost" in problem for problem in problems), problems
+
+    def test_a_complete_record_that_omits_a_rostered_workstream_is_refused(
+        self, tmp_path: Path
+    ) -> None:
+        _roster(tmp_path, ["one", "two"])
+        _file(tmp_path, "one", _valid("one"))
+        _file(tmp_path, "two", _valid("two"))
+        _exits(tmp_path, {"one": 0}, complete=True)
+        problems = rs.audit_round(tmp_path).problems
+        assert any("two" in problem for problem in problems), problems
+
+    def test_a_round_with_no_roster_reports_that_and_does_not_crash(self, tmp_path: Path) -> None:
+        audit = rs.audit_round(tmp_path)
+        assert audit.problems and audit.crashed == ()
+
+
+@needs_parser
+class TestTheControlFixture:
+    """A fixture that asserts nothing cannot notice the reader has gone blind."""
+
+    def test_a_control_table_outside_a_control_directory_is_refused(self, tmp_path: Path) -> None:
+        # A ROUND MAY NOT PREDICT WHAT ITS OWN AGENTS WILL DO. That is marking
+        # your own homework, and it would let a real round declare `absent` as
+        # the expected outcome and go green on it.
+        round_dir = tmp_path / "r1"
+        _roster(round_dir, ["one"], extra='[control]\none = "absent"\n')
+        _, problems = rs.load_roster(round_dir)
+        assert any("control" in problem for problem in problems), problems
+
+    def test_a_control_directory_is_named_by_its_prefix(self, tmp_path: Path) -> None:
+        assert rs.is_control(tmp_path / "_control")
+        assert not rs.is_control(tmp_path / "mandate-iii-phase-d")
+
+    def test_the_control_states_are_checked_against_the_reader(self, tmp_path: Path) -> None:
+        control = tmp_path / "_control"
+        _roster(control, ["gone"], complete=True, extra='[control]\ngone = "complete"\n')
+        _exits(control, {"gone": 137}, complete=True)
+        problems = rs.audit_round(control).problems
+        assert any("expects COMPLETE" in problem for problem in problems), problems
+
+    def test_a_control_with_no_expectations_is_refused(self, tmp_path: Path) -> None:
+        control = tmp_path / "_control"
+        _roster(control, ["gone"], complete=True)
+        _exits(control, {"gone": 137}, complete=True)
+        problems = rs.audit_round(control).problems
+        assert any("[control]" in problem for problem in problems), problems
+
+    def test_a_control_may_only_predict_labels_it_rosters(self, tmp_path: Path) -> None:
+        control = tmp_path / "_control"
+        _roster(control, ["gone"], complete=True, extra='[control]\nother = "absent"\n')
+        _, problems = rs.load_roster(control)
+        assert any("not on the roster" in problem for problem in problems), problems
+
+    def test_a_control_expecting_a_state_that_is_not_a_state_is_refused(
+        self, tmp_path: Path
+    ) -> None:
+        control = tmp_path / "_control"
+        _roster(control, ["gone"], complete=True, extra='[control]\ngone = "crashed"\n')
+        _, problems = rs.load_roster(control)
+        assert any("crashed" in problem for problem in problems), problems
+
+    def test_the_shape_gate_does_not_read_control_directories(self, tmp_path: Path) -> None:
+        # A CONTROL HOLDS A DELIBERATELY BROKEN FILE. `check` refuses broken
+        # files, correctly, so it may not be the gate that reads the fixture
+        # built out of them -- or the fixture could never be committed.
+        root = _agent_mirror(tmp_path)
+        assert rs.check(root) == []
+        assert [p.name for p in rs.round_directories(root / ".github" / "run-summaries")] == ["r1"]
+
+    def test_the_agent_gate_does_read_them(self, tmp_path: Path) -> None:
+        root = _agent_mirror(tmp_path)
+        names = [
+            p.name for p in rs.round_directories(root / ".github" / "run-summaries", controls=True)
+        ]
+        assert names == ["_control", "r1"]
+
+
+@needs_parser
+class TestTheAgentSummaryGate:
+    """What reddens the build, and -- as loudly -- what deliberately does not."""
+
+    def test_a_clean_register_passes(self, tmp_path: Path) -> None:
+        assert rs.check_agent_summary(_agent_mirror(tmp_path)) == []
+
+    def test_an_empty_register_fails_rather_than_passing_vacuously(self, tmp_path: Path) -> None:
+        root = tmp_path / "root"
+        (root / ".github" / "run-summaries").mkdir(parents=True)
+        assert rs.check_agent_summary(root)
+
+    def test_a_register_with_no_control_fails(self, tmp_path: Path) -> None:
+        # THE ANTI-DISARM RULE. This gate's real input is written outside the
+        # repository; with no control it would pass for as long as nobody wrote
+        # one, which is D-096's defect with a newer date.
+        root = _agent_mirror(tmp_path)
+        control = root / ".github" / "run-summaries" / "_control"
+        for path in sorted(control.iterdir()):
+            path.unlink()
+        control.rmdir()
+        problems = rs.check_agent_summary(root)
+        assert any("no control directory" in problem for problem in problems), problems
+
+    def test_a_control_that_drops_the_unreadable_expectation_fails(self, tmp_path: Path) -> None:
+        root = _agent_mirror(tmp_path)
+        control = root / ".github" / "run-summaries" / "_control"
+        _roster(
+            control,
+            ["filed", "gone", "torn"],
+            complete=True,
+            extra='[control]\nfiled = "complete"\ngone = "absent"\n',
+        )
+        problems = rs.check_agent_summary(root)
+        assert any("unreadable" in problem for problem in problems), problems
+
+    def test_the_marker_only_appears_when_the_gate_is_red(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        root = _agent_mirror(tmp_path)
+        assert rs.main(["--check-agent-summary", "--root", str(root)]) == 0
+        assert rs.AGENT_SUMMARY_MARKER not in capsys.readouterr().out
+        control = root / ".github" / "run-summaries" / "_control"
+        _exits(control, {"filed": 0, "gone": 0, "torn": 137}, complete=True)
+        assert rs.main(["--check-agent-summary", "--root", str(root)]) == 1
+        assert rs.AGENT_SUMMARY_MARKER in capsys.readouterr().out
+
+    def test_the_crash_count_is_printed_on_a_green_run(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # A CRASH IS THE FINDING, NOT THE FAILURE. If it were not printed on a
+        # green run, the gate would make crashes invisible in exactly the way
+        # it exists to prevent.
+        root = _agent_mirror(tmp_path)
+        assert rs.main(["--check-agent-summary", "--root", str(root)]) == 0
+        out = capsys.readouterr().out
+        assert "CRASHED, NO ACCOUNT" in out
+        assert "CRASHED MID-WRITE" in out
+        assert "2 crash(es) reported" in out
+
+
+# ---------------------------------------------------------------------------
+# a real killed agent, read through the GATE
+# ---------------------------------------------------------------------------
+@needs_parser
+class TestAKilledAgentReachesTheGate:
+    """The kill tests above stop at the reader. These carry on to the verdict.
+
+    ``TestAKilledWriter`` establishes that ``report()`` distinguishes the three
+    outcomes. That is a different claim from *the gate acts on the distinction*,
+    and the second does not follow from the first -- a gate that collapsed
+    ``unreadable`` into ``absent`` would pass every test in that class.
+    """
+
+    def test_killed_between_the_json_and_the_prose_reads_complete_and_is_green(
+        self, tmp_path: Path
+    ) -> None:
+        directory = tmp_path / "_control"
+        directory.mkdir()
+        flag = tmp_path / "filed"
+        payload = tmp_path / "payload.json"
+        payload.write_text(json.dumps(_valid("writer")), encoding="utf-8")
+        script = (
+            "import importlib.util, json, pathlib, sys, time\n"
+            f"spec = importlib.util.spec_from_file_location('rs', {str(LOADER)!r})\n"
+            "mod = importlib.util.module_from_spec(spec)\n"
+            "sys.modules['rs'] = mod\n"
+            "spec.loader.exec_module(mod)\n"
+            f"payload = json.loads(pathlib.Path({str(payload)!r}).read_text('utf-8'))\n"
+            f"mod.write_summary(pathlib.Path({str(directory / 'writer.json')!r}), payload)\n"
+            f"pathlib.Path({str(flag)!r}).write_text('x', encoding='utf-8')\n"
+            "time.sleep(600)  # the prose the agent never got to write\n"
+        )
+        _kill_after(script, flag, tmp_path)
+        _roster(directory, ["writer"], complete=True, extra='[control]\nwriter = "complete"\n')
+        _exits(directory, {"writer": 137}, complete=True)
+        audit = rs.audit_round(directory)
+        assert audit.problems == (), audit.problems
+        assert audit.crashed == (("writer", 137, "complete"),)
+
+    def test_killed_mid_write_reads_unreadable_and_not_absent_at_the_gate(
+        self, tmp_path: Path
+    ) -> None:
+        # D-096's LESSON, ONE LAYER OUT. A writer killed mid-write left bytes
+        # on disk; a writer that never started left none. Those are different
+        # facts and the gate has to keep them different, because the sentence a
+        # maintainer reads must say which one happened.
+        directory = tmp_path / "_control"
+        directory.mkdir()
+        flag = tmp_path / "started"
+        target = directory / "writer.json"
+        script = (
+            "import pathlib, time\n"
+            f"handle = open({str(target)!r}, 'w', encoding='utf-8')\n"
+            'handle.write(chr(123) + chr(10) + \'  "label": "writer", "status": "comp\')\n'
+            "handle.flush()\n"
+            f"pathlib.Path({str(flag)!r}).write_text('x', encoding='utf-8')\n"
+            "time.sleep(600)\n"
+        )
+        _kill_after(script, flag, tmp_path)
+        assert target.is_file(), "the writer never reached disk"
+        _roster(
+            directory,
+            ["writer", "never"],
+            complete=True,
+            extra='[control]\nwriter = "unreadable"\nnever = "absent"\n',
+        )
+        _exits(directory, {"writer": 137, "never": 137}, complete=True)
+        audit = rs.audit_round(directory)
+        assert audit.problems == (), audit.problems
+        states = {label: state for label, _, state in audit.crashed}
+        assert states == {"writer": "unreadable", "never": "absent"}
+        rendered = rs.render_audit(audit)
+        assert "CRASHED MID-WRITE" in rendered
+        assert "CRASHED, NO ACCOUNT" in rendered
+
+    def test_a_mid_write_kill_with_a_clean_exit_names_the_torn_file(self, tmp_path: Path) -> None:
+        # The pathological case: the launcher says 0 and there are bytes on
+        # disk. The verdict must be UNREADABLE, so a maintainer looks at the
+        # half file instead of hunting for an agent that never ran.
+        directory = tmp_path / "r1"
+        _roster(directory, ["writer"])
+        _file(directory, "writer", '{"label": "writer", "sta')
+        _exits(directory, {"writer": 0})
+        problems = rs.audit_round(directory).problems
+        assert any("UNREADABLE" in problem for problem in problems), problems
+        assert not any("ABSENT" in problem for problem in problems), problems
+
+
+@needs_parser
+class TestThisCheckoutsExitAccounting:
+    """The committed register, read by the thing that reads it in CI."""
+
+    def test_the_agent_gate_is_green_on_this_tree(self) -> None:
+        assert rs.check_agent_summary(REPO_ROOT) == []
+
+    def test_this_repository_carries_a_control_that_asserts_both_states(self) -> None:
+        # ANTI-VACUITY, and it is the assertion the gate itself makes -- pinned
+        # here too, because a gate that checks its own precondition is one
+        # deletion away from checking nothing.
+        wants = set()
+        for directory in rs.round_directories(rs.ROUNDS_ROOT, controls=True):
+            if rs.is_control(directory):
+                roster, problems = rs.load_roster(directory)
+                assert problems == [], problems
+                assert roster is not None
+                wants.update(want for _, want in roster.control)
+        assert {"absent", "unreadable"} <= wants
+
+    def test_no_real_round_here_carries_an_exit_record_and_that_is_disclosed(self) -> None:
+        # THE HONEST STATE OF THE GATE ON THE DAY IT SHIPPED, PINNED SO THAT
+        # THE DAY IT CHANGES SOMETHING SAYS SO. Nothing in this repository
+        # writes `exits.toml`; every real round is UNATTRIBUTED and the gate
+        # concludes nothing about any of them. When a launcher starts writing
+        # one, this test goes red and the register's `blind_to` needs
+        # rewriting -- which is the point.
+        rounds = rs.round_directories(rs.ROUNDS_ROOT)
+        assert rounds, "the register holds no real round"
+        carrying = [d.name for d in rounds if (d / rs.EXITS_NAME).is_file()]
+        assert carrying == [], (
+            f"{carrying} now carries an exit record; gates.toml's blind_to for "
+            "gates.agent_summary says no real round does, and it is now wrong"
+        )
+
+    def test_the_agent_gate_command_ci_runs_is_the_one_the_register_declares(self) -> None:
+        workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        assert "run: python tools/run_summary.py --check-agent-summary" in workflow
+
+
+@needs_register
+@needs_parser
+class TestTheAgentRegisterAndTheScriptAgree:
+    """A marker that drifts turns every future demonstration into ``INERT``."""
+
+    @staticmethod
+    def _entry() -> Dict[str, Any]:
+        if sys.version_info >= (3, 11):
+            import tomllib as toml
+        else:  # pragma: no cover - 3.9/3.10 path
+            import tomli as toml  # type: ignore[no-redef]
+        with GATES.open("rb") as handle:
+            return dict(dict(toml.load(handle))["gates"]["agent_summary"])
+
+    def test_the_declared_marker_is_the_one_the_script_prints(self) -> None:
+        assert self._entry()["mutation"]["expect_failure_matching"] == rs.AGENT_SUMMARY_MARKER
+
+    def test_the_declared_command_is_the_one_ci_runs(self) -> None:
+        entry = self._entry()
+        assert entry["command"] == "python tools/run_summary.py --check-agent-summary"
+        assert entry["mutation"]["kind"] == "automated"
+
+    def test_the_mutation_target_exists_and_the_edit_applies(self) -> None:
+        edits = self._entry()["mutation"]["edits"]
+        assert edits
+        for edit in edits:
+            target = REPO_ROOT / edit["file"]
+            assert target.is_file(), edit["file"]
+            assert edit["find"] in target.read_text(encoding="utf-8"), edit["find"]
+
+    def test_the_two_markers_are_different_strings(self) -> None:
+        # A shared marker would let a demonstration of one gate be recorded as
+        # a demonstration of the other, which is the whole failure mode
+        # `expect_failure_matching` exists to prevent.
+        assert rs.FAILURE_MARKER != rs.AGENT_SUMMARY_MARKER

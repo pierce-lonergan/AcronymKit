@@ -467,13 +467,119 @@ them, so the gate cannot see them and cannot tell you when they go stale. Re-run
 
 ---
 
-## 6. The one rate this project has on its own prose, and the decomposition that is retired
+## 6. The one rate this project has on its own prose. **The series is closed at `16.67` %, and the successor starts at `n = 0`**
 
 Everything above is about numbers a gate can see. The residue this page keeps publishing —
 `unexamined`, uncapped, reached by no arming rule — has exactly one instrument on it, and it is not a
 gate. R15 makes every workstream submit at least twelve non-load-bearing checkable claims; a sampler
 draws from them under a published seed and re-checks each one against running code, a live endpoint or
-a mutation rather than against the document that states it. **It has run three times.**
+a mutation rather than against the document that states it. **It has now run five times, and this
+section closes it.** The subsections below the closure are the record of rounds one to three and are
+left as they were written.
+
+### The closure, and the arithmetic it is closed at
+
+```
+        the five rounds, transcribed from docs/DECISIONS.md D-068, D-082, D-100, D-107, D-115.
+        Not a benchmark measurement. The Wilson figures were re-derived independently for this
+        section and reproduce to 2 d.p.
+
+  round        1      2      3      4      5
+  not true     5      5      6      2      2      of 24 each
+  pooled                       20 of 120  =  16.67 %
+  Wilson 95 %                  11.06 % - 24.35 %   (half-width 6.64)
+  four rounds                  18 of  96  =  18.75 %,  half-width 7.75
+```
+
+**The series is CLOSED at those numbers.** Round five measured the instrument rather than the
+project, and the measurement is the reason: adding a fifth point moved the half-width by `1.11`
+points while moving the estimate by `2.08`. **The interval is still moving faster than it is
+shrinking.** Re-derived here rather than quoted: a half-width of `3` points at this rate needs about
+`600` draws — `25` rounds of `24` **in total**, so `20` more than have been run, not `25` more.
+Pooling further draws of `24` is not a route to a usable number and nobody should spend twenty rounds
+finding that out.
+
+### The successor, and the discontinuity it forces
+
+The replacement is [`tools/sample_claims.py`](../tools/sample_claims.py): a **churn-weighted
+stratified** draw from the claim-shaped numbers in this repository's scanned documents that no arming
+rule backs, partitioned by how recently their file was touched.
+
+**It measures a different quantity, and the five-round figure may not be carried across.** Different
+unit — a number in a file, against a sentence a workstream submitted. Different population — the
+whole scanned tree, against one round's self-reports. Different inclusion probabilities — an unequal
+allocation across strata, against a uniform draw. A series silently redefined mid-flight is the worst
+outcome available here, so **the new series starts at `n = 0`**, the tool prints the closed figure
+beside every draw with the words *it does not carry across*, and no pooled rate may span the change.
+
+**And the direction of the change is the opposite of the one it was commissioned under.** The brief
+that ordered this described the old series as estimating *the rate of claims in this repository* and
+the successor as estimating *the rate of claims about work just done*. Checked against the record
+rather than accepted: D-068 draws `24` of `187` **submitted** claims, D-115 draws `24` of `36` across
+three workstreams, and R15's rule is that each workstream submits twelve sentences *about its own
+round*. **The old frame was already the narrow one.** The successor is the WIDER of the two — it
+reaches numbers nobody chose to submit, which is the actual gap, because a self-selected pool is the
+weakest sampling frame available and D-115 records that `11` of one round's `24` came from a single
+summary, so the draws were not independent either.
+
+### What the frame actually looks like here, measured rather than assumed
+
+```
+$ python tools/sample_claims.py --frame        # on a quiet checkout at 18204a1
+        command output, not a benchmark measurement. Re-run it; it moves with the tree.
+
+  frame: 2180 unbacked claim-shaped number(s) in the scan set
+  stratum   N       share    drawn per round of 24
+  round     varies  varies   12
+  recent    1751    80.3 %    8      (files touched in the last 20 commits)
+  cold       429    19.7 %    4      (everything else)
+
+  the cold stratum against the window that defines it, same tree:
+    last  5 commits    cold  918 of 2180
+    last 20 commits    cold  429 of 2180
+    last 40 commits    cold   16 of 2180
+```
+
+**This repository has almost no cold text, which is the premise the change rests on and it is
+weak here.** Widen the window to `40` commits and `16` of `2180` numbers sit in a file nobody has
+touched; one round's own diff (`HEAD~3..HEAD`) covers files carrying `1102` of `2180`. De-weighting
+cold text saves little when there is little.
+
+**The price is a number and it is printed on every draw.** The design effect of the `12`/`8`/`4`
+allocation — the ratio of the design-weighted estimator's variance to a uniform draw's, under the
+null that every stratum carries the same rate — measures `1.01` to `2.78` on this tree depending on
+the window, and `2.03` at the shipped default. **Above `1.00` the churn-weighted draw is _less_
+precise about the repository than a uniform draw of the same size.** Stratification beats simple
+random sampling only when the strata differ in what is being measured; if churned and cold text carry
+the same not-true rate, this design has bought relevance and paid for it in precision. That is the
+honest summary of the change and the tool refuses to print the pooled rate without it.
+
+### Pre-registered: what would make the discontinuity worth it
+
+Written before the first draw, so a later round cannot decide after seeing the numbers.
+
+1. **The strata must separate.** The `round` stratum's rate must differ from the `cold` stratum's by
+   more than either interval's half-width, in at least two rounds. If they measure the same rate, the
+   design effect above is the argument against the change and the frame should revert to a uniform
+   draw over the same wider population.
+2. **The repository-wide estimate must survive.** The design-weighted figure must remain computable,
+   which is why the `cold` stratum keeps a non-zero allocation rather than being dropped. A frame
+   that can only answer the narrow question has *removed* a measurement.
+3. **Five rounds must beat five rounds.** The interval on the `round` stratum after five rounds of
+   this must be narrower than the closed series' `6.64`-point half-width was on its own quantity. If
+   it is not, the change was a rename.
+
+**How this fails.** The `round` stratum is `12` draws a round, so its own interval after one round is
+wider than anything published here; three of the four conditions §6 has listed as unmet since D-082
+are unmet still, and the tool fixes only two of them — the boundary rule is now in code
+(`NOT_TRUE`, `VERDICTS`, with `UNCHECKABLE` in the denominator and not the numerator) and the draw is
+reproducible from a seed on any machine, which is what makes **a second grader on the same sample**
+possible for the first time. Nobody has run one. And the frame is built from `check_claims`' residue,
+so a claim with no number in it — most of a workstream's twelve — is **outside this frame entirely**;
+that is a population the old series reached and this one does not, and it is the one thing genuinely
+lost in the change.
+
+---
 
 **How the figures below are handled.** They are properties of two sampling passes, not of the library,
 and no runner saves a sampling pass — so they are transcribed from [`docs/DECISIONS.md`](DECISIONS.md)

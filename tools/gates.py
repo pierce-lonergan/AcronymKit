@@ -612,6 +612,49 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
             "M3-PB spent a fortnight not making."
         ),
     ),
+    InSituRound(
+        label="M3-PD (the gate on whether an agent filed at all)",
+        gates=41,
+        in_situ=20,
+        owed_forward=1,
+        added_gates=(),
+        waiver=(
+            "ONE GATE ARRIVED AND IT CANNOT CARRY EVIDENCE IN THE COMMIT THAT CREATES IT, AND "
+            "THE WAIVER NAMES WHEN IT IS PAID RATHER THAN DEFERRING IT. gates.agent_summary is "
+            "`python tools/run_summary.py --check-agent-summary`: gates.run_summary checks the "
+            "SHAPE of a round's self-assessment and says in as many words that an absence may "
+            "not redden a build, because absence covered both `the agent died` and `the agent "
+            "finished and filed nothing`. A second file the LAUNCHER writes -- exits.toml, "
+            "beside round.toml -- splits those, and only the second is a defect. It is "
+            "`automated`, its mutation is one integer in a committed control fixture, and it "
+            "is runnable on a runner today, so it is a DEBT and not a limit: debt 20 -> 21 in "
+            "this commit, against the ceiling of 20 M3-PC-operator left. gate-mutation.yml "
+            "triggers on .github/gates.toml, .github/workflows/*.yml and tools/gates.py and "
+            "this commit touches all three, so the push that lands this work is the run that "
+            "owes the demonstration -- which is exactly how M3-PC-operator paid its own waiver "
+            "inside one session at run 34352662794. IF THAT RUN DOES NOT LAND, THIS ROW IS THE "
+            "record of a promise and the next round is entitled to say so. RANKED 39 OF 41, "
+            "BELOW BOTH run_summary AND second_reader, and the rank is an argument against the "
+            "gate: its live input is missing for every real round in the register, so inert it "
+            "returns the register to the state it was already in rather than creating a new "
+            "defect. The top-of-ranking rule is therefore not engaged and `added_gates` is "
+            "deliberately empty."
+        ),
+        note=(
+            "Registration, not demonstration. 40 -> 41 gates, in-situ unchanged at 20, debt "
+            "20 -> 21. ruff and ruff_format move 39 -> 40 and 40 -> 41; nothing else in the "
+            "ordering moves, because (evidence_apparatus, silent) is a bucket the new gate "
+            "enters at the bottom of. THE HONEST LIMIT, WHICH IS LARGER THAN THE GATE: nothing "
+            "in this repository writes exits.toml, so both real rounds are UNATTRIBUTED and "
+            "the gate concludes nothing about either. It is demonstrated against a committed "
+            "control fixture, .github/run-summaries/_control-agent-crash/, whose roster "
+            "declares the state each of its four labels must land in -- including the one "
+            "distinction the mechanism turns on, that a writer killed mid-write is UNREADABLE "
+            "and a writer that never started is ABSENT. A demonstration there establishes that "
+            "the CODE can fail. It does not establish that any round anybody ran was ever "
+            "checked, and those are different sentences."
+        ),
+    ),
 )
 
 

@@ -1,0 +1,26 @@
+# The exit statuses for the control round. HAND-WRITTEN, because there is no
+# round here to reap -- see round.toml.
+#
+# In a real round this file is written by whatever spawned the agents, AFTER it
+# has waited on them. It is the one input to `gates.agent_summary` that an agent
+# cannot honestly write about itself: at the moment an agent files its summary
+# it has not exited, so "I exited 0" is a prediction and not an observation.
+
+written_by = "the agent-summary workstream of Mandate III Phase D, by hand, for a fixture"
+recorded_on = 2026-09-09
+complete = true
+
+note = """
+137 is 128 + 9, which is what a shell reports for a process killed with SIGKILL,
+and it is used here because it is the number a reader recognises. Nothing in
+`tools/run_summary.py` interprets the value beyond `== 0` against `!= 0`: on
+Windows `Popen.kill` is TerminateProcess and the code is 1, and on POSIX
+`subprocess` reports -9 for the same event. A rule that read the number would be
+wrong on one platform or the other.
+"""
+
+[codes]
+exited-clean-and-filed = 0
+killed-after-filing = 137
+killed-before-filing = 137
+killed-mid-write = 137

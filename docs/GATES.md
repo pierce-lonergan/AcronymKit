@@ -25,14 +25,26 @@ paragraph.
 
 ## Read this before the table
 
-**Eighteen of the thirty-nine gates carry in-situ evidence, and for the second consecutive round
-the payment was a log nobody had read.** The two gates `M3-PB` registered owing evidence forward —
-`figures` and `memo_identity` — were demonstrated on a runner two days later, and the register went
-on printing `16 of 38` until somebody ran `gh run view`. The thirty-ninth gate is
-[`gates.run_summary`](#the-thirty-ninth-gate-the-account-of-a-round-is-now-an-artefact-a-gate-reads),
+**The register holds forty-one gates and twenty of them carry in-situ evidence.** Run
+`python tools/gates.py --check` rather than trusting that sentence; it is the number this page has
+got wrong most often, and it was wrong here by a whole round until somebody adding the forty-first
+gate noticed.
+
+The count moved twice in two rounds and neither move is flattering. `M3-PB` registered `figures`
+and `memo_identity` owing evidence forward; they were demonstrated on a runner two days later and
+the register went on printing `16 of 38` until somebody ran `gh run view`. Then
+[`gates.run_summary`](#the-thirty-ninth-gate-the-account-of-a-round-is-now-an-artefact-a-gate-reads)
+arrived as the thirty-ninth and `gates.second_reader` as the fortieth, both demonstrated in the
+session that pushed them. **`gates.second_reader` has no section on this page**, which is this
+document's own version of the defect that gate was written for: the fortieth gate is in the
+register, in the `lint` job and in `CONTRIBUTING.md`, and the page that explains the register does
+not mention it. Named here rather than written by a round that did not build it.
+
+The forty-first is
+[`gates.agent_summary`](#the-forty-first-gate-a-crashed-agent-is-now-a-different-fact-from-a-silent-one),
 added by this round and owing its own demonstration forward. **Every command output quoted in the
-rest of this section was captured before those two changes and reads `38`; the transcripts are left
-as they were taken rather than re-stamped, which is the convention this page has for every dated
+rest of this section was captured when it was taken and may read `38` or `39`; the transcripts are
+left as they were rather than re-stamped, which is the convention this page has for every dated
 block.**
 
 The paragraph this replaces read *"Sixteen of the thirty-eight gates carry in-situ evidence. The
@@ -1508,6 +1520,94 @@ running altogether raises nothing — GitHub disables `schedule` triggers after 
 inactivity, and no check here would notice. `--check` prints the age of the newest in-situ
 verification as a *note*, never a failure, for the reason `tools/splits.py` gives about its own
 staleness window: a gate that turns red with the passage of time fires on an unrelated commit.
+
+---
+
+## The forty-first gate: a crashed agent is now a different fact from a silent one
+
+`gates.agent_summary` is `python tools/run_summary.py --check-agent-summary`, in the `lint`
+environment, at `cost_rank` 39 of 41.
+
+**It exists because the thirty-ninth gate's own `blind_to` says it cannot do this.** That entry
+reads, in as many words: *"an agent that dies before its penultimate tool call files nothing, and
+neither this gate nor anything else here can tell that from an agent that was never launched.
+Closing it needs the LAUNCHER to write a start record when it spawns an agent; that is outside this
+repository."* This is the reader for that record.
+
+`round.toml` says who was **expected**. `exits.toml`, beside it, says who **finished** — a table of
+label to process exit status, written by whatever ran the round. With both, `absent` splits into
+three facts that were one:
+
+| exit status | summary on disk | verdict |
+|---|---|---|
+| non-zero | none | **crash.** Printed with its code. Never a build failure |
+| non-zero | valid | killed between the JSON and the prose. The record survives; printed |
+| non-zero | half a file | killed mid-write. `unreadable`, and that is **not** `absent` |
+| `0` | none, or broken | **defect. The build goes red** |
+| none recorded | anything | *unattributed.* Exactly as ambiguous as before; counted |
+
+**The one rule is the fourth row and it is the only thing this gate adds.** `invalid` and
+`unreadable` already redden `gates.run_summary`, so the non-redundant delta over its neighbour is a
+single state — a workstream that ran to completion and filed nothing — and the register declares
+`redundancy = "partial"` rather than `sole` for that reason.
+
+### What it is worth today, which is less than it will be
+
+**No real round in this register carries an exit record.** Nothing in this repository writes
+`exits.toml`; that is still a job for whatever spawns the agents, and it still does not do it. Both
+committed rounds are therefore `UNATTRIBUTED`, the gate concludes nothing about either, and it
+prints that count on every run rather than passing in silence.
+
+So the demonstration is against a committed **control**,
+`.github/run-summaries/_control-agent-crash/`, and the distinction matters: it establishes that the
+code can fail, not that a round anybody ran was ever checked. The control's roster declares the
+state each of its four labels must land in, including the one the whole mechanism turns on — a
+writer killed mid-write is `unreadable` and a writer that never started is `absent`. Two states
+collapsing into each other is invisible everywhere else in the tree, because every other consumer
+treats both as "not a report" and moves on.
+
+`--check-agent-summary` **refuses a register with no such control**, so the gate cannot be disarmed
+by deleting the only input it can currently fail on. `tools/run_summary.py --check` skips
+`_`-prefixed directories, because the control holds a deliberately truncated JSON file and the gate
+that refuses broken files may not be the gate that reads the fixture built out of them.
+
+### It has no in-situ evidence, and the local run that is not evidence
+
+```
+python tools/gates.py --mutate agent_summary     -- command output, 2026-09-09, Windows,
+                                                    a developer machine
+  agent_summary                          DEMONSTRATED  mutated rc=1, restored rc=0
+  1 demonstrated, 0 INERT or UNRESTORED, 0 not automated
+```
+
+The probe flips one integer in the control's exit record: `killed-before-filing` goes from `137` to
+`0`, so a workstream that filed nothing is reported as having exited cleanly. That is the narrowest
+edit reaching **this** gate's own rule rather than any rule it shares with its neighbour — the
+summary is still absent and the control's declared state is still `absent`; the only thing that
+moved is whether the absence is somebody's bad luck. A mutation that deleted the summary instead
+would fire the control-expectation rule as well, and a demonstration that fires two rules at once
+does not say which one it demonstrated.
+
+**That run is exactly the evidence R11 says does not count.** The debt is `20 → 21` and one gate is
+owed forward. `gate-mutation.yml` triggers on `.github/gates.toml`, `.github/workflows/*.yml` and
+`tools/gates.py`, all three of which this commit touches, so the run that lands this work is the run
+that owes it — which is how the thirty-ninth and fortieth gates paid their own waivers inside one
+session at run `34352662794`.
+
+### How it fails
+
+**A vacuous summary satisfies it.** `--template` output filed unchanged is a valid schema-compliant
+record, so an agent that exits `0` having said nothing passes. Refusing a stub would make the
+cheapest route to green a paragraph of filler, which is the opposite of what the template is for.
+
+**A roster that declares itself incomplete escapes the exit-record requirement.** The rule *"a
+roster claiming `roster_complete = true` must carry an exit record"* is the only thing forcing the
+file to exist, and both real rounds declare `false` — honestly, because a workstream genuinely
+cannot enumerate its siblings. A launcher that never wants to be accountable never has to be.
+
+**The exit record is a self-report by the launcher and nothing audits it.** A launcher writing `0`
+for a process it never waited on gets a green build and a false accusation every time a summary is
+missing.
 
 ---
 

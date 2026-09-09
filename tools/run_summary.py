@@ -100,17 +100,48 @@ carries the identity; and a label that disagrees with its filename is the
 signature of two agents racing on one path, which D-098 reports happening to a
 shared scratchpad already.
 
+The second file, and what it buys
+--------------------------------
+The paragraph below used to end *"closing it needs something outside this
+repository: a launcher that writes a start record when it spawns an agent."*
+:data:`EXITS_NAME` is the reader for that record and :func:`check_agent_summary`
+is the gate on top of it. ``exits.toml`` sits beside ``round.toml``, is written
+by whatever **ran** the round rather than by an agent inside it, and maps each
+label to the exit status its process returned. With it, ``absent`` splits:
+
+* ``exit != 0``, nothing filed -- a **crash**. Printed with its code, never a
+  build failure. This is the state the whole exercise is about making visible.
+* ``exit == 0``, nothing valid filed -- a **defect**, and the build goes red.
+  A workstream that ran to completion and filed no account of itself is not
+  anybody's bad luck.
+* **no exit code** -- *unattributed*, exactly as ambiguous as before, counted
+  rather than shrugged at.
+
+**The launcher still has to write it, and this repository still cannot make it.**
+What changed is that the missing thing now has a name, a schema, a reader and a
+gate, so a round that lacks it says so on every CI run instead of being
+indistinguishable from a round that had nothing to report.
+
 How this fails
 --------------
 **This makes a lost report recoverable. It does not make a report happen.** An
-agent that dies before its penultimate tool call files nothing, and *no gate in
-this repository can tell that from an agent that was never launched.* The roster
-narrows it -- it says who was *expected* -- and narrowing is not closing: a
-roster is written by hand before the round, so "launched and died at once" and
-"never launched" still produce the same ``absent``. Closing it needs something
-outside this repository: a launcher that writes a start record when it spawns an
-agent, so ``absent`` splits into *started and never filed* and *never started*.
-That is a change to whatever runs the round, and nothing here can make it.
+agent that dies before its penultimate tool call files nothing. The roster
+narrows it -- it says who was *expected* -- and the exit record narrows it
+further, and neither closes it: with **no** ``exits.toml``, "launched and died
+at once" and "never launched" still produce the same ``absent``, and with one,
+the record itself is a self-report by the launcher that nothing here audits.
+
+**A vacuous summary satisfies the exit rule.** :data:`FILED_STATES` includes
+``vacuous``, so an agent that exits 0 having filed nothing but ``--template``
+output passes. Refusing it would make the cheapest route to green a paragraph of
+filler, which is the opposite of the point; the hole is named rather than
+closed.
+
+**The control fixture is not a round.** ``check_agent_summary`` insists a
+control directory exists so the gate cannot pass vacuously while no real round
+carries an exit record -- but a demonstration against a fixture establishes that
+the *code* can fail, not that any real round was ever checked. Say which one you
+have.
 
 **A JSON summary an agent writes about itself is still self-assessment.** It is
 cheaper to write than prose and it is not more trustworthy; the measured
@@ -132,7 +163,8 @@ and ``roster_complete`` is a self-report about a self-report.
 
 Usage::
 
-    python tools/run_summary.py --check                 # the CI gate
+    python tools/run_summary.py --check                 # the CI gate on shape
+    python tools/run_summary.py --check-agent-summary   # the CI gate on exit status
     python tools/run_summary.py --report DIR            # reconstruct a round
     python tools/run_summary.py --report DIR --strict   # ... and exit 1 if any gap
     python tools/run_summary.py --validate FILE         # one summary
@@ -162,6 +194,32 @@ ROUNDS_ROOT = REPO_ROOT / ".github" / "run-summaries"
 #: reconstructible at all, and ``--report`` says so and exits 2 rather than
 #: printing an empty table that reads like a clean round.
 ROSTER_NAME = "round.toml"
+
+#: The launcher's file: who exited how, written after reaping the children.
+#:
+#: **THIS IS THE HALF THAT MAKES AN ABSENCE ACCUSABLE, AND IT IS WRITTEN BY A
+#: PARTY THAT IS NOT IN THIS REPOSITORY.** The roster says who was *expected*;
+#: this says who *finished*. Only with both is ``absent`` split into the two
+#: facts D-113 said nothing here could tell apart -- an agent that died before
+#: its penultimate tool call, and an agent that got all the way to the end and
+#: filed nothing. The first is a crash and is reported; the second is a defect
+#: and reddens the build.
+#:
+#: A round with no ``exits.toml`` is **unattributed**: every absence in it stays
+#: exactly as ambiguous as it was before this file existed, and
+#: :func:`check_agent_summary` prints that count rather than passing in silence.
+EXITS_NAME = "exits.toml"
+
+#: A round directory whose name starts with this is a **control**, not a round
+#: anybody ran. See :func:`check_agent_summary`.
+CONTROL_PREFIX = "_"
+
+#: The substring ``.github/gates.toml`` declares as ``gates.agent_summary``'s
+#: ``expect_failure_matching``. Pinned against the register by
+#: ``tests/test_run_summary.py`` for the same reason :data:`FAILURE_MARKER` is:
+#: a marker that drifts turns every future demonstration ``INERT`` while the
+#: register goes on reporting a gate nobody can demonstrate.
+AGENT_SUMMARY_MARKER = "agent-summary register refused"
 
 #: The substring ``.github/gates.toml`` declares as this gate's
 #: ``expect_failure_matching``. A marker that drifts turns every future
@@ -251,12 +309,34 @@ NARRATIVE_FIELDS: Tuple[str, ...] = ("headline", "pre_registration", "how_it_fai
 #: Roster keys. Unknown keys are refused here too -- a misspelt
 #: ``roster_complete`` would silently become ``False`` and turn a refusal into a
 #: shrug.
+#:
+#: ``control`` is optional and is **refused outside a control directory**: it
+#: declares the state each label is expected to land in, which is a sentence
+#: only a fixture may write. A real round that declared what its agents were
+#: going to do would be marking its own homework.
 ROSTER_REQUIRED: Tuple[str, ...] = ("round", "roster_written_by", "roster_complete", "expected")
-ROSTER_OPTIONAL: Tuple[str, ...] = ("note",)
+ROSTER_OPTIONAL: Tuple[str, ...] = ("note", "control")
+
+#: Keys ``exits.toml`` must carry, and may carry. ``complete`` is the roster's
+#: ``roster_complete`` one file across: whether every workstream that was
+#: actually launched is listed. Same weakness, named the same way.
+EXITS_REQUIRED: Tuple[str, ...] = ("written_by", "complete", "codes")
+EXITS_OPTIONAL: Tuple[str, ...] = ("recorded_on", "note")
 
 #: Worst last. ``--report`` prints in this order and :func:`RoundReport.worst`
 #: reads the end of it.
 STATES: Tuple[str, ...] = ("complete", "partial", "vacuous", "invalid", "unreadable", "absent")
+
+#: The states that count as **"filed a valid schema-compliant summary"** for
+#: :func:`audit_round`.
+#:
+#: ``vacuous`` IS in this list, and that is a hole rather than an oversight: a
+#: workstream that exits 0 having filed nothing but ``--template`` output passes
+#: this gate. The alternative is worse. Refusing a stub would make the cheapest
+#: route to green a paragraph of filler, and :func:`template` exists precisely
+#: so an agent that knows it is about to die can file *something*. The hole is
+#: named in ``.github/gates.toml`` under ``blind_to`` rather than closed.
+FILED_STATES: Tuple[str, ...] = ("complete", "partial", "vacuous")
 
 #: The anchor in ``CONTRIBUTING.md`` before the fenced copy of
 #: :data:`FIELD_NAMES`. An HTML comment rather than a heading, because a heading
@@ -434,6 +514,36 @@ class Roster:
     roster_complete: bool
     expected: Tuple[str, ...]
     note: str = ""
+    #: ``label -> expected state``, control directories only. Pairs rather than
+    #: a dict so the dataclass stays frozen in the way the rest of this module
+    #: is frozen.
+    control: Tuple[Tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class Exits:
+    """Who finished, and how. Written by whatever ran the round, not by an agent.
+
+    ``codes`` is POSIX-shaped: ``0`` is a workstream that exited successfully
+    and anything else is a workstream that did not. A negative value is what
+    ``subprocess`` reports for a signal on POSIX (``-9`` for ``SIGKILL``) and is
+    a crash like any other; nothing here interprets the value beyond
+    ``== 0`` versus ``!= 0``, because the interesting distinction is binary and
+    a rule that read the number would be wrong on some platform.
+    """
+
+    path: Path
+    written_by: str
+    complete: bool
+    codes: Tuple[Tuple[str, int], ...]
+    note: str = ""
+
+    def code_for(self, label: str) -> Optional[int]:
+        """The exit code recorded for ``label``, or ``None`` if none was."""
+        for name, code in self.codes:
+            if name == label:
+                return code
+        return None
 
 
 @dataclass(frozen=True)
@@ -497,6 +607,34 @@ def load_roster(directory: Path) -> Tuple[Optional[Roster], List[str]]:
         problems.append(f"{path}: 'expected' names {duplicates} more than once; labels are ids")
     if not isinstance(raw.get("roster_complete", False), bool):
         problems.append(f"{path}: 'roster_complete' must be a boolean")
+    control: List[Tuple[str, str]] = []
+    if "control" in raw:
+        if not is_control(directory):
+            problems.append(
+                f"{path}: declares a [control] table and {directory.name!r} is not a control "
+                f"directory. A round that predicted what its own agents would do would be "
+                f"marking its own homework; rename the directory with a leading "
+                f"{CONTROL_PREFIX!r} or delete the table."
+            )
+        table = raw.get("control")
+        if not isinstance(table, dict):
+            problems.append(f"{path}: [control] must be a table of label -> expected state")
+        else:
+            for key in sorted(table):
+                want = table[key]
+                if not isinstance(want, str) or want not in STATES:
+                    problems.append(
+                        f"{path}: control expects {key!r} to be {want!r}, which is not one of "
+                        f"{list(STATES)}"
+                    )
+                    continue
+                if str(key) not in [str(item) for item in expected]:
+                    problems.append(
+                        f"{path}: control expects a state for {key!r}, which is not on the "
+                        "roster. A fixture may only predict labels it declares."
+                    )
+                    continue
+                control.append((str(key), want))
     if problems:
         return None, problems
     return (
@@ -506,6 +644,82 @@ def load_roster(directory: Path) -> Tuple[Optional[Roster], List[str]]:
             roster_written_by=str(raw["roster_written_by"]),
             roster_complete=bool(raw["roster_complete"]),
             expected=tuple(str(item) for item in expected),
+            note=str(raw.get("note", "")),
+            control=tuple(control),
+        ),
+        [],
+    )
+
+
+def is_control(directory: Path) -> bool:
+    """Whether ``directory`` is a control fixture rather than a round.
+
+    Name-based, and deliberately: the marker has to be visible in a directory
+    listing and in a mutation edit's path, because the one thing a control may
+    never be is mistaken for a record of work somebody did.
+    """
+    return directory.name.startswith(CONTROL_PREFIX)
+
+
+def round_directories(rounds_root: Path, *, controls: bool = False) -> List[Path]:
+    """Round directories under ``rounds_root``, controls excluded by default."""
+    if not rounds_root.is_dir():
+        return []
+    return sorted(
+        path
+        for path in rounds_root.glob("*")
+        if path.is_dir() and (controls or not is_control(path))
+    )
+
+
+def load_exits(directory: Path) -> Tuple[Optional[Exits], List[str]]:
+    """Read ``exits.toml``, or say why it cannot be trusted.
+
+    A **missing** file is ``(None, [])`` and not a problem: most rounds will not
+    have one, because writing it is a job for whatever spawns the agents and
+    that is outside this repository. The caller decides what a missing record
+    means; see :func:`audit_round`.
+    """
+    path = directory / EXITS_NAME
+    if not path.is_file():
+        return None, []
+    try:
+        raw = _load_toml(path)
+    except RunSummaryError as error:
+        return None, [str(error)]
+    problems: List[str] = []
+    missing = [key for key in EXITS_REQUIRED if key not in raw]
+    if missing:
+        problems.append(f"{path}: exit record does not declare {missing}")
+    unknown = sorted(str(key) for key in raw if key not in EXITS_REQUIRED + EXITS_OPTIONAL)
+    if unknown:
+        problems.append(f"{path}: unknown key(s) {unknown}")
+    if not isinstance(raw.get("complete", False), bool):
+        problems.append(f"{path}: 'complete' must be a boolean")
+    codes: List[Tuple[str, int]] = []
+    table = raw.get("codes", {})
+    if not isinstance(table, dict):
+        problems.append(f"{path}: 'codes' must be a table of label -> exit code")
+    else:
+        for key in sorted(table):
+            value = table[key]
+            if not LABEL_RE.match(str(key)):
+                problems.append(f"{path}: exit code recorded for {key!r}, which is not a label")
+                continue
+            if isinstance(value, bool) or not isinstance(value, int):
+                problems.append(
+                    f"{path}: exit code for {key!r} is {value!r}; an exit status is an integer"
+                )
+                continue
+            codes.append((str(key), int(value)))
+    if problems:
+        return None, problems
+    return (
+        Exits(
+            path=path,
+            written_by=str(raw["written_by"]),
+            complete=bool(raw["complete"]),
+            codes=tuple(codes),
             note=str(raw.get("note", "")),
         ),
         [],
@@ -570,6 +784,210 @@ def report(directory: Path) -> RoundReport:
         verdicts=verdicts,
         unexpected=unexpected,
     )
+
+
+@dataclass(frozen=True)
+class AgentAudit:
+    """One round read against its exit record: who crashed, and who just did not file."""
+
+    directory: Path
+    control: bool
+    exits_present: bool
+    problems: Tuple[str, ...]
+    #: ``(label, exit code, state)`` for every workstream that did not exit 0.
+    #: Printed, never a build failure -- a crash is a fact about the round and
+    #: the whole point of the record is that it stops being invisible.
+    crashed: Tuple[Tuple[str, int, str], ...]
+    #: Labels with no summary and no exit code. Exactly as ambiguous as every
+    #: absence was before this file existed, and counted so the ambiguity has a
+    #: size rather than a shrug.
+    unattributed: Tuple[str, ...]
+    #: Labels that exited 0 and filed something readable. The green case.
+    accounted: Tuple[str, ...]
+    #: ``(label, expected state)`` the roster declares, control directories only.
+    control_expects: Tuple[Tuple[str, str], ...] = ()
+
+
+def audit_round(directory: Path) -> AgentAudit:
+    """Read one round against its exit record.
+
+    The rule, and it is one sentence: **a workstream that exited successfully
+    and filed no valid schema-compliant summary is a defect.** Everything else
+    here exists to stop that sentence being applied where it does not hold.
+
+    * A workstream that exited **non-zero** and filed nothing is a *crash*. It is
+      printed with its exit code and it does not fail the build. That is the
+      distinction ``tools/run_summary.py`` could not draw at all until this
+      function existed: D-113 records that ``absent`` covered both, and a gate
+      that reddened on it would have made the cheapest route to green deleting
+      the roster entry.
+    * A workstream with **no exit code at all** is *unattributed*. Nothing is
+      concluded and the count is printed.
+    * A **control** directory additionally has every label's state checked
+      against the ``[control]`` table its roster declares.
+    """
+    control = is_control(directory)
+    rep = report(directory)
+    problems: List[str] = list(rep.roster_problems)
+    exits, exit_problems = load_exits(directory)
+    problems.extend(exit_problems)
+    exits_present = (directory / EXITS_NAME).is_file()
+    if rep.roster is None:
+        return AgentAudit(directory, control, exits_present, tuple(problems), (), (), ())
+
+    states = {verdict.label: verdict.state for verdict in rep.verdicts}
+    crashed: List[Tuple[str, int, str]] = []
+    accounted: List[str] = []
+    unattributed: List[str] = []
+
+    if exits is None:
+        if not exits_present and rep.roster.roster_complete and not control:
+            problems.append(
+                f"{directory}: the roster declares roster_complete = true and there is no "
+                f"{EXITS_NAME}. The party that could enumerate every workstream in the round "
+                "is the party that reaped them, so it could also record how they exited. "
+                "Without that, every absence below is unattributable and this gate is a "
+                "gate over nothing."
+            )
+        unattributed = [label for label, state in states.items() if state not in FILED_STATES]
+    else:
+        stray = sorted(label for label, _ in exits.codes if label not in states)
+        if stray:
+            problems.append(
+                f"{exits.path}: exit code(s) recorded for {stray}, which the roster does not "
+                "name. Either a workstream was launched that nobody rostered -- the hole "
+                "roster_complete is a self-report about -- or one of the two files has a typo."
+            )
+        if exits.complete:
+            unrecorded = [label for label in states if exits.code_for(label) is None]
+            if unrecorded:
+                problems.append(
+                    f"{exits.path}: declares complete = true and records no exit status for "
+                    f"{sorted(unrecorded)}. A complete record of a round accounts for every "
+                    "workstream in it."
+                )
+        for label, state in states.items():
+            code = exits.code_for(label)
+            if code is None:
+                unattributed.append(label)
+            elif code == 0 and state not in FILED_STATES:
+                problems.append(
+                    f"{directory.name}/{label}: exited 0 and its summary is {state.upper()}. "
+                    "A workstream that ran to completion and filed no readable account of "
+                    "itself is the one absence that is nobody's bad luck. File "
+                    f"{label}.json as the penultimate tool call, or correct the exit record."
+                )
+            elif code != 0:
+                crashed.append((label, code, state))
+            else:
+                accounted.append(label)
+
+    if control:
+        expected_states = dict(rep.roster.control)
+        if not expected_states:
+            problems.append(
+                f"{directory}: is a control directory and its roster declares no [control] "
+                "table. A fixture that asserts nothing is a fixture that cannot notice the "
+                "reader has stopped discriminating."
+            )
+        for label, want in sorted(expected_states.items()):
+            got = states.get(label)
+            if got != want:
+                problems.append(
+                    f"{directory.name}/{label}: the control expects {want.upper()} and the "
+                    f"reader returns {str(got).upper()}. This fixture exists to fail here: "
+                    "the six states are the whole mechanism and two of them collapsing is "
+                    "invisible everywhere else."
+                )
+
+    return AgentAudit(
+        directory=directory,
+        control=control,
+        exits_present=exits_present,
+        problems=tuple(problems),
+        crashed=tuple(sorted(crashed)),
+        unattributed=tuple(sorted(unattributed)),
+        accounted=tuple(sorted(accounted)),
+        control_expects=rep.roster.control,
+    )
+
+
+def check_agent_summary(root: Path = REPO_ROOT) -> List[str]:
+    """The gate: a workstream that exited successfully filed an account of itself.
+
+    This is deliberately **not** ``check``. That one is over the *shape* of what
+    was filed and says, in as many words, that ``absent`` may not redden a
+    build. This one is over the *fact* of filing, and it can say so only because
+    a second file -- written by whatever ran the round -- reports who finished.
+
+    Two rules of its own, beyond the per-round audit:
+
+    ``the register must hold a control``
+        A gate whose real input is produced outside this repository can pass
+        vacuously for as long as nobody writes that input. So at least one
+        control directory must exist, and it must carry both an ``absent`` and
+        an ``unreadable`` expectation -- the two states D-096 measured the cost
+        of collapsing. Deleting the fixture reddens the build rather than
+        quietly disarming the gate.
+
+    ``a round that names everyone accounts for everyone``
+        A roster claiming ``roster_complete = true`` with no exit record is
+        refused. The party that can enumerate the round is the party that
+        reaped it.
+    """
+    problems: List[str] = []
+    rounds_root = root / ".github" / "run-summaries"
+    directories = round_directories(rounds_root, controls=True)
+    if not directories:
+        problems.append(
+            f"  {rounds_root} holds no round and no control. This gate is over a register, "
+            "and a register with nothing in it passes vacuously."
+        )
+    saw_absent = saw_unreadable = False
+    for directory in directories:
+        audit = audit_round(directory)
+        problems.extend(f"  {line}" for line in audit.problems)
+        if audit.control:
+            wants = {want for _, want in audit.control_expects}
+            saw_absent = saw_absent or "absent" in wants
+            saw_unreadable = saw_unreadable or "unreadable" in wants
+    if directories and not (saw_absent and saw_unreadable):
+        missing = [
+            name
+            for name, seen in (("absent", saw_absent), ("unreadable", saw_unreadable))
+            if not seen
+        ]
+        problems.append(
+            f"  no control directory in {rounds_root} expects {missing}. This gate turns on "
+            "one distinction -- a writer killed mid-write is UNREADABLE and a writer that "
+            "never started is ABSENT -- and a register with no fixture asserting both cannot "
+            "notice the day those two collapse into each other."
+        )
+    return problems
+
+
+def render_audit(audit: AgentAudit) -> str:
+    """One round's exit accounting, crashes first, as a human reads it."""
+    lines: List[str] = []
+    kind = "control" if audit.control else "round"
+    lines.append(f"{kind} {audit.directory}")
+    if not audit.exits_present:
+        lines.append(
+            f"  no {EXITS_NAME}: UNATTRIBUTED. Every absence here is exactly as ambiguous as "
+            "it was before this record existed."
+        )
+    for label, code, state in audit.crashed:
+        verb = "CRASHED, NO ACCOUNT" if state == "absent" else f"CRASHED AFTER FILING ({state})"
+        if state == "unreadable":
+            verb = "CRASHED MID-WRITE (unreadable, and that is not absent)"
+        lines.append(f"  {label:<28} exit {code:<6} {verb}")
+    if audit.unattributed:
+        lines.append(f"  unattributed: {list(audit.unattributed)}")
+    if audit.accounted:
+        lines.append(f"  exited 0 and filed: {list(audit.accounted)}")
+    for problem in audit.problems:
+        lines.append(f"  PROBLEM: {problem}")
+    return "\n".join(lines)
 
 
 def write_summary(path: Path, payload: Mapping[str, Any]) -> None:
@@ -696,9 +1114,12 @@ def check(root: Path = REPO_ROOT) -> List[str]:
     """
     problems: List[str] = []
     rounds_root = root / ".github" / "run-summaries"
-    directories = (
-        sorted(p for p in rounds_root.glob("*") if p.is_dir()) if rounds_root.is_dir() else []
-    )
+    # CONTROLS ARE EXCLUDED HERE AND CHECKED BY `check_agent_summary` INSTEAD.
+    # A control fixture holds a deliberately truncated summary -- that is the
+    # `unreadable` state, and there is no way to have one without writing a
+    # broken file. This gate refuses broken files, correctly, so it may not be
+    # the gate that reads the fixture built out of them.
+    directories = round_directories(rounds_root)
     if not directories:
         problems.append(
             f"  {rounds_root} holds no round. This gate is over a register, and a register "
@@ -843,6 +1264,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="the CI gate: validate every committed round and the schema copy in CONTRIBUTING.md",
     )
+    parser.add_argument(
+        "--check-agent-summary",
+        action="store_true",
+        help=(
+            "the CI gate over EXIT STATUS: a workstream that exited 0 and filed no valid "
+            "summary fails; a workstream that crashed is printed and does not"
+        ),
+    )
     parser.add_argument("--report", metavar="DIR", help="reconstruct the round in DIR")
     parser.add_argument("--validate", metavar="FILE", help="validate one summary file")
     parser.add_argument("--template", metavar="LABEL", help="print an empty summary to fill in")
@@ -878,13 +1307,35 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 2
         return 1 if (args.strict and summary.gaps) else 0
 
+    if args.check_agent_summary:
+        root = Path(args.root)
+        problems = check_agent_summary(root)
+        rounds_root = root / ".github" / "run-summaries"
+        audits = [audit_round(d) for d in round_directories(rounds_root, controls=True)]
+        for audit in audits:
+            print(render_audit(audit))
+        crashed = sum(len(a.crashed) for a in audits)
+        unattributed = sum(len(a.unattributed) for a in audits)
+        if problems:
+            print(f"{AGENT_SUMMARY_MARKER}: {len(problems)} problem(s)")
+            for problem in problems:
+                print(problem)
+            return 1
+        print(
+            f"agent summaries OK: {len(audits)} director(ies), {crashed} crash(es) reported, "
+            f"{unattributed} absence(s) nothing can attribute"
+        )
+        print(
+            "  note: a crash is PRINTED and never a build failure. Only `exited 0 and filed "
+            "nothing` is a failure, and that verdict needs an exits.toml the launcher writes."
+        )
+        return 0
+
     if args.check:
         root = Path(args.root)
         problems = check(root)
         rounds_root = root / ".github" / "run-summaries"
-        directories = (
-            sorted(p for p in rounds_root.glob("*") if p.is_dir()) if rounds_root.is_dir() else []
-        )
+        directories = round_directories(rounds_root)
         filed = gaps = 0
         for directory in directories:
             summary = report(directory)

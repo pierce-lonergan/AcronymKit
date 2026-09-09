@@ -1,0 +1,39 @@
+{
+  "label": "exited-clean-and-filed",
+  "status": "complete",
+  "headline": "The green case: a workstream that exited 0 and filed a readable account of itself.",
+  "shipped": [
+    "nothing: this is a control fixture, not a workstream"
+  ],
+  "run_ids": [],
+  "files_changed": [],
+  "pre_registration": "None. A fixture places no bet; it exists so gates.agent_summary has an input it can be run against on a runner.",
+  "how_it_fails": "It fails by being deleted. That is exactly what .github/gates.toml mutates to demonstrate the neighbouring rule, and a reader who finds this file missing on a real checkout is looking at a mutation that was not restored.",
+  "not_done": [
+    "everything: no work is described here"
+  ],
+  "gates": {
+    "pytest": "not run: fixture",
+    "ruff": "not run: fixture",
+    "ruff_format": "not run: fixture",
+    "mypy": "not run: fixture",
+    "claims": "not run: fixture",
+    "splits": "not run: fixture",
+    "gates": "not run: fixture",
+    "second_reader": "not run: fixture"
+  },
+  "claims_for_sampling": [
+    "Claim 1 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 2 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 3 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 4 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 5 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 6 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 7 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 8 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 9 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 10 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 11 of 12: this file is a control fixture and asserts nothing about the library.",
+    "Claim 12 of 12: this file is a control fixture and asserts nothing about the library."
+  ]
+}

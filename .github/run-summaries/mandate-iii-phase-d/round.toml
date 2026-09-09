@@ -1,0 +1,38 @@
+# The roster for Mandate III Phase D, first round.
+#
+# WRITTEN BY A WORKSTREAM AGAIN, AND THAT IS STILL THE FLAW.
+#
+# D-113 records the same thing about Phase C's roster: a roster is supposed to
+# be written by whoever SPAWNS the round, because only the launcher knows who
+# was spawned. This one is written by one of the agents in it, for the same
+# reason -- there is no other party writing files here -- and it therefore names
+# exactly one workstream, which is the only one it can honestly name.
+
+round = "mandate-iii-phase-d"
+roster_written_by = "the agent-summary workstream of Mandate III Phase D"
+
+# FALSE. This workstream cannot enumerate its siblings without guessing, and a
+# guessed label puts a FABRICATED `absent` row in a register whose entire
+# purpose is to make absence mean something. D-113's refusal, repeated, with the
+# same consequence: the absences below are a LOWER BOUND.
+roster_complete = false
+
+expected = ["m3pd-agent-summary"]
+
+note = """
+NO `exits.toml`, AND THE ABSENCE IS THE POINT RATHER THAN AN OVERSIGHT.
+
+This round shipped `gates.agent_summary`, which reddens a build when a
+workstream exits 0 and files no valid summary. That verdict needs an exit
+status, an exit status is produced by whatever ran the round, and nothing ran
+this round that writes files here. An agent cannot honestly write its own: at
+the moment it files its summary it has not exited, so "I exited 0" is a
+prediction dressed as an observation, and this register has spent three rounds
+learning what a self-report about a self-report is worth.
+
+So this directory is UNATTRIBUTED, `--check-agent-summary` prints it as such on
+every CI run, and the gate is demonstrated against `_control-agent-crash`
+instead. What that demonstrates is that the CODE can fail. It does not
+demonstrate that any round anybody ran was ever checked, and the day a launcher
+writes `exits.toml` beside this file is the day it does.
+"""

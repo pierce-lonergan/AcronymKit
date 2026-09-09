@@ -164,6 +164,27 @@ jobs:
         # before its penultimate call files nothing, and nothing here can tell
         # that from an agent that was never launched.
         run: python tools/run_summary.py --check
+      - name: A workstream that exited cleanly filed an account of itself
+        # THE STEP ABOVE CHECKS THE SHAPE OF WHAT WAS FILED. THIS ONE CHECKS
+        # WHETHER IT WAS FILED AT ALL, AND IT NEEDS A SECOND FILE TO DO IT.
+        #
+        # `round.toml` says who was EXPECTED. `exits.toml`, written by whatever
+        # SPAWNED the agents rather than by an agent inside the round, says who
+        # FINISHED. Only with both does `absent` split into the two facts D-113
+        # said nothing here could tell apart: an agent killed mid-round, and an
+        # agent that ran to completion and filed nothing. The first is a crash,
+        # is printed with its exit code, and is never a build failure. The
+        # second reddens this step.
+        #
+        # WHAT IT CANNOT DO TODAY, PRINTED ON EVERY RUN RATHER THAN FOOTNOTED:
+        # nothing in this repository writes `exits.toml`, so every real round in
+        # the register is UNATTRIBUTED and this step concludes nothing about
+        # any of them. It is demonstrated against a committed control fixture,
+        # `.github/run-summaries/_control-agent-crash/`, which establishes that
+        # the code can fail -- not that a round anybody ran was ever checked.
+        # The gate refuses a register with no such control, so it cannot be
+        # disarmed by deleting the only thing it can currently fail on.
+        run: python tools/run_summary.py --check-agent-summary
 
   resources:
     name: Validate bundled resources

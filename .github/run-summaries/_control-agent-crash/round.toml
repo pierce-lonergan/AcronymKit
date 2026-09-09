@@ -1,0 +1,64 @@
+# A CONTROL, NOT A ROUND. NOBODY RAN THIS. NOBODY WROTE THESE SUMMARIES ABOUT
+# WORK THEY DID.
+#
+# The leading `_` in this directory's name is the marker, and it is checked:
+# `tools/run_summary.py` excludes `_`-prefixed directories from `--check` (the
+# gate on the SHAPE of committed records) and reads them only under
+# `--check-agent-summary` (the gate on exit status). A real round may not carry
+# the [control] table below and is refused if it tries.
+#
+# WHY A FIXTURE IS COMMITTED AT ALL, WHICH IS THE ATTACKABLE PART.
+#
+# `gates.agent_summary`'s real input is `exits.toml`, and `exits.toml` is
+# written by whatever SPAWNS the agents -- a program that is not in this
+# repository and that, as of this commit, writes nothing. A gate whose input
+# nobody supplies passes for as long as nobody supplies it, which is D-096's
+# defect with a newer date. So the register carries a fixture the gate can
+# always be run against, `--check-agent-summary` refuses a register that has no
+# control at all, and `.github/gates.toml` mutates THIS file to demonstrate the
+# gate on a runner.
+#
+# WHAT IT DOES NOT ESTABLISH, SAID HERE RATHER THAN IN A FOOTNOTE: a
+# demonstration against this directory establishes that the CODE can fail. It
+# does not establish that any round anybody ran was ever checked. As of this
+# commit, no round in this register carries an exit record, so the live answer
+# to "which workstreams exited 0 and filed nothing" is `unattributed`, for all
+# of them.
+
+round = "_control-agent-crash"
+roster_written_by = "the agent-summary workstream of Mandate III Phase D, by hand"
+
+# TRUE, and it is the only roster in this register that may honestly say so:
+# a fixture's author knows exactly who is in it.
+roster_complete = true
+
+expected = [
+  "exited-clean-and-filed",
+  "killed-after-filing",
+  "killed-before-filing",
+  "killed-mid-write",
+]
+
+note = """
+The three killed labels are named for the three ways an agent dies that this
+project has actually recorded (D-095, D-098): a retry cap hit while formatting
+an over-long report, a budget exhausted mid-work, and a budget exhausted after
+the work was filed. `killed-mid-write.json` is deliberately truncated JSON --
+half a record, as a shell heredoc leaves one when the writer is killed. It is
+not valid and it is not supposed to be; `write_summary` exists so that a writer
+using THIS module cannot produce it, and `unreadable` exists because agents also
+write with heredocs and editor tools, which are not atomic.
+"""
+
+# THE FOUR STATES THIS GATE TURNS ON, ASSERTED RATHER THAN ASSUMED.
+#
+# `killed-before-filing` is ABSENT and `killed-mid-write` is UNREADABLE. Those
+# two collapsing into each other is the single failure that would make this
+# whole mechanism report a crash as a silence, and it is invisible everywhere
+# else in the tree: every other consumer of `report()` treats both as "not a
+# report" and moves on. A fixture that did not assert both could not notice.
+[control]
+exited-clean-and-filed = "complete"
+killed-after-filing = "complete"
+killed-before-filing = "absent"
+killed-mid-write = "unreadable"
