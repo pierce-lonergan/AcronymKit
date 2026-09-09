@@ -485,7 +485,31 @@ def test_the_field_write_counter_is_exact_on_both_routes() -> None:
             )
 
     expected = 11 * len(token_args) + 8 * len(identifier_args)
-    assert replay("full") == expected
+    measured = replay("full")
+
+    # `count_field_writes` DOCUMENTS returning None when the interpreter does not
+    # expose the mechanism, and this test ignored its own contract: it asserted
+    # `measured == expected` unconditionally and went red on the three 3.9 matrix
+    # cells with `assert None == 313`. CPython's `dataclasses` only emits the
+    # `__dataclass_builtins_object__` freevar the counter patches on some
+    # versions; where it does not, there is no cell and no count.
+    #
+    # Skipping is right and asserting the CAUSE is what keeps the skip honest --
+    # a bare `if measured is None: skip` would also swallow a counter that broke
+    # for some other reason, which is the shape this repository keeps finding.
+    if measured is None:
+        from bench.run_governed_perf import _builtins_object_cell
+
+        assert _builtins_object_cell(TokenExpansion.__init__) is None, (
+            "count_field_writes returned None while the closure cell it needs EXISTS. "
+            "That is a broken counter, not an unsupported interpreter."
+        )
+        pytest.skip(
+            "this interpreter's dataclasses emits no __dataclass_builtins_object__ "
+            "freevar, so there is no cell to count writes through"
+        )
+
+    assert measured == expected
     assert replay("alloc") == 0
 
 
