@@ -59,6 +59,16 @@ recursive-include examples *.java *.xml *.json *.txt *.md
 recursive-include schemas *.json
 recursive-include tools *.py
 recursive-include docs *.md
+# THE SIXTH TIME A SHIPPED REGISTER POINTED AT SOMETHING THE SDIST DID NOT CARRY,
+# and the first no markdown-link guard could ever have caught. `.github/gates.toml`
+# ships, and `gates.figures` declares a mutation that edits
+# `docs/figures/refusal-curve-light.svg`. In a checkout the file is there and
+# `tools/gates.py --check` passes; in the extracted tree it is not, so `validate()`
+# reports the gate "has no demonstration" and the build job goes red -- which is
+# where it was found, on that job's first run after the figures landed. The figures
+# are also user-facing documents in their own right (they are in the cold-read
+# rotation), so shipping them is what the rest of this file already implies.
+recursive-include docs/figures *.svg
 
 # The evidence for the numbers in the shipped docs. `docs/` and `src/` carry
 # accuracy claims and `tools/check_claims.py` is the gate that backs every one

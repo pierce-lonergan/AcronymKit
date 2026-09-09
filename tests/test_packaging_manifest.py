@@ -280,6 +280,43 @@ def test_every_link_out_of_a_shipped_document_is_itself_shipped() -> None:
 
 
 @pytest.mark.skipif(not MANIFEST.is_file(), reason="not a source checkout")
+@pytest.mark.skipif(
+    not (REPO_ROOT / ".github" / "gates.toml").is_file(),
+    reason=".github/gates.toml is absent",
+)
+def test_every_file_a_gate_mutation_edits_is_shipped_by_the_manifest() -> None:
+    """A shipped register may not point at a file the sdist leaves behind.
+
+    This is the same class as the markdown-link guard above and a **different
+    reference channel**, which is why that guard could not catch it.
+    ``.github/gates.toml`` ships; ``gates.figures`` declares a mutation editing
+    ``docs/figures/refusal-curve-light.svg``; the manifest did not ship
+    ``docs/figures``. In a checkout ``tools/gates.py --check`` passes because the
+    file is there. In the extracted tree ``validate()`` says the gate "has no
+    demonstration" and the build job is red -- which is exactly where it was
+    found, on the job's first run after the figures landed.
+
+    The rule is derived from the register rather than remembered: a mutation
+    that edits a file names that file, so every such path must be shipped.
+    """
+    register = (REPO_ROOT / ".github" / "gates.toml").read_text(encoding="utf-8")
+    edited = sorted(set(re.findall(r'\{\s*file\s*=\s*"([^"]+)"', register)))
+    assert edited, "no mutation edit paths found; this test would pass vacuously"
+
+    patterns = _manifest_patterns()
+    missing = [
+        name
+        for name in edited
+        if (REPO_ROOT / name).exists() and not _is_covered(REPO_ROOT / name, patterns)
+    ]
+    assert not missing, (
+        "these files are edited by a gate mutation and MANIFEST.in does not ship "
+        "them, so the register ships pointing at nothing and `gates.py --check` "
+        f"fails in an extracted sdist: {missing}"
+    )
+
+
+@pytest.mark.skipif(not MANIFEST.is_file(), reason="not a source checkout")
 def test_the_manifest_covers_the_conftest_the_suite_cannot_start_without() -> None:
     """A guard on the guard: the pattern set must actually match something real.
 
