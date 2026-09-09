@@ -216,16 +216,30 @@ def is_user_facing(path: str) -> bool:
 
     The pathspec is the coarse filter and this is the fine one. ``docs`` reaches
     ``docs/DECISIONS.md``, ``docs/AUDIT-*.md`` and ``docs/notes/*``, which the
-    policy excludes, and it reaches non-Markdown files under ``docs/`` -- the
-    findings ledger itself among them -- which are machine state rather than
-    prose.
+    policy excludes, and it reaches machine state under ``docs/`` -- the findings
+    ledger itself among them -- which is not prose.
+
+    **A FIGURE IS PROSE, AND THIS FUNCTION SAID IT WAS NOT.** The Markdown-only
+    rule was written to keep ``docs/cold-reads.toml`` out, and it kept out every
+    ``.svg`` as collateral. The round that first shipped figures shipped four of
+    them **outside both triggers and outside the rotation**: ``git status``
+    reported them, this function dropped them, and ``user_facing_files()``
+    returned the same count it had returned before they existed -- so the
+    tree-reachability rule in :func:`validate`, added precisely because *a set
+    checked only against itself agrees with itself*, could not see them.
+
+    Their numbers are gated twice, by ``gates.figures`` and by the suite. Their
+    **title sentence, their shading and which series wears the accent colour are
+    gated by nothing at all**, and those are the parts that decide what a reader
+    concludes. So ``.svg`` under ``docs/`` is user-facing; ``.toml`` and every
+    other extension there is still machine state.
     """
     norm = path.replace("\\", "/").strip()
     if not norm:
         return False
     if norm in ROOT_USER_FACING:
         return True
-    if not norm.startswith("docs/") or not norm.endswith(".md"):
+    if not norm.startswith("docs/") or not norm.endswith((".md", ".svg")):
         return False
     return not any(fnmatch.fnmatch(norm, pattern) for pattern in EXCLUDED_GLOBS)
 
@@ -292,10 +306,11 @@ def user_facing_files(root: Path = REPO_ROOT) -> List[str]:
     found = [name for name in ROOT_USER_FACING if (root / name).is_file()]
     docs = root / "docs"
     if docs.is_dir():
-        for path in sorted(docs.rglob("*.md")):
-            relative = path.relative_to(root).as_posix()
-            if is_user_facing(relative):
-                found.append(relative)
+        for pattern in ("*.md", "*.svg"):
+            for path in sorted(docs.rglob(pattern)):
+                relative = path.relative_to(root).as_posix()
+                if is_user_facing(relative):
+                    found.append(relative)
     return sorted(found)
 
 

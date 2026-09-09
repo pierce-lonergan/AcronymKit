@@ -77,9 +77,15 @@ from collections.abc import Mapping
 from typing import Optional, Union
 
 from ..exceptions import ConfigurationError, LexiconError
-from .dictionary import GovernedDictionary, _remember
+from .dictionary import _IDENTIFIER_MEMO_LIMIT, GovernedDictionary, _remember
 from .enums import EntryKind, ExpansionSource, UnknownPolicy
-from .models import GovernedEntry, IdentifierExpansion, TokenExpansion
+from .models import (
+    GovernedEntry,
+    IdentifierExpansion,
+    TokenExpansion,
+    _new_identifier_expansion,
+    _new_token_expansion,
+)
 from .policy import NamingPolicy
 from .tokenizer import split_identifier_parts
 
@@ -202,16 +208,16 @@ def _empty_expansion(raw: str) -> TokenExpansion:
     Returns:
         The empty expansion.
     """
-    return TokenExpansion(
-        raw=raw,
-        long="",
-        is_known=False,
-        source=ExpansionSource.PASSTHROUGH,
-        entry_id=None,
-        confidence=0.0,
-        class_word=None,
-        beat=(),
-        kind=None,
+    return _new_token_expansion(
+        raw,
+        "",
+        False,
+        ExpansionSource.PASSTHROUGH,
+        None,
+        0.0,
+        None,
+        (),
+        None,
     )
 
 
@@ -233,12 +239,25 @@ def _expand(token: str, dictionary: GovernedDictionary, policy: NamingPolicy) ->
     * the key is the **surface** token, not the lookup key, because ``raw``
       reports the spelling that was given — ``txn`` and ``TXN`` resolve alike and
       do not expand alike; and
-    * a **passthrough is not remembered**. It is not an answer the vocabulary
-      gave, so caching it would key the memo by the caller's names rather than by
-      the catalog (see :class:`~acronymkit.governed.dictionary._Memo`), and it
-      would put a policy-dependent raise behind a lookup: ``UnknownPolicy.REJECT``
-      raises here rather than returning, and the one thing a cache must never do
-      is answer a question that was supposed to stop the pipeline.
+    * a **passthrough is remembered in a different map**. It is not an answer the
+      vocabulary gave, so its keys are the caller's names rather than the
+      catalog's and it needs its own bound; ``passed`` is that map, and
+      :class:`~acronymkit.governed.dictionary._Memo` says why the split is by
+      what bounds the key set rather than by what kind of answer it is. The
+      policy-dependent raise is not a hazard here, and the reason is mechanical:
+      ``UnknownPolicy.REJECT`` raises inside :func:`_passthrough` *before* there
+      is a record to remember, and a ``REJECT`` policy has a memo of its own
+      because ``unknown`` participates in ``NamingPolicy.__eq__``. This used to
+      say the opposite, and it was wrong on both halves — see the module
+      docstring of :mod:`~acronymkit.governed.dictionary`.
+
+    The two maps are disjoint for a fixed ``(dictionary, policy)``: the
+    dictionary is immutable after construction, so a token is either always
+    resolved or always passed through and no key can be in both. ``expanded`` is
+    consulted first because a catalog that answers is the configuration the level
+    was built for; on an empty catalog every token misses it and lands in
+    ``passed``, which is the configuration every published governed figure is
+    taken in.
 
     Two callers can now hold the same :class:`TokenExpansion` object rather than
     two equal ones. The models are frozen, so the only way to tell is ``is``.
@@ -255,27 +274,32 @@ def _expand(token: str, dictionary: GovernedDictionary, policy: NamingPolicy) ->
         LexiconError: If the token is unknown and ``policy.unknown`` is
             ``UnknownPolicy.REJECT``.
     """
-    memo = dictionary._memo(policy).expanded
-    remembered = memo.get(token)
+    memo = dictionary._memo(policy)
+    remembered = memo.expanded.get(token)
+    if remembered is not None:
+        return remembered
+    remembered = memo.passed.get(token)
     if remembered is not None:
         return remembered
     entry = dictionary.resolve(token, policy)
     if entry is None:
-        return _passthrough(token, dictionary, policy)
+        # _passthrough is evaluated first and raises under REJECT, so nothing is
+        # written for a policy that was supposed to stop the pipeline.
+        return _remember(memo.passed, token, _passthrough(token, dictionary, policy))
     winner = entry.canonical
     return _remember(
-        memo,
+        memo.expanded,
         token,
-        TokenExpansion(
-            raw=token,
-            long=winner,
-            is_known=True,
-            source=entry.source,
-            entry_id=entry.entry_id,
-            confidence=entry.confidence,
-            class_word=entry.class_word or dictionary.class_word_for(token),
-            beat=tuple(candidate for candidate in entry.candidates if candidate != winner),
-            kind=entry.kind,
+        _new_token_expansion(
+            token,
+            winner,
+            True,
+            entry.source,
+            entry.entry_id,
+            entry.confidence,
+            entry.class_word or dictionary.class_word_for(token),
+            tuple(candidate for candidate in entry.candidates if candidate != winner),
+            entry.kind,
         ),
     )
 
@@ -314,16 +338,16 @@ def _passthrough(
             "for it, supply it through custom=, or use a policy whose unknown handling "
             "is PASSTHROUGH_TITLECASE."
         )
-    return TokenExpansion(
-        raw=token,
-        long=_title_case(token),
-        is_known=False,
-        source=ExpansionSource.PASSTHROUGH,
-        entry_id=None,
-        confidence=0.0,
-        class_word=dictionary.class_word_for(token),
-        beat=(),
-        kind=EntryKind.PASSTHROUGH,
+    return _new_token_expansion(
+        token,
+        _title_case(token),
+        False,
+        ExpansionSource.PASSTHROUGH,
+        None,
+        0.0,
+        dictionary.class_word_for(token),
+        (),
+        EntryKind.PASSTHROUGH,
     )
 
 
@@ -578,15 +602,23 @@ def expand_identifier(
     """
     catalog, active = _prepare(dictionary, policy, custom, "expand_identifier")
     text = identifier or ""
+    memo = catalog._memo(active).identifiers
+    remembered = memo.get(text)
+    if remembered is not None:
+        return remembered
     parts = split_identifier_parts(text)
     tokens = _rejoin_digit_tokens(parts.tokens, catalog, active)
     expansions = tuple(_expand(token, catalog, active) for token in tokens)
-    return IdentifierExpansion(
-        identifier=text,
-        phrase=" ".join(expansion.long for expansion in expansions if expansion.long),
-        tokens=expansions,
-        class_word=expansions[-1].class_word if expansions else None,
-        is_fully_known=not parts.unaccounted
-        and all(expansion.is_known for expansion in expansions),
-        unaccounted=parts.unaccounted,
+    return _remember(
+        memo,
+        text,
+        _new_identifier_expansion(
+            text,
+            " ".join(expansion.long for expansion in expansions if expansion.long),
+            expansions,
+            expansions[-1].class_word if expansions else None,
+            not parts.unaccounted and all(expansion.is_known for expansion in expansions),
+            parts.unaccounted,
+        ),
+        _IDENTIFIER_MEMO_LIMIT,
     )

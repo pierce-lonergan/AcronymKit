@@ -784,6 +784,185 @@ survives a log file, a CI pane and a Windows console equally, and a process that
 paste it into a ticket. It is a view rather than a summary: every corpus-level count appears
 somewhere in it, and the only things truncated are the two ranked tables, which say so when they are.
 
+## The catalog gap: what no catalog-free method can reach
+
+The audit above needs a vocabulary. **This report needs none, and that is the point** — it is the
+one thing this subsystem can say to somebody who has a schema, has the labels their schema already
+carries, and does not yet have a glossary. Which is everybody, on day zero.
+
+```python
+from acronymkit.governed.gap import catalog_gap, render_gap
+
+schema = [("CUSTOMER_NAME",     "Customer Name"),
+          ("TXN_APPLNT_ID",     "Transaction Applicant Identifier"),
+          ("APPLNT_DT",         "Applicant Date"),
+          ("LEGAL_DESCRIPTION", "Property Legal Description")]
+
+gap = catalog_gap(schema)
+gap.reachable_columns, gap.unreachable_columns        # (1, 3)
+[(row.token, row.columns) for row in gap.head]
+# [('applnt', 2), ('dt', 1), ('id', 1), ('txn', 1)]
+gap.catalog_lookups                                   # 0
+```
+
+```bash
+acronymkit governed-gap schema.csv                    # identifier,label -- no --dictionary
+```
+
+### The derivation, which is why this is exact rather than probabilistic
+
+A catalog-free method emits, for an identifier, **exactly the characters that identifier carries**.
+It may re-cut them and re-case them; it may not invent one. So if the human wording of a column
+carries a character the identifier does not, no catalog-free method reaches that wording — not this
+library's, not a better one, not one nobody has written yet.
+
+That is a statement about what a method can emit rather than a measurement of how often one is
+right, and it is the same argument
+[`docs/POSITIONING.md`](POSITIONING.md#reversal-one-the-lead-is-wrong-if-a-catalog-is-worth-nothing-on-a-real-schema)
+makes when it calls the empty catalog's zero on abbreviated token positions *a derivation and not a
+result*. It does not soften with a bigger model, and it is the only claim in this package that gets
+stronger the further you generalise it.
+
+Two statements come out of it and **they are not equally strong**, which the report says on its own
+face rather than in a footnote:
+
+- **The column-level verdict is exact and assumes nothing.** Compare the case-folded alphanumeric
+  stream of the identifier with the label's. Different, and the label is unreachable. A property of
+  two strings.
+- **The token-level attribution is a necessary condition only.** A token that is not a whole word of
+  the label is individually sufficient to make that label unreachable — exact. The converse is not:
+  a label can be unreachable with *every* token present, because it simply says more than the
+  identifier does (`LEGAL_DESCRIPTION` → *Property Legal Description*). Those columns carry no work
+  item at all and are counted apart.
+
+### The shape of a real schema
+
+`bench/run_catalog_gap.py` runs it over the cached Socrata portal population, run ids
+`catalog_gap.socrata.*`.
+
+| | |
+|---|---|
+| columns (distinct identifiers) | 69,682<!--claim:catalog_gap.socrata.census.columns:,d--> |
+| distinct tokens | 24,536<!--claim:catalog_gap.socrata.census.distinct_tokens:,d--> |
+| reachable columns | 53,840<!--claim:catalog_gap.socrata.census.reachable_columns:,d--> |
+| **unreachable columns** | **15,842<!--claim:catalog_gap.socrata.census.unreachable_columns:,d-->** |
+|   of those, a token to write is named | 11,990<!--claim:catalog_gap.socrata.census.attributed_columns:,d--> |
+|   of those, the label just says more | 3,852<!--claim:catalog_gap.socrata.census.unattributed_columns:,d--> |
+| tokens that never break a label | 19,673<!--claim:catalog_gap.socrata.census.reachable_tokens:,d--> |
+| **tokens that break at least one** | **4,863<!--claim:catalog_gap.socrata.census.unreachable_tokens:,d-->** |
+| catalog lookups performed | 0<!--claim:catalog_gap.socrata.census.catalog_lookups:,d--> |
+
+The last row is not decoration. It is what *needs no catalog* means in work rather than in prose,
+and a later change that quietly started consulting one would move it before it moved anything a
+reader would notice.
+
+**The head is concentrated.** The twenty highest-ranked tokens cover
+55.55<!--claim:catalog_gap.socrata.census.head_coverage_pct:.2f--> % of the
+11,990<!--claim:catalog_gap.socrata.census.work_list_columns:,d--> columns that carry a work item at all —
+twenty rows of a glossary against more than half of the columns a work list can touch. **Read that
+denominator**: it is the attributed columns and not the
+15,842<!--claim:catalog_gap.socrata.census.unreachable_columns:,d--> unreachable ones, because a
+column with no work item cannot be covered by any number of catalog rows. Against the whole
+unreachable population the same twenty tokens reach
+6,661<!--claim:catalog_gap.socrata.census.head_columns:,d--> of it, which is the figure to quote if
+somebody asks what share of the gap twenty rows would close.
+
+**And on this corpus the head is debris, which was on nobody's list.**
+15<!--claim:catalog_gap.socrata.census.head_single_character:,d--> of those twenty tokens are single
+characters and 9<!--claim:catalog_gap.socrata.census.head_without_letter:,d--> carry no letter at all.
+They are fragments of machine-generated identifiers — Socrata's `:@computed_region_92fq_4b7q` names
+tokenise into exactly this — and **no catalog row would fix any of them.** The concentration is real
+and it is not a work list. The report counts them and prints the count above the table, because a
+reader who acts on the ranking without reading that line will write twenty rows that clear nothing.
+
+Restricting to tokens of two or more characters that carry a letter
+(`--min-token-length 2 --require-letter`, run id `catalog_gap.socrata.letters_min2`) produces a head
+a governance function could act on — `calc`, `computed`, `region`, `pct`, `pwr`, `num`, `desc` — and
+it costs a great deal: coverage falls to
+22.30<!--claim:catalog_gap.socrata.letters_min2.head_coverage_pct:.2f--> % and the share of unreachable
+columns with no work item at all rises from
+24.32<!--claim:catalog_gap.socrata.census.unattributed_pct:.2f--> % to
+56.86<!--claim:catalog_gap.socrata.letters_min2.unattributed_pct:.2f--> %. **The filters are off by
+default**, because a report that silently dropped part of its input would be the failure this
+subsystem exists to refuse; the trade is published so a caller chooses it rather than inherits it.
+
+### The assumption in the ranking, priced rather than hedged
+
+The table is ordered by how many columns each token clears, which is the cheapest first move **if**
+what a governance function wants is coverage per row written. **This project has never had a
+governance function to ask** — [`docs/SOURCING.md`](SOURCING.md#0-the-premise-measured-there-is-no-inbound-lead)
+measures that there is no inbound adopter at all — so that is a guess about users and not a finding
+about them.
+
+So the report computes what a greedy set cover of the same budget would have reached on the caller's
+own data and prints both. On Socrata the cover reaches
+57.57<!--claim:catalog_gap.socrata.census.greedy_coverage_pct:.2f--> % against the ranking's
+55.55<!--claim:catalog_gap.socrata.census.head_coverage_pct:.2f--> %, so the assumption costs
+2.02<!--claim:catalog_gap.socrata.census.ranking_cost_points:.2f--> points there. On the SEC XBRL
+population it costs 6.17<!--claim:catalog_gap.sec_xbrl.census.ranking_cost_points:.2f-->. Both are small,
+and the number rather than the adjective is what ships: on somebody else's schema it may not be.
+
+### Two arms that exist to stop this report being read as more than it is
+
+**The label-free classifier was tried, measured and rejected.** Deciding from the token alone
+whether it is a word — against the English word list this package already ships — would remove the
+requirement for labels entirely. Scored over the same population it calls
+16,340<!--claim:catalog_gap.socrata.word_list_control.called_unreachable:,d--> tokens unreachable, and
+12,724<!--claim:catalog_gap.socrata.word_list_control.false_positives:,d--> of those
+(77.87<!--claim:catalog_gap.socrata.word_list_control.false_positive_pct:.2f--> %) appear verbatim as a
+whole word in a caption, so they were reachable and the classifier was wrong about them. The causes
+are structural rather than tunable — other languages, ordinals, domain vocabulary, concatenations.
+**So `acronymkit.governed.gap` imports no lexicon**, and a column with no label is reported as
+unlabelled rather than guessed at. Run id `catalog_gap.socrata.word_list_control`, verdict
+`REJECTED`. That arm can refute the classifier and cannot confirm it, which is stated on the entry.
+
+**The label-word rule is Unicode-aware, and the alternative is not a stylistic choice.**
+`tools/byoc_eval.py` splits on ASCII runs, so `Número` becomes `n` and `mero` and an identifier
+written `n_mero` looks fully accounted for. Scored against each other on the same population
+(`catalog_gap.socrata.label_word_rule`) the ASCII rule reports
+32.51<!--claim:catalog_gap.socrata.label_word_rule.ascii_unattributed_pct:.2f--> % of unreachable columns as
+carrying no work item against the Unicode rule's
+24.32<!--claim:catalog_gap.socrata.label_word_rule.unicode_unattributed_pct:.2f--> % — a difference of
+8.19<!--claim:catalog_gap.socrata.label_word_rule.rule_difference_points:.2f--> points, invisible in the
+output and not small.
+
+### It composes with the bring-your-own-catalog kit, and that is checked
+
+One CSV, two questions. `acronymkit governed-gap` says **what a glossary would have to contain**;
+[`tools/byoc_eval.py`](../tools/byoc_eval.py) says **what one is worth** once it exists. They read
+the same two columns and de-duplicate on the same rule, so the denominators agree:
+`catalog_gap.socrata.byoc_agreement` runs both implementations over the same population and the
+kit's `pairs_where_label_expands` is
+15,842<!--claim:catalog_gap.socrata.byoc_agreement.byoc_pairs_where_label_expands:,d--> against this report's
+15,842<!--claim:catalog_gap.socrata.byoc_agreement.gap_unreachable_columns:,d-->. That agreement is a test in
+`tests/test_catalog_gap.py` as well as a benchmark arm, because it is a claim about two
+implementations rather than about one.
+
+### How this fails
+
+**It is a report, not accuracy.** No headline moves. Anyone measuring this project's progress in F1
+will read the whole of this section as a demotion, and they are reading it correctly: nothing here
+makes an expansion more likely to be right.
+
+**It presumes token-frequency ranking is what a governance function wants.** That is an assumption
+about users this project has never had, priced above and not eliminated. A team that has to clear
+whole tables rather than whole tokens wants a different ordering, and this report does not offer one.
+
+**It needs labels, and a schema without them gets almost nothing.** `unlabelled_columns` is reported
+rather than guessed at, which is the right refusal and is still a refusal: for a schema whose columns
+carry no human wording at all, this report can say only how many tokens there are.
+
+**The attribution is a necessary condition and the residue is a quarter of the gap.**
+24.32<!--claim:catalog_gap.socrata.census.unattributed_pct:.2f--> % of unreachable Socrata columns carry no
+work item, and no amount of catalog writing closes them, because the label says something the
+identifier never encoded. A reader who takes the ranked table for the whole of the gap is reading
+past that number.
+
+**And the corpus behind every figure here is a portal catalog, not a governed schema.** Socrata
+captions are what a publisher typed for a web page. The standing unknown in
+[`docs/POSITIONING.md`](POSITIONING.md#it-requires-a-real-proprietary-glossary-and-this-project-does-not-have-one)
+is unchanged by anything on this page: nobody has run this over a schema somebody actually governs.
+
 ## From another process
 
 The consumer this subsystem was built for is a schema-governance pipeline written in another
@@ -1018,8 +1197,8 @@ Four claims, each with the test that carries it. Every example below was run aga
 | Invariant | The statement | Test that carries it, in `tests/test_governed.py` |
 |---|---|---|
 | **Round trip** | Expanding an identifier and rendering the phrase back yields the identifier's governed normal form. | `::test_the_round_trip_lands_on_the_governed_correction`, guarded by `::test_the_corpus_exercises_both_halves_of_the_round_trip` |
-| **Idempotence** | `normalize(normalize(x)) == normalize(x)`, for every ASCII `x`, every policy **and every catalog**. Two premises hold it up — a token upper-cased splits back to itself, and a rejoined token splits back to the pieces it was joined from — and the first is false outside ASCII. The section below says where, and why the catalog is a dimension of the claim rather than a detail of the fixture. | `::test_normalize_is_idempotent_under_every_policy` and `::test_normalize_is_idempotent_over_catalog_shapes`, with `tests/test_governed_edge_cases.py::test_an_ascii_token_upper_cased_splits_back_to_exactly_itself` carrying the first premise and `::test_a_join_that_would_make_one_longer_number_is_refused` the second |
-| **Length is a flag** | No policy or argument shortens a name or drops a token — **and `normalize` is an exception this row used to deny.** A character the tokenizer cannot account for is dropped silently: `normalize('TXN_©_ID')` returns `'TXN_ID'` and `normalize('㎡')` returns `''`, a whole name gone with no signal. That is a real defect in the subsystem whose thesis is refusing rather than dropping, it is **not fixed here**, and it is not the same path as `expand_identifier`, which reports the same character through `unaccounted`. | `::test_no_policy_produces_a_shorter_token_list_than_any_other`, `::test_an_over_long_name_is_flagged_and_returned_whole`, `::test_an_unabbreviated_word_is_upper_cased_and_never_clipped` |
+| **Idempotence** | `normalize(normalize(x)) == normalize(x)` **wherever the first call returns**, for every policy **and every catalog**. Two premises hold it up — a token upper-cased splits back to itself, and a rejoined token splits back to the pieces it was joined from. The alphabet is gone from the statement because the input class it was excluding is now refused rather than half-answered; one break in the first premise survives outside ASCII and the section below carries it, unfixed. | `::test_normalize_is_idempotent_under_every_policy` and `::test_normalize_is_idempotent_over_catalog_shapes`, with `tests/test_governed_edge_cases.py::test_an_ascii_token_upper_cased_splits_back_to_exactly_itself` carrying the first premise, `::test_a_join_that_would_make_one_longer_number_is_refused` the second, and `::test_normalize_is_idempotent_over_arbitrary_ascii` drawing rather than fixturing |
+| **Length is a flag** | No policy, argument or code path shortens a name or drops a token — **and this row admitted an exception to that for one round rather than fixing it.** `normalize('TXN_©_ID')` returned `'TXN_ID'` and `normalize('㎡')` returned `''`: a token gone, then a whole name gone, with no signal either time. Fixed. `normalize` **refuses** such a name, `is_compliant` **reports** it as `UNREADABLE_CHARACTER` with no fix, and `to_physical_name` **reports** it on `PhysicalName.unaccounted`. The section below carries the shape of each answer and the measured price of the refusal. | `::test_no_policy_produces_a_shorter_token_list_than_any_other`, `::test_an_over_long_name_is_flagged_and_returned_whole`, `::test_an_unabbreviated_word_is_upper_cased_and_never_clipped`, and in `tests/test_governed_edge_cases.py` `::test_normalize_refuses_rather_than_return_the_name_with_the_character_gone`, `::test_the_compliance_direction_now_carries_the_accounting`, `::test_no_governed_verb_reading_a_name_discards_a_character_in_silence` |
 | **Governed hit is final** | A token the vocabulary contains resolves from the vocabulary under every policy. | `::test_policy_contrast_golden`, over `tests/fixtures/governed/golden/policy_contrast.jsonl`; the unknown half is `::test_a_held_out_token_is_reported_unknown_rather_than_approximated` |
 
 ### Round trip
@@ -1102,17 +1281,46 @@ consecutive digits are one run — so nothing that refusal removes was ever a re
 package introduced. The invariant is tested over catalog shapes as well as over names, with the
 nesting catalog above among them.
 
-It is **false outside ASCII**, and that limit is real rather than an oversight. `str.upper` is not
-length-preserving and can produce characters that are not letters at all:
+**The ASCII qualifier used to be carrying a data loss, and it is not any more.** `str.upper` is not
+length-preserving and can produce characters that are not letters at all, and the old behaviour
+returned that string and then deleted the surplus on the next pass:
 
 ```python
-normalize("ΐ", nds)                    # 'Ϊ́'  — one letter upper-cases to a letter and two marks
-normalize(normalize("ΐ", nds), nds)    # 'Ι'  — the marks are unaccounted, so the second pass drops them
+normalize("ΐ", nds)                    # was 'Ϊ́'  — one letter upper-cases to a letter and two marks
+normalize(normalize("ΐ", nds), nds)    # was 'Ι'  — the marks are unaccounted, so the second pass dropped them
+normalize("ΐ", nds)                    # now raises TokenizationError, naming U+0308 and U+0301
 ```
 
-Fixing it would mean either applying Unicode normalisation, which rewrites text and is exactly what
-the splitter refuses to do, or declining to upper-case a word. Both are worse than saying where the
-invariant stops, so the exception is pinned by a test of its own next to the property.
+Nothing about Unicode changed and nothing was repaired. Unicode normalisation still rewrites text and
+the splitter still refuses to do it; declining to upper-case a word is still worse. What changed is
+that `normalize` now refuses a *corrected* name carrying an unaccounted character exactly as it
+refuses an input carrying one — because a value it returns has to be a value it accepts, or it is not
+a normal form. The invariant reads *wherever the first call returns, the second returns the same
+string*, and it no longer needs an alphabet in it.
+
+**One non-ASCII break survives, it is a different defect, and it is not fixed.** An unrestricted
+Hypothesis draw over `normalize` — the first this project has run, the shipped property being
+ASCII-only — found it immediately:
+
+```python
+normalize("ºa", nds)                   # 'ºA'
+normalize(normalize("ºa", nds), nds)   # 'º_A'   — and 'º_A' thereafter
+```
+
+U+00BA MASCULINE ORDINAL INDICATOR answers `str.islower()` with `True` and `str.upper()` with
+*itself*, so upper-casing the token `ºa` leaves a lower-case character in front of a newly upper-case
+one — a camelCase boundary, which the splitter duly places on the second pass. This is the same class
+as the `1sT` break: a token that does not survive being upper-cased. It is **not** the defect this
+round fixed and is not caused by it — the same three values come back from the tree before the change
+— and **no character is lost**, so refusing would be refusing a name that lost nothing. The only
+other repair is a splitting change, which is a behaviour change across every identifier in both
+corpora and owes its own byte-identity pass. Reported, pinned by a test, and left open.
+
+Its size is bounded and its incidence is measured: `1050` code points are lower-case and stay
+lower-case under `str.upper`, and every one breaks the premise the same way. Distinct strings
+carrying one, across the four published populations: `0` Socrata field names, `0` SEC XBRL element
+names, `0` SEC XBRL labels, `12` Socrata captions. `normalize` reads physical names, so the incidence
+on what this verb is handed is zero.
 
 ### Length is a flag, never a truncation
 
@@ -1141,6 +1349,120 @@ constant rather than evidence. This package writes it, and this package writes i
 The `EXCEEDS_MAX_LENGTH` finding offers the governed rewrite as its `fix`, and only when that rewrite
 happens to fit. It never offers a name with a token removed, because no code path here can produce
 one.
+
+### A character no token can hold — the defect this row denied, and the fix
+
+Every sentence above is about the *length* rule. Read as a statement about the subsystem — which is
+how the row was written and how it was read — it was false, and the counter-example was two lines
+long:
+
+```python
+normalize("TXN_©_ID", GovernedDictionary({}))   # was 'TXN_ID'   — the © is U+00A9
+normalize("㎡",       GovernedDictionary({}))   # was ''         — the character is U+33A1
+```
+
+A token vanished, then a whole name vanished, with no signal either time, in the subsystem whose
+thesis is that an unknown reported as unknown is recoverable and an unknown quietly answered is not.
+`is_compliant` was worse rather than better: it reported the first as `NOT_UPPER_SNAKE` — true, and
+about the wrong thing — and attached `fix='TXN_ID'`, a machine-readable instruction to delete the
+character; and it reported the second as `EMPTY_NAME`, whose detail reads *"it is empty, or holds
+only separators"*, which is a false statement about a name that is one character long.
+
+**Nothing new was invented to fix it.** `expand_identifier` had been reporting the same characters on
+`IdentifierExpansion.unaccounted` since the tokenizer was written. Two call sites — `compliance
+._prepare`, which serves `normalize` and `is_compliant` both, and `naming.to_physical_name` — called
+the lossy `split_identifier` where the lossless `split_identifier_parts` was one word away.
+
+**The shape of each answer follows from what the verb returns, and the split between refusing and
+reporting is a measurement rather than a taste.**
+
+| verb | returns | answer |
+|---|---|---|
+| `expand_identifier` | a record | reports, on `unaccounted` — unchanged, it always did |
+| `is_compliant` | a record | reports, `ComplianceReasonCode.UNREADABLE_CHARACTER`, **no fix**, and no other whole-name finding may carry one either |
+| `to_physical_name` | a record | reports, on the new `PhysicalName.unaccounted` |
+| `normalize` | a bare `str` | **raises `TokenizationError`** — there is no field on a `str`, and every string it could return has the character deleted |
+
+`normalize` reads physical names and `to_physical_name` reads logical ones, and those two populations
+differ by two orders of magnitude in how often the condition fires. That is why one refuses and the
+other does not:
+
+```
+distinct strings carrying a character no token can hold, by population.
+DERIVED from data/governed_gold/*.json through split_identifier_parts; no judgement applied.
+Run by this workstream; the probe is a scratch script and is NOT committed, so the figures are
+re-derivable from the four lines of code below and are not gated by CI.
+
+  from acronymkit.governed.tokenizer import split_identifier_parts
+  vals = sorted({row[COLUMN] for row in json.load(open(PATH))["payload"]})
+  hits = [v for v in vals if split_identifier_parts(v).unaccounted]
+
+  population                       distinct   carrying         %      what normalize reads
+  socrata  field name                69,682        325    0.4664      yes
+  socrata  caption                   75,689     11,093   14.6560      no  (to_physical_name)
+  sec_xbrl element name              68,038          0    0.0000      yes
+  sec_xbrl label                     72,430     26,080   36.0072      no  (to_physical_name)
+
+  and per row rather than per distinct value, which is the denominator a batch actually meets
+  socrata  field name  2,041 of 155,272 = 1.3145 %      caption 18,390 = 11.8437 %
+  sec_xbrl element name    0 of  90,655 = 0.0000 %      label   31,130 = 34.3390 %
+```
+
+**All 325 Socrata field-name hits are one pattern.** Every one begins `:@computed_region_` — the
+portal's own system-computed region columns, where `:` and `@` are Socrata's namespace marker. Not
+one other physical identifier in either corpus carries such a character. So the price of the refusal
+on real physical names is a single, recognisable, portal-generated family; the price of a refusal on
+*captions* would have been a third of the SEC XBRL walk, over parentheses and commas somebody's label
+was always going to have.
+
+**The R19 byte-identity pass.** The whole of both corpora, every distinct value of every column,
+under three policies, before the change and after, compared field by field:
+
+```
+R19 identity: 4 populations x 3 policies (governed_default, strict_length, frequency_baseline),
+every distinct value, normalize + is_compliant + to_physical_name, all fields.
+Run by this workstream; the harness is a scratch script and is NOT committed.
+
+  records compared                      857,517
+  records exercising the defect         112,494   (13.1186 %)
+  records that moved                    112,494
+  records that moved WITHOUT
+    exercising the defect                     0   <-- the surgical claim
+
+  fields that moved            normalize result, its exception, the compliance reasons,
+                               and PhysicalName.unaccounted
+  fields that NEVER moved      PhysicalName.physical, .confidence, .truncated, .tokens;
+                               ComplianceResult.compliant, .class_word, .ends_in_class_word
+
+  and the compliance reasons decomposed, with no residue
+    111,827  UNREADABLE_CHARACTER added; NOT_UPPER_SNAKE's fix cleared
+       661   the same, plus EXCEEDS_MAX_LENGTH's fix cleared
+         6   EMPTY_NAME replaced by UNREADABLE_CHARACTER
+         0   any other shape of change
+```
+
+**`compliant` never moves, and that is a case analysis before it is a measurement.** A character no
+token can hold is neither a digit nor a non-lower-case letter, so `_is_upper_snake` was already false
+for every name carrying one, so every such name already failed on `NOT_UPPER_SNAKE`. The new finding
+cannot flip a verdict; it can only say what the old one was about. The measurement confirms it on
+857,517 records rather than resting on the argument.
+
+**Two things the corpora could not exercise, checked on purpose.** The `MISSING_CLASS_WORD`
+suggestion is guarded on the vocabulary governing `VAL`, and every published governed figure is taken
+with an empty catalog, so that fix was `None` on all 857,517 records for a reason unrelated to this
+change — a rule that could not fire where it ran. `tests/test_governed_edge_cases.py::
+test_no_whole_name_fix_survives_that_would_delete_the_character` builds a catalog that does govern
+`VAL` and turns on both other policies, so all three fixes are live and all three are suppressed.
+Second: the output-side refusal, which fires when `str.upper` manufactures an unaccounted character.
+Across the four populations, the number of clean-input strings whose corrected form manufactures one
+is **`0` of `248,341`** — it is a guard against a shape that exists rather than a tax on one that
+occurs, and it costs one `str.isascii` per call.
+
+**What is not fixed.** `is_compliant` still emits no finding at all for a token holding no letters —
+the `1` and `2` of `ADDR_LINE_1_TXT` — which is a reporting gap the module docstring already records,
+and no character is lost to it. And the CLI's `check-name` and `normalize` commands were not this
+workstream's to edit: `acronymkit expand` prints an `Unaccounted` row and the other two do not, so a
+character reported by the library is not yet surfaced by every command that could surface it.
 
 ### Governed hit is final
 

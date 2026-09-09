@@ -919,16 +919,23 @@ class TestTheRegisterThisRepositoryShips:
         assert {d.id for d in manifest.defects} == {"a", "b", "c", "d", "e"}
 
     def test_the_measured_coverage_totals_are_what_the_docs_say(self) -> None:
-        # 4 of 5 for build's extracted tree, 2 of 5 for installed-suite,
-        # re-measured 2026-08-24 rather than copied from D-050. If a gate is
-        # renamed or a row is edited, this is what says the published totals
-        # moved.
+        # 5 of 5 for build's extracted tree, 2 of 5 for installed-suite,
+        # re-measured on a runner -- run 34099756605, 2026-09-07, replicated by
+        # run 33379084166 -- rather than copied from D-050.
+        #
+        # IT WAS 4 AND THIS TEST IS WHAT SAID SO. The extracted tree gained
+        # breakage `b` because the heredoc extraction added
+        # tests/test_gate_scripts.py, which asserts
+        # `gate_sdist_files.missing(REPO_ROOT) == []` -- and inside an extracted
+        # sdist REPO_ROOT is the artifact. Nobody designed that; the runner's
+        # table found it and this assertion is what refused to let the register
+        # be edited quietly around it.
         manifest = gates.load(GATES)
 
         def caught(gate: str) -> int:
             return sum(1 for d in manifest.defects if gate in d.caught_by)
 
-        assert caught("sdist_extracted_tree_suite") == 4, "build's extracted tree"
+        assert caught("sdist_extracted_tree_suite") == 5, "build's extracted tree"
         assert caught("installed_expected_non_passing") == 2, "installed-suite"
         assert caught("sdist_file_list") == 2, "the test -f lines"
         # Every row classifies every one of the three, in one direction or the
@@ -1438,6 +1445,84 @@ class TestWithdrawingEvidence:
         forgotten = dataclasses.replace(owed, owed_forward=0)
         problems = gates.in_situ_problems(manifest, (forgotten,), top_ranks=1)
         assert any("by cost-if-inert" in p for p in problems), problems
+
+    def test_a_newly_added_top_ranked_gate_is_allowed_only_with_attribution(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # THE TOP-OF-RANKING RULE HAD THE SAME HOLE THE DEBT RULE HAD, POINTED
+        # THE OTHER WAY. The commit that ADDS a gate cannot hold the CI run that
+        # demonstrates it, so a correctly-ranked new gate was unregisterable and
+        # the only way to land one was to rank it dishonestly low -- which is a
+        # worse outcome than the rule was preventing, and is exactly the shape
+        # of the waiver that could never fire.
+        import dataclasses
+
+        manifest = self._manifest(write, gate_count=10, evidenced=0)
+        added = gates.InSituRound(
+            label="only",
+            gates=10,
+            in_situ=0,
+            added_gates=("g0",),
+            owed_forward=1,
+            waiver="the run that lands this commit is the run that demonstrates it",
+        )
+        assert not any(
+            "by cost-if-inert" in p for p in gates.in_situ_problems(manifest, (added,), top_ranks=1)
+        )
+
+        # ...and only WITH the attribution. Each half of it is load-bearing.
+        for broken in (
+            dataclasses.replace(added, owed_forward=0),
+            dataclasses.replace(added, waiver=""),
+            dataclasses.replace(added, added_gates=()),
+        ):
+            assert any(
+                "by cost-if-inert" in p
+                for p in gates.in_situ_problems(manifest, (broken,), top_ranks=1)
+            ), broken
+
+    def test_naming_an_added_gate_that_does_not_exist_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        manifest = self._manifest(write, gate_count=10, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(
+                    label="only",
+                    gates=10,
+                    in_situ=5,
+                    added_gates=("ghost",),
+                    owed_forward=1,
+                    waiver="said so",
+                ),
+            ),
+            top_ranks=0,
+        )
+        assert any("no such gate in this register" in p for p in problems), problems
+
+    def test_naming_an_added_gate_that_already_has_evidence_is_refused(
+        self, write: Callable[[str], object]
+    ) -> None:
+        # The mirror of the withdrawal check. Without it, a round could claim a
+        # forward debt for a gate whose evidence was already in the register --
+        # a promise to do work already done, which reads as a payment next round.
+        manifest = self._manifest(write, gate_count=10, evidenced=5)
+        problems = gates.in_situ_problems(
+            manifest,
+            (
+                gates.InSituRound(
+                    label="only",
+                    gates=10,
+                    in_situ=5,
+                    added_gates=("g0",),
+                    owed_forward=1,
+                    waiver="said so",
+                ),
+            ),
+            top_ranks=0,
+        )
+        assert any("already carries a verified_in_situ_run" in p for p in problems), problems
 
     def test_a_promise_owed_forward_has_a_due_date(self, write: Callable[[str], object]) -> None:
         # `owed_forward` is a promise that the next CI run takes the evidence.

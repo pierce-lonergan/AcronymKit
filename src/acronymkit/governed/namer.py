@@ -549,6 +549,14 @@ class GovernedNamer:
             The name with the corrections the vocabulary justifies applied. It
             is not a promise of compliance — run :meth:`is_compliant` on the
             result to see what is left.
+
+        Raises:
+            TokenizationError: If ``name`` holds a character that belongs to no
+                token and is not one of the separators the splitter accounts
+                for. The refusal is passed straight through rather than caught:
+                a facade that swallowed it would put back exactly the silence
+                the underlying verb was changed to break. :meth:`is_compliant`
+                is the non-raising pre-check.
         """
         return _normalize(name, self._dictionary, self._policy)
 

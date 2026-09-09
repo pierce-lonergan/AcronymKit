@@ -334,6 +334,21 @@ class InSituRound:
             adding such a gate raises the debt and the rise was refused before
             any waiver was consulted. This is the attribution that makes it
             reachable, and :func:`in_situ_problems` puts a due date on it.
+        added_gates: Gates this round ADDED at or above
+            :data:`TOP_RANKS_REQUIRING_IN_SITU`, by name. **The top-of-ranking
+            rule had the same hole the debt rule had, pointed at new work
+            instead of at retired work.** That rule is not waivable, on purpose:
+            demonstrating whichever gates were easiest and calling it coverage
+            is the failure this register exists to end. But the commit that
+            ADDS a high-ranking gate cannot also hold the CI run that
+            demonstrates it, so a correctly-ranked new gate was unregisterable
+            -- and the only way to land one was to rank it dishonestly low,
+            which is worse than the rule was trying to prevent. This is the
+            attribution that makes it landable: the gate is named, the round
+            owes it forward, and the next round's due-date check asks whether
+            the promise was kept. Every name is checked against the live
+            register, and a gate named here that already carries evidence is
+            refused -- the mirror of the same check on ``withdrawn_gates``.
         note: What moved, and what it cost.
     """
 
@@ -345,6 +360,7 @@ class InSituRound:
     waiver: str = ""
     withdrawn_gates: Tuple[str, ...] = ()
     owed_forward: int = 0
+    added_gates: Tuple[str, ...] = ()
     note: str = ""
 
     @property
@@ -424,6 +440,76 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
             "costing: extraction alone left it inert in its own environment, because that job "
             "installs non-editably, and it needed a new `setup` field to be demonstrable at "
             "all."
+        ),
+    ),
+    InSituRound(
+        label="M3-PB (the harvest that was sitting in the Actions tab)",
+        gates=36,
+        in_situ=16,
+        run="34099756605",
+        commit="34925f8",
+        note=(
+            "THE FOUR OWED FORWARD WERE PAID BY A RUN NOBODY HAD READ. M3-PA promised "
+            "that gate-mutation.yml would take the evidence for suite, "
+            "schema_copies_match, tier_zero_purity and import_ceiling on the push that "
+            "landed it. It did -- twice -- and the register went on printing `12 of 36` "
+            "for a fortnight. Run 34099756605 (2026-09-07, ubuntu-latest, CPython 3.12) "
+            "at commit 34925f8, which IS the commit this round starts from, returned "
+            "`demonstrated` for all 16 automated gates with zero INERT and zero "
+            "UNRESTORED, and run 33379084166 (2026-08-31, same commit, a different "
+            "weekly runner image) replicates it gate for gate. suite's verdict is the "
+            "one that matters: 34925f8 is the commit that SHIPPED "
+            "expect_failure_matching, so its DEMONSTRATED could only be reached by the "
+            "gate's own output containing the name of the test that must fail -- which "
+            "is precisely what the withdrawn record could not establish. Every one of "
+            "the 12 older stamps was re-stamped to the same run rather than left at "
+            "2026-08-25/3173126, because the newer run demonstrates them at HEAD and a "
+            "stamp seven commits behind is the staleness --evidence-provenance exists "
+            "to report. debt 24 -> 20, quota 3, paid 4. NOT A NEW MEASUREMENT: this "
+            "round ran no mutation of its own on a runner and could not. What it did "
+            "was read the log, which is the failure mode docs/GATES.md named -- 'a "
+            "scheduled workflow whose artifacts nobody harvests is indistinguishable "
+            "from one that never ran' -- and nothing here closes that for the NEXT "
+            "round either."
+        ),
+    ),
+    InSituRound(
+        label="M3-PB (the two gates the siblings handed over)",
+        gates=38,
+        in_situ=16,
+        owed_forward=2,
+        added_gates=("figures", "memo_identity"),
+        waiver=(
+            "TWO GATES ARRIVED AND NEITHER CAN CARRY EVIDENCE IN THE COMMIT THAT CREATES "
+            "IT. gates.figures is `python tools/render_figures.py --check` (R16: the claims "
+            "gate reads markdown, Python and one TOML file and cannot read an SVG, so a "
+            "number baked into a chart is unchecked). gates.memo_identity is `python "
+            "tools/gate_memo_identity.py` (R19: full-corpus byte-identity of every "
+            "provenance field, memo forced on against memo forced off). Both are "
+            "`automated` with a declared mutation and both are runnable on a runner today, "
+            "so both are a debt rather than a limit -- debt 20 -> 22, under the ceiling of "
+            "24 and still below where M3-PA left it. gate-mutation.yml triggers on "
+            ".github/gates.toml, .github/workflows/*.yml and tools/gates.py, all three of "
+            "which this commit touches, so the run that lands this work is the run that "
+            "owes the two demonstrations. THE TOP-OF-RANKING RULE HAD THE SAME HOLE THE "
+            "DEBT RULE HAD: gates.figures is (published_numbers, silent, sole), the same "
+            "factors as claims and splits_manifest, so the ordering validator puts it at "
+            "rank 3 -- and the top-3 rule is not waivable, so the only way to land a "
+            "correctly-ranked new gate was to rank it dishonestly low, which is worse than "
+            "the rule was preventing. `added_gates` is the attribution that makes it "
+            "landable and the due-date check is what makes it a promise. THE THIRD ENTRY "
+            "DID NOT ARRIVE: a second R19 byte-identity gate was expected from another "
+            "workstream and no script for it exists in this tree, so it is not registered "
+            "and is not counted."
+        ),
+        note=(
+            "Registration, not demonstration. 36 -> 38 gates, in-situ unchanged at 16, "
+            "debt 20 -> 22. The two scripts were written by other workstreams and this one "
+            "owns only the register entry, the ci.yml step and the rank -- which is why "
+            "gates.figures declares a literal `expect_failure_matching` rather than "
+            "`module.FAILURE_MARKER`: tools/render_figures.py has no such constant, and "
+            "tests/test_gate_scripts.py pins the literal against the script's source so the "
+            "two copies cannot drift in silence."
         ),
     ),
 )
@@ -1352,6 +1438,21 @@ def in_situ_problems(
                 "evidence or delete the withdrawal; one of the two is wrong."
             )
 
+    for name in last.added_gates:
+        gate = manifest.gates.get(name)
+        if gate is None:
+            problems.append(
+                f"  IN_SITU_TRAJECTORY[{last.label!r}] names {name!r} as a gate it added, "
+                "and there is no such gate in this register."
+            )
+        elif gate.mutation.has_in_situ_evidence:
+            problems.append(
+                f"  IN_SITU_TRAJECTORY[{last.label!r}] names {name!r} as a newly added gate "
+                "whose demonstration is owed forward, and the register already carries a "
+                "verified_in_situ_run for it. The debt was already paid; drop the name, or "
+                "the round is claiming credit for work it did not owe."
+            )
+
     for gate in manifest.by_cost():
         if gate.cost_rank <= top_ranks and not gate.mutation.has_in_situ_evidence:
             # A WITHDRAWAL AT THE TOP OF THE RANKING IS THE CASE THIS RULE WAS
@@ -1361,6 +1462,13 @@ def in_situ_problems(
             # evidence unsound is unsayable. Naming it in `withdrawn_gates`
             # says it out loud, and `owed_forward` puts a due date on it.
             if gate.name in last.withdrawn_gates and last.owed_forward:
+                continue
+            # THE SAME ESCAPE FOR A GATE THAT ARRIVED RATHER THAN LEFT. A
+            # correctly-ranked new gate cannot carry evidence in the commit
+            # that creates it, and refusing it there does not produce evidence
+            # -- it produces a gate ranked dishonestly low. Attribution plus a
+            # due date, exactly as for a withdrawal.
+            if gate.name in last.added_gates and last.owed_forward and last.waiver:
                 continue
             problems.append(
                 f"  gates.{gate.name} ranks {gate.cost_rank} of {live_gates} by cost-if-inert "

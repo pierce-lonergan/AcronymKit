@@ -294,3 +294,155 @@ brief pointed at it, which is the third consecutive round in which this file arr
 pointer-chase rather than by mechanism. Section 4 of the findings note takes a position
 on whether the rotation should cover it, and the position is yes.
 """
+
+[[findings]]
+id = "F-5-1"
+raised_in = "2026-09-08"
+reviewed_in = "2026-09-08"
+file = "docs/GATES.md"
+line = 1414
+quote = "The 216 is kept because it is a repository fact."
+refutation = """
+git ls-files | wc -l is 231 at HEAD and 231 at 34925f8, the commit this round started
+from. The denominator was retained on the EXPLICIT GROUND that it reproduces, by an edit
+whose whole subject was a number that does not. Both instances were code-spanned, so no
+ratchet could see either.
+"""
+owner = "unowned"
+disposition = "fixed"
+applied_by = "operator, phase B salvage"
+applied_in = "2026-09-08"
+reason = "Corrected to 231 in both places, with the retained-because-it-reproduces sentence retired in place rather than swapped."
+
+[[findings]]
+id = "F-5-2"
+raised_in = "2026-09-08"
+reviewed_in = "2026-09-08"
+file = "docs/GATES.md"
+line = 789
+quote = "python tools/gate_packaging_mutation.py --check-drift"
+refutation = """
+rc=2 for both --check-drift and --print-regions: --out is a required argument. One of the
+two sits in the 'Running it yourself' list a reader is told to run. Adding --out DIR gives
+rc=0 for both.
+"""
+owner = "unowned"
+disposition = "fixed"
+applied_by = "operator, phase B salvage"
+applied_in = "2026-09-08"
+reason = "All three published invocations now carry --out DIR; both verified rc=0 as published."
+
+[[findings]]
+id = "F-5-3"
+raised_in = "2026-09-08"
+reviewed_in = "2026-09-08"
+file = ".github/gates.toml"
+line = 0
+quote = "gates.figures is ranked 3 on a present-tense sentence about a tree that does not exist"
+refutation = """
+The rank rests on a page-embedding that has not happened: no figure is placed in README.md.
+That rank is what made the top-of-ranking rule waivable and bought the register its first
+waiver of an absolute rule.
+"""
+owner = "unowned"
+disposition = "open"
+blocked_on = "A ranking judgement on the gate register, and the register is not this operator's to re-rank mid-round. It needs the owner of .github/gates.toml to re-take the rank once a figure is actually embedded, or to re-take the waiver."
+
+[[findings]]
+id = "F-5-4"
+raised_in = "2026-09-08"
+reviewed_in = "2026-09-08"
+file = "tools/second_reader.py"
+line = 219
+quote = "it reaches non-Markdown files under docs/ -- the findings ledger itself among them -- which are machine state rather than prose"
+refutation = """
+is_user_facing('docs/figures/refusal-curve-light.svg') was False and user_facing_files()
+returned the same 21 it returned before the figures existed, so the tree-reachability rule
+could not see four new user-facing files. A figure's numbers are gated twice; its title
+sentence, shading and accent assignment are gated by nothing.
+"""
+owner = "unowned"
+disposition = "fixed"
+applied_by = "operator, phase B salvage"
+applied_in = "2026-09-08"
+reason = "is_user_facing and user_facing_files admit docs/**/*.svg; .toml stays machine state. The four figures are in the rotation, which is 21 -> 25."
+
+[[findings]]
+id = "F-5-5"
+raised_in = "2026-09-08"
+reviewed_in = "2026-09-08"
+file = "docs/SECOND-READER.md"
+line = 0
+quote = "trigger B served a file trigger A had already served, and nothing refuses that"
+refutation = """
+A rotation entry can be spent on a document the diff already forced a reader through, which
+wastes the one turn of the rotation the policy gets per round.
+"""
+owner = "unowned"
+disposition = "open"
+blocked_on = "A policy design decision: whether trigger B must skip a file trigger A already served, and what it serves instead. Changing it changes the cursor rule, which is the policy's only state."
+
+[[findings]]
+id = "F-5-6"
+raised_in = "2026-09-08"
+reviewed_in = "2026-09-08"
+file = "tools/gate_sdist_files.py"
+line = 0
+quote = "still prints a reason the runner refuted, and no trigger reaches it"
+refutation = """
+A reason string in a tools/ script contradicted by its own runner output. No second-reader
+trigger covers tools/, which is the same unreachability F-5-4 fixes for docs/*.svg.
+"""
+owner = "unowned"
+disposition = "open"
+blocked_on = "Whether the rotation should cover tools/ prose is the larger question cold read four already took a position on and nobody has decided. Fixing this one string without deciding that leaves the class open."
+
+[[findings]]
+id = "F-5-7"
+raised_in = "2026-09-08"
+reviewed_in = "2026-09-08"
+file = "tools/render_figures.py"
+line = 0
+quote = "the figure pipeline documents one allowlist and has two, and the second lives in the module under test"
+refutation = """
+A second allowlist inside the module the gate tests means the gate and its subject share a
+list, which is the shape a self-agreeing set has.
+"""
+owner = "unowned"
+disposition = "open"
+blocked_on = "Belongs to the figure pipeline's author; consolidating the two allowlists changes what the figure gate checks and owes its own in-situ mutation."
+
+[[findings]]
+id = "F-5-8"
+raised_in = "2026-09-08"
+reviewed_in = "2026-09-08"
+file = "docs/GATES.md"
+line = 0
+quote = "verbatim over a paraphrased cell"
+refutation = """
+A cell described as verbatim is a paraphrase. Low severity; no number moves.
+"""
+owner = "unowned"
+disposition = "open"
+blocked_on = "Cosmetic, and it sits in a table another finding may rewrite. Held so it is not fixed twice."
+
+[[reads]]
+id = "2026-09-08"
+reader = "cold-read-5"
+rotation_served = "docs/GATES.md"
+cursor_after = "docs/SECOND-READER.md"
+covered = [
+  "CHANGELOG.md", "docs/CLAIMS-LEDGER.md", "docs/DEFINITION-OF-DONE.md",
+  "docs/EVALUATION.md", "docs/GATES.md", "docs/GOVERNED_NAMING.md",
+  "docs/SOURCING.md", "docs/SUPPORT_MATRIX.md", "docs/figures",
+]
+note = """
+Third read under the read-only rule and the THIRD in which the reader could not write this
+file; written by a second party from docs/notes/cold-read-5-findings.md. The two-read stall
+on docs/SUPPORT_MATRIX.md is broken and the cursor moved as read four predicted.
+
+The round's headline finding is that the four figures it shipped were served by NEITHER
+trigger and were absent from the rotation, so the tree-reachability rule could not see them.
+Fixed here: docs/**/*.svg is user-facing and the rotation is 21 -> 25. The figures are listed
+under `covered` because the reader read them; no trigger sent it there.
+"""

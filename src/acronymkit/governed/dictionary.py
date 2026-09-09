@@ -71,16 +71,48 @@ that a cache rather than a bug is that all three parts of the key are honoured:
 * **This token.** Keyed on the normalised lookup key, which is what the answer
   depends on; the surface spelling is the caller's and is not part of it.
 
-What is *not* remembered is that a token is unknown. That keeps the memo keyed by
-the vocabulary — a set the dictionary fixes when it is built — rather than by
-whatever names the caller happens to have, which is the shape that grows without
-limit in a service that runs for a month. :data:`_MEMO_LIMIT` is the second
-bound, for the residue a case-insensitive lookup leaves behind; both are
-described there. The cost is that a recurring unknown token is passed through
-afresh every time, and that was measured against the alternative before it was
-chosen: remembering the misses is faster on a corpus that repeats them and
-meaningfully *slower* on one that does not, because the bookkeeping is then paid
-on every token and returns nothing.
+Four maps, and what decides which one an answer goes in
+------------------------------------------------------
+:class:`_Memo` holds four maps. Which one an answer goes in is decided by **what
+bounds its key set**, not by what kind of answer it is:
+
+* ``resolved`` and ``expanded`` are keyed by the **vocabulary** — a set the
+  dictionary fixes when it is built. They cannot grow past the catalog however
+  many names they are shown.
+* ``passed`` and ``identifiers`` are keyed by **caller input**, which nothing
+  bounds, so :data:`_MEMO_LIMIT` and :data:`_IDENTIFIER_MEMO_LIMIT` bound them.
+
+They are four maps rather than one because a map bounded by caller input fills
+and clears, and a clear that also emptied the vocabulary-keyed answers would
+throw away the cheap half to make room for the speculative half.
+
+**``passed`` reverses a decision this docstring used to defend, and it is
+reversed because two sentences of that defence were false.** The old text said
+remembering a passthrough "would put a policy-dependent raise behind a lookup:
+``UnknownPolicy.REJECT`` raises here rather than returning". That cannot happen,
+and what prevents it is the per-policy split two bullets above: ``unknown`` is a
+field of the frozen :class:`~acronymkit.governed.policy.NamingPolicy` and so
+participates in its ``__eq__`` and ``__hash__``, so a ``REJECT`` policy has a
+memo of its own that no passthrough is ever written into — the raise happens
+before there is a record to remember. The old text also said the alternative
+"was measured against" this one. **It was not**, on any corpus, in any run in
+``bench/results.json``; the sentence shipped as a settled result and was an
+assertion. What declining to remember them cost is now measured: against the
+empty catalog every published governed figure is taken with, every token is a
+passthrough, so the expansion memo's hit rate on the two real corpora was
+``0.00`` % while those corpora repeat their tokens at ``94.21`` % and ``98.99``
+% — ``governed_perf.socrata.census`` and ``governed_perf.sec_xbrl.census``. The
+memo was declining the only work there was.
+
+What ``passed`` remembers is a pure function of ``(surface token, this
+dictionary)``: :func:`~acronymkit.governed.expansion._title_case` reads the
+token and :meth:`class_word_for` reads the token and this instance's class-word
+map. Nothing else in that record varies.
+
+What ``identifiers`` remembers is a pure function of ``(identifier, this
+dictionary, this policy)`` for the same three reasons the token level is safe,
+and it is the **smaller** of the two levels rather than the larger — see
+:data:`_IDENTIFIER_MEMO_LIMIT`, where the measurement is.
 
 Entries are frozen models, so handing the same object to two callers is not
 observable except by ``is``. Concurrent readers are safe: a memo is only ever
@@ -120,6 +152,7 @@ from .enums import EntryKind, ExpansionSource, ResolutionMode
 from .models import (
     GovernedEntry,
     GovernedValidationError,
+    IdentifierExpansion,
     TokenExpansion,
     _describe_problems,
     _entry_from_mapping,
@@ -193,26 +226,133 @@ _MEMO_LIMIT = 4096
 #: four is room for that and a bound on the memory the per-policy split can cost.
 _MEMO_POLICY_LIMIT = 4
 
+#: Distinct identifiers one memo holds before it is emptied and starts again.
+#:
+#: Separate from :data:`_MEMO_LIMIT` because it bounds a different thing. The
+#: token memo's keys are mostly vocabulary; an identifier memo's keys are
+#: *entirely* caller input — no catalog anywhere fixes the set of column names a
+#: schema happens to contain — so this is the only bound it has.
+#:
+#: **What the bound costs is measured rather than assumed, and it is most of what
+#: this level is worth.** Replaying the two real corpora in their own occurrence
+#: order through a clear-on-full map this size serves
+#: ``governed_perf.socrata.census.identifier_memo_bounded_hit_pct`` of Socrata
+#: calls and ``governed_perf.sec_xbrl.census.identifier_memo_bounded_hit_pct`` of
+#: SEC XBRL calls. The *unbounded* share that repeats at all is
+#: ``identifier_repeat_pct`` on the same entries, and it is roughly three times
+#: larger. Both ship together for exactly that reason: the ceiling reads like the
+#: result and is not the result.
+_IDENTIFIER_MEMO_LIMIT = 4096
+
 _Answer = TypeVar("_Answer")
+
+
+class _NullMap(dict):
+    """A map that answers "not remembered" to everything and stores nothing.
+
+    How a memo level is forced **off** without putting a branch on the per-token
+    path. A :class:`_Memo` is built once per policy and then cached, so
+    substituting this for a real ``dict`` moves the whole cost of the switch to
+    the once-per-policy side: the hot path still does one ``get`` and one
+    ``__setitem__`` and cannot tell which map it is holding.
+
+    It exists for operating rule 19. An optimisation is proven
+    behaviour-identical by running a full corpus with the memo forced on and
+    forced off and comparing every provenance field byte for byte, and "forced
+    off" has to be a real code path rather than a second build of the library —
+    otherwise the comparison is between two implementations rather than between
+    one implementation and its own cache, and the defect the gate is for lives in
+    the cache.
+
+    ``dict`` is subclassed rather than reimplemented so that every annotation
+    naming a ``dict`` stays true and no caller can tell the difference except by
+    the answers, which is the point. ``len`` stays ``0``, so :func:`_remember`
+    never reaches its clear branch on one.
+
+    **A fresh instance per disabled level, never a shared singleton, and the
+    reason is contention rather than correctness.** Correctness would allow one:
+    it stores nothing, so no two callers can observe each other through it. On a
+    free-threading build a singleton would put every thread's every token on one
+    object's reference count, and the arm meant to be the *control* -- what this
+    costs with no memo at all -- would be carrying the worst contention in the
+    run. That is not hypothetical. The first free-threaded sweep taken in this
+    repository had the no-memo arm scaling **worse** than the shared-memo arm at
+    eight and at sixteen threads, and that was the instrument reporting its own
+    singleton rather than a fact about the library.
+    """
+
+    __slots__ = ()
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        """Discard the answer, so nothing is ever remembered."""
+
+    def setdefault(self, *args: Any, **kwargs: Any) -> Any:
+        """Never store; return the default, so a caller reads a miss."""
+        return args[1] if len(args) > 1 else None
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        """Discard every answer, for the same reason as :meth:`__setitem__`."""
+
+
+#: Which memo levels are live, by :class:`_Memo` field name. Every level ships
+#: ``True`` and the library never writes to this map.
+#:
+#: It is read **once per policy**, where :meth:`GovernedDictionary._memo` builds
+#: a memo that did not exist yet, and never on the per-token path. It exists so
+#: that ``tools/gate_memo_identity.py`` can force a level off and compare a whole
+#: corpus's output byte for byte, and so ``bench/run_governed_perf.py`` can put a
+#: hit rate beside every throughput figure with the same code in both arms.
+_MEMO_LEVELS: dict[str, bool] = {
+    "resolved": True,
+    "expanded": True,
+    "passed": True,
+    "identifiers": True,
+}
+
+
+def _set_memo_levels(**levels: bool) -> dict[str, bool]:
+    """Turn memo levels on or off for dictionaries whose memos are built later.
+
+    Test and gate machinery, not a supported public knob: it is module state, it
+    is not thread-safe against a concurrent expansion, and it does **not**
+    retroactively empty a memo a dictionary has already filled. Build the
+    dictionary after the call, which is what the identity gate does, or the
+    figure being read is about a memo that no longer matches the flag.
+
+    Args:
+        **levels: Field names of :class:`_Memo` mapped to whether that level is
+            live. Unnamed levels keep their current setting.
+
+    Returns:
+        The settings as they were before the call, so a caller can restore them.
+
+    Raises:
+        KeyError: If a name is not a :class:`_Memo` field. Refused rather than
+            ignored, because a typo would silently leave every level on and the
+            gate would compare an arm against itself.
+    """
+    previous = dict(_MEMO_LEVELS)
+    for name, live in levels.items():
+        if name not in _MEMO_LEVELS:
+            raise KeyError(f"unknown memo level {name!r}; known: {sorted(_MEMO_LEVELS)}")
+        _MEMO_LEVELS[name] = bool(live)
+    return previous
 
 
 class _Memo(NamedTuple):
     """What one dictionary has already worked out under one policy.
 
-    Two maps rather than one because two modules answer two different questions
-    about the same token and their keys would otherwise collide: ``TXN`` names a
-    catalog entry in one and a whole expansion in the other.
+    Four maps rather than one, split by **what bounds the key set** — see the
+    module docstring, where the split is argued. Two of them are keyed by the
+    vocabulary and cannot outgrow it; two are keyed by caller input and are
+    bounded by a limit and a clear.
 
-    Neither map records that a token is **unknown**, and that is the decision
-    that keeps both of them small. A memo of governed answers is keyed by the
-    vocabulary — finite, and fixed when the dictionary was built. Add the misses
-    and it is keyed by whatever names the caller has, which is the shape a cache
-    should not have; a corpus of one-off tokens would then fill and empty it over
-    and over, paying the bookkeeping on every token and getting nothing back,
-    which is measurably worse than not caching at all. What it costs is that a
-    recurring unknown token is Title Cased afresh each time. That is the cheap
-    branch — the catalog was already asked and said nothing — and it is the one
-    worth paying twice.
+    None of the four records that a token is **unknown to the catalog** as a bare
+    fact. ``passed`` holds the whole passthrough *record*, which is a complete
+    answer rather than a negative one, and it is written only under a policy
+    whose ``unknown`` handling returns rather than raises — the raise happens in
+    :func:`~acronymkit.governed.expansion._passthrough` before there is a record,
+    and a ``REJECT`` policy has its own memo anyway.
 
     Attributes:
         resolved: Normalised token key to the entry
@@ -225,26 +365,44 @@ class _Memo(NamedTuple):
             the only object with that lifetime. Keyed on the **surface** token,
             not the lookup key, because a token expansion reports the spelling it
             was given.
+        passed: Surface token to the passthrough
+            :class:`~acronymkit.governed.models.TokenExpansion` for a token the
+            vocabulary does not answer for. Keyed by caller input; bounded by
+            :data:`_MEMO_LIMIT`.
+        identifiers: Whole identifier to its
+            :class:`~acronymkit.governed.models.IdentifierExpansion`. Keyed by
+            caller input; bounded by :data:`_IDENTIFIER_MEMO_LIMIT`.
     """
 
     resolved: dict[str, GovernedEntry]
     expanded: dict[str, TokenExpansion]
+    passed: dict[str, TokenExpansion]
+    identifiers: dict[str, IdentifierExpansion]
 
 
-def _remember(memo: dict[str, _Answer], key: str, answer: _Answer) -> _Answer:
+def _remember(
+    memo: dict[str, _Answer], key: str, answer: _Answer, limit: int = _MEMO_LIMIT
+) -> _Answer:
     """Record an answer in a bounded memo and return it.
 
+    Emptying rather than evicting the least-used entry is deliberate and it is
+    costed: an eviction order pays bookkeeping on every **hit**, which is the
+    operation worth keeping cheap. What the choice costs is measured — the
+    ``*_bounded_hit_pct`` and ``*_lru_hit_pct`` pairs on the census entries of
+    ``governed_perf.*`` are this rule and an LRU of the same size over the same
+    corpus in the same order.
+
     Args:
-        memo: The map to write to. Only ever holds answers the vocabulary
-            supplied, so a plain ``get`` returning ``None`` means "not
-            remembered" rather than "remembered as nothing".
+        memo: The map to write to. A plain ``get`` returning ``None`` means "not
+            remembered"; no map here ever stores ``None``.
         key: The lookup key.
         answer: What was worked out. Never ``None``.
+        limit: How many answers this map holds before it is emptied.
 
     Returns:
         ``answer``, unchanged, so a caller can memoise and return in one line.
     """
-    if len(memo) >= _MEMO_LIMIT:
+    if len(memo) >= limit:
         memo.clear()
     memo[key] = answer
     return answer
@@ -1473,7 +1631,17 @@ class GovernedDictionary:
             if len(self._memos) >= _MEMO_POLICY_LIMIT:
                 self._memos.clear()
                 self._memo_recent = None
-            memo = _Memo({}, {})
+            # _MEMO_LEVELS is read HERE and nowhere else: once per policy per
+            # dictionary, never on the per-token path. A level that is off gets
+            # the shared null map, so the code that reads and writes it is
+            # byte-identical between the two arms of the identity gate.
+            levels = _MEMO_LEVELS
+            memo = _Memo(
+                {} if levels["resolved"] else _NullMap(),
+                {} if levels["expanded"] else _NullMap(),
+                {} if levels["passed"] else _NullMap(),
+                {} if levels["identifiers"] else _NullMap(),
+            )
             self._memos[policy] = memo
         # Published as one tuple, so a reader in another thread cannot see this
         # policy paired with the previous policy's memo.

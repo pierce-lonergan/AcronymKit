@@ -856,6 +856,381 @@ The dataset is CC BY-NC-SA 4.0, read from the shared task's own README at the UR
 `most_frequent` control is derived from `train.json` as a measurement instrument, and is never
 shipped, vendored or committed.
 
+### Calibrated refusal: a guarantee, and the sentence it does not license
+
+The table above is a curve with no threshold on it, because *no threshold this library can defend is
+the caller's*. `acronymkit.conformal` changes what the caller has to supply rather than who chooses:
+they name a target error rate `alpha` and hand over a **calibration set from their own data**, and a
+split-conformal pass turns the pair into a threshold. Deterministic, model-free, one pass, no new
+dependency, and **no calibration data ships** — a calibration set shipped by this project would make
+the guarantee a statement about *this* tuning split published as a statement about the caller's.
+
+It is still off by default. `LexicalDisambiguator(config, vocab, calibration=gate)` turns it on, and
+a gate does not exist until somebody builds one.
+
+**The guarantee, with the assumption in the same paragraph, every time.** Marginally over the joint
+draw of the calibration set and one new instance, the conformal prediction set contains the true
+expansion with probability at least `1 - alpha`. That is distribution-free and it is **not**
+assumption-free: it holds only under **exchangeability** between the calibration instances and the
+instances the gate is later asked about, which is exactly what an out-of-domain caller violates. The
+runs below measure what violating it costs.
+
+#### `alpha` does not bound the error rate among the answers
+
+The library answers when the prediction set is a singleton and refuses otherwise. That rule inherits
+the set's guarantee as a bound on the **joint** rate of answering *and* being wrong. The rate of
+being wrong **among the answers** is that divided by the answer rate, and it is several times larger.
+Both are measured, on the exchangeable arm, Mondrian by arity:
+
+| `alpha` | nominal coverage % | measured coverage % | answers % | answered, n | joint answered-and-wrong % | bound % | error among answers % | ratio to `alpha` |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.05 | 95.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.nominal_coverage_pct:.2f--> | 95.22<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.empirical_coverage_pct:.2f--> | 9.43<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.answer_rate_pct:.2f--> | 292<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.answered_instances:,--> | 2.07<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.joint_answered_and_wrong_pct:.2f--> | 5.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.joint_bound_pct:.2f--> | **21.92<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.selective_error_pct:.2f-->** | **4.38<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.selective_error_over_alpha:.2f-->x** |
+| 0.10 | 90.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.nominal_coverage_pct:.2f--> | 90.27<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.empirical_coverage_pct:.2f--> | 16.80<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.answer_rate_pct:.2f--> | 520<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.answered_instances:,--> | 4.85<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.joint_answered_and_wrong_pct:.2f--> | 10.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.joint_bound_pct:.2f--> | **28.85<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.selective_error_pct:.2f-->** | **2.88<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.selective_error_over_alpha:.2f-->x** |
+| 0.20 | 80.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.nominal_coverage_pct:.2f--> | 80.61<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.empirical_coverage_pct:.2f--> | 27.75<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.answer_rate_pct:.2f--> | 859<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.answered_instances:,--> | 10.27<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.joint_answered_and_wrong_pct:.2f--> | 20.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.joint_bound_pct:.2f--> | **37.02<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.selective_error_pct:.2f-->** | **1.85<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.selective_error_over_alpha:.2f-->x** |
+| 0.30 | 70.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.nominal_coverage_pct:.2f--> | 70.95<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.empirical_coverage_pct:.2f--> | 38.51<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.answer_rate_pct:.2f--> | 1,192<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.answered_instances:,--> | 15.80<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.joint_answered_and_wrong_pct:.2f--> | 30.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.joint_bound_pct:.2f--> | 41.02<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.selective_error_pct:.2f--> | 1.37<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.selective_error_over_alpha:.2f-->x |
+| 0.50 | 50.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.nominal_coverage_pct:.2f--> | 53.21<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.empirical_coverage_pct:.2f--> | 56.32<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.answer_rate_pct:.2f--> | 1,743<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.answered_instances:,--> | 27.27<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.joint_answered_and_wrong_pct:.2f--> | 50.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.joint_bound_pct:.2f--> | 48.42<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.selective_error_pct:.2f--> | 0.97<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.selective_error_over_alpha:.2f-->x |
+
+**The bound is respected in every cell and the tempting reading of it is wrong in every cell.** A
+caller who asks for `alpha` of `0.05` and reads it as "at most one answer in twenty is wrong" is off
+by a factor of
+4.38<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.selective_error_over_alpha:.2f-->
+on this corpus. The defensible sentence is the joint one, and it is the one
+`ConformalGate.guarantee()` returns at runtime.
+
+#### Mondrian beats marginal, and it is not close
+
+Marginal conformal takes one threshold over everything. It hits pooled coverage, and it is not
+telling the truth inside any candidate-set size: at `alpha` of `0.05` it over-covers every arity from
+two to nine and under-covers the ten-or-more bucket, whose coverage is
+62.46<!--claim:conformal.sdu21.exchangeable.marginal.alpha_0.05.by_arity.10+.coverage_pct:.2f--> %
+against a nominal
+95.00<!--claim:conformal.sdu21.exchangeable.marginal.alpha_0.05.nominal_coverage_pct:.2f--> % — so the
+only instances it ever answers are ten-or-more ones. Mondrian gives each arity its own threshold from
+its own instances.
+
+| `alpha` | marginal worst-arity gap, points | Mondrian worst-arity gap, points | improvement, points | marginal answers % | Mondrian answers % |
+|---:|---:|---:|---:|---:|---:|
+| 0.05 | 32.54<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.marginal_worst_arity_gap_points:.2f--> | 2.34<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.mondrian_worst_arity_gap_points:.2f--> | **30.20<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.worst_arity_gap_improvement_points:.2f-->** | 0.65<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.marginal_answer_rate_pct:.2f--> | 9.43<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.mondrian_answer_rate_pct:.2f--> |
+| 0.10 | 72.81<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.10.marginal_worst_arity_gap_points:.2f--> | 2.63<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.10.mondrian_worst_arity_gap_points:.2f--> | **70.18<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.10.worst_arity_gap_improvement_points:.2f-->** | 2.16<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.10.marginal_answer_rate_pct:.2f--> | 16.80<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.10.mondrian_answer_rate_pct:.2f--> |
+| 0.20 | 76.14<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.20.marginal_worst_arity_gap_points:.2f--> | 4.69<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.20.mondrian_worst_arity_gap_points:.2f--> | **71.45<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.20.worst_arity_gap_improvement_points:.2f-->** | 5.95<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.20.marginal_answer_rate_pct:.2f--> | 27.75<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.20.mondrian_answer_rate_pct:.2f--> |
+
+**Mondrian ships**, and the reason is the middle columns rather than the pooled coverage the two arms
+share. It is not free: each group needs its own calibration instances, so `ConformalGate.calibrate`
+refuses a grouping whose smallest group is short rather than pooling it into a neighbour, and names
+the group in the refusal.
+
+#### Against the refusal this library already ships
+
+At a matched answer rate the two are a wash, and the margin gate is handed the advantage of having
+its threshold picked on the evaluation set, which conformal is not allowed to do. The margin column
+is the **shipped** gate, both of its exemptions included: the harness's copy disagrees with
+`LexicalDisambiguator(min_margin=...)` on
+0<!--claim:conformal.sdu21.work.margin_harness.disagreements:,--> of
+30,945<!--claim:conformal.sdu21.work.margin_harness.comparisons:,--> comparisons, and
+157<!--claim:conformal.sdu21.work.margin_harness.instances_exempt_because_top_two_sources_differ:,-->
+instances are exempt because their top two candidates come from different sources — a first draft of
+this column ignored that exemption and was scoring a gate this library does not ship:
+
+| `alpha` | conformal answers % | conformal accuracy when answered % | matched `min_margin` | its answers % | its accuracy when answered % |
+|---:|---:|---:|---:|---:|---:|
+| 0.05 | 9.43<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.answer_rate_pct:.2f--> | 78.08<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.selective_accuracy_pct:.2f--> | 0.220<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.margin_gate_at_matched_answer_rate.min_margin:.3f--> | 9.40<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.margin_gate_at_matched_answer_rate.answer_rate_pct:.2f--> | 74.23<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.margin_gate_at_matched_answer_rate.selective_accuracy_pct:.2f--> |
+| 0.10 | 16.80<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.answer_rate_pct:.2f--> | 71.15<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.selective_accuracy_pct:.2f--> | 0.150<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.margin_gate_at_matched_answer_rate.min_margin:.3f--> | 16.67<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.margin_gate_at_matched_answer_rate.answer_rate_pct:.2f--> | 72.29<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.margin_gate_at_matched_answer_rate.selective_accuracy_pct:.2f--> |
+| 0.20 | 27.75<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.answer_rate_pct:.2f--> | 62.98<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.selective_accuracy_pct:.2f--> | 0.060<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.margin_gate_at_matched_answer_rate.min_margin:.3f--> | 27.43<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.margin_gate_at_matched_answer_rate.answer_rate_pct:.2f--> | 66.67<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.margin_gate_at_matched_answer_rate.selective_accuracy_pct:.2f--> |
+
+**So accuracy is not what this buys.** What it buys is a knob in units the caller already has — an
+error rate they choose — and a stated bound behind the refusal, in place of a number read off a curve
+measured on somebody else's corpus.
+
+**And the trivial baseline still wins, in two rows of three.** Scored on conformal's own answered
+subset, the shared task's most-frequent-expansion baseline reaches
+75.68<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.most_frequent_accuracy_same_subset_pct:.2f--> %
+at `alpha` of `0.05`,
+75.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.most_frequent_accuracy_same_subset_pct:.2f--> %
+at `0.10` and
+77.65<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.most_frequent_accuracy_same_subset_pct:.2f--> %
+at `0.20`, against conformal's
+78.08<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.selective_accuracy_pct:.2f--> %,
+71.15<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.selective_accuracy_pct:.2f--> %
+and
+62.98<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.selective_accuracy_pct:.2f--> %.
+The tightest `alpha` is the **first configuration in this project where the gated disambiguator beats
+ignoring the context on its own answered subset**, and it does so on
+292<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.answered_instances:,-->
+instances of a contaminated tuning split, which makes it a number to re-measure rather than a result.
+
+#### What violating exchangeability costs, measured
+
+Re-split so that no acronym appears in both halves — a within-corpus stand-in for the deployment
+shift the assumption excludes, with genre, tokenisation and annotation held fixed:
+
+| `alpha` | exchangeable gap, points | acronym-disjoint gap, points | exchangeable worst-arity gap | acronym-disjoint worst-arity gap |
+|---:|---:|---:|---:|---:|
+| 0.05 | 0.22<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.coverage_gap_points:.2f--> | -0.82<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.05.coverage_gap_points:.2f--> | 2.34<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.worst_arity_gap_points:.2f--> | 5.89<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.05.worst_arity_gap_points:.2f--> |
+| 0.10 | 0.27<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.coverage_gap_points:.2f--> | 0.59<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.10.coverage_gap_points:.2f--> | 2.63<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.worst_arity_gap_points:.2f--> | 3.39<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.10.worst_arity_gap_points:.2f--> |
+| 0.20 | 0.61<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.coverage_gap_points:.2f--> | 3.25<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.20.coverage_gap_points:.2f--> | 4.69<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.worst_arity_gap_points:.2f--> | 9.45<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.20.worst_arity_gap_points:.2f--> |
+| 0.30 | 0.95<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.coverage_gap_points:.2f--> | 6.66<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.30.coverage_gap_points:.2f--> | 3.76<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.30.worst_arity_gap_points:.2f--> | 17.76<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.30.worst_arity_gap_points:.2f--> |
+| 0.50 | 3.21<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.coverage_gap_points:.2f--> | 9.26<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.50.coverage_gap_points:.2f--> | 7.19<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.50.worst_arity_gap_points:.2f--> | 28.70<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.50.worst_arity_gap_points:.2f--> |
+
+**The damage is real, it grows with `alpha`, and on this corpus it runs in the conservative
+direction** — the gate over-covers, so it refuses more than it promised rather than answering more.
+That is the benign failure, and it is not the general case: nothing about exchangeability makes the
+sign of a violation predictable, and a shift that made deployment data *easier* than calibration data
+would run the other way. What is not benign is the last column, which reaches
+28.70<!--claim:conformal.sdu21.acronym_disjoint.mondrian_by_arity.alpha_0.50.worst_arity_gap_points:.2f-->
+points.
+
+#### The governed half: the machinery does not fit, and the reason is the catalog format
+
+`is_fully_known` is a conjunction over token positions, and it is false because of the positions the
+catalog **declined**. Conformal needs a candidate set to take a subset of, so the question is how many
+governed token positions carry rivals at all. Over the Socrata governed-gold corpus, portal-disjoint
+folds, the audit-shaped voted catalog:
+0<!--claim:conformal.governed.fit.fold_ab.voted_catalog.positions_with_at_least_one_rival:,--> of
+98,524<!--claim:conformal.governed.fit.fold_ab.voted_catalog.token_positions:,--> scored token
+positions on one fold and
+0<!--claim:conformal.governed.fit.fold_ba.voted_catalog.positions_with_at_least_one_rival:,--> of
+152,757<!--claim:conformal.governed.fit.fold_ba.voted_catalog.token_positions:,--> on the other carry
+a single rival.
+
+**That zero is a derivation, not a result**, in the sense
+[reversal one](POSITIONING.md#reversal-one-the-lead-is-wrong-if-a-catalog-is-worth-nothing-on-a-real-schema)
+uses the phrase: `bench/run_governed_catalog.py`'s `build_catalog` stores one canonical per token and
+writes no `candidates` field at all, so `TokenExpansion.beat` is empty for every position it can
+produce. The number that is not a derivation is the evidence underneath it —
+900<!--claim:conformal.governed.fit.fold_ab.collision_evidence.tokens_with_two_or_more_rival_expansions:,-->
+of
+14,314<!--claim:conformal.governed.fit.fold_ab.collision_evidence.distinct_tokens_voted_on:,-->
+voted-on tokens on one fold and
+523<!--claim:conformal.governed.fit.fold_ba.collision_evidence.tokens_with_two_or_more_rival_expansions:,-->
+of
+9,250<!--claim:conformal.governed.fit.fold_ba.collision_evidence.distinct_tokens_voted_on:,--> on the
+other carry two or more rival expansions, and those tokens sit under
+44.59<!--claim:conformal.governed.fit.fold_ab.collision_evidence.scored_positions_whose_token_has_rivals_pct:.2f--> %
+and
+35.26<!--claim:conformal.governed.fit.fold_ba.collision_evidence.scored_positions_whose_token_has_rivals_pct:.2f--> %
+of scored token positions respectively.
+
+So the finding is not "there is no ambiguity to calibrate". It is that **the catalog format discards
+the rivals before the entry is written**, and a calibrated confidence on the governed half needs a
+catalog that keeps them plus a gold nobody has. The declined positions —
+99.82<!--claim:conformal.governed.fit.fold_ab.voted_catalog.declined_pct:.2f--> % and
+98.32<!--claim:conformal.governed.fit.fold_ba.voted_catalog.declined_pct:.2f--> % of them under the
+voted catalog — stay outside the machinery entirely, because a token the catalog declined has a
+candidate set of size zero and there is nothing there to refuse.
+
+#### What this is measured on
+
+`conformal.sdu21.*` and `conformal.governed.fit` in [bench/results.json](../bench/results.json), from
+`bench/run_conformal.py`. The disambiguation arms score
+6,189<!--claim:conformal.sdu21.work.instances_scored:,--> instances over
+611<!--claim:conformal.sdu21.work.distinct_acronyms:,--> distinct acronyms with
+28,319<!--claim:conformal.sdu21.work.candidates_scored:,--> candidates scored,
+4.5757<!--claim:conformal.sdu21.work.mean_candidates_per_instance:.4f--> candidates per instance on
+average; the gold expansion is absent from the candidate set on
+86<!--claim:conformal.sdu21.work.instances_whose_gold_is_not_a_candidate:,--> of them, and those are
+scored as uncoverable rather than as merely hard.
+
+**SDU@AAAI-21 AD dev is the same tuning split the table above uses, declared contaminated.** Nothing
+here is evidence of generalisation. `test.json` is **not** read by this runner: D-043 reserves it for
+confirming the cut-point of an abstention policy proposed for on-by-default shipping, and this
+workstream proposes the opposite — a refusal that does not exist until a caller calibrates it.
+
+Coverage on the exchangeable arm is a property of one seeded split, so it is re-run under
+8<!--claim:conformal.sdu21.seed_spread.seeds:,--> seeds and the worst deviation from nominal across
+all of them is
+0.98<!--claim:conformal.sdu21.seed_spread.alpha_0.05.worst_gap_points:.2f-->,
+0.99<!--claim:conformal.sdu21.seed_spread.alpha_0.10.worst_gap_points:.2f-->,
+1.20<!--claim:conformal.sdu21.seed_spread.alpha_0.20.worst_gap_points:.2f-->,
+1.41<!--claim:conformal.sdu21.seed_spread.alpha_0.30.worst_gap_points:.2f--> and
+1.18<!--claim:conformal.sdu21.seed_spread.alpha_0.50.worst_gap_points:.2f--> points at the five
+`alpha` values, in that order.
+
+**R19, at corpus scale.** Building the disambiguator with `calibration=None` and building it without
+the keyword at all produce byte-identical output over all
+6,189<!--claim:conformal.sdu21.identity.results_compared:,--> results, with
+`metadata.execution_time_ms` excluded — the first run of that check came back red on the wall clock
+alone, which is what a byte-identity check over a record carrying a timestamp will always do.
+
+**R11: the checks above are shown capable of failing.** Ten mutations, one at a time, each restored
+from bytes read before it and md5-verified, with an unmutated control before and after. `B` and `G`
+are the prose rule — the only check in this repository that reads a sentence — and `C` is the
+overclaim itself, reinstated inside `guarantee()`.
+
+```
+python -m pytest tests/test_conformal.py -- command output, not a benchmark measurement.
+The driver is a scratch script and is NOT committed; every mutation below is one string
+replacement a reader can re-apply by hand.
+
+  rc=0  control, unmutated                                     <nothing named>
+  rc=1  A  ASSUMPTION loses the word "exchangeability"          ..._sentence_names_the_assumption
+  rc=1  B  this page's guarantee paragraph drops the assumption ..._paragraph_stating_the_guarantee
+  rc=1  C  guarantee() reinstates the selective overclaim       ..._refuses_the_tempting_overclaim
+  rc=1  D  the quantile rank loses its "+ 1"                    ..._is_the_named_order_statistic
+  rc=1  E  the no-candidates refusal is bypassed                ..._a_different_refusal_from_ambiguity
+  rc=1  F  the wired gate stops refusing                        ..._gate_can_withhold_an_answer
+  rc=1  G  the runner's guarantee paragraph drops it            ..._paragraph_stating_the_guarantee
+  rc=1  H  an undersized Mondrian group is pooled, not refused  ..._too_small_for_alpha_is_refused
+  rc=1  I  a gold no candidate carries scores 1.0, not infinity ..._is_scored_infinite_and_counted
+  rc=1  J  the two refusal policies may be composed             ..._may_not_be_composed
+  rc=0  control after restore; all four files md5-identical
+```
+
+**Two of these were green on the first attempt and the tests were changed, not the mutations.** `C`
+passed because the disclaimer was asserted as two loose fragments with the overclaim reinstated
+between them, and `D` passed because the only rank case pinned was one where dropping the `+ 1`
+happens to give the same answer — and a 2,000-instance coverage check cannot see a one-place shift in
+an order statistic. Both are now pinned at sizes and phrasings where the two possibilities disagree.
+That is the measured price of this section's own instrument, and it was two of ten.
+
+
+### Can a governed catalog supply the missing prior? Measured, and no
+
+`GovernedDictionary` and `ExpansionDictionary` are two caller-supplies-the-data contracts in one
+codebase that have never spoken to each other. The proposal was to make them: under
+[`docs/POSITIONING.md`](POSITIONING.md) the governance caller has a catalog by definition, and a
+catalog with entry frequencies over the caller's own schema looks like exactly the frequency prior
+this section has been losing to since the table above. No data shipped, no licence problem.
+
+**It does not transfer, and the rule for saying so was written before the measurement.** The bet was
+declared to succeed only if a schema-primed blend reached
+46.65<!--claim:schema_prior.sdu21.transfer.preregistered_transfer_accuracy:.2f--> % — five points over the
+shipped 41.65<!--claim:schema_prior.sdu21.transfer.accuracy_shipped:.2f--> % — **and** beat an
+information-free control of the same shape by two points. It reaches
+44.53<!--claim:schema_prior.sdu21.transfer.blend_best_accuracy_tuning_split:.2f--> % and beats that control
+by 0.68<!--claim:schema_prior.sdu21.transfer.blend_minus_permuted_control_points:.2f-->. Both halves fail.
+The run is `schema_prior.*`; `bench/run_schema_prior.py` prints the rule and the arithmetic on every
+run.
+
+#### The vocabulary census, which is most of the answer and is cheaper than the accuracy
+
+The prior is harvested from the two schema corpora this project already has —
+155,272<!--claim:schema_prior.harvest.socrata_rows:,--> Socrata field/caption rows and
+90,655<!--claim:schema_prior.harvest.sec_xbrl_rows:,--> SEC XBRL element/label rows — under five
+constructions, unioned, which cast 3,867,742<!--claim:schema_prior.harvest.union_votes_cast:,--> votes over
+445,013<!--claim:schema_prior.harvest.union_keys:,--> keys. The most generous of the five takes *every*
+contiguous run of caption words as a vote for its own initialism, so `Year To Date Gross Sales`
+teaches `YTD` and `GS` at once. That construction exists so a null result is a fact about two
+vocabularies rather than about a harvest rule chosen badly.
+
+| level | dev short forms | instances | reading |
+|---|---:|---:|---|
+| the prior has a key for it | 603<!--claim:schema_prior.census.union.dev_short_forms_in_prior:,--> of 611<!--claim:schema_prior.census.union.dev_distinct_short_forms:,--> (98.69<!--claim:schema_prior.census.union.dev_short_forms_in_prior_pct:.2f--> %) | 6,150<!--claim:schema_prior.census.union.instances_with_prior_key:,--> (99.37<!--claim:schema_prior.census.union.instances_with_prior_key_pct:.2f--> %) | **not coverage — see the saturation line** |
+| a candidate expansion matches a value under that key | 37<!--claim:schema_prior.census.union.dev_short_forms_with_matched_candidate:,--> (6.06<!--claim:schema_prior.census.union.dev_short_forms_with_matched_candidate_pct:.2f--> %) | 522<!--claim:schema_prior.census.union.instances_with_matched_candidate:,--> (8.43<!--claim:schema_prior.census.union.instances_with_matched_candidate_pct:.2f--> %) | the prior can re-rank here and nowhere else |
+| the prior prefers one *seen* expansion over another *seen* one | 1<!--claim:schema_prior.census.union.short_forms_with_two_distinct_nonzero_candidates:,--> | 58<!--claim:schema_prior.census.union.instances_with_two_distinct_nonzero_candidates:,--> (0.94<!--claim:schema_prior.census.union.instances_with_two_distinct_nonzero_candidates_pct:.2f--> %) | **one short form, in the whole split** |
+
+**Read the first row against the saturation control, because on its own it is a lie of the flattering
+kind.** The union prior holds 659<!--claim:schema_prior.harvest.letter_space_2_covered:,--> of the
+676<!--claim:schema_prior.harvest.letter_space_2_size:,--> two-letter `A`–`Z` strings
+(97.49<!--claim:schema_prior.harvest.letter_space_2_covered_pct:.2f--> %) and
+10,304<!--claim:schema_prior.harvest.letter_space_3_covered:,--> of the
+17,576<!--claim:schema_prior.harvest.letter_space_3_size:,--> three-letter ones
+(58.63<!--claim:schema_prior.harvest.letter_space_3_covered_pct:.2f--> %). A key space that dense contains a
+caller's short form whatever it is. Having the key is not evidence of anything, and
+683<!--claim:schema_prior.census.union.short_forms_in_prior_with_no_matched_candidate:,--> of the
+723<!--claim:schema_prior.census.union.short_forms_in_prior:,--> short forms it has a key for
+(94.47<!--claim:schema_prior.census.union.short_forms_in_prior_with_no_matched_candidate_pct:.2f--> %) carry
+no expansion the prose arm ever offers — the schema spelling something else with the same letters.
+
+**And the deciding number is not about keys at all.** Of the
+2,306<!--claim:schema_prior.census.union.distinct_candidate_expansions:,--> distinct candidate expansions in
+`diction.json`, 47<!--claim:schema_prior.census.union.candidates_present_as_any_schema_value:,-->
+(2.04<!--claim:schema_prior.census.union.candidates_present_as_any_schema_value_pct:.2f--> %) occur as a
+harvested value under *any* key. That separates the two explanations with the same accuracy: it is
+not that the key spaces fail to line up, it is that **an open-data portal and an SEC filing do not
+contain the phrases a computer-science paper abbreviates.** This is the objection that killed the
+PMC prior, arriving on aim rather than on size, and it is now measured rather than argued.
+
+#### The transfer table
+
+| arm | accuracy % | what it is |
+|---|---:|---|
+| `floor_constant` — every candidate scored zero | 31.81<!--claim:schema_prior.sdu21.transfer.accuracy_floor_constant:.2f--> | the alphabetical tie-break; the number any prior arm degenerates to |
+| **schema prior only** | **32.51<!--claim:schema_prior.sdu21.transfer.accuracy_schema_prior_only:.2f-->** | **the arm under test** |
+| context only, no prior | 43.82<!--claim:schema_prior.sdu21.transfer.accuracy_context_only:.2f--> | reproduces `disambiguation.sdu21.diagnosis.frequency_prior` |
+| shipped `Config()` | 41.65<!--claim:schema_prior.sdu21.transfer.accuracy_shipped:.2f--> | reproduces `disambiguation.sdu21.acronymkit` |
+| in-domain train prior | 72.95<!--claim:schema_prior.sdu21.transfer.accuracy_train_prior_only:.2f--> | the same mechanism, counts from `train.json` |
+
+Three of those five are pinned reproductions of figures already in
+[bench/results.json](../bench/results.json), because every arm is one code path with only the count
+source changed. All three land. That check is this runner's `pyab3p`, and without it none of the
+other rows is worth reading.
+
+**The mechanism is fine and the counts are wrong.** Swap the schema's counts for the evaluation
+corpus's own and the identical code jumps to
+72.95<!--claim:schema_prior.sdu21.transfer.accuracy_train_prior_only:.2f--> %. The schema prior lands
+0.70<!--claim:schema_prior.sdu21.transfer.schema_prior_minus_floor_points:.2f--> of a point above the
+tie-break floor and -11.31<!--claim:schema_prior.sdu21.transfer.schema_prior_minus_context_points:.2f--> below
+context alone.
+
+#### The blend, the control, and the one short form holding it up
+
+Blended with the context term over the same interpolation grid the in-domain measurement uses, the
+best weight is 0.85<!--claim:schema_prior.sdu21.transfer.blend_best_weight_on_context_tuning_split:.2f-->
+**on context** — the blend that helps is prior-*subordinate*, and the prior-dominant setting the
+proposal asked for reads 43.00<!--claim:schema_prior.sdu21.transfer.blend_prior_dominant_accuracy:.2f--> %,
+*below* context alone. A prior-dominant default would have made this library worse at the thing it is
+already losing.
+
+At its best weight the blend reads
+44.53<!--claim:schema_prior.sdu21.transfer.blend_best_accuracy_tuning_split:.2f--> % on the tuning split and
+44.53<!--claim:schema_prior.sdu21.transfer.blend_accuracy_out_of_fold:.2f--> % out of fold —
+0.71<!--claim:schema_prior.sdu21.transfer.blend_minus_context_points:.2f--> of a point over context, from
+77<!--claim:schema_prior.sdu21.transfer.blend_instances_won_from_context:,--> instances won and
+33<!--claim:schema_prior.sdu21.transfer.blend_instances_lost_to_context:,--> lost.
+
+**Is that small gain knowledge or shape?** The control shuffles each record's mass vector *within
+that record* under a frozen seed, 20<!--claim:schema_prior.sdu21.transfer.permutations:,--> draws: same
+firing rate, same mass distribution, same smoothing, same candidate counts — only the association
+between a mass and a candidate destroyed. The permuted blend averages
+43.85<!--claim:schema_prior.sdu21.transfer.accuracy_permuted_blend_mean:.2f--> % and never exceeds
+44.03<!--claim:schema_prior.sdu21.transfer.accuracy_permuted_blend_max:.2f--> %, so the measured
+44.53<!--claim:schema_prior.sdu21.transfer.blend_best_accuracy_tuning_split:.2f--> % is outside the
+permutation's range and the association is real. **It is real and it is
+0.68<!--claim:schema_prior.sdu21.transfer.blend_minus_permuted_control_points:.2f--> of a point**, against a
+gap to the trivial baseline of thirty-one.
+
+And on the 522<!--claim:schema_prior.sdu21.transfer.fired_subset_instances:,--> instances where the prior
+separates anything — the only subset any of this is live on — the whole of it is one short form.
+`IP` — the run's `fired_subset_largest_short_form` — alone is
+58<!--claim:schema_prior.sdu21.transfer.fired_subset_largest_short_form_instances:,--> of them and
+32.58<!--claim:schema_prior.sdu21.transfer.fired_subset_largest_short_form_share_of_correct_pct:.2f--> % of
+the subset's correct answers. Drop it and the prior scores
+19.18<!--claim:schema_prior.sdu21.transfer.fired_subset_schema_prior_accuracy_excluding_largest:.2f--> %
+against a floor of
+19.18<!--claim:schema_prior.sdu21.transfer.fired_subset_floor_accuracy_excluding_largest:.2f--> % over
+464<!--claim:schema_prior.sdu21.transfer.fired_subset_instances_excluding_largest:,--> instances —
+**identical to two decimal places.** Outside one short form the schema prior recovers nothing at all.
+
+#### The two contracts, and what would change the answer
+
+The arities do not meet either, and that is measured rather than argued.
+`GovernedDictionary.lookup` returns at most one entry per token because a governed catalog is
+unambiguous *by definition*; building one from the union prior keeps
+445,013<!--claim:schema_prior.contracts.governed_dictionary_rows_built:,--> rows and discards
+489,544<!--claim:schema_prior.contracts.schema_prior_values_lost_to_the_governed_contract:,--> harvested
+values, which is the whole of the frequency information. `ExpansionDictionary` holds
+732<!--claim:schema_prior.contracts.expansion_dictionary_short_forms:,--> short forms with
+3.15<!--claim:schema_prior.contracts.expansion_dictionary_mean_candidates:.2f--> candidates each. **The
+prior a blend would need is not in the governed contract; it lives in vote counters a catalog build
+throws away.**
+
+**So the finding is that the two catalog contracts should stay separate**, and the standing unknown
+about a frequency prior is retired in the negative for public schema data. What would reverse it is
+not a better blend: it is a caller whose schema and whose prose share a vocabulary — the in-house
+case the governance positioning is written for, where the catalog and the documents are about the
+same subject. This measurement says nothing about that caller, because no corpus here is one.
+
+**How this fails.** The prose arm is one corpus in one genre and the schema arm is two portals in
+two others, so this is a single cell of a matrix with at least four. The evaluation split is
+`sdu21_ad` dev, which `bench/splits.toml` declares contaminated and tuning, and the blend weight is
+swept on the very split it is read on — out-of-fold agrees here, but both folds are dev. The two
+schema corpora are read only as a source of counts, nothing is scored on them and no threshold is
+chosen on them, so their `held_out` role for identifier segmentation is untouched; a later
+workstream that scores something on them should check that this stayed true. And a null result is
+the cheapest kind to produce by accident, which is why `tests/test_schema_prior.py` pins each harvest
+construction against a hand fixture and shows the permutation control capable of reporting both a
+difference and none.
+
 ## PLOD: a second corpus, and a premise of mine that was wrong
 
 PLOD was added to close the domain-generalisation gap. **It does not, because PLOD is not
@@ -959,8 +1334,8 @@ claims gate cannot check:
 |---|---:|---|
 | all — every annotated occurrence | -16.06<!--claim:shortform_contest.plod.all.convention.margin.all:+.2f--> | `allcaps` |
 | all-caps token only — the baseline's own rule | -23.40<!--claim:shortform_contest.plod.all.convention.margin.caps:+.2f--> | `allcaps` |
-| bracket-adjacent only — definitional gold | +10.60<!--claim:shortform_contest.plod.all.convention.margin.definitional:+.2f--> | **`acronymkit`** |
-| both conditions | +2.10<!--claim:shortform_contest.plod.all.convention.margin.definitional_caps:+.2f--> | **`acronymkit`** |
+| bracket-adjacent only — definitional gold | ++10.60<!--claim:shortform_contest.plod.all.convention.margin.definitional:+.2f--> | **`acronymkit`** |
+| both conditions | ++2.10<!--claim:shortform_contest.plod.all.convention.margin.definitional_caps:+.2f--> | **`acronymkit`** |
 
 Those four figures are the differences of the eight cells above them, taken on the published
 two-decimal values so that subtracting the table reproduces them exactly. They are recorded under
@@ -1011,12 +1386,12 @@ thing that changes is which gold spans PLOD's annotation convention is read as a
 
 | Quantity | Value | What moved, from the margin table above |
 |---|---:|---|
-| The **annotation** axis, at the full gold denominator | +26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:+.2f--> | `all` → `definitional`; **the sign reverses on this axis alone** |
-| The annotation axis again, inside the caps region | +25.50<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_caps_gold:+.2f--> | `caps` → `definitional_caps` |
+| The **annotation** axis, at the full gold denominator | ++26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:+.2f--> | `all` → `definitional`; **the sign reverses on this axis alone** |
+| The annotation axis again, inside the caps region | ++25.50<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_caps_gold:+.2f--> | `caps` → `definitional_caps` |
 | The **admission-rule** axis, at the full gold denominator | -7.34<!--claim:shortform_contest.plod.all.convention.swing.caps_at_all_gold:+.2f--> | `all` → `caps`; it runs the other way |
 | The admission-rule axis again, inside definitional gold | -8.50<!--claim:shortform_contest.plod.all.convention.swing.caps_at_definitional_gold:+.2f--> | `definitional` → `definitional_caps` |
 | Interaction between the two | -1.16<!--claim:shortform_contest.plod.all.convention.swing.interaction:+.2f--> | the axes are close to additive |
-| Corner to corner, raw row to doubly-restricted row | +18.16<!--claim:shortform_contest.plod.all.convention.swing.corner_to_corner:+.2f--> | `all` → `definitional_caps` |
+| Corner to corner, raw row to doubly-restricted row | ++18.16<!--claim:shortform_contest.plod.all.convention.swing.corner_to_corner:+.2f--> | `all` → `definitional_caps` |
 
 **"Annotation convention was worth about eighteen points" is the wrong subtraction, and it
 understates the finding.** Eighteen is the corner-to-corner figure, and it is the **net** of two
@@ -1027,10 +1402,10 @@ axis is not: it is `predict_all_caps`'s own admission rule turned into a gold fi
 property of the baseline rather than of PLOD. Eighteen is what is left after the convention effect is
 netted against that system-shape effect, and the two ways of doing that subtraction are the two
 routes across the 2×2 in the table above:
-+26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:+.2f--> then
+++26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:+.2f--> then
 -8.50<!--claim:shortform_contest.plod.all.convention.swing.caps_at_definitional_gold:+.2f-->, or
 -7.34<!--claim:shortform_contest.plod.all.convention.swing.caps_at_all_gold:+.2f--> then
-+25.50<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_caps_gold:+.2f-->. Both
+++25.50<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_caps_gold:+.2f-->. Both
 reach 18.16<!--claim:shortform_contest.plod.all.convention.swing.corner_to_corner:.2f-->; the two
 *headline* effects do not, because
 26.66<!--claim:shortform_contest.plod.all.convention.swing.definitional_at_all_gold:.2f--> and
@@ -2885,6 +3260,18 @@ and nothing else. No optimisation was made, and no line of `src/acronymkit/` was
 The runner is [`bench/run_governed_perf.py`](../bench/run_governed_perf.py); the runs are
 `governed_perf.*`; the tests that pin the instrument are `tests/test_governed_perf_runner.py`.
 
+**READ THE RUN IDS IN THIS SECTION BEFORE THE NUMBERS.** Everything from here to
+[the memo levels](#the-two-memo-levels-and-the-one-that-was-declining-the-only-work-there-was) cites
+`governed_perf.pre_memo_*`, and those runs measure `expand_identifier` **as it stood at `34925f8`**,
+before the memo levels below were added. They are kept under their own ids rather than re-rendered in
+place, because a closed record that quotes a measurement of code its author never saw is worse than a
+stale one — and one such re-render had already turned *"one round put the assembly centre below zero
+at `-3.06` %"* into *"below zero at `13.49` %"*, which is not a stale number but a false sentence. The
+same decomposition on the **shipped** path is
+[in its own subsection](#the-same-decomposition-on-the-shipped-path-and-what-moved), and the headline
+share moved a long way while the thing it describes got *cheaper* — which is the reading a share
+cannot carry on its own.
+
 ### First: the two corpus sizes this work was handed are claims, and one of them has no corpus
 
 The brief named a Socrata corpus of
@@ -2932,6 +3319,27 @@ property of the corpus rather than of the code.
 | top 5 tokens, share of occurrences | 6.07<!--claim:governed_perf.socrata.census.top5_token_occurrence_pct:.2f--> % | 15.36<!--claim:governed_perf.sec_xbrl.census.top5_token_occurrence_pct:.2f--> % | 23.39<!--claim:governed_perf.fixture_schema.census.top5_token_occurrence_pct:.2f--> % |
 | top 100 tokens, share of occurrences | 37.43<!--claim:governed_perf.socrata.census.top100_token_occurrence_pct:.2f--> % | 66.78<!--claim:governed_perf.sec_xbrl.census.top100_token_occurrence_pct:.2f--> % | 97.43<!--claim:governed_perf.fixture_schema.census.top100_token_occurrence_pct:.2f--> % |
 | tokens seen exactly once, share of occurrences | 2.67<!--claim:governed_perf.socrata.census.token_hapax_pct_of_occurrences:.2f--> % | 0.40<!--claim:governed_perf.sec_xbrl.census.token_hapax_pct_of_occurrences:.2f--> % | 0.00<!--claim:governed_perf.fixture_schema.census.token_hapax_pct_of_occurrences:.2f--> % |
+| **identifiers that repeat at all — the identifier ceiling** | **55.12<!--claim:governed_perf.socrata.census.identifier_repeat_pct:.2f--> %** | **24.95<!--claim:governed_perf.sec_xbrl.census.identifier_repeat_pct:.2f--> %** | **0.00<!--claim:governed_perf.fixture_schema.census.identifier_repeat_pct:.2f--> %** |
+| identifier memo, shipped bound, replayed in order | 20.35<!--claim:governed_perf.socrata.census.identifier_memo_bounded_hit_pct:.2f--> % | 8.94<!--claim:governed_perf.sec_xbrl.census.identifier_memo_bounded_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.fixture_schema.census.identifier_memo_bounded_hit_pct:.2f--> % |
+| the same bound under LRU eviction | 28.79<!--claim:governed_perf.socrata.census.identifier_memo_lru_hit_pct:.2f--> % | 13.22<!--claim:governed_perf.sec_xbrl.census.identifier_memo_lru_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.fixture_schema.census.identifier_memo_lru_hit_pct:.2f--> % |
+| **tokens that repeat at all — the token ceiling** | **94.21<!--claim:governed_perf.socrata.census.token_repeat_pct:.2f--> %** | **98.99<!--claim:governed_perf.sec_xbrl.census.token_repeat_pct:.2f--> %** | **99.96<!--claim:governed_perf.fixture_schema.census.token_repeat_pct:.2f--> %** |
+| token memo, shipped bound, replayed in order | 81.28<!--claim:governed_perf.socrata.census.token_memo_bounded_hit_pct:.2f--> % | 98.27<!--claim:governed_perf.sec_xbrl.census.token_memo_bounded_hit_pct:.2f--> % | 99.96<!--claim:governed_perf.fixture_schema.census.token_memo_bounded_hit_pct:.2f--> % |
+| the same bound under LRU eviction | 86.73<!--claim:governed_perf.socrata.census.token_memo_lru_hit_pct:.2f--> % | 98.89<!--claim:governed_perf.sec_xbrl.census.token_memo_lru_hit_pct:.2f--> % | 99.96<!--claim:governed_perf.fixture_schema.census.token_memo_lru_hit_pct:.2f--> % |
+| times the shipped bound emptied the map, per pass | 30<!--claim:governed_perf.socrata.census.identifier_memo_clears:,--> id / 19<!--claim:governed_perf.socrata.census.token_memo_clears:,--> tok | 20<!--claim:governed_perf.sec_xbrl.census.identifier_memo_clears:,--> / 2<!--claim:governed_perf.sec_xbrl.census.token_memo_clears:,--> | 4<!--claim:governed_perf.fixture_schema.census.identifier_memo_clears:,--> / 0<!--claim:governed_perf.fixture_schema.census.token_memo_clears:,--> |
+
+**Read the bold rows against the rows beneath them, because the bold ones are ceilings and read like
+results.** The share that repeats *at all* is arithmetic over a distinct count and is what an
+unbounded memo would serve. What the shipped map serves is the row below it: the same corpus replayed
+in its own occurrence order through a map of the shipped size that **empties itself** when it fills.
+At token level the two are close —
+94.21<!--claim:governed_perf.socrata.census.token_repeat_pct:.2f--> % against
+81.28<!--claim:governed_perf.socrata.census.token_memo_bounded_hit_pct:.2f--> % on Socrata. **At
+identifier level the ceiling is roughly three times the result**,
+55.12<!--claim:governed_perf.socrata.census.identifier_repeat_pct:.2f--> % against
+20.35<!--claim:governed_perf.socrata.census.identifier_memo_bounded_hit_pct:.2f--> %, because a
+schema's distinct identifiers outnumber the bound by an order of magnitude and the map spends the pass
+refilling. Quoting the ceiling as the value of an identifier memo overstates it threefold, and the
+rows ship together so that nobody has to notice on their own.
 
 **Schema tokens are heavily repeated and the assumption about *which* tokens repeat is wrong.** The
 premise this workstream was handed is that `ID`, `DT`, `TXN`, `AMT` and `CD` recur across millions of
@@ -2993,12 +3401,12 @@ assembly. So the runner times five nested stages over the same corpus and subtra
 **The stages are checked against the shipped path three ways, because a stage that quietly does less
 work is a fiction that looks like a finding.** On every arm: the phrase is byte-identical to
 `expand_identifier(...).phrase` on every identifier
-(0<!--claim:governed_perf.socrata.empty.phrase_mismatches:,--> mismatches over
-155,272<!--claim:governed_perf.socrata.empty.identifiers:,--> Socrata names), the stages take the
+(0<!--claim:governed_perf.pre_memo_socrata_empty.phrase_mismatches:,--> mismatches over
+155,272<!--claim:governed_perf.pre_memo_socrata_empty.identifiers:,--> Socrata names), the stages take the
 shipped path's `resolve` count exactly
-(0<!--claim:governed_perf.socrata.empty.stage_catalog_lookup_excess:,--> excess lookups), and the
+(0<!--claim:governed_perf.pre_memo_socrata_empty.stage_catalog_lookup_excess:,--> excess lookups), and the
 class-word stage takes the shipped path's `class_word_for` count exactly
-(0<!--claim:governed_perf.socrata.empty.stage_class_word_lookup_excess:,--> excess). The second check
+(0<!--claim:governed_perf.pre_memo_socrata_empty.stage_class_word_lookup_excess:,--> excess). The second check
 is not decoration: the first draft of `stage_lookup` resolved every token instead of consulting a
 memo first, so on the arm where the catalog answers it did *more* work than the stage above it and
 the assembly centre came out at `-7.78` points. That failure was loud. The quiet version — a stage
@@ -3008,9 +3416,9 @@ that skips lookups while agreeing on every phrase — is what the count catches.
 
 **Provenance construction dominates on every arm — it is the largest cost centre on all four, and on
 every one of them it is larger than the other three put together: the shipped call builds
-578,816<!--claim:governed_perf.socrata.empty.provenance_records_constructed:,--> frozen records for
-155,272<!--claim:governed_perf.socrata.empty.identifiers:,--> Socrata identifiers —
-3.728<!--claim:governed_perf.socrata.empty.provenance_records_per_identifier:.3f--> per call — and
+578,816<!--claim:governed_perf.pre_memo_socrata_empty.provenance_records_constructed:,--> frozen records for
+155,272<!--claim:governed_perf.pre_memo_socrata_empty.identifiers:,--> Socrata identifiers —
+3.728<!--claim:governed_perf.pre_memo_socrata_empty.provenance_records_per_identifier:.3f--> per call — and
 removing every one of them without changing a character of the phrase leaves the call roughly two to
 four times faster depending on the arm, the width being what three decompositions of one corpus on
 one machine disagree by.**
@@ -3020,11 +3428,11 @@ The counts behind it, which are properties of the code rather than of this lapto
 | work count, per identifier | Socrata, empty catalog | SEC XBRL, empty catalog | fixture schema, fixture catalog |
 |---|---:|---:|---:|
 | tokenizer passes | 1.000 | 1.000 | 1.000 |
-| catalog lookups | 2.906<!--claim:governed_perf.socrata.empty.catalog_lookups_per_identifier:.3f--> | 7.233<!--claim:governed_perf.sec_xbrl.empty.catalog_lookups_per_identifier:.3f--> | 1.197<!--claim:governed_perf.fixture_schema.fixture.catalog_lookups_per_identifier:.3f--> |
-| provenance records constructed | 3.728<!--claim:governed_perf.socrata.empty.provenance_records_per_identifier:.3f--> | 8.228<!--claim:governed_perf.sec_xbrl.empty.provenance_records_per_identifier:.3f--> | 2.127<!--claim:governed_perf.fixture_schema.fixture.provenance_records_per_identifier:.3f--> |
-| Python-level calls | 139.87<!--claim:governed_perf.socrata.empty.python_calls_per_identifier:.2f--> | 322.41<!--claim:governed_perf.sec_xbrl.empty.python_calls_per_identifier:.2f--> | 186.47<!--claim:governed_perf.fixture_schema.fixture.python_calls_per_identifier:.2f--> |
-| expansion-memo hit rate | 0.00<!--claim:governed_perf.socrata.empty.expansion_memo_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.sec_xbrl.empty.expansion_memo_hit_pct:.2f--> % | 92.98<!--claim:governed_perf.fixture_schema.fixture.expansion_memo_hit_pct:.2f--> % |
-| `resolve`-memo hit rate | 0.00<!--claim:governed_perf.socrata.empty.catalog_memo_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.sec_xbrl.empty.catalog_memo_hit_pct:.2f--> % | 0.01<!--claim:governed_perf.fixture_schema.fixture.catalog_memo_hit_pct:.2f--> % |
+| catalog lookups | 2.906<!--claim:governed_perf.pre_memo_socrata_empty.catalog_lookups_per_identifier:.3f--> | 7.233<!--claim:governed_perf.pre_memo_sec_xbrl_empty.catalog_lookups_per_identifier:.3f--> | 1.197<!--claim:governed_perf.pre_memo_fixture_schema_fixture.catalog_lookups_per_identifier:.3f--> |
+| provenance records constructed | 3.728<!--claim:governed_perf.pre_memo_socrata_empty.provenance_records_per_identifier:.3f--> | 8.228<!--claim:governed_perf.pre_memo_sec_xbrl_empty.provenance_records_per_identifier:.3f--> | 2.127<!--claim:governed_perf.pre_memo_fixture_schema_fixture.provenance_records_per_identifier:.3f--> |
+| Python-level calls | 139.87<!--claim:governed_perf.pre_memo_socrata_empty.python_calls_per_identifier:.2f--> | 322.41<!--claim:governed_perf.pre_memo_sec_xbrl_empty.python_calls_per_identifier:.2f--> | 186.47<!--claim:governed_perf.pre_memo_fixture_schema_fixture.python_calls_per_identifier:.2f--> |
+| expansion-memo hit rate | 0.00<!--claim:governed_perf.pre_memo_socrata_empty.expansion_memo_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.pre_memo_sec_xbrl_empty.expansion_memo_hit_pct:.2f--> % | 92.98<!--claim:governed_perf.pre_memo_fixture_schema_fixture.expansion_memo_hit_pct:.2f--> % |
+| `resolve`-memo hit rate | 0.00<!--claim:governed_perf.pre_memo_socrata_empty.catalog_memo_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.pre_memo_sec_xbrl_empty.catalog_memo_hit_pct:.2f--> % | 0.01<!--claim:governed_perf.pre_memo_fixture_schema_fixture.catalog_memo_hit_pct:.2f--> % |
 
 Four of those rows are findings on their own.
 
@@ -3034,12 +3442,12 @@ with an **empty** catalog, and `_Memo` records only what the vocabulary answered
 by a decision its docstring defends at length. An empty catalog answers for nothing, so both maps
 stay empty for the whole pass. The memoisation workstream's benefit on the configuration every
 flagship number is measured in is exactly zero, and its cost — the `get` and the `_memo(policy)`
-call, 874,807<!--claim:governed_perf.socrata.empty.memo_partitions_consulted:,--> of the latter on the
+call, 874,807<!--claim:governed_perf.pre_memo_socrata_empty.memo_partitions_consulted:,--> of the latter on the
 Socrata pass — is paid in full.
 
 **The `resolve` memo is close to dead on this path even when the catalog does answer.** On the
-fixture arm it serves 3<!--claim:governed_perf.fixture_schema.fixture.catalog_memo_hits:,--> of
-23,934<!--claim:governed_perf.fixture_schema.fixture.catalog_lookups:,--> lookups, because the
+fixture arm it serves 3<!--claim:governed_perf.pre_memo_fixture_schema_fixture.catalog_memo_hits:,--> of
+23,934<!--claim:governed_perf.pre_memo_fixture_schema_fixture.catalog_lookups:,--> lookups, because the
 expansion memo in front of it already short-circuits every repeat. Two memos are shipped; on the
 identifier path one of them does essentially all of the work. That does not make the second one
 useless — `expand_token`, the compliance direction and the reverse direction all reach it without
@@ -3048,18 +3456,18 @@ that already has a `92.98` % hit rate in front of it on the only arm where eithe
 
 **The digit rejoin is a sixteenth of Socrata's catalog lookups and is invisible in every
 existing figure.** `_rejoin_digit_tokens` performs
-27,719<!--claim:governed_perf.socrata.empty.catalog_lookups_from_digit_rejoin:,--> of the
-451,263<!--claim:governed_perf.socrata.empty.catalog_lookups:,--> lookups, against
-382<!--claim:governed_perf.sec_xbrl.empty.catalog_lookups_from_digit_rejoin:,--> on SEC XBRL — a
+27,719<!--claim:governed_perf.pre_memo_socrata_empty.catalog_lookups_from_digit_rejoin:,--> of the
+451,263<!--claim:governed_perf.pre_memo_socrata_empty.catalog_lookups:,--> lookups, against
+382<!--claim:governed_perf.pre_memo_sec_xbrl_empty.catalog_lookups_from_digit_rejoin:,--> on SEC XBRL — a
 corpus-shape effect, not a code effect: Socrata field names are full of ordinals and years and SEC
 element names are not.
 
 **`_scan` still has not met real data.** The reference character-by-character reading of the
 tokenisation rules ran
-0<!--claim:governed_perf.socrata.empty.tokenizer_scans:,--> times across
-155,272<!--claim:governed_perf.socrata.empty.identifiers:,--> Socrata identifiers and
-0<!--claim:governed_perf.sec_xbrl.empty.tokenizer_scans:,--> times across
-90,655<!--claim:governed_perf.sec_xbrl.empty.identifiers:,--> SEC element names, because both corpora
+0<!--claim:governed_perf.pre_memo_socrata_empty.tokenizer_scans:,--> times across
+155,272<!--claim:governed_perf.pre_memo_socrata_empty.identifiers:,--> Socrata identifiers and
+0<!--claim:governed_perf.pre_memo_sec_xbrl_empty.tokenizer_scans:,--> times across
+90,655<!--claim:governed_perf.pre_memo_sec_xbrl_empty.identifiers:,--> SEC element names, because both corpora
 are entirely ASCII and `split_identifier_parts` takes the regex path. That reproduces
 [`docs/AUDIT-2026-08.md`](AUDIT-2026-08.md)'s question 6 on a population this tree actually holds. An
 automaton workstream aimed at the tokenizer would be optimising a branch that has never executed on
@@ -3119,17 +3527,17 @@ difference of two large similar timings inherits the noise of both. **Take the o
 quote the magnitude of any centre but provenance.**
 
 **Provenance survives a
-92.98<!--claim:governed_perf.fixture_schema.fixture.expansion_memo_hit_pct:.2f--> % memo hit rate.**
+92.98<!--claim:governed_perf.pre_memo_fixture_schema_fixture.expansion_memo_hit_pct:.2f--> % memo hit rate.**
 On the fixture arm — the only one where the catalog
 answers and the memo fires — provenance is still
-49.85<!--claim:governed_perf.fixture_schema.fixture.stage_provenance_pct:.2f--> % of the call. The
+49.85<!--claim:governed_perf.pre_memo_fixture_schema_fixture.stage_provenance_pct:.2f--> % of the call. The
 expansion memo removes the *token* records; it cannot remove the `IdentifierExpansion`, because every
 identifier is distinct by construction and one record per call is the floor. Memoisation and lazy
 provenance are therefore **not** substitutes: the second still has most of its win after the first
 has taken all of its own.
 
 **Tokenisation is the largest centre on exactly the arm nobody runs.** It is
-23.02<!--claim:governed_perf.fixture_schema.fixture.stage_tokenise_pct:.2f--> % on the fixture arm,
+23.02<!--claim:governed_perf.pre_memo_fixture_schema_fixture.stage_tokenise_pct:.2f--> % on the fixture arm,
 whose identifiers average
 16.069<!--claim:governed_perf.fixture_schema.census.tokens_per_identifier:.3f--> tokens, against
 2.728<!--claim:governed_perf.socrata.census.tokens_per_identifier:.3f--> on Socrata. Any conclusion
@@ -3152,9 +3560,9 @@ are collected across the enclosing function, and a result that leaves the scope,
 
 | group | call sites | classified | read only `.phrase` | share |
 |---|---:|---:|---:|---:|
-| `src/acronymkit` | 3<!--claim:governed_perf.caller_census.library_sites:,--> | 3<!--claim:governed_perf.caller_census.library_classified:,--> | 0<!--claim:governed_perf.caller_census.library_phrase_only:,--> | 0.00<!--claim:governed_perf.caller_census.library_phrase_only_pct:.2f--> % |
-| `bench`, `tools`, `examples` | 12<!--claim:governed_perf.caller_census.harness_sites:,--> | 8<!--claim:governed_perf.caller_census.harness_classified:,--> | 6<!--claim:governed_perf.caller_census.harness_phrase_only:,--> | 75.00<!--claim:governed_perf.caller_census.harness_phrase_only_pct:.2f--> % |
-| `tests` | 64<!--claim:governed_perf.caller_census.tests_sites:,--> | 55<!--claim:governed_perf.caller_census.tests_classified:,--> | 19<!--claim:governed_perf.caller_census.tests_phrase_only:,--> | 34.55<!--claim:governed_perf.caller_census.tests_phrase_only_pct:.2f--> % |
+| `src/acronymkit` | 3<!--claim:governed_perf.pre_memo_caller_census.library_sites:,--> | 3<!--claim:governed_perf.pre_memo_caller_census.library_classified:,--> | 0<!--claim:governed_perf.pre_memo_caller_census.library_phrase_only:,--> | 0.00<!--claim:governed_perf.pre_memo_caller_census.library_phrase_only_pct:.2f--> % |
+| `bench`, `tools`, `examples` | 12<!--claim:governed_perf.pre_memo_caller_census.harness_sites:,--> | 8<!--claim:governed_perf.pre_memo_caller_census.harness_classified:,--> | 6<!--claim:governed_perf.pre_memo_caller_census.harness_phrase_only:,--> | 75.00<!--claim:governed_perf.pre_memo_caller_census.harness_phrase_only_pct:.2f--> % |
+| `tests` | 64<!--claim:governed_perf.pre_memo_caller_census.tests_sites:,--> | 55<!--claim:governed_perf.pre_memo_caller_census.tests_classified:,--> | 19<!--claim:governed_perf.pre_memo_caller_census.tests_phrase_only:,--> | 34.55<!--claim:governed_perf.pre_memo_caller_census.tests_phrase_only_pct:.2f--> % |
 
 **Not one caller inside `src/acronymkit` reads only `.phrase`.** `cli.py` calls `to_dict`, which
 touches every field of every record; `governed/audit.py` reads `is_fully_known` and `tokens`, and
@@ -3191,7 +3599,7 @@ falsifier attached to each.
    prediction assumed an empty catalog makes lookup nearly free; it does not, because `resolve`
    normalises its key, consults the policy memo and walks the precedence chain before it can report
    nothing — `_token_key` runs
-   1,298,351<!--claim:governed_perf.socrata.empty.token_keys_folded:,--> times on the Socrata pass
+   1,298,351<!--claim:governed_perf.pre_memo_socrata_empty.token_keys_folded:,--> times on the Socrata pass
    against 423,544<!--claim:governed_perf.socrata.census.token_occurrences:,--> token occurrences,
    which is three foldings of the same string per token.
 2. **The phrase-only caller does not exist inside this library.** That does not kill lazy provenance
@@ -3214,21 +3622,505 @@ The list after the measurement:
    clear-on-full map cannot collect it; the ceiling is an eviction policy, not a second memo.
 3. **A streaming batch API** — up from rank three only in the sense that it is now bounded rather
    than guessed: `_prepare` runs
-   155,272<!--claim:governed_perf.socrata.empty.call_preparations:,--> times on the Socrata pass,
+   155,272<!--claim:governed_perf.pre_memo_socrata_empty.call_preparations:,--> times on the Socrata pass,
    exactly once per identifier, out of
-   139.87<!--claim:governed_perf.socrata.empty.python_calls_per_identifier:.2f--> Python calls per
+   139.87<!--claim:governed_perf.pre_memo_socrata_empty.python_calls_per_identifier:.2f--> Python calls per
    identifier. That is `0.7` % of the call graph. **A streaming API cannot be worth more than that
    unless it changes what is built**, which makes it a delivery mechanism for lazy provenance rather
    than an optimisation in its own right.
 4. **An automaton** — down, and close to dead. Tokenisation is
-   9.82<!--claim:governed_perf.socrata.empty.stage_tokenise_pct:.2f--> % of the Socrata call, the
+   9.82<!--claim:governed_perf.pre_memo_socrata_empty.stage_tokenise_pct:.2f--> % of the Socrata call, the
    path it would replace is already a regex in C, and the
    character-by-character branch it would compete with executed
-   0<!--claim:governed_perf.socrata.empty.tokenizer_scans:,--> times on either real corpus.
+   0<!--claim:governed_perf.pre_memo_socrata_empty.tokenizer_scans:,--> times on either real corpus.
 5. **Free-threading** — unchanged at last, and this measurement says nothing about it. Nothing here
    is a serialisation point that a thread count would relieve, and the one shared mutable structure
    is the memo, which is a correctness question rather than a throughput one. Recorded as
    unmeasured.
+
+### The two memo levels, and the one that was declining the only work there was
+
+`GovernedDictionary` memoises on the instance, per policy, in four maps. Which map an answer goes in
+is decided by **what bounds its key set** rather than by what kind of answer it is: `resolved` and
+`expanded` are keyed by the vocabulary and cannot outgrow the catalog; `passed` and `identifiers` are
+keyed by caller input and are bounded by a limit and a clear. Two of the four are new here.
+
+**Where the memo lives is the design, and it is unchanged.** It lives on the dictionary, per policy,
+matched by value — so a call-scoped `custom=` overlay is served nothing, because `with_custom`
+returns a **new** instance whose memos are empty, and an `UnknownPolicy.REJECT` call is served
+nothing, because `unknown` is a `NamingPolicy` field and therefore has its own partition. Both are
+asserted rather than argued: `tools/gate_memo_identity.py --only properties`.
+
+**The pre-Phase-B memo's hit rate on every published governed configuration was zero, and that was a
+derivation rather than an accident.** Every governed figure this project publishes is taken with an
+**empty** catalog, and the old memo recorded only what the vocabulary answered for. An empty catalog
+answers for nothing, so the map stayed empty for the whole pass and the bookkeeping was paid in full.
+The docstring defending that choice said the alternative *"was measured against"* it. **It was not** —
+no run in `bench/results.json` measured it, on any corpus. Here is that measurement, `--only memo`,
+each level stacked on the one above it:
+
+| Socrata, empty catalog | id-memo hit | token-memo hit | catalog lookups | records built | names/s | × none |
+|---|---:|---:|---:|---:|---:|---:|
+| no memo at all | 0.00<!--claim:governed_perf.memo.socrata_empty.none_identifier_memo_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.memo.socrata_empty.none_expansion_memo_hit_pct:.2f--> % | 451,263<!--claim:governed_perf.memo.socrata_empty.none_catalog_lookups:,--> | 578,816<!--claim:governed_perf.memo.socrata_empty.none_provenance_records_constructed:,--> | 115,640<!--claim:governed_perf.memo.socrata_empty.none_identifiers_per_second:,--> | 1.000 |
+| vocabulary-keyed only — **what shipped before** | 0.00<!--claim:governed_perf.memo.socrata_empty.vocabulary_identifier_memo_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.memo.socrata_empty.vocabulary_expansion_memo_hit_pct:.2f--> % | 451,263<!--claim:governed_perf.memo.socrata_empty.vocabulary_catalog_lookups:,--> | 578,816<!--claim:governed_perf.memo.socrata_empty.vocabulary_provenance_records_constructed:,--> | 116,054<!--claim:governed_perf.memo.socrata_empty.vocabulary_identifiers_per_second:,--> | **1.004<!--claim:governed_perf.memo.socrata_empty.vocabulary_speedup_over_none:.3f-->** |
+| + `passed` (token → resolution) | 0.00<!--claim:governed_perf.memo.socrata_empty.token_identifier_memo_hit_pct:.2f--> % | 81.28<!--claim:governed_perf.memo.socrata_empty.token_expansion_memo_hit_pct:.2f--> % | 107,012<!--claim:governed_perf.memo.socrata_empty.token_catalog_lookups:,--> | 234,565<!--claim:governed_perf.memo.socrata_empty.token_provenance_records_constructed:,--> | 221,114<!--claim:governed_perf.memo.socrata_empty.token_identifiers_per_second:,--> | **1.912<!--claim:governed_perf.memo.socrata_empty.token_speedup_over_none:.3f-->** |
+| + `identifiers` (identifier → result) — **shipped** | 20.35<!--claim:governed_perf.memo.socrata_empty.full_identifier_memo_hit_pct:.2f--> % | 78.20<!--claim:governed_perf.memo.socrata_empty.full_expansion_memo_hit_pct:.2f--> % | 103,454<!--claim:governed_perf.memo.socrata_empty.full_catalog_lookups:,--> | 202,162<!--claim:governed_perf.memo.socrata_empty.full_provenance_records_constructed:,--> | 240,141<!--claim:governed_perf.memo.socrata_empty.full_identifiers_per_second:,--> | **2.077<!--claim:governed_perf.memo.socrata_empty.full_speedup_over_none:.3f-->** |
+
+**Operating rule 17 is why the middle columns are there and not a footnote.** The gain is not a
+mystery: `passed` cuts Socrata's catalog lookups from
+451,263<!--claim:governed_perf.memo.socrata_empty.none_catalog_lookups:,--> to
+107,012<!--claim:governed_perf.memo.socrata_empty.token_catalog_lookups:,--> and the frozen records
+built from 578,816<!--claim:governed_perf.memo.socrata_empty.none_provenance_records_constructed:,-->
+to 234,565<!--claim:governed_perf.memo.socrata_empty.token_provenance_records_constructed:,-->. The
+work stopped happening. **What did not change is a single byte of output** — that is the next
+subsection, and it is the only reason the row above is allowed to exist.
+
+The same four rows on the other three arms, as speed-ups with the hit rate that produced them:
+
+| arm | vocabulary only | + `passed` | + `identifiers` | id-memo hit rate |
+|---|---:|---:|---:|---:|
+| Socrata, empty | 1.004<!--claim:governed_perf.memo.socrata_empty.vocabulary_speedup_over_none:.3f--> | 1.912<!--claim:governed_perf.memo.socrata_empty.token_speedup_over_none:.3f--> | 2.077<!--claim:governed_perf.memo.socrata_empty.full_speedup_over_none:.3f--> | 20.35<!--claim:governed_perf.memo.socrata_empty.full_identifier_memo_hit_pct:.2f--> % |
+| Socrata, fixture catalog | 1.102<!--claim:governed_perf.memo.socrata_fixture.vocabulary_speedup_over_none:.3f--> | 1.962<!--claim:governed_perf.memo.socrata_fixture.token_speedup_over_none:.3f--> | 2.260<!--claim:governed_perf.memo.socrata_fixture.full_speedup_over_none:.3f--> | 20.35<!--claim:governed_perf.memo.socrata_fixture.full_identifier_memo_hit_pct:.2f--> % |
+| SEC XBRL, empty | 0.992<!--claim:governed_perf.memo.sec_xbrl_empty.vocabulary_speedup_over_none:.3f--> | 3.592<!--claim:governed_perf.memo.sec_xbrl_empty.token_speedup_over_none:.3f--> | 3.637<!--claim:governed_perf.memo.sec_xbrl_empty.full_speedup_over_none:.3f--> | 8.94<!--claim:governed_perf.memo.sec_xbrl_empty.full_identifier_memo_hit_pct:.2f--> % |
+| fixture schema, fixture catalog | 5.964<!--claim:governed_perf.memo.fixture_schema_fixture.vocabulary_speedup_over_none:.3f--> | 7.754<!--claim:governed_perf.memo.fixture_schema_fixture.token_speedup_over_none:.3f--> | 7.696<!--claim:governed_perf.memo.fixture_schema_fixture.full_speedup_over_none:.3f--> | 0.00<!--claim:governed_perf.memo.fixture_schema_fixture.full_identifier_memo_hit_pct:.2f--> % |
+
+**Four readings, and two of them are against the level this workstream was asked to build.**
+
+- **On SEC XBRL the pre-Phase-B memo was a net loss**, at
+  0.992<!--claim:governed_perf.memo.sec_xbrl_empty.vocabulary_speedup_over_none:.3f--> ×. It paid the
+  `get` and the partition lookup on every one of
+  655,663<!--claim:governed_perf.memo.sec_xbrl_empty.none_catalog_lookups:,--> lookups and returned
+  nothing at all. That single ratio is inside the run-to-run noise of a wall-clock; the work counts
+  either side of it are identical to the integer, which is the part that is not noise.
+- **The identifier level is the smaller of the two by a wide margin, and it is not free.** It adds
+  `8.6` % on Socrata/empty, `15.2` % on Socrata/fixture, `1.3` % on SEC XBRL — and it **costs**
+  `0.7` % on the fixture-schema arm, where its hit rate is
+  0.00<!--claim:governed_perf.memo.fixture_schema_fixture.full_identifier_memo_hit_pct:.2f--> % by
+  construction because that corpus contains no repeated identifier at all. It ships on because three
+  arms of four gain and the fourth is synthetic; a reader who thinks a level that loses on one arm
+  should not ship is reading the same table this page is.
+- **The bounded hit rate is a third of the ceiling, and both ship.** The share of Socrata identifiers
+  that repeat *at all* is 55.12<!--claim:governed_perf.socrata.census.identifier_repeat_pct:.2f--> %;
+  the share a clear-on-full map of
+  4,096<!--claim:governed_perf.socrata.census.identifier_memo_limit:,--> entries actually serves,
+  replayed in the corpus's own occurrence order, is
+  20.35<!--claim:governed_perf.socrata.census.identifier_memo_bounded_hit_pct:.2f--> %. On SEC XBRL it
+  is 24.95<!--claim:governed_perf.sec_xbrl.census.identifier_repeat_pct:.2f--> % against
+  8.94<!--claim:governed_perf.sec_xbrl.census.identifier_memo_bounded_hit_pct:.2f--> %. **The ceiling
+  reads like the result and is roughly three times it**, which is why the census now ships both.
+- **The clear-on-full rule is priced rather than defended.** An LRU of the same size over the same
+  corpus in the same order serves
+  28.79<!--claim:governed_perf.socrata.census.identifier_memo_lru_hit_pct:.2f--> % of Socrata
+  identifiers against clear-on-full's
+  20.35<!--claim:governed_perf.socrata.census.identifier_memo_bounded_hit_pct:.2f--> %, and
+  86.73<!--claim:governed_perf.socrata.census.token_memo_lru_hit_pct:.2f--> % of tokens against
+  81.28<!--claim:governed_perf.socrata.census.token_memo_bounded_hit_pct:.2f--> %. That is what the
+  cheap rule gives up. It is **not** an argument for changing it — an eviction order costs bookkeeping
+  on every hit and no arm here measures that cost — but the claim that "the tokens that matter refill
+  an emptied memo within a few names" now has a number beside it and the number is `8.4` points.
+
+### R19: forced on, forced off, byte-identical, on the whole corpus
+
+An optimisation is proven behaviour-identical, not benchmarked-equal. A memo that changed one
+`entry_id` in ten million would be catastrophic for a governance instrument and completely invisible
+to a benchmark, which reports a rate and never looks at a field.
+[`tools/gate_memo_identity.py`](../tools/gate_memo_identity.py) is that proof and it times nothing: it
+runs a corpus once per memo configuration and compares the **full `to_json()` of every result** —
+`entry_id`, `source`, `confidence`, `class_word`, `beat`, `kind`, `is_known`, `is_fully_known` and
+`unaccounted` as well as the phrase — against the configuration with every level forced off.
+
+```
+python tools/gate_memo_identity.py   -- command output, abridged to the totals.
+Five configurations per corpus: all four levels on, then each level off on its own.
+Forced off is _NullMap, a real dict subclass that stores nothing, so the per-token code is
+byte-identical between arms and the comparison is a cache against its own absence rather
+than one implementation against another.
+
+  corpus              identifiers   x 5 configurations   mismatching to_json()
+  generated/fixture        30,000                          0
+  socrata/empty           155,272                          0
+  socrata/fixture         155,272                          0
+  sec_xbrl/empty           90,655                          0
+  sec_xbrl/fixture         90,655                          0
+  levels reached across the whole run: resolved 104, expanded 208, passed 3,735, identifiers 2,629
+  rc=0   every memo level is byte-identical to no memo at all, provenance included
+```
+
+**Three things stop that green from being free, and one of them was found by testing the gate rather
+than by writing it.**
+
+1. **The arms are proved to have differed.** Occupancy is read after every arm, and a run where the
+   memo-off arm remembered anything, or the all-on arm remembered nothing, is refused. Without that, a
+   bug that disabled memoisation entirely would make every arm trivially identical and this gate would
+   go green on a library that had stopped caching.
+2. **The clear branch is proved to have executed.** Socrata's token map fills and empties
+   19<!--claim:governed_perf.socrata.census.token_memo_clears:,--> times over the pass and its
+   identifier map 30<!--claim:governed_perf.socrata.census.identifier_memo_clears:,--> times. A corpus
+   smaller than the bound never reaches the branch where a memo is likeliest to serve a stale answer,
+   and the gate refuses a run in which neither caller-input level cleared.
+3. **The gate was blind to a whole defect class, and the probe is what said so.** A mutation making
+   the identifier memo read its key case-folded — one caller served another caller's `identifier`
+   field — **fired on neither real corpus**, because neither Socrata nor SEC XBRL happens to contain
+   two names differing only in case. The generated corpus now carries a case-variant population and
+   the mutation fires. R11 in one line: that gate could not have failed on that class, and it was
+   green over four full-corpus runs before anybody asked it to.
+
+```
+python tools/gate_memo_identity.py --limit 8000, one mutation applied at a time, the gate run,
+both source files restored from bytes read before the first mutation and md5-verified.
+CPython 3.13.4 on win32; command output, not a benchmark measurement.
+
+  rc=0  control, unmutated                        <nothing named>
+  rc=1  A  passed memo read with a folded key     disagreed with the memo-off arm on 427 of 8,000
+  rc=1  B  _set_memo_levels made a no-op          the memo-off arm remembered {'resolved': 104, ...}
+  rc=1  C  the clear branch put out of reach      neither caller-input level filled and cleared
+  rc=1  D  identifier memo read with a folded key disagreed with the memo-off arm on 408 of 8,000
+  rc=0  restored, both files md5 identical        <nothing named>
+```
+
+**What this gate cannot see, stated rather than left to be discovered.** `data/` is fetched and never
+committed and no CI job fetches it, so in CI this gate has only ever run the generated corpus: **it
+has never seen a real schema there.** The four arms above that read Socrata and SEC XBRL ran on a
+developer machine, and the exit status deliberately does not depend on them, because a gate that
+fails for a missing optional input is a gate people delete.
+
+### The same decomposition on the shipped path, and what moved
+
+The cost-centre decomposition was re-taken on the shipped function. **It is taken with the identifier
+level forced off** and every arm entry records that in `memo_levels`: the four centres are obtained by
+timing five nested stages and subtracting, which measures the work *one call* does, and an identifier
+memo does not make any of that work cheaper — it removes calls, and only from the shipped stage. Left
+on, it would delete a fifth of the calls from one stage and none from the four beneath it.
+
+| Socrata, empty catalog | at `34925f8` | shipped |
+|---|---:|---:|
+| provenance share of the call | 70.15<!--claim:governed_perf.pre_memo_socrata_empty.stage_provenance_pct:.2f--> % | 57.71<!--claim:governed_perf.socrata.empty.stage_provenance_pct:.2f--> % |
+| tokenise share | 9.82<!--claim:governed_perf.pre_memo_socrata_empty.stage_tokenise_pct:.2f--> % | 17.54<!--claim:governed_perf.socrata.empty.stage_tokenise_pct:.2f--> % |
+| catalog share | 13.88<!--claim:governed_perf.pre_memo_socrata_empty.stage_catalog_pct:.2f--> % | 15.12<!--claim:governed_perf.socrata.empty.stage_catalog_pct:.2f--> % |
+| **provenance records built** | 578,816<!--claim:governed_perf.pre_memo_socrata_empty.provenance_records_constructed:,--> | **234,565<!--claim:governed_perf.socrata.empty.provenance_records_constructed:,-->** |
+| **catalog lookups** | 451,263<!--claim:governed_perf.pre_memo_socrata_empty.catalog_lookups:,--> | **107,012<!--claim:governed_perf.socrata.empty.catalog_lookups:,-->** |
+| `_token_key` foldings | 1,298,351<!--claim:governed_perf.pre_memo_socrata_empty.token_keys_folded:,--> | 265,598<!--claim:governed_perf.socrata.empty.token_keys_folded:,--> |
+| Python calls per identifier | 139.87<!--claim:governed_perf.pre_memo_socrata_empty.python_calls_per_identifier:.2f--> | 73.24<!--claim:governed_perf.socrata.empty.python_calls_per_identifier:.2f--> |
+| phrase-only speed-up | `3.35` × | 2.365<!--claim:governed_perf.socrata.empty.phrase_only_speedup:.3f--> × |
+
+**The share fell and the cost fell further, and a reader who takes the share alone gets it backwards.**
+Provenance is `12.4` points smaller as a *share* and builds `2.5` times fewer records in absolute
+terms. What rose is tokenisation's share, from
+9.82<!--claim:governed_perf.pre_memo_socrata_empty.stage_tokenise_pct:.2f--> % to
+17.54<!--claim:governed_perf.socrata.empty.stage_tokenise_pct:.2f--> % — on the same tokenizer, doing
+exactly 155,272<!--claim:governed_perf.socrata.empty.tokenizer_passes:,--> passes in both arms, because
+it is the one centre a memo cannot touch. **A share is a ratio and the denominator moved.** Provenance
+is still the largest centre on both real arms; on SEC XBRL it is now
+47.87<!--claim:governed_perf.sec_xbrl.empty.stage_provenance_pct:.2f--> % against tokenisation's
+24.48<!--claim:governed_perf.sec_xbrl.empty.stage_tokenise_pct:.2f--> %, so it is no longer larger than
+the other three put together there — the sentence *"larger than the other three combined on every
+arm"* is now true of two arms of four. Lazy provenance is a smaller prize than D-086 priced it at, and
+it is priced against a denominator half the size.
+
+### Free threading, on a build with no GIL, and the collision is not where it was predicted
+
+PEP 703 builds are real and one was obtainable here, so this is measured rather than costed:
+**CPython 3.14.5 free-threading, `sys._is_gil_enabled()` returning `False`,
+32<!--claim:governed_perf.threads.freethreaded.socrata.logical_cpus:,--> logical CPUs.** The corpus is
+partitioned into contiguous slices, one thread per slice, the whole corpus every time; the gated
+quantity is the **scaling ratio** against the same harness at one thread, and the wall-clocks behind it
+are in the entry with the machine named. Three arms: one dictionary **shared** by every thread with the
+memo live, **one dictionary per thread**, and one shared dictionary with **every memo level forced
+off** as the control.
+
+| Socrata, 155,272 identifiers | shared | per-thread | no memo | shared hit % | per-thread hit % |
+|---|---:|---:|---:|---:|---:|
+| 2 threads | 1.691<!--claim:governed_perf.threads.freethreaded.socrata.t2_shared_scaling:.3f--> × | **1.886<!--claim:governed_perf.threads.freethreaded.socrata.t2_per_thread_scaling:.3f--> ×** | 1.609<!--claim:governed_perf.threads.freethreaded.socrata.t2_none_scaling:.3f--> × | 20.35<!--claim:governed_perf.threads.freethreaded.socrata.t2_shared_identifier_memo_hit_pct:.2f--> | 20.15<!--claim:governed_perf.threads.freethreaded.socrata.t2_per_thread_identifier_memo_hit_pct:.2f--> |
+| 4 threads | 1.849<!--claim:governed_perf.threads.freethreaded.socrata.t4_shared_scaling:.3f--> × | **3.387<!--claim:governed_perf.threads.freethreaded.socrata.t4_per_thread_scaling:.3f--> ×** | 1.659<!--claim:governed_perf.threads.freethreaded.socrata.t4_none_scaling:.3f--> × | 20.35<!--claim:governed_perf.threads.freethreaded.socrata.t4_shared_identifier_memo_hit_pct:.2f--> | 20.23<!--claim:governed_perf.threads.freethreaded.socrata.t4_per_thread_identifier_memo_hit_pct:.2f--> |
+| 8 threads | 1.478<!--claim:governed_perf.threads.freethreaded.socrata.t8_shared_scaling:.3f--> × | **4.748<!--claim:governed_perf.threads.freethreaded.socrata.t8_per_thread_scaling:.3f--> ×** | 0.970<!--claim:governed_perf.threads.freethreaded.socrata.t8_none_scaling:.3f--> × | 20.35<!--claim:governed_perf.threads.freethreaded.socrata.t8_shared_identifier_memo_hit_pct:.2f--> | 20.05<!--claim:governed_perf.threads.freethreaded.socrata.t8_per_thread_identifier_memo_hit_pct:.2f--> |
+| 16 threads | 0.368<!--claim:governed_perf.threads.freethreaded.socrata.t16_shared_scaling:.3f--> × | **5.541<!--claim:governed_perf.threads.freethreaded.socrata.t16_per_thread_scaling:.3f--> ×** | 0.165<!--claim:governed_perf.threads.freethreaded.socrata.t16_none_scaling:.3f--> × | 20.35<!--claim:governed_perf.threads.freethreaded.socrata.t16_shared_identifier_memo_hit_pct:.2f--> | 19.79<!--claim:governed_perf.threads.freethreaded.socrata.t16_per_thread_identifier_memo_hit_pct:.2f--> |
+
+SEC XBRL agrees: per-thread reaches
+4.285<!--claim:governed_perf.threads.freethreaded.sec_xbrl.t16_per_thread_scaling:.3f--> × at sixteen
+threads while shared falls to
+0.259<!--claim:governed_perf.threads.freethreaded.sec_xbrl.t16_shared_scaling:.3f--> × and the no-memo
+control to 0.138<!--claim:governed_perf.threads.freethreaded.sec_xbrl.t16_none_scaling:.3f--> ×.
+
+**The control that makes the table readable is the same sweep under the GIL.** Every cell on CPython
+3.13.4 sits between
+0.819<!--claim:governed_perf.threads.gil.sec_xbrl.t16_per_thread_scaling:.3f--> × and
+0.954<!--claim:governed_perf.threads.gil.socrata.t4_none_scaling:.3f--> × — no arm scales at all, on
+either corpus, at any thread count. Whatever the free-threaded column is measuring, it is PEP 703 and
+not this harness.
+
+**Three findings, and the first contradicts the brief this work was given.**
+
+1. **A shared memo does not degrade free-threaded scaling. Removing it degrades scaling *more*.** The
+   no-memo control is worse than the shared-memo arm at four, eight and sixteen threads on both
+   corpora — 0.165<!--claim:governed_perf.threads.freethreaded.socrata.t16_none_scaling:.3f--> ×
+   against 0.368<!--claim:governed_perf.threads.freethreaded.socrata.t16_shared_scaling:.3f--> × at
+   sixteen. The collision this workstream was built around is real and **the memo is not its cause**:
+   what collapses is sharing the `GovernedDictionary` *at all*, and the memo mitigates it by removing
+   shared-object touches — a fifth of calls never reach the instance and four fifths of token lookups
+   never reach its index.
+2. **The per-batch memo does not cost the hit rate anybody feared.** Splitting Socrata sixteen ways
+   drops the identifier-memo hit rate from
+   20.35<!--claim:governed_perf.threads.freethreaded.socrata.t1_shared_identifier_memo_hit_pct:.2f--> %
+   to 19.79<!--claim:governed_perf.threads.freethreaded.socrata.t16_per_thread_identifier_memo_hit_pct:.2f--> %,
+   `0.56` points, because schema repetition is local rather than global. The trade the brief asked to
+   be reported is lopsided on these corpora: per-thread wins fifteen-fold on scaling and gives up half
+   a point of hit rate.
+3. **"A pure-Python, immutable-after-construction library scales linearly on a free-threaded build" is
+   not true of this library.** The best cell in the table is
+   5.541<!--claim:governed_perf.threads.freethreaded.socrata.t16_per_thread_scaling:.3f--> × at sixteen
+   threads on 32<!--claim:governed_perf.threads.freethreaded.socrata.logical_cpus:,--> logical CPUs —
+   `35` % efficiency — and it needs a dictionary per thread. Immutable-and-shared is the *worst* case
+   for biased reference counting, not the best: every thread touching one frozen catalog entry is an
+   atomic refcount operation on a contended cache line. The property that would make the claim true is
+   immortality, not immutability, and nothing in this library has it.
+
+**Correctness under threads is checked rather than assumed.** With sixteen threads sharing one
+dictionary and one memo, every result's full JSON is compared against a serial run:
+0<!--claim:governed_perf.threads.freethreaded.socrata.thread_answer_mismatches:,--> mismatches over
+40,000<!--claim:governed_perf.threads.freethreaded.socrata.thread_answer_identifiers_checked:,-->
+Socrata identifiers and
+0<!--claim:governed_perf.threads.freethreaded.sec_xbrl.thread_answer_mismatches:,--> over
+40,000<!--claim:governed_perf.threads.freethreaded.sec_xbrl.thread_answer_identifiers_checked:,--> SEC
+element names, on the build with no GIL.
+
+### Inside the provenance centre: what one record costs, and which part of it was avoidable
+
+Provenance construction is the largest cost centre on every arm, and the previous round stopped
+there. A dominant share is not a target: "provenance dominates" names a block, and the things inside
+it have different prices and different fixes. So the block was decomposed, **before anything was
+changed**, into what one record actually costs.
+
+**The instrument is a replay, not a re-implementation.** A driver that re-walked the expansion path
+would be measuring a copy of `expand_identifier` and calling the difference a finding — the failure
+mode this runner's own docstring was written about. What is replayed is the **argument tuples the
+shipped path handed the constructors**, captured from a real pass and cross-checked against the
+profiler's construction count before a single figure is timed. Four routes then rebuild those
+records, and **three of the four are the shipped code**, selected by the shipped switch:
+
+| route | what runs | what it prices |
+|---|---|---|
+| `call_floor` | a nine-argument function in the runner that returns `None` | the call itself |
+| `alloc` | `_new_token_expansion` with `_FAST_CONSTRUCTION = True` | `object.__new__` and filling `__dict__` |
+| `init` | the same with the switch off and `__post_init__` replaced by a no-op | the generated `__init__` |
+| `full` | the same with the switch off | `__post_init__` and its validation |
+
+Every route is checked against the shipped record by `repr` **and** by `to_json`, on every record:
+0<!--claim:governed_perf.socrata.empty.record_costs.route_alloc_record_mismatches:,-->,
+0<!--claim:governed_perf.socrata.empty.record_costs.route_init_record_mismatches:,--> and
+0<!--claim:governed_perf.socrata.empty.record_costs.route_full_record_mismatches:,--> mismatches
+across 234,565<!--claim:governed_perf.socrata.empty.record_costs.records_replayed:,--> Socrata
+records. `repr` as well as `to_json`, because `to_json` renders a tuple and a list identically and
+the two fields the fast route stops normalising are a tuple and a float.
+
+### What one provenance record costs, and it is not the allocation
+
+```
+python bench/run_governed_perf.py --only records    -- command output, not a gated measurement
+Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD.
+Median of 3 decompositions, 2 timed replays each, fastest taken. Shares of the
+replayed record block; the four sum to it by construction.
+
+  arm                                call  allocation  __init__  __post_init__
+  socrata,        empty catalog      7.81 %   18.84 %   43.57 %      29.85 %
+  socrata,        fixture catalog    9.25 %   19.71 %   41.67 %      29.37 %
+  sec_xbrl,       empty catalog     10.43 %   21.34 %   40.11 %      27.94 %
+  fixture schema, fixture catalog    8.55 %   17.00 %   41.59 %      33.39 %
+```
+
+**The generated `__init__` is the largest constituent on all four arms and in all twelve
+decompositions**, at 43.57<!--claim:governed_perf.socrata.empty.record_costs.dataclass_init_pct:.2f-->
+% of the block on Socrata and
+40.11<!--claim:governed_perf.sec_xbrl.empty.record_costs.dataclass_init_pct:.2f--> % on SEC XBRL,
+with a spread of
+42.97<!--claim:governed_perf.socrata.empty.record_costs.dataclass_init_pct_min:.2f--> to
+43.88<!--claim:governed_perf.socrata.empty.record_costs.dataclass_init_pct_max:.2f--> — tight, unlike
+the cost-centre shares above, because both sides of this subtraction are replays of the same
+arguments rather than two different passes over a corpus. `__post_init__` validation is second, at
+29.85<!--claim:governed_perf.socrata.empty.record_costs.validation_pct:.2f--> %.
+
+**The floor is small, and that is the finding.** Allocating the object and filling its `__dict__` —
+the work no design can remove while the record exists — is
+18.84<!--claim:governed_perf.socrata.empty.record_costs.allocation_pct:.2f--> % of the block on
+Socrata and never more than
+21.34<!--claim:governed_perf.sec_xbrl.empty.record_costs.allocation_pct:.2f--> % on any arm. **So the
+provenance centre was not that large because provenance is genuinely that much of the work.** It was
+that large because a frozen dataclass writes each field through `object.__setattr__` and then
+re-normalises two of them that were already normal, and roughly three quarters of what a record cost
+was that bookkeeping.
+
+The reason it is bookkeeping rather than checking is that these DTOs are **built by this package out
+of values it computed itself** — which `acronymkit.governed.models`' own module docstring already
+said about validation, and had not applied one step earlier. `beat` is a `tuple` comprehension,
+`unaccounted` comes from `IdentifierParts` whose every return path builds a tuple, and `confidence`
+is a `GovernedEntry` field that entry's own `__post_init__` coerced and bounded when the catalog row
+was loaded.
+
+### What shipped, and the one thing it could not do separately
+
+`acronymkit.governed.models._new_token_expansion` and `_new_identifier_expansion` build the two
+result DTOs by writing the fields straight into a fresh instance. The four construction sites in
+`acronymkit.governed.expansion` call them; **the public constructors are untouched** and still
+normalise a list to a tuple and still refuse a confidence outside `[0, 1]`, which
+`tests/test_governed_fast_construction.py` pins with the switch on.
+
+**It removes the second constituent as well as the first, and that is not a choice.**
+`__post_init__` is reachable only through the generated `__init__`, so a route that skips the
+`__init__` skips the validation with it. What is available in the shipped code is the largest
+constituent **plus** the second, and the honest statement is that the
+29.85<!--claim:governed_perf.socrata.empty.record_costs.validation_pct:.2f--> % came along rather
+than being aimed at. Isolating the `__init__` alone would mean allocating, filling, and then calling
+`__post_init__` by hand to write two fields over themselves, which is a worse program.
+
+### R17: the same work, on both sides, counted
+
+A benchmark that got fast because it stopped doing work looks exactly like one that got fast because
+the work got cheaper. So `--only ab` runs the shipped call with the builders forced on and forced
+off, in one process on one corpus, and takes **every** work count on both sides.
+
+```
+python bench/run_governed_perf.py --only ab    -- command output, not a gated measurement
+Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD.
+Median of 3 rounds, 2 timed passes each, fastest taken.
+
+  arm                              forced off   forced on   speedup   counts identical
+  socrata,        empty catalog      639.8 ms    492.3 ms     1.300x     17 of 22
+  socrata,        fixture catalog    650.1 ms    512.2 ms     1.269x     17 of 22
+  sec_xbrl,       empty catalog      449.2 ms    388.6 ms     1.156x     17 of 22
+  fixture schema, fixture catalog    156.8 ms    144.0 ms     1.088x     17 of 22
+
+  the five counts that moved, on every arm, and nothing else:
+    sequence_validations, confidence_validations, token_post_inits,
+    identifier_post_inits, and python_calls_total, which contains the other four.
+```
+
+**Seventeen of 22<!--claim:governed_perf.socrata.empty.construction_ab.work_counts_compared:,-->
+counts come back identical on both sides**, including every count that says the work happened:
+tokenizer passes, catalog lookups, index decisions, class-word lookups, token expands, memo hits,
+memo partitions, title casings, passthroughs, and the records themselves. On Socrata the call builds
+78,487<!--claim:governed_perf.socrata.empty.construction_ab.token_expansions_constructed_forced_on:,-->
+token records and
+123,675<!--claim:governed_perf.socrata.empty.construction_ab.identifier_expansions_constructed_forced_on:,-->
+identifier records **either way** — the same records, not fewer.
+
+**What moved is the bookkeeping, and it is counted exactly rather than derived.** `cProfile` does not
+count `object.__setattr__` — it is a slot wrapper, and that was verified rather than assumed — so the
+builtin `object` is replaced, for the duration of a counting pass, by a proxy that increments and
+delegates: in `models.__dict__`, where the validation helpers look it up, and in the closure cell the
+generated `__init__` reads it out of. On the Socrata pass that count falls from
+1,852,757<!--claim:governed_perf.socrata.empty.construction_ab.field_writes_forced_off:,--> to
+0<!--claim:governed_perf.socrata.empty.construction_ab.field_writes_forced_on:,-->, and the
+`problems` lists `__post_init__` allocated fall from
+202,162<!--claim:governed_perf.socrata.empty.construction_ab.sequence_validations_forced_off:,-->
+plus
+78,487<!--claim:governed_perf.socrata.empty.construction_ab.confidence_validations_forced_off:,-->
+to none. The arithmetic is checkable — eleven writes per token record, eight per identifier record —
+and `tests/test_governed_fast_construction.py` asserts the counter against that number rather than
+against a plausible one.
+
+**One part of the speedup is this workstream's own wrapper, and it is not backed out.** The
+forced-off arm reaches the validating constructor *through* `_new_token_expansion`, so it pays one
+extra Python call per record that the pre-phase code did not, and the reported speedup is an
+over-statement by that much. The decomposition prices a call of exactly that shape --
+`call_floor` -- at 7.81<!--claim:governed_perf.socrata.empty.record_costs.call_floor_pct:.2f--> % of
+a record's cost, which is the bound. Backing it out would need a fifth construction route calling
+`TokenExpansion(...)` directly, in a subsystem that has four, and it was not built.
+
+**Read the speedups with the memo levels in the same tree.** These figures are taken on the tree that
+also carries the memoisation work above, which already removes most of the record constructions:
+`token_expansions_constructed` is
+78,487<!--claim:governed_perf.socrata.empty.construction_ab.token_expansions_constructed_forced_on:,-->
+here. **The two are partial substitutes — one builds fewer records, the other makes each record
+cheaper — and the second is still worth
+23.06<!--claim:governed_perf.socrata.empty.construction_ab.call_removed_pct:.2f--> % of the Socrata
+call and
+13.49<!--claim:governed_perf.sec_xbrl.empty.construction_ab.call_removed_pct:.2f--> % of the SEC XBRL
+call after the first has taken everything it takes.**
+
+### R19 for the record builders: forced on, forced off, every field of every record
+
+An optimisation in a governance instrument is proven behaviour-identical, not benchmarked-equal. A
+change that moves one `entry_id` in ten million is catastrophic here and invisible to a benchmark.
+
+```
+python bench/run_governed_perf.py --only identity    -- command output, not a gated measurement
+Whole corpora plus 13 names chosen for the fields the corpora do not reach: an
+unaccounted character, a non-ASCII name that leaves the regex fast path, a
+digit-leading catalog token, a quoted and a bracketed name, a name that
+tokenises to nothing, and the empty string.
+
+  arm                              records     repr        to_json     verdict
+  socrata,        empty catalog     578,857   identical   identical   IDENTICAL
+  socrata,        fixture catalog   578,856   identical   identical   IDENTICAL
+  sec_xbrl,       empty catalog     745,977   identical   identical   IDENTICAL
+  fixture schema, fixture catalog   341,421   identical   identical   IDENTICAL
+
+  socrata/empty, both digests in full (blake2b-128 over the whole stream):
+    repr     off 087de1050ae94cdfd5e4b7869f781c8f   on 087de1050ae94cdfd5e4b7869f781c8f
+    to_json  off ed2d32375170c750d6386d31f034096d   on ed2d32375170c750d6386d31f034096d
+```
+
+578,857<!--claim:governed_perf.socrata.empty.identity.records_compared:,--> records on the Socrata
+arm and
+745,977<!--claim:governed_perf.sec_xbrl.empty.identity.records_compared:,--> on SEC XBRL, and **the
+control is the failure the rule is about**: the same corpus is digested a third time with one
+`entry_id` of one token record moved, and both digests move. Without it, "identical" would be
+indistinguishable from a comparison that cannot report anything else. `control_probe_fired`,
+`control_repr_differs` and `control_json_differs` are saved beside the verdict, and `--only identity`
+exits non-zero unless all five conditions hold on every arm.
+
+**The two counters that prove a record was built moved with the code.**
+`token_expansions_constructed` counted `TokenExpansion.__post_init__`, which no longer runs on this
+path; it now counts `_new_token_expansion`, so the field keeps its meaning and its value and the
+runner still fails loudly if the builder is renamed or leaves the path. The validation helpers moved
+to the allowed-to-be-zero table, where **zero is the finding** — they still run on every other
+governed record, so a non-zero reading on an `expand_identifier` pass means the switch is off or a
+fifth construction site appeared.
+
+### The pre-registration for the record-cost workstream, and what it did not predict
+
+Written to a scratch file before any of the above ran, and reported against unedited.
+
+| bet | pre-registered | measured | verdict |
+|---|---|---|---|
+| ranking, largest first | `__init__`, validation, allocation | `__init__`, validation, allocation | right, on all four arms |
+| allocation is the block (W1) | stop if `>= 50` % of the block | `18.84` % | not triggered |
+| validation too small to risk (W2) | stop if `< 15` % of the block | `29.85` % | not triggered |
+| the win is under 5 points (W3) | stop below `5` points of the call | `23.06` points | not triggered |
+| byte identity (W4) | any single byte kills it | `0` bytes differ, four arms | held |
+| the routes are a fiction (W5) | stop if any route disagrees with the shipped record | `0` mismatches | not triggered |
+| the ranking inverts by arm (W6) | stop if the largest constituent differs | identical ordering, four arms | not triggered |
+
+**Six falsifiers, none fired, and that is the least interesting outcome available.** It was still
+worth writing: W1 was live until it was measured, and had the allocation been half the block the
+correct output of this workstream would have been a decomposition and no code at all.
+
+**What was on nobody's list is the guard that fired instead.** Moving the record counters off
+`__post_init__` was not planned; it was forced, because the runner's own rule — a counted function
+that never ran is a finding rather than a zero — turned the build red the first time the optimisation
+was measured. The instrument caught its own subject leaving the path it was watching, which is the
+one thing a work-count table is for.
+
+### The pre-registration for this workstream, and the bet it got wrong
+
+Written to a scratch file before any of the above ran, and reported against unedited.
+
+| bet | pre-registered | measured | verdict |
+|---|---|---|---|
+| token distinct ratio | `<= 6 %` distinct, falsified above `15 %` | `5.79` % / `1.01` % | right |
+| identifier repeat share | exactly `55.12` / `24.95` %, since it is arithmetic | `55.12` % / `24.95` % | right, and it was arithmetic |
+| bounded identifier hit rate | Socrata `15–30 %`, SEC `5–15 %`; stop below `10 %` on Socrata | `20.35` % / `8.94` % | right, at the low end |
+| identifier memo beats the token memo on the published arm | predicted **yes** | token `1.912` ×, identifier adds `0.165` × on top | **wrong, and backwards** |
+| shared memo degrades 8-thread scaling by `>= 15 %` against no memo | falsified within `5 %` | shared is `52` % **better** than no memo at eight | **falsified** |
+| no-memo free-threaded scaling `>= 3.0 ×` at four threads | falsified below `2.0 ×` | `1.659` × | **falsified** |
+| R19 byte-identity | predicted identical | `0` mismatches, five corpora × five configurations | right |
+| the identity gate would be unable to fail somewhere | predicted, on the empty-catalog arm | true there **and** on a class neither real corpus contains | right, and worse than predicted |
+
+**The one that matters is the fifth.** The brief states the collision as a fact — *"a shared memo is
+exactly what breaks free-threaded linearity"* — and instructs that both halves be measured rather than
+picked between. Measured, the shared memo is the *better* of the two shared-dictionary arms at every
+thread count where anything breaks at all. The premise was directionally inverted, and the reason is
+that it attributes the contention to the mutable structure when the contention is on the shared object
+graph, most of which is frozen.
 
 ### How this fails
 
@@ -3239,16 +4131,42 @@ the half [`docs/POSITIONING.md`](POSITIONING.md) leads with.
 
 **The only arm where a catalog answers is a fixture.** No public catalog exists for Socrata or SEC
 XBRL — that is the standing unknown this project has carried for four phases — so the arm with a
-92.98<!--claim:governed_perf.fixture_schema.fixture.expansion_memo_hit_pct:.2f--> % memo hit rate is a
+92.98<!--claim:governed_perf.pre_memo_fixture_schema_fixture.expansion_memo_hit_pct:.2f--> % memo hit rate is a
 synthetic corpus drawn from the fixture catalog's own token pool, and the arm with real names has a
 memo hit rate of zero because the catalog is empty. **There is no measurement anywhere in this
 section of the hot path a real governed vocabulary would produce**, and the distance between the two
 arms is large: the fixture arm's provenance share is twenty points lower than Socrata's. A reader who
 takes the fixture arm as the governed case is reading a corpus built to make the memo look good.
 
+**The identifier memo is the level with the weakest case and it ships on anyway.** It loses on the
+fixture-schema arm, gains `1.3` % on SEC XBRL, and its whole value on the arm where it does best is
+`8.6` % of one call's wall-clock on one machine. It is defensible because it is byte-identical and
+because it removes
+31,597<!--claim:governed_perf.memo.socrata_empty.full_identifier_memo_hits:,--> whole calls' worth of
+allocation on the Socrata pass. It would not be defensible on the throughput figure alone, and nothing
+here establishes that a real caller's identifier stream repeats the way a portal export does.
+
+**The threading numbers are ratios of wall-clocks and inherit every objection operating rule 18
+raises.** They were taken on a shared developer machine with sibling workstreams running in the same
+checkout — one machine, one operating system, one CPU. What is machine-independent in that subsection
+is the work: identifiers processed, distinct identifiers per partition, and the replayed hit rate each
+partitioning admits. The scaling ratios are gated so that a re-run disagreeing with this page turns the
+build red, which is a staleness check and not a ratchet, and no threshold on them means anything.
+
+**The per-thread arm's hit rates are exact and the shared arm's are one interleaving.** Each thread's
+own partition replayed through its own bounded map is deterministic. The shared figure is the whole
+corpus replayed in occurrence order, which is *a* valid interleaving of sixteen threads and not the one
+that happened; the real interleaving varies per run and nothing here observes it.
+
+**No free-threaded arm was run with a populated catalog.** Every threading cell above uses the empty
+catalog, which is the configuration every published governed figure is taken in and is also the
+configuration where `resolved` and `expanded` are inert. A real vocabulary would put a much larger
+shared frozen object graph under the same contention, and that is the direction this measurement does
+not cover.
+
 **The counting mechanism is a profiler and it is not free.** `cProfile` costs
-3.362<!--claim:governed_perf.profiler_overhead.profiler_cost_ratio:.3f--> times wall-clock on this
-machine over 20,000<!--claim:governed_perf.profiler_overhead.identifiers:,--> identifiers. It cannot
+3.362<!--claim:governed_perf.pre_memo_profiler_overhead.profiler_cost_ratio:.3f--> times wall-clock on this
+machine over 20,000<!--claim:governed_perf.pre_memo_profiler_overhead.identifiers:,--> identifiers. It cannot
 perturb a *count* — that is why the counts are what is gated and the timings are taken in a separate
 unprofiled pass — but a reader should know the counts and the timings come from different passes over
 the same corpus rather than from one instrumented run. `tracemalloc` was considered and rejected:

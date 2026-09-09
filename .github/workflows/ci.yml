@@ -88,6 +88,38 @@ jobs:
         # only reports its flattering totals is the document this repository
         # keeps finding stale.
         run: python tools/gates.py --check
+      - name: Every committed figure is what bench/results.json renders
+        # R16. `tools/check_claims.py` adjudicates every published number in
+        # this repository and it reads markdown, Python and one TOML file. It
+        # cannot read an SVG, a PNG or a `<title>` -- so a figure with a number
+        # baked into it is an unchecked claim on whatever page carries it, which
+        # is the shape D-060 records with better typography and no gate.
+        #
+        # `tools/render_figures.py` is the only way a number reaches a drawing:
+        # every value is a cited leaf of bench/results.json or a recorded
+        # expression over cited leaves, and `--check` byte-diffs the committed
+        # SVGs against what the generator emits. A hand-edited figure, a stale
+        # figure, or a figure citing a run id that no longer resolves all fail
+        # here rather than being read as a measurement.
+        run: python tools/render_figures.py --check
+      - name: The governed memo changes no answer, provenance included
+        # R19. An optimisation is proven behaviour-identical, not
+        # benchmarked-equal: a memo that changes one `entry_id` in ten million
+        # is catastrophic for a governance instrument and completely invisible
+        # to a benchmark, which reports a rate and never looks at a field.
+        #
+        # This times nothing. It runs a corpus once per memo configuration and
+        # compares the full JSON rendering of every result -- entry_id, source,
+        # confidence, class_word, beat, kind, is_known, is_fully_known,
+        # unaccounted -- against every level forced off. It also refuses a run
+        # in which the arms did not actually differ, which is what stops it
+        # going green on a library that had stopped caching.
+        #
+        # `data/` is fetched and never committed, so on a runner this exercises
+        # the generated fixture corpus and reports the real corpora as absent.
+        # That is a smaller run than a developer machine makes and the register
+        # says so under `blind_to`.
+        run: python tools/gate_memo_identity.py
 
   resources:
     name: Validate bundled resources
@@ -551,10 +583,15 @@ jobs:
     #   (`Scripts/python.exe` for `bin/python`), gate as written below. The
     #   third column is the `pytest -q -x` inside `build`'s extracted tree; the
     #   `test -f` lines that precede it in that step are counted separately.
+    #   RE-MEASURED ON A RUNNER: run 34099756605, 2026-09-07, ubuntu-latest,
+    #   CPython 3.12, at 34925f8, replicated by run 33379084166. Row `b`'s
+    #   middle column was `passes` under the 2026-08-24 Windows measurement and
+    #   is not any more -- see [[defect_coverage]] row `b` in
+    #   `.github/gates.toml` for what moved and why.
     #                                                    THIS JOB  extracted  test -f
     #                                                              tree       lines
     #     a  bench/results.json out of the sdist          passes   FAILS      FAILS
-    #     b  data/LICENSES.md out of the sdist            passes   passes     FAILS
+    #     b  data/LICENSES.md out of the sdist            passes   FAILS      FAILS
     #     c  tests/fixtures/*.json out of the sdist       FAILS    FAILS      --
     #     d  test_governed_gold.py loads bench/ unguarded FAILS    FAILS      --
     #     e  test_splits_manifest.py     "        "       passes   FAILS      --

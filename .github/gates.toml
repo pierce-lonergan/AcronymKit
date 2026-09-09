@@ -289,8 +289,11 @@ lacks = []
 note = """
 A checkout that builds an sdist and a wheel, then extracts the sdist and runs
 the suite inside it. The extracted tree is the environment that catches the
-most historical breakages -- four of five, measured, see [[defect_coverage]] --
-because it EXECUTES the import rather than matching a pattern.
+most historical breakages -- FIVE of five as of run 34099756605, up from four,
+see [[defect_coverage]] -- because it EXECUTES the import rather than matching a
+pattern. The fifth was not a new check: `tests/test_gate_scripts.py`, added by
+the heredoc extraction, calls `gate_sdist_files.missing(REPO_ROOT)`, and in an
+extracted tree REPO_ROOT is the artifact.
 """
 
 [environments.codeql]
@@ -467,7 +470,7 @@ environment = "lint"
 step = "Ruff"
 command = "python -m ruff check src tests tools bench"
 defect_class = "static_analysis"
-cost_rank = 35
+cost_rank = 37
 blast_radius = "repository"
 silence = "loud"
 redundancy = "sole"
@@ -487,9 +490,9 @@ expect = "fail"
 expect_failure_matching = '_gate_probe_ruff.py'
 artifact = "lint/ruff.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 An unused import is the cheapest thing ruff must catch. The probe is a NEW file
 rather than an edit to an existing one, so a botched restore leaves an
@@ -504,7 +507,7 @@ environment = "lint"
 step = "Ruff format check"
 command = "python -m ruff format --check src tests tools bench"
 defect_class = "static_analysis"
-cost_rank = 36
+cost_rank = 38
 blast_radius = "repository"
 silence = "loud"
 redundancy = "sole"
@@ -524,9 +527,9 @@ expect = "fail"
 expect_failure_matching = '_gate_probe_format.py'
 artifact = "lint/ruff-format.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 Single quotes are a formatting-only difference: the selected lint rules say
 nothing about quote style, so this probe separates the format gate from the
@@ -541,7 +544,7 @@ environment = "lint"
 step = "Mypy"
 command = "python -m mypy"
 defect_class = "static_analysis"
-cost_rank = 10
+cost_rank = 12
 blast_radius = "installed_behaviour"
 silence = "delayed"
 redundancy = "partial"
@@ -569,9 +572,9 @@ expect = "fail"
 expect_failure_matching = 'Unexpected keyword argument "newline" for "write_text"'
 artifact = "lint/mypy.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 THIS IS THE DEFECT THAT SHIPPED, NOT A SYNTHETIC ONE. `Path.write_text` grew
 its `newline` parameter in 3.10. The probe fails only while
@@ -608,9 +611,9 @@ expect = "fail"
 expect_failure_matching = 'points at a badge host'
 artifact = "lint/splits.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 Operating rule 4 in one edit: a badge URL in place of licence terms. This
 project has recorded a corpus as more permissive than it is three times, and
@@ -651,9 +654,9 @@ expect = "fail"
 expect_failure_matching = 'unbacked claim(s):'
 artifact = "lint/claims.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 The probe appends an uncited figure to docs/GATES.md, which is inside
 `SCAN_GLOBS` and absent from both baselines -- so it is allowed zero and the
@@ -668,7 +671,7 @@ environment = "lint"
 step = "Every CI gate is registered, and says whether it has ever failed on purpose"
 command = "python tools/gates.py --check"
 defect_class = "environment_drift"
-cost_rank = 25
+cost_rank = 27
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "sole"
@@ -689,9 +692,9 @@ expect = "fail"
 expect_failure_matching = "job 'unregistered-probe' is not declared"
 artifact = "lint/gate-manifest.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 This is the level-1 mutation described in [manifest].stops_at, and the edit is
 chosen to hit the ONE rule that checks this file against the tree rather than
@@ -702,6 +705,129 @@ edits = [
   { file = ".github/workflows/ci.yml", append = "\n  unregistered-probe:\n    name: A job the register has never heard of\n    runs-on: ubuntu-latest\n    steps:\n      - name: Probe\n        run: \"true\"\n" },
 ]
 
+[gates.figures]
+environment = "lint"
+step = "Every committed figure is what bench/results.json renders"
+command = "python tools/render_figures.py --check"
+defect_class = "claim_backing"
+cost_rank = 3
+blast_radius = "published_numbers"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+RANKED WITH `claims` AND `splits_manifest` BECAUSE IT IS THE SAME DEFECT IN A FILE FORMAT THE
+CLAIMS GATE CANNOT READ. `tools/check_claims.py` scans markdown, Python and one TOML file; it
+cannot read an SVG, a PNG or a `<title>`. Inert, a figure carrying a number nothing measured sits
+on a page and reads as evidence -- and reads BETTER than prose, because a chart is quoted, screen-
+shotted and re-published without its source. D-060 records the same class in prose and the gate
+that caught it does not reach here.
+"""
+detects = """
+A committed figure that is not what bench/results.json currently renders: a hand-edited SVG, a
+figure whose measurement moved, a figure citing a run id that no longer resolves, and a theme
+variant regenerated in one theme and not the other. `--check` byte-diffs and parses the committed
+file's own `<desc>` back, so the failure names the measurement that moved rather than saying the
+bytes differ.
+"""
+blind_to = """
+A figure that is CORRECTLY rendered from a number that is itself wrong -- this gate asks whether
+the drawing matches the measurement, never whether the measurement is right. That is
+`tools/check_claims.py`'s and `bench/`'s question. It is also blind to a figure nobody committed:
+a chart pasted into a document as a data URI or hosted elsewhere is not a file this gate reads.
+And it says nothing about a figure's LEGIBILITY beyond the generator's own type-size and wrapping
+refusals.
+"""
+[gates.figures.mutation]
+kind = "automated"
+expect = "fail"
+expect_failure_matching = "the following do not match:"
+artifact = "lint/figures.log"
+verified_locally_on = 2026-09-08
+note = """
+REGISTERED BY A DIFFERENT WORKSTREAM FROM THE ONE THAT WROTE THE SCRIPT, which is why the marker
+above is a literal rather than `module.FAILURE_MARKER`: `tools/render_figures.py` declares no such
+constant. `tests/test_gate_scripts.py` pins the literal against the script's source so the two
+copies cannot drift silently -- the same two-copy guard the three extracted gates carry, in the
+only form available here.
+
+The mutation edits a COMMITTED FIGURE rather than bench/results.json, on purpose. Editing the
+measurement would make several gates fail at once and the verdict would not be attributable to
+this one; editing the drawing is exactly the defect this gate exists for -- a figure that no
+longer equals what its source renders.
+
+NO IN-SITU EVIDENCE, AND IT IS RANK 3. The commit that adds a gate cannot hold the CI run that
+demonstrates it. That is the case `docs/GATES.md` has described a waiver for since the quota was
+written; the top-of-ranking rule had no such escape until this round, so a correctly-ranked new
+gate could only be landed by ranking it dishonestly low. `added_gates` on the trajectory row is
+the attribution, and the next round's due-date check is what asks whether the run happened.
+"""
+edits = [
+  { file = "docs/figures/refusal-curve-light.svg", find = "</svg>", replace = "<!-- probe --></svg>" },
+]
+
+[gates.memo_identity]
+environment = "lint"
+step = "The governed memo changes no answer, provenance included"
+command = "python tools/gate_memo_identity.py"
+defect_class = "behaviour"
+cost_rank = 8
+blast_radius = "installed_behaviour"
+silence = "silent"
+redundancy = "sole"
+cost_if_inert = """
+Operating rule 19 in one gate. A memo that changes one `entry_id` in ten million is catastrophic
+for a governance instrument and completely invisible to a benchmark, which reports a rate and
+never looks at a field. Inert, an optimisation lands "benchmarked-equal" and the audit trail it
+quietly rewrote is the product. `sole`: nothing else in this repository compares full provenance
+between a cached and an uncached run.
+"""
+detects = """
+Any difference in the full JSON rendering of a governed result between every memo level on and
+every level forced off -- entry_id, source, confidence, class_word, beat, kind, is_known,
+is_fully_known and unaccounted, not just the phrase everybody looks at. Two of the four levels are
+keyed by CALLER INPUT rather than by the vocabulary, which is the shape where a collision between
+two spellings is invisible in the phrase and fatal in the audit trail. It also refuses a run in
+which the arms did not differ -- the memo-off arm remembering anything, or a level the all-on arm
+never filled -- so it cannot go green on a library that had stopped caching.
+"""
+blind_to = """
+THE CORPUS IT GETS ON A RUNNER IS SMALLER THAN THE ONE A DEVELOPER MACHINE GIVES IT, and that is
+the honest statement of this gate's reach. `data/` is fetched and never committed, so `lint` runs
+the generated fixture corpus and reports every real snapshot as absent; the 155,272-identifier
+Socrata arm only runs where somebody has fetched it. A collision that needs real-world identifier
+diversity to appear would not be seen here.
+
+It is also blind to everything that is not a memo: a wrong answer both arms agree on is byte-
+identical and passes. This gate says the cache changes nothing, never that the uncached answer is
+right.
+"""
+[gates.memo_identity.mutation]
+kind = "automated"
+expect = "fail"
+expect_failure_matching = "MEMO CHANGED AN ANSWER"
+artifact = "lint/memo_identity.log"
+verified_locally_on = 2026-09-08
+note = """
+THE MUTATION BREAKS THE GATE'S OWN PREMISE RATHER THAN THE MEMO, and that is the stronger of the
+two available probes.
+
+`_NullMap.__setitem__` is what makes "forced off" a real code path: it discards every write, so
+the hot path does one `get` and one `__setitem__` and cannot tell which map it holds. Make it
+store, and the memo-off arm is no longer a memo-off arm -- every comparison becomes a run against
+itself, every mismatch count is trivially zero, and a gate reporting `0 of 155,272` would be
+reporting nothing at all. The occupancy guard is what refuses that, and this mutation is what
+shows the guard fires where the gate runs.
+
+The alternative probe -- corrupting a memo key so the cache really does serve a wrong entry_id --
+edits `src/acronymkit/governed/dictionary.py`'s keying, which is under active change by another
+workstream, and `--mutate` restores from bytes read beforehand. A restore that overwrites somebody
+else's concurrent write is a worse failure than a weaker probe.
+
+NO IN-SITU EVIDENCE YET: the run that takes it is the one that lands this commit.
+"""
+edits = [
+  { file = "src/acronymkit/governed/dictionary.py", find = "        \"\"\"Discard the answer, so nothing is ever remembered.\"\"\"", replace = "        dict.__setitem__(self, key, value)" },
+]
 
 # ===========================================================================
 # GATES -- ci.yml : resources
@@ -712,7 +838,7 @@ environment = "resources"
 step = "Validate resource file formats"
 command = "python tools/validate_resources.py --require"
 defect_class = "artifact_contents"
-cost_rank = 12
+cost_rank = 14
 blast_radius = "installed_behaviour"
 silence = "delayed"
 redundancy = "partial"
@@ -727,9 +853,9 @@ expect = "fail"
 expect_failure_matching = 'file is missing and --require was given'
 artifact = "resources/formats.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 edits = [
   { file = "src/acronymkit/resources/stopwords_fr.json", delete = true },
 ]
@@ -739,7 +865,7 @@ environment = "resources"
 step = "Assert committed n-gram models match the lexicons"
 command = "python tools/build_ngram_model.py --check"
 defect_class = "artifact_contents"
-cost_rank = 7
+cost_rank = 9
 blast_radius = "installed_behaviour"
 silence = "silent"
 redundancy = "sole"
@@ -755,9 +881,9 @@ expect = "fail"
 expect_failure_matching = 'ngram_en.json DRIFT'
 artifact = "resources/ngram.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 edits = [
   { file = "src/acronymkit/resources/lexicon_en.txt", append = "zzzzqqqqxxxx\n" },
 ]
@@ -767,7 +893,7 @@ environment = "resources"
 step = "Assert the bundled schema copy matches the canonical one"
 command = "python tools/gate_schema_copies.py"
 defect_class = "artifact_contents"
-cost_rank = 6
+cost_rank = 7
 blast_radius = "installed_behaviour"
 silence = "silent"
 redundancy = "sole"
@@ -786,6 +912,9 @@ expect = "fail"
 expect_failure_matching = "SCHEMA COPIES DIVERGED"
 artifact = "resources/schema_copies.log"
 verified_locally_on = 2026-08-25
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 EXTRACTED. This was `kind = "inline"` and the refusal read: "the gate is a
 heredoc inside ci.yml with no command a runner can invoke, so this harness could
@@ -823,7 +952,7 @@ environment = "test"
 step = "Test"
 command = "python -m pytest"
 defect_class = "behaviour"
-cost_rank = 3
+cost_rank = 4
 blast_radius = "installed_behaviour"
 silence = "silent"
 redundancy = "partial"
@@ -844,87 +973,50 @@ kind = "automated"
 expect = "fail"
 expect_failure_matching = 'test_the_reader_that_would_spend_the_allocated_arm_is_wired'
 artifact = "test/suite.log"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
-THE IN-SITU EVIDENCE FOR THIS GATE WAS WITHDRAWN ON 2026-08-25, AND THE REASON
-IS A MEASUREMENT RATHER THAN A DOUBT.
+THE WITHDRAWN EVIDENCE WAS RE-TAKEN UNDER THE MARKER RULE, AND THE RE-TAKE IS
+WHAT MAKES THE VERDICT MEAN ANYTHING.
 
-It carried `verified_in_situ_on = 2026-08-25`, run 32808357572 at 3173126. That
-record rested on the harness's verdict, and the harness decided `demonstrated`
-from a return code. Re-measured on this tree, with `data/` PRESENT -- the
-condition under which this register predicts the gate is INERT -- the mutation
-was applied and pytest run over the two files that can react to it:
+This gate's evidence was withdrawn on 2026-08-25 for a measured reason, not a
+doubt: the harness decided `demonstrated` from a return code, and the probe
+edits tests/test_splits_manifest.py, which is the anchor this very entry names,
+so the register's own validator reddens the suite on its own. `rc != 0` was
+reachable with the D-058 defect UNCAUGHT, in both environments, for any tree.
+The verdict could not have come back INERT and carried no information at all.
 
-    tests/test_splits_manifest.py, tests/test_gate_manifest.py     rc=1
-    FAILED tests/test_gate_manifest.py::TestTheRegisterThisRepositoryShips::
-           test_it_validates
-    (tests/test_splits_manifest.py: no failure -- the D-058 defect is not caught
-     here, exactly as predicted)
+`expect_failure_matching` above is the rule that replaced it: a non-zero exit
+counts as a demonstration only when the gate's output contains the name of the
+test that must fail. tools/gates.py applies it before the UNRESTORED check and
+prints "the gate exited 1, but its output does not contain ..." when it does
+not hold.
 
-So `rc != 0` is reachable with the declared defect UNCAUGHT, in both
-environments, through the probe's own side effect on the register anchor. This
-gate's automated verdict carried no information at all: it could not have come
-back INERT for any tree. A check that cannot fail, inside the harness built to
-catalogue checks that cannot fail.
+THE RE-TAKE. `gate-mutation.yml` run 34099756605, 2026-09-07, ubuntu-latest,
+CPython 3.12, at commit 34925f8 -- the commit that SHIPPED the marker rule, so
+the DEMONSTRATED below could only have been reached through it:
 
-The named FAILED line in the captured artifact is still the evidence it always
-was -- but nothing in this repository can check it, and the only record of it is
-a transcription in docs/GATES.md. `expect_failure_matching` above is the rule
-that makes the line the verdict from now on, and it flips this gate's local
-verdict from DEMONSTRATED (false) to INERT (correct, on a machine holding
-`data/`) -- measured, two full suite runs, 2026-08-25. The in-situ demonstration
-has to be RE-TAKEN under the rule rather than re-read. `gate-mutation.yml` triggers on every path this
-commit touches, so the run that re-takes it is the one that lands this work.
+    environments.test: holds 4 declared path(s), lacks 3 -- this is that environment
+    suite                     DEMONSTRATED  mutated rc=1, restored rc=0
+    test_environment_control  DEMONSTRATED  mutated rc=1, restored rc=0
 
-WHAT WAS *NOT* DONE: the confound itself. Removing it needs a probe that does not
-edit a file the register anchors on, and the D-058 defect lives in that file.
-Naming the line is the fix that works without moving the defect.
+REPLICATED. Run 33379084166, 2026-08-31, same commit, a different weekly runner
+image: identical verdict. Two runs a week apart on one tree is the only guard
+this register has against a verdict that is a property of the image rather than
+of the code, and it is the first time it has been exercised for this gate.
 
---------------------------------------------------------------------------------
-THE MOST IMPORTANT MUTATION IN THIS FILE, AND THE ONE THAT IS EXPECTED TO COME
-BACK `INERT` LOCALLY. It restores D-058's cause one exactly: a control asserting
-on the path `_sdu22_ae_source` returns, instead of on the filename both
-outcomes name. On a runner `data/` is absent, the call raises `SystemExit`
-before returning anything, and the suite fails. On a developer machine with
-`data/` fetched it passes, so this harness reports INERT there -- correctly.
-The disagreement between the two runs is the demonstration, not a defect in the
-probe. `verified_locally_on` is deliberately UNSET: a laptop run of this one is
-not a verification and recording it as one would be the exact confusion R11
-exists to end.
+WHY THIS IS NOT THE PREVIOUS RECORD AGAIN. The withdrawn record was a FAILED
+line transcribed into docs/GATES.md by a person, which is an unchecked claim in
+exactly the way R16 says a figure inside an image is. This one is a verdict the
+harness could only print by finding the named line in the gate's own output. The
+evidence moved from prose into the mechanism.
 
-MEASURED BOTH WAYS ON 2026-08-24, on one clean export of HEAD, by moving `data/`
-aside between two runs of `pytest tests/test_splits_manifest.py`:
-
-    data/ present  (a developer machine)   88 passed
-    data/ absent   (a CI runner)           1 failed, 87 passed
-      FAILED TestTheRealManifest::test_the_reader_that_would_spend_the_allocated_arm_is_wired
-
-Same tree, same suite, same defect, opposite verdicts. That is the whole of R11
-in one table, and it is the prediction `test-gates` exists to check in situ.
-
-THE PREDICTION WAS CHECKED AND IT HELD -- AND THE RUN FOUND SOMETHING THE
-PREDICTION DID NOT COVER. Run 32808357572, ubuntu-latest, CPython 3.12.14,
-`data/` absent, this mutation applied:
-
-    2 failed, 4861 passed, 11 skipped, 1 xfailed in 60.57s     (mutated, rc=1)
-    FAILED tests/test_splits_manifest.py::TestTheRealManifest::
-           test_the_reader_that_would_spend_the_allocated_arm_is_wired
-           SystemExit: missing .../data/sdu22_ae_legal_dev.json
-
-That is the predicted failure, by name, in the predicted environment. The
-SECOND failure is not:
-
-    FAILED tests/test_gate_manifest.py::TestTheRegisterThisRepositoryShips::
-           test_it_validates -- assert ['gates.suite...ne described'] == []
-
-The probe edits `tests/test_splits_manifest.py`, which is the anchor
-`gates.suite`'s own register entry names -- so the register's validator
-correctly reports the anchor no longer matches. THE DEMONSTRATION IS THEREFORE
-CONFOUNDED: the suite would have gone red on that second test even if the
-D-058 defect had not been restored, so `rc=1` alone does not establish that
-this gate catches this defect. What establishes it is the named FAILED line
-above, and a reader should take the evidence from the line rather than from the
-verdict. Fixing this needs a probe that does not edit a file the register
-anchors on; it is not done.
+WHAT IS STILL NOT DONE: the confound itself. The probe still edits a file the
+register anchors on, so `rc=1` remains over-determined -- the marker makes the
+verdict attributable without removing the second cause. Removing it needs a
+probe that does not touch tests/test_splits_manifest.py, and the D-058 defect
+lives in that file.
 """
 edits = [
   { file = "tests/test_splits_manifest.py", find = "assert _unreserved_filename(\n            lambda: corpora._sdu22_ae_source(None, \"legal\", \"dev\")\n        ).endswith(\"legal_dev.json\")", replace = "assert corpora._sdu22_ae_source(None, \"legal\", \"dev\").name.endswith(\"legal_dev.json\")" },
@@ -935,7 +1027,7 @@ environment = "test"
 step = "This runner is the environment the register says it is"
 command = "python tools/gates.py --assert-environment test"
 defect_class = "positive_control"
-cost_rank = 27
+cost_rank = 29
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "sole"
@@ -968,9 +1060,9 @@ kind = "automated"
 expect = "fail"
 expect_failure_matching = "declares it HOLDS 'bench/splits.toml'"
 artifact = "test/environment-control.log"
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 Deleting a declared `holds` path must make the control refuse. Not verified
 locally, and it cannot be: on a developer machine with the corpora fetched this
@@ -991,7 +1083,7 @@ environment = "zero_dependency"
 step = "Import and run without click, spaCy, NLTK or onnxruntime present"
 command = "python tools/gate_tier_zero.py"
 defect_class = "behaviour"
-cost_rank = 13
+cost_rank = 15
 blast_radius = "installed_behaviour"
 silence = "loud"
 redundancy = "sole"
@@ -1010,6 +1102,9 @@ expect = "fail"
 expect_failure_matching = "TIER 0 PURITY FAILED"
 artifact = "zero_dependency/tier_zero.log"
 verified_locally_on = 2026-08-25
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 EXTRACTED, and the mutation is the one the previous refusal named: an eager
 `import click` at module scope in `src/acronymkit/__init__.py`.
@@ -1044,7 +1139,7 @@ edits = [
 environment = "air_gap"
 step = "Prove the network namespace really has no route"
 defect_class = "positive_control"
-cost_rank = 28
+cost_rank = 30
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "sole"
@@ -1070,7 +1165,7 @@ environment = "air_gap"
 step = "Show that the socket guard actually blocks"
 command = "python tests/airgap_socket_guard.py"
 defect_class = "positive_control"
-cost_rank = 29
+cost_rank = 31
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "sole"
@@ -1096,7 +1191,7 @@ controls this repository already had.
 environment = "air_gap"
 step = "Install with no index and no route"
 defect_class = "supply_chain"
-cost_rank = 9
+cost_rank = 11
 blast_radius = "installed_behaviour"
 silence = "silent"
 redundancy = "sole"
@@ -1123,7 +1218,7 @@ an edit a probe may make and revert.
 environment = "air_gap"
 step = "Run the full test suite with every socket primitive patched to raise"
 defect_class = "behaviour"
-cost_rank = 4
+cost_rank = 5
 blast_radius = "installed_behaviour"
 silence = "silent"
 redundancy = "sole"
@@ -1149,7 +1244,7 @@ which is more than any other gate here can say.
 environment = "air_gap"
 step = "Exercise the whole public API with no route to anywhere"
 defect_class = "behaviour"
-cost_rank = 5
+cost_rank = 6
 blast_radius = "installed_behaviour"
 silence = "silent"
 redundancy = "partial"
@@ -1176,7 +1271,7 @@ environment = "import_time"
 step = "Measure cold import in a subprocess and enforce the ceiling"
 command = "python tools/gate_import_ceiling.py"
 defect_class = "budget"
-cost_rank = 8
+cost_rank = 10
 blast_radius = "installed_behaviour"
 silence = "silent"
 redundancy = "sole"
@@ -1201,6 +1296,9 @@ expect_failure_matching = "IMPORT CEILING FAILED"
 artifact = "import_time/import_ceiling.log"
 setup = "python -m pip install --quiet --no-deps --force-reinstall ."
 verified_locally_on = 2026-08-25
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 EXTRACTED, AND THE EXTRACTION ALONE WAS NOT ENOUGH -- WHICH REFUTES THIS
 REGISTER'S OWN COSTING OF IT. Both this entry and docs/GATES.md said three
@@ -1241,7 +1339,7 @@ edits = [
 environment = "installed_suite"
 step = "The import must resolve to site-packages, not to a tree"
 defect_class = "environment_drift"
-cost_rank = 26
+cost_rank = 28
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "sole"
@@ -1267,7 +1365,7 @@ found the third by enumeration, which is the argument for enumerating.
 environment = "installed_suite"
 step = "Run the full suite against the installed package"
 defect_class = "artifact_contents"
-cost_rank = 23
+cost_rank = 25
 blast_radius = "distribution_contents"
 silence = "silent"
 redundancy = "partial"
@@ -1282,8 +1380,9 @@ passing. Plus a pass floor, so the job cannot go green after something quietly
 stops the suite collecting.
 """
 blind_to = """
-MEASURED, NOT ASSUMED: two of the five historical breakages, re-measured
-2026-08-24 against this tree (see [[defect_coverage]]). It misses `a` and `b`
+MEASURED, NOT ASSUMED: two of the five historical breakages, re-measured on a
+runner -- run 34099756605, 2026-09-07, replicated by run 33379084166 -- and
+unchanged from the 2026-08-24 figure (see [[defect_coverage]]). It misses `a` and `b`
 because the run directory holds no `bench/` or `data/` for their absence to be
 noticed in, and it misses `e` -- and the REASON `e` is missed has changed since
 D-050 recorded it. It used to be the file-keyed EXPECTED_NON_PASSING entry.
@@ -1314,7 +1413,7 @@ at all.
 environment = "build"
 step = "Check metadata"
 defect_class = "supply_chain"
-cost_rank = 20
+cost_rank = 22
 blast_radius = "release_provenance"
 silence = "loud"
 redundancy = "partial"
@@ -1336,7 +1435,7 @@ is not done: the five historical breakages were the budget for that job.
 environment = "build"
 step = "Enforce the wheel size budget"
 defect_class = "budget"
-cost_rank = 18
+cost_rank = 20
 blast_radius = "release_provenance"
 silence = "delayed"
 redundancy = "sole"
@@ -1363,7 +1462,7 @@ coverage.
 environment = "build"
 step = "Verify bundled resources are present in the wheel"
 defect_class = "artifact_contents"
-cost_rank = 11
+cost_rank = 13
 blast_radius = "installed_behaviour"
 silence = "delayed"
 redundancy = "partial"
@@ -1387,7 +1486,7 @@ reason = "A heredoc; see gates.schema_copies_match."
 environment = "build"
 step = "Verify the installed wheel works without a source checkout"
 defect_class = "behaviour"
-cost_rank = 14
+cost_rank = 16
 blast_radius = "installed_behaviour"
 silence = "loud"
 redundancy = "partial"
@@ -1407,7 +1506,7 @@ reason = "A heredoc; see gates.schema_copies_match."
 # "Verify the sdist ships the files its own test suite reads" runs a list of
 # `test -f` lines AND a whole pytest run inside the extracted tree. Those two
 # mechanisms have DIFFERENT coverage of the five historical breakages -- 2 of 5
-# and 4 of 5 -- and registering the step as one gate would have published a
+# and 5 of 5 -- and registering the step as one gate would have published a
 # single number that is true of neither. The register's unit is the assertion,
 # not the YAML step.
 
@@ -1415,7 +1514,7 @@ reason = "A heredoc; see gates.schema_copies_match."
 environment = "build"
 step = "Verify the sdist ships the files its own test suite reads"
 defect_class = "artifact_contents"
-cost_rank = 24
+cost_rank = 26
 blast_radius = "distribution_contents"
 silence = "silent"
 redundancy = "partial"
@@ -1447,23 +1546,34 @@ gates.installed_expected_non_passing.
 environment = "build"
 step = "Verify the sdist ships the files its own test suite reads"
 defect_class = "artifact_contents"
-cost_rank = 22
+cost_rank = 24
 blast_radius = "distribution_contents"
 silence = "silent"
 redundancy = "partial"
 cost_if_inert = """
-Four of the five historical packaging breakages, measured. Inert, an sdist ships whose own suite
-cannot run, and the checkout stays green throughout. Sole net on breakage `e`.
+All five historical packaging breakages, measured on a runner. Inert, an sdist ships whose own
+suite cannot run, and the checkout stays green throughout. Sole net on breakage `e`.
 """
 detects = """
 THE GATE THAT CATCHES THE MOST, AND THE REASON IS WHY THE AST GUARD WAS RETIRED
 AGAINST IT: it runs the artifact's own suite inside the extracted tree, so it
 EXECUTES the import rather than matching a pattern, and no spelling hides from
-it. Four of the five historical breakages, measured 2026-08-24.
+it. FIVE of five, measured on a runner: run 34099756605, 2026-09-07,
+ubuntu-latest, CPython 3.12, at commit 34925f8, replicated by run 33379084166.
 """
 blind_to = """
-`b` -- nothing in the suite reads data/LICENSES.md, so the file can vanish and
-this run stays green. And the whole thing rests on `bench/*.py` staying out of
+NOTHING, of the five -- and the change is a finding rather than an improvement
+somebody made. This entry said `b` was missed because "nothing in the suite
+reads data/LICENSES.md". That stopped being true when the heredoc extraction
+added tests/test_gate_scripts.py, whose TestSdistFileList asserts
+`gate_sdist_files.missing(REPO_ROOT) == []`; in an extracted tree REPO_ROOT is
+the artifact, so the required-file list is now enforced from INSIDE the sdist as
+well as from the checkout. Nobody designed that and no round claimed it. The
+sentence in tools/gate_sdist_files.py's own reason string -- "the extracted-tree
+suite passes with it gone" -- is now false and is reported rather than edited
+here, because it is what the gate PRINTS when it fires.
+
+What stays blind: the whole thing rests on `bench/*.py` staying out of
 the sdist: that absence is what makes the unguarded module-level import raise.
 If a future commit ships the runners, this stops seeing the class entirely, and
 the only net left is a job blind in two files. Shipping `bench/*.py` is a change
@@ -1477,7 +1587,7 @@ reason = "Same as gates.sdist_file_list: it needs a built and extracted sdist."
 environment = "build"
 step = "Verify the sdist ships the files its own test suite reads"
 defect_class = "claim_backing"
-cost_rank = 21
+cost_rank = 23
 blast_radius = "distribution_contents"
 silence = "silent"
 redundancy = "partial"
@@ -1513,7 +1623,7 @@ measured 2026-08-24.
 environment = "publish_build"
 step = "Assert the packaged version is releasable"
 defect_class = "supply_chain"
-cost_rank = 15
+cost_rank = 17
 blast_radius = "release_provenance"
 silence = "silent"
 redundancy = "sole"
@@ -1537,7 +1647,7 @@ undemonstrated-on-a-schedule.
 environment = "publish_build"
 step = "Check that both SBOMs actually describe this distribution"
 defect_class = "supply_chain"
-cost_rank = 17
+cost_rank = 19
 blast_radius = "release_provenance"
 silence = "silent"
 redundancy = "sole"
@@ -1554,7 +1664,7 @@ reason = "Release-only environment; same disposition as gates.release_version_gu
 environment = "publish_build"
 step = "Build one offline install bundle per platform"
 defect_class = "supply_chain"
-cost_rank = 19
+cost_rank = 21
 blast_radius = "release_provenance"
 silence = "delayed"
 redundancy = "sole"
@@ -1571,7 +1681,7 @@ reason = "Release-only environment; needs an index while building. Same disposit
 environment = "publish_build"
 step = "Collect everything the release page will carry, and check-sum it"
 defect_class = "supply_chain"
-cost_rank = 16
+cost_rank = 18
 blast_radius = "release_provenance"
 silence = "silent"
 redundancy = "sole"
@@ -1595,7 +1705,7 @@ environment = "mutation_controls"
 step = "Positive control - a mutation that must be demonstrated"
 command = "python tools/gates.py --check --path .github/gates.toml"
 defect_class = "positive_control"
-cost_rank = 31
+cost_rank = 33
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "partial"
@@ -1616,9 +1726,9 @@ expect = "fail"
 expect_failure_matching = 'this_key_is_never_allowed'
 artifact = "controls/always-red.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 edits = [
   { file = ".github/gates.toml", find = "artifact = \"controls/always-green.log\"", replace = "artifact = \"controls/always-green.log\"\nthis_key_is_never_allowed = true" },
 ]
@@ -1628,7 +1738,7 @@ environment = "mutation_controls"
 step = "Negative control - a mutation that must NOT be demonstrated"
 command = "python tools/gates.py --check --path .github/gates.toml"
 defect_class = "positive_control"
-cost_rank = 30
+cost_rank = 32
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "partial"
@@ -1650,9 +1760,9 @@ kind = "automated"
 expect = "pass"
 artifact = "controls/always-green.log"
 verified_locally_on = 2026-08-24
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 edits = [
   { file = ".github/gates.toml", append = "\n# a comment appended by the negative control, and reverted\n" },
 ]
@@ -1667,7 +1777,7 @@ environment = "mutation_harness"
 step = "Mutate every automated gate of ci.yml's lint job, in that environment"
 command = "python tools/gates.py --assert-environment lint"
 defect_class = "positive_control"
-cost_rank = 32
+cost_rank = 34
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "sole"
@@ -1685,9 +1795,9 @@ kind = "automated"
 expect = "fail"
 expect_failure_matching = "declares it HOLDS 'bench/results.json'"
 artifact = "harness/lint-environment.log"
-verified_in_situ_on = 2026-08-25
-verified_in_situ_run = "32808357572"
-verified_in_situ_commit = "3173126"
+verified_in_situ_on = 2026-09-07
+verified_in_situ_run = "34099756605"
+verified_in_situ_commit = "34925f8"
 note = """
 Not verified locally, and it cannot be: on a developer machine with `data/`
 fetched this assertion already fails, which is the correct answer and makes the
@@ -1701,7 +1811,7 @@ edits = [
 environment = "mutation_packaging"
 step = "Reintroduce each historical breakage against a real sdist"
 defect_class = "artifact_contents"
-cost_rank = 34
+cost_rank = 36
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "sole"
@@ -1742,16 +1852,23 @@ void`, and `packaging-gates` reported success. Two causes, both fixed here:
      and the script's `return 1` was discarded.
 
 The script now also refuses any run in which a case produced no sdist, because
-a case that could not be built is not a case that was measured. The
-[[defect_coverage]] totals below therefore still stand on the 2026-08-24
-Windows re-measurement and have never been re-derived on a runner.
+a case that could not be built is not a case that was measured.
+
+AND THEN IT RAN GREEN, TWICE, AND NOBODY READ THAT EITHER. Run 33379084166
+(2026-08-31) and run 34099756605 (2026-09-07), both ubuntu-latest, both at
+commit 34925f8: six sdists built, the unmutated control green in both
+environments, and the two runs agreeing case for case. The [[defect_coverage]]
+totals below are re-derived from run 34099756605 and no longer stand on the
+2026-08-24 Windows measurement -- and the runner did NOT reproduce it: the
+extracted tree catches 5 of 5 where Windows at a62f99a caught 4. Row `b` carries
+the difference and its cause.
 """
 
 [gates.harness_test_environment]
 environment = "mutation_test"
 step = "Mutate ci.yml's test job on one cell"
 defect_class = "environment_drift"
-cost_rank = 33
+cost_rank = 35
 blast_radius = "evidence_apparatus"
 silence = "silent"
 redundancy = "sole"
@@ -1787,13 +1904,19 @@ here and `INERT` locally, and a run where both agree is the finding.
 # EVERY ROW BELOW WAS RE-MEASURED FOR THIS REGISTER RATHER THAN COPIED. Each
 # breakage was reintroduced one at a time on a clean `git archive HEAD` export,
 # a real sdist was built from it, and both environments were run through their
-# literal command sequences. The 2-of-5 and 4-of-5 totals D-050 recorded
-# reproduce exactly. One REASON did not, and it is written into row `e`.
+# literal command sequences.
 #
-# Re-measurement conditions, stated because they are the same ones D-050 had
-# and the same limitation applies: 2026-08-24, commit a62f99a, Windows,
-# CPython 3.13, `Scripts/python.exe` for `bin/python`. Ubuntu under GitHub's
-# `bash -e` is unexecuted, exactly as it was for D-040 and D-050.
+# THE LIMITATION D-040 AND D-050 BOTH CARRIED IS OVER. Every row below is now
+# measured on ubuntu under GitHub's `bash -e`: run 34099756605, 2026-09-07,
+# ubuntu-latest, CPython 3.12, at commit 34925f8, replicated by run 33379084166
+# on 2026-08-31 at the same commit. The two runs agree case for case.
+#
+# WHAT THE RUNNER DID NOT REPRODUCE. The 2-of-5 total holds. The 4-of-5 does
+# not: the extracted tree now catches 5 of 5. Row `b` says why, and the cause is
+# a test the heredoc extraction added rather than anything about ubuntu -- so
+# the Windows figure was right when it was taken and the TREE moved under it.
+# That is the same shape as `--evidence-provenance`: evidence with a date on it,
+# and a file underneath that changed.
 
 [[defect_coverage]]
 id = "a"
@@ -1801,8 +1924,8 @@ summary = "bench/results.json left out of the sdist, so the shipped claims gate 
 fixed_in = "9d6bb21"
 caught_by = ["sdist_file_list", "sdist_extracted_tree_suite", "claims_in_sdist"]
 missed_by = ["installed_expected_non_passing"]
-measured_on = 2026-08-24
-measured_in = "a62f99a, Windows, CPython 3.13"
+measured_on = 2026-09-07
+measured_in = "run 34099756605, ubuntu-latest, CPython 3.12, at 34925f8; replicated by run 33379084166"
 note = """
 The `test -f` line names it directly. The extracted-tree suite ALSO fails, on
 tests/test_check_claims.py::TestThisRepository::test_the_checkout_is_green --
@@ -1815,15 +1938,42 @@ absence to be noticed in.
 id = "b"
 summary = "data/LICENSES.md left out of the sdist, so README and SECURITY link to nothing"
 fixed_in = "ade807f"
-caught_by = ["sdist_file_list"]
-missed_by = ["sdist_extracted_tree_suite", "installed_expected_non_passing"]
-measured_on = 2026-08-24
-measured_in = "a62f99a, Windows, CPython 3.13"
+caught_by = ["sdist_file_list", "sdist_extracted_tree_suite"]
+missed_by = ["installed_expected_non_passing"]
+measured_on = 2026-09-07
+measured_in = "run 34099756605, ubuntu-latest, CPython 3.12, at 34925f8; replicated by run 33379084166"
 note = """
-Caught by the `test -f` line and by NOTHING ELSE, re-confirmed here: the
-extracted-tree suite passes with the file gone, because no test reads it. That
-line is the entire net. Deleting it as tidy-up removes the only check on a file
-two shipped documents cite as evidence.
+THE ONE ROW THE RUNNER DID NOT REPRODUCE, AND THE CAUSE IS THIS REGISTER'S OWN
+PREVIOUS ROUND.
+
+Every other row is identical to the 2026-08-24 Windows measurement. This one
+read `caught_by = ["sdist_file_list"]` and said the extracted-tree suite "passes
+with the file gone, because no test reads it". Both runner runs report the
+extracted tree FAILING on `b`, so the sentence is false on this tree and the
+`test -f` line is no longer the entire net.
+
+WHAT CHANGED, TRACED RATHER THAN GUESSED. The heredoc extraction added
+tests/test_gate_scripts.py, whose TestSdistFileList asserts
+`gate_sdist_files.missing(REPO_ROOT) == []`. In a checkout that is a statement
+about the checkout; in the EXTRACTED TREE, REPO_ROOT is the artifact, so the
+required-file list is enforced from inside the sdist as well as from ci.yml.
+Verified in-process on 2026-09-08: `missing()` over a tree holding every
+required path returns `[]`, and returns `data/LICENSES.md` with that one path
+removed.
+
+TWO HYPOTHESES WERE TESTED AND REFUTED FIRST, and both are recorded because a
+mechanism that survived one guess is worth less than one that survived three.
+`test_every_link_out_of_a_shipped_document_is_itself_shipped` does NOT catch it
+-- `_LINKS_NOT_SHIPPED` exempts everything under `data/`, re-run in-process with
+the manifest line removed and the dangling list stayed empty. Nor does
+`test_every_file_the_claims_gate_reads_is_shipped_by_the_manifest`:
+check_claims.SCAN_GLOBS does not name data/LICENSES.md.
+
+NOBODY DESIGNED THIS AND NO ROUND CLAIMED IT. Extracting three heredocs was
+costed as buying testability; it also moved one breakage's coverage, in a file
+nobody was looking at, and the register would have gone on publishing 4 of 5
+if the runner's table had not been read. The extraction's own record says
+"extraction, not harvest" -- it was both, and only one half was noticed.
 """
 
 [[defect_coverage]]
@@ -1832,8 +1982,8 @@ summary = "tests/fixtures/*.json left out of the sdist, so the artifact's own su
 fixed_in = "ed05317"
 caught_by = ["sdist_extracted_tree_suite", "installed_expected_non_passing"]
 missed_by = ["sdist_file_list"]
-measured_on = 2026-08-24
-measured_in = "a62f99a, Windows, CPython 3.13"
+measured_on = 2026-09-07
+measured_in = "run 34099756605, ubuntu-latest, CPython 3.12, at 34925f8; replicated by run 33379084166"
 note = """
 The one breakage both environments catch. installed-suite went from 4,339
 passed to 3,748 passed with 38 failures and 5 errors -- it is not subtle there.
@@ -1845,8 +1995,8 @@ summary = "tests/test_governed_gold.py loads bench/run_governed_gold.py at modul
 fixed_in = "b9bf728"
 caught_by = ["sdist_extracted_tree_suite", "installed_expected_non_passing"]
 missed_by = ["sdist_file_list"]
-measured_on = 2026-08-24
-measured_in = "a62f99a, Windows, CPython 3.13"
+measured_on = 2026-09-07
+measured_in = "run 34099756605, ubuntu-latest, CPython 3.12, at 34925f8; replicated by run 33379084166"
 note = """
 A `pytest.mark.skipif` cannot save a module body that already ran: the mark is
 consulted at collection and the body runs at import, which is earlier.
@@ -1858,8 +2008,8 @@ summary = "tests/test_splits_manifest.py loads bench/corpora.py at module level,
 fixed_in = "da8b222"
 caught_by = ["sdist_extracted_tree_suite"]
 missed_by = ["sdist_file_list", "installed_expected_non_passing"]
-measured_on = 2026-08-24
-measured_in = "a62f99a, Windows, CPython 3.13"
+measured_on = 2026-09-07
+measured_in = "run 34099756605, ubuntu-latest, CPython 3.12, at 34925f8; replicated by run 33379084166"
 note = """
 THE ROW WHOSE REASON CHANGED, AND THE REASON IS THE FINDING.
 

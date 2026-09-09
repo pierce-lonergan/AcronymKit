@@ -260,12 +260,37 @@ def test_the_class_word_stage_takes_the_shipped_number_of_class_word_lookups(lab
 
 @pytest.mark.parametrize("label", sorted(CATALOGS))
 def test_every_stage_takes_exactly_one_tokenizer_pass_per_identifier(label: str) -> None:
-    """The cheapest stage is the floor, so it must not be doing less than the floor."""
+    """The cheapest stage is the floor, so it must not be doing less than the floor.
+
+    Under :func:`~run_governed_perf.decomposition_memo_levels`, which is the
+    configuration the whole decomposition is defined in and which
+    ``measure_arm`` enters before it times anything.
+    """
     factory = CATALOGS[label]
-    for stage in (perf.stage_tokenise, perf.stage_lookup, perf.stage_phrase, perf.stage_full):
-        assert _calls(stage, CORPUS, factory(), perf.split_identifier_parts) == len(CORPUS), (
-            f"{stage.__name__} does not tokenise once per identifier"
-        )
+    with perf.decomposition_memo_levels():
+        for stage in (perf.stage_tokenise, perf.stage_lookup, perf.stage_phrase, perf.stage_full):
+            assert _calls(stage, CORPUS, factory(), perf.split_identifier_parts) == len(CORPUS), (
+                f"{stage.__name__} does not tokenise once per identifier"
+            )
+
+
+@pytest.mark.parametrize("label", sorted(CATALOGS))
+def test_the_decomposition_context_is_load_bearing_rather_than_decorative(label: str) -> None:
+    """With the identifier memo left on, ``stage_full`` stops tokenising once per name.
+
+    The test above would be worthless if the context manager it runs under were a
+    no-op, and a context manager that never changes an outcome is the same defect
+    as a gate that cannot fail. ``CORPUS`` repeats ``TXN_APPLNT_ID``, so the
+    shipped call takes one tokenizer pass fewer than there are identifiers the
+    moment the level is live -- which is also the reason the decomposition may not
+    be taken with it on.
+    """
+    factory = CATALOGS[label]
+    repeats = len(CORPUS) - len(set(CORPUS))
+    assert repeats > 0, "the corpus must repeat or this test asserts nothing"
+    assert _calls(perf.stage_full, CORPUS, factory(), perf.split_identifier_parts) == (
+        len(CORPUS) - repeats
+    )
 
 
 def test_the_stages_are_nested_in_lookups_rather_than_merely_ordered() -> None:
@@ -333,19 +358,25 @@ def test_the_memo_split_separates_the_two_memos() -> None:
     the counts must say so rather than showing a hit rate borrowed from the
     other map.
     """
-    counts = perf.work_counts(("TXN_DT_ID",) * 20, empty_catalog())
-    assert counts["catalog_memo_hits"] == 0
-    assert counts["expansion_memo_hits"] == 0
+    with perf.decomposition_memo_levels():
+        counts = perf.work_counts(("TXN_DT_ID",) * 20, empty_catalog())
+        # `resolve`'s memo still cannot fire on an empty catalog -- it records
+        # only what the vocabulary answered for. The expansion memo now can:
+        # `passed` remembers the passthrough, so three of sixty expansions
+        # construct a record and fifty-seven are served.
+        assert counts["catalog_memo_hits"] == 0
+        assert counts["expansion_memo_hits"] == 57
+        assert counts["token_expansions_constructed"] == 3
 
-    # Three known tokens, twenty repeats: sixty token expansions, three of which
-    # reach the catalog and fifty-seven of which are served by the memo. Written
-    # as the arithmetic rather than as a threshold, because "greater than zero"
-    # would pass on a memo that fired once.
-    warm = perf.work_counts(("TXN_DT_ID",) * 20, catalog())
-    assert warm["token_expands"] == 60
-    assert warm["catalog_lookups_from_token_path"] == 3
-    assert warm["expansion_memo_hits"] == 57
-    assert warm["token_expansions_constructed"] == 3
+        # Three known tokens, twenty repeats: sixty token expansions, three of
+        # which reach the catalog and fifty-seven of which are served by the
+        # memo. Written as the arithmetic rather than as a threshold, because
+        # "greater than zero" would pass on a memo that fired once.
+        warm = perf.work_counts(("TXN_DT_ID",) * 20, catalog())
+        assert warm["token_expands"] == 60
+        assert warm["catalog_lookups_from_token_path"] == 3
+        assert warm["expansion_memo_hits"] == 57
+        assert warm["token_expansions_constructed"] == 3
 
 
 # ---------------------------------------------------------------------------
@@ -596,3 +627,112 @@ def test_the_class_word_excess_check_can_report_a_shortfall(
     without = perf.stage_class_word_counts(CORPUS, catalog())["stage_class_word_lookups"]
     assert without == 0
     assert without - shipped < 0
+
+
+# ---------------------------------------------------------------------------
+# the memo arm and the threading sweep
+# ---------------------------------------------------------------------------
+
+
+def test_the_bounded_replay_is_the_shipped_rule_and_not_a_distinct_count() -> None:
+    """Clear-on-full, hand-checked, on a sequence whose distinct count says otherwise.
+
+    ``a b c a`` through a map of two: ``a`` and ``b`` are stored, ``c`` finds the
+    map full and empties it, so the second ``a`` MISSES. A distinct count would
+    say one of the four repeats and a hit rate of 25 %; the shipped rule serves
+    zero. That gap is the whole reason this is replayed rather than derived.
+    """
+    hits, clears = perf.replay_bounded(("a", "b", "c", "a"), 2)
+
+    assert (hits, clears) == (0, 1)
+    assert perf.replay_bounded(("a", "b", "c", "a"), 4) == (1, 0)
+
+
+def test_the_lru_counterfactual_is_better_where_the_shipped_rule_gives_up() -> None:
+    """The same sequence under least-recently-used, which is what the rule declines.
+
+    ``a b c a`` through an LRU of two evicts ``a`` for ``c`` and still misses, so
+    the two rules agree here; ``a b a c a`` separates them, because clear-on-full
+    empties the map at ``c`` and an LRU evicts ``b`` instead.
+    """
+    assert perf.replay_lru(("a", "b", "c", "a"), 2) == 0
+    assert perf.replay_bounded(("a", "b", "a", "c", "a"), 2)[0] == 1
+    assert perf.replay_lru(("a", "b", "a", "c", "a"), 2) == 2
+
+
+def test_the_partition_is_the_whole_corpus_exactly_once() -> None:
+    """Every identifier appears in exactly one slice, in order, for every count.
+
+    A threading arm that dropped or duplicated work would report a scaling ratio
+    about a different amount of work at each thread count, which is the R17
+    failure in its purest form.
+    """
+    corpus = tuple(f"N{index:04d}" for index in range(101))
+    for threads in perf.THREAD_COUNTS:
+        slices = perf.partition(corpus, threads)
+        assert len(slices) == threads
+        assert [name for chunk in slices for name in chunk] == list(corpus)
+
+
+def test_the_memo_arm_reports_a_hit_rate_beside_every_throughput_figure() -> None:
+    """R17 as a shape assertion: no ``*_identifiers_per_second`` without its counts.
+
+    The rule this pins is that a benchmark which got fast because it stopped
+    doing work must be indistinguishable from one that got fast because the work
+    got cheaper *only to a reader who ignores the entry*, never to one who reads
+    it.
+    """
+    entry = perf.measure_memo_arm(
+        "unit",
+        CORPUS * 4,
+        "populated",
+        catalog,
+        repeats=1,
+        source="unit test",
+    )
+    for name, _ in perf.MEMO_CONFIGURATIONS:
+        assert f"{name}_identifiers_per_second" in entry
+        for field in (
+            "identifier_memo_hit_pct",
+            "expansion_memo_hit_pct",
+            "catalog_lookups",
+            "provenance_records_constructed",
+            "tokenizer_passes",
+        ):
+            assert f"{name}_{field}" in entry, f"{name} reports a rate without {field}"
+    assert entry["none_identifier_memo_hit_pct"] == 0.0
+    assert entry["none_expansion_memo_hit_pct"] == 0.0
+    assert entry["full_identifier_memo_hit_pct"] > 0.0
+    assert entry["full_tokenizer_passes"] < entry["none_tokenizer_passes"]
+
+
+def test_the_memo_arm_restores_the_levels_it_borrowed() -> None:
+    """Module state is put back, so one arm cannot silently configure the next."""
+    from acronymkit.governed import dictionary as dictionary_module
+
+    before = dict(dictionary_module._MEMO_LEVELS)
+    perf.measure_memo_arm("unit", CORPUS, "empty", empty_catalog, repeats=1, source="unit")
+
+    assert before == dictionary_module._MEMO_LEVELS
+
+
+def test_the_threaded_answers_are_compared_against_a_serial_run() -> None:
+    """The correctness half of the threading arm, on a corpus small enough to run.
+
+    Zero is the only acceptable answer and the check is on the full JSON rather
+    than the phrase, because every provenance field is what a race would corrupt.
+    """
+    assert perf.thread_answers_agree(CORPUS * 8, catalog, 4) == 0
+
+
+def test_the_gil_probe_reads_the_interpreter_rather_than_the_version() -> None:
+    """A free-threading build can be started with the GIL back on.
+
+    So the arm's label comes from ``sys._is_gil_enabled()`` and not from the
+    version string, and on an interpreter with no such attribute the answer is
+    ``True`` rather than an exception.
+    """
+    probe = getattr(sys, "_is_gil_enabled", None)
+    expected = True if probe is None else bool(probe())
+
+    assert perf.gil_enabled() is expected

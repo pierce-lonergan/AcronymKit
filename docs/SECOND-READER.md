@@ -154,10 +154,25 @@ docs/SUPPORT_MATRIX.md · docs/GATES.md · docs/SECOND-READER.md · docs/CLAIMS-
 docs/SOURCING.md · pyproject.toml · docs/RELEASE_CHECKLIST.md · docs/JAVA_INTEROP.md
 CHANGELOG.md · docs/ENTERPRISE.md · docs/QUICKSTART_GOVERNED.md · docs/INSTALL.md
 docs/ARCHITECTURE.md · CONTRIBUTING.md · SECURITY.md · docs/DEFINITION-OF-DONE.md
-docs/POSITIONING.md
+docs/POSITIONING.md · docs/figures/refusal-curve-light.svg · docs/figures/refusal-curve-dark.svg
+docs/figures/monoculture-band-light.svg · docs/figures/monoculture-band-dark.svg
 ```
 
-**Fifteen to twenty-one, and the six new entries are not a widening for its own sake.** The check now
+**Twenty-one to twenty-five, and the four figures are here because a figure is prose.** The round
+that first shipped them shipped them **outside both triggers and outside this rotation**:
+`is_user_facing` admitted only `*.md` under `docs/`, a rule written to keep the machine-state ledger
+out that kept every `.svg` out as collateral. `git status` reported the four; the policy did not.
+
+The distinction that now decides it is *prose a stranger reads* against *machine state*: `.svg` is
+in, `.toml` is still out. And the reason it matters is narrower than "figures should be reviewed" —
+**a figure's numbers are gated twice, by `gates.figures` and by the suite, while its title sentence,
+its shading and which series wears the accent colour are gated by nothing at all.** Those are the
+parts that decide what a reader concludes, and no ratchet in this repository can read them.
+
+Light and dark are separate entries because they are separate files and the tree-reachability rule
+counts files. A reader served one of a pair should read its twin in the same sitting and say so.
+
+**Fifteen to twenty-one, and the six entries before these are not a widening for its own sake.** The check now
 runs the other way round: `--check` enumerates every user-facing file in the tree and **refuses any
 that the rotation cannot reach**. That rule was written because of a mutation that got through — see
 [section 9](#9-the-trigger-demonstrated-in-situ), state D. Deleting an entry from this block was
@@ -558,7 +573,7 @@ here for a human, and `python tools/second_reader.py --check` refuses a disagree
 
 <!-- rotation-cursor -->
 ```
-cursor docs/GATES.md
+cursor docs/SECOND-READER.md
 ```
 
 Read that as: the last cold read (2026-08-26) served

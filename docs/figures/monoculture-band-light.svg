@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="1140" viewBox="0 0 880 570" role="img" aria-label="Two stacked bars over 1,804 PLOD-CW gold long-form spans. The upper bar partitions them: 57.65 % reached by the Schwartz &amp; Hearst family, 21.95 % added by non-S&amp;H proposers, 20.40 % reached by no proposer at all. The lower bar decomposes the 42.35 % the family misses on a different axis: 34.98 % of all gold long forms, 631 spans, are cleanly alignable with a gold short form in the same passage and are highlighted as pairs no bracket scanner offers; the remaining 7.37 % are not. The highlighted band cuts across the upper bar rather than slicing it, and at least 263 of its spans are already reached by a non-S&amp;H proposer. Run ids: monoculture.plod_all.gold.long_form.overlap.class.">
+<title>Monoculture band, PLOD-CW gold long forms (light)</title>
+<desc>
+Two stacked bars over 1,804 PLOD-CW gold long-form spans. The upper bar partitions them: 57.65 % reached by the Schwartz &amp; Hearst family, 21.95 % added by non-S&amp;H proposers, 20.40 % reached by no proposer at all. The lower bar decomposes the 42.35 % the family misses on a different axis: 34.98 % of all gold long forms, 631 spans, are cleanly alignable with a gold short form in the same passage and are highlighted as pairs no bracket scanner offers; the remaining 7.37 % are not. The highlighted band cuts across the upper bar rather than slicing it, and at least 263 of its spans are already reached by a non-S&amp;H proposer.
+
+Run ids:
+    monoculture.plod_all.gold.long_form.overlap.class
+
+Cited from bench/results.json:
+    monoculture.plod_all.gold.long_form.overlap.class.gold_spans = 1,804
+    monoculture.plod_all.gold.long_form.overlap.class.sh_family_recall_pct = 57.65
+    monoculture.plod_all.gold.long_form.overlap.class.reached_by_sh_family = 1,040
+    monoculture.plod_all.gold.long_form.overlap.class.all_proposers_recall_pct = 79.60
+    monoculture.plod_all.gold.long_form.overlap.class.reached_by_all_proposers = 1,436
+    monoculture.plod_all.gold.long_form.overlap.class.unproposed_reached_by_an_independent_proposer_pct_of_gold = 21.95
+    monoculture.plod_all.gold.long_form.overlap.class.unproposed_reached_by_an_independent_proposer = 396
+    monoculture.plod_all.gold.long_form.overlap.class.unproposed_pct = 42.35
+    monoculture.plod_all.gold.long_form.overlap.class.unproposed = 764
+    monoculture.plod_all.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form_pct_of_gold = 34.98
+    monoculture.plod_all.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form = 631
+    monoculture.plod_all.gold.long_form.overlap.class.gold_provenance = PLOS article Abbreviations sections, matched onto body text
+    monoculture.plod_all.gold.long_form.overlap.class.sh_family.0 = abbreviation_extractor
+    monoculture.plod_all.gold.long_form.overlap.class.sh_family.1 = abbreviations
+    monoculture.plod_all.gold.long_form.overlap.class.sh_family.2 = acronymkit/biomedical
+    monoculture.plod_all.gold.long_form.overlap.class.sh_family.3 = acronymkit/general
+    monoculture.plod_all.gold.long_form.overlap.class.sh_family.4 = acronymkit/high_precision
+    monoculture.plod_all.gold.long_form.overlap.class.sh_family.5 = pyab3p
+    monoculture.plod_all.gold.long_form.overlap.class.sh_family.6 = scispacy
+
+Derived from those, with the expression named:
+    operating points in the S&amp;H family = 7
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.0
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.1
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.2
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.3
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.4
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.5
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.6
+    distinct implementations behind those operating points, taking the text before the profile separator = 5
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.0
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.1
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.2
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.3
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.4
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.5
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.6
+    operating points that are this library = 3
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.0
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.1
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.2
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.3
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.4
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.5
+        over monoculture.plod_all.gold.long_form.overlap.class.sh_family.6
+    reached by no proposer at all, as a share of gold long forms = 20.40
+        over monoculture.plod_all.gold.long_form.overlap.class.all_proposers_recall_pct
+    reached by no proposer at all, in spans = 368
+        over monoculture.plod_all.gold.long_form.overlap.class.gold_spans
+        over monoculture.plod_all.gold.long_form.overlap.class.reached_by_all_proposers
+    missed by the S&amp;H family and NOT cleanly alignable, as a share of gold long forms = 7.37
+        over monoculture.plod_all.gold.long_form.overlap.class.unproposed_pct
+        over monoculture.plod_all.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form_pct_of_gold
+    lower bound on alignable spans a non-S&amp;H proposer already reaches, by inclusion-exclusion inside the spans the family misses = 263
+        over monoculture.plod_all.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form
+        over monoculture.plod_all.gold.long_form.overlap.class.unproposed_reached_by_an_independent_proposer
+        over monoculture.plod_all.gold.long_form.overlap.class.unproposed
+
+Generated by tools/render_figures.py from bench/results.json. Do not edit this file: `python tools/render_figures.py --check` byte-diffs it, and every number above is a citation the same resolver that adjudicates prose can look up.
+</desc>
+<rect x="0" y="0" width="880" height="10000" fill="#ffffff"/>
+<text x="40" y="42" fill="#161b22" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">34.98 % of PLOD-CW&apos;s gold long forms are pairs no bracket scanner offers</text>
+<text x="40" y="75" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" text-anchor="start">1,804 gold long-form spans, overlap convention. Gold provenance: PLOS article Abbreviations sections,</text>
+<text x="40" y="93" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" text-anchor="start">matched onto body text.</text>
+<rect x="40" y="133" width="461.2" height="56" fill="#5a6169"/>
+<rect x="501.2" y="133" width="175.6" height="56" fill="#ced3d8"/>
+<rect x="676.8" y="133" width="163.2" height="56" fill="#eef0f2"/>
+<line x1="501.2" y1="133" x2="501.2" y2="189" stroke="#8c949d" stroke-width="1"/>
+<line x1="676.8" y1="133" x2="676.8" y2="189" stroke="#8c949d" stroke-width="1"/>
+<rect x="40" y="133" width="800" height="56" fill="none" stroke="#8c949d" stroke-width="1"/>
+<text x="270.6" y="164" fill="#ffffff" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" text-anchor="middle">57.65 %</text>
+<text x="270.6" y="181" fill="#ffffff" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="400" text-anchor="middle">1,040 spans</text>
+<text x="270.6" y="210" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="middle">reached by the</text>
+<text x="270.6" y="226" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="middle">S&amp;H family</text>
+<text x="589" y="164" fill="#161b22" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" text-anchor="middle">21.95 %</text>
+<text x="589" y="181" fill="#161b22" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="400" text-anchor="middle">396 spans</text>
+<text x="589" y="210" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="middle">added by non-S&amp;H</text>
+<text x="589" y="226" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="middle">proposers</text>
+<text x="758.4" y="164" fill="#161b22" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" text-anchor="middle">20.40 %</text>
+<text x="758.4" y="181" fill="#161b22" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="400" text-anchor="middle">368 spans</text>
+<text x="758.4" y="210" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="middle">reached by no</text>
+<text x="758.4" y="226" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="middle">proposer at all</text>
+<line x1="501.2" y1="275" x2="840" y2="275" stroke="#8c949d" stroke-width="1.25"/>
+<line x1="501.2" y1="275" x2="501.2" y2="283" stroke="#8c949d" stroke-width="1.25"/>
+<line x1="840" y1="275" x2="840" y2="283" stroke="#8c949d" stroke-width="1.25"/>
+<text x="670.6" y="266" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="middle">the 42.35 % the S&amp;H family misses</text>
+<rect x="501.2" y="295" width="279.84" height="46" fill="#9a4210"/>
+<rect x="781.04" y="295" width="58.96" height="46" fill="#ced3d8"/>
+<rect x="501.2" y="295" width="338.8" height="46" fill="none" stroke="#8c949d" stroke-width="1"/>
+<text x="641.12" y="316" fill="#ffffff" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="middle">34.98 % of all gold -- 631 spans</text>
+<text x="641.12" y="333" fill="#ffffff" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="middle">pairs no bracket scanner offers</text>
+<text x="840" y="361" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="end">the other 7.37 % the family misses is not cleanly alignable</text>
+<text x="40" y="393" fill="#161b22" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" text-anchor="start">That band is not a slice of the bar above, and drawing it as one would be wrong.</text>
+<text x="40" y="416" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start">The 631 alignable spans sit inside the 764 the S&amp;H family misses, which span both segments right of 57.65 %. At</text>
+<text x="40" y="433" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start">least 263 of them are already reached by a non-S&amp;H proposer: 631 + 396 - 764.</text>
+<text x="40" y="455" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start">So 57.65 + 21.95 + 34.98 does not sum to 100 and never could. The first two partition the 1,804 spans together with</text>
+<text x="40" y="472" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start">20.40 %; the third cuts across them.</text>
+<text x="40" y="494" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start">7 operating points across 5 implementations make up the S&amp;H family here, and 3 of the 7 are this library at 3</text>
+<text x="40" y="511" fill="#57606a" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start">profiles. The bar measures one algorithm about as much as it measures a field.</text>
+<text x="40" y="545" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="400" text-anchor="start">monoculture.plod_all.gold.long_form.overlap.class</text>
+</svg>

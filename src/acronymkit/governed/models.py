@@ -388,6 +388,49 @@ def _freeze_confidence(record: Any) -> None:
         raise GovernedValidationError(type(record).__name__, problems)
 
 
+#: Whether the two result DTOs on the governed hot path are built by writing
+#: their fields straight into a fresh instance rather than through the generated
+#: ``__init__``.
+#:
+#: **What this is a switch for, and why the switch exists at all.** An
+#: optimisation in a governance instrument is proven behaviour-identical rather
+#: than benchmarked-equal (R19), and proving that means running the shipped code
+#: BOTH ways in one process over a whole corpus and comparing every field of
+#: every record. A constant folded into the branch could not be forced off, and
+#: a copy of the constructor could not stand in for the thing (D-018). So the
+#: two routes are selected by a module flag, and
+#: ``python bench/run_governed_perf.py --only identity`` sets it to ``False``,
+#: re-runs the corpus, and compares the two streams.
+#:
+#: **What the slow route does that the fast route does not.** A frozen dataclass
+#: cannot assign to itself, so its generated ``__init__`` writes each field with
+#: ``object.__setattr__`` -- nine calls for a :class:`TokenExpansion`, six for an
+#: :class:`IdentifierExpansion` -- and then calls ``__post_init__``, which
+#: allocates a ``problems`` list per helper, re-reads each sequence field by
+#: name, hands it to :func:`_items`, and writes the same object back over itself
+#: with two more ``object.__setattr__``. Measured by ablation over the replayed
+#: construction arguments of two real corpora, that ``__init__`` machinery is
+#: the single largest constituent of what a record costs, and the validation
+#: behind it the second; allocating the object and filling its ``__dict__`` --
+#: the floor neither route can avoid -- is under a fifth. Run ids
+#: ``governed_perf.*.record_costs``.
+#:
+#: **What it is not.** It is not a cache and it defers nothing: the same records
+#: are built, in the same order, with the same values. It does not widen what
+#: the public constructors accept -- ``TokenExpansion(...)`` and
+#: ``IdentifierExpansion(...)`` validate exactly as before, and a caller who
+#: hand-builds one with a list ``beat`` still gets a tuple back. What it asserts
+#: is narrower, and is the reason it is safe: at the four sites in
+#: :mod:`~acronymkit.governed.expansion` that reach these builders, ``beat``,
+#: ``tokens`` and ``unaccounted`` are already tuples and ``confidence`` is
+#: already a bounded ``float``, because they are built by this package out of
+#: values it computed itself -- which is the trade this module's own docstring
+#: already describes, applied one step earlier.
+#: ``tests/test_governed_fast_construction.py`` pins the type of every field of
+#: every record both routes produce, and the identity gate pins the stream.
+_FAST_CONSTRUCTION = True
+
+
 #: Field values that are already JSON, tested by exact type rather than by
 #: ``isinstance``. Most fields on most records are one of these — a string, a
 #: flag, a count, a confidence, a ``None`` — and an exact-type set membership is
@@ -762,6 +805,77 @@ class TokenExpansion(_FrozenModel):
         return f"{self.raw} -> {self.long}"
 
 
+def _new_token_expansion(
+    raw: str,
+    long: str,
+    is_known: bool,
+    source: ExpansionSource,
+    entry_id: Optional[str],
+    confidence: float,
+    class_word: Optional[str],
+    beat: tuple[str, ...],
+    kind: Optional[EntryKind],
+) -> TokenExpansion:
+    """Build a :class:`TokenExpansion` out of values this package computed.
+
+    The hot-path constructor. It is not a different record: the fields, their
+    order and their values are what ``TokenExpansion(...)`` would have produced
+    from the same arguments, and :data:`_FAST_CONSTRUCTION` set to ``False``
+    makes this call *be* that constructor, so the two can be compared over a
+    whole corpus rather than argued about.
+
+    The caller owes the one guarantee the generated ``__init__`` would otherwise
+    re-derive per record: ``beat`` is already a ``tuple`` and ``confidence`` is
+    already a ``float`` in ``[0, 1]``. All three call sites in
+    :mod:`~acronymkit.governed.expansion` meet it by construction -- two pass the
+    literals ``()`` and ``0.0``, and the third passes a ``tuple`` comprehension
+    and a :class:`GovernedEntry` field that entry's own ``__post_init__``
+    coerced and bounded when the catalog row was built.
+
+    Args:
+        raw: The token exactly as it appeared.
+        long: The expansion, or ``""``.
+        is_known: Whether the vocabulary produced the answer.
+        source: The resolution rule that fired.
+        entry_id: The catalog row behind the answer, or ``None``.
+        confidence: A ``float`` in ``[0, 1]``.
+        class_word: The class word this token designates, or ``None``.
+        beat: The candidate long forms beaten, as a ``tuple``.
+        kind: The kind of entry behind the answer, or ``None``.
+
+    Returns:
+        The record.
+    """
+    if not _FAST_CONSTRUCTION:
+        return TokenExpansion(
+            raw=raw,
+            long=long,
+            is_known=is_known,
+            source=source,
+            entry_id=entry_id,
+            confidence=confidence,
+            class_word=class_word,
+            beat=beat,
+            kind=kind,
+        )
+    record = object.__new__(TokenExpansion)
+    # Written into the instance dict in declaration order rather than field by
+    # field, for the reason ``model_copy`` gives one screen up: the frozen
+    # ``__setattr__`` would have to be bypassed for every one of them anyway,
+    # and this runs once per resolved token on a batch path.
+    values = record.__dict__
+    values["raw"] = raw
+    values["long"] = long
+    values["is_known"] = is_known
+    values["source"] = source
+    values["entry_id"] = entry_id
+    values["confidence"] = confidence
+    values["class_word"] = class_word
+    values["beat"] = beat
+    values["kind"] = kind
+    return record
+
+
 @dataclass(frozen=True)
 class IdentifierExpansion(_FrozenModel):
     """A whole identifier expanded token by token.
@@ -818,9 +932,17 @@ class IdentifierExpansion(_FrozenModel):
     #: description of a name nobody wrote. Separate from unknown_tokens because
     #: the two are different work: an unknown token is a catalog row somebody
     #: owes, and an unaccounted character is a question about the name itself
-    #: that no catalog row can settle. Written by expand_identifier; the
-    #: compliance and reverse directions do not carry it, and such a character
-    #: reaches is_compliant as a NOT_UPPER_SNAKE finding or as nothing at all.
+    #: that no catalog row can settle.
+    #:
+    #: Every verb in this subsystem now carries the accounting in the shape its
+    #: return type allows, and this sentence used to say the opposite: the
+    #: compliance and reverse directions did not carry it, and such a character
+    #: reached is_compliant as a NOT_UPPER_SNAKE finding whose `fix` deleted it,
+    #: or as nothing at all. is_compliant reports
+    #: ComplianceReasonCode.UNREADABLE_CHARACTER, to_physical_name reports
+    #: PhysicalName.unaccounted, and normalize — which returns a bare str and so
+    #: has no field to report on — raises rather than answer with the character
+    #: gone.
     unaccounted: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -842,6 +964,54 @@ class IdentifierExpansion(_FrozenModel):
 
     def __str__(self) -> str:  # pragma: no cover - display helper
         return f"{self.identifier} -> {self.phrase}"
+
+
+def _new_identifier_expansion(
+    identifier: str,
+    phrase: str,
+    tokens: tuple[TokenExpansion, ...],
+    class_word: Optional[str],
+    is_fully_known: bool,
+    unaccounted: tuple[str, ...],
+) -> IdentifierExpansion:
+    """Build an :class:`IdentifierExpansion` out of values this package computed.
+
+    The identifier half of :func:`_new_token_expansion`, with the same contract
+    and the same switch. The caller owes that ``tokens`` and ``unaccounted`` are
+    already tuples; :func:`~acronymkit.governed.expansion.expand_identifier`
+    meets it because the first is a ``tuple`` comprehension and the second comes
+    from :class:`~acronymkit.governed.tokenizer.IdentifierParts`, every return
+    path of which builds one.
+
+    Args:
+        identifier: The identifier exactly as supplied.
+        phrase: The long forms joined.
+        tokens: One record per token, as a ``tuple``.
+        class_word: Read from the trailing token, or ``None``.
+        is_fully_known: Every token known and nothing unaccounted for.
+        unaccounted: The unaccounted characters, as a ``tuple``.
+
+    Returns:
+        The record.
+    """
+    if not _FAST_CONSTRUCTION:
+        return IdentifierExpansion(
+            identifier=identifier,
+            phrase=phrase,
+            tokens=tokens,
+            class_word=class_word,
+            is_fully_known=is_fully_known,
+            unaccounted=unaccounted,
+        )
+    record = object.__new__(IdentifierExpansion)
+    values = record.__dict__
+    values["identifier"] = identifier
+    values["phrase"] = phrase
+    values["tokens"] = tokens
+    values["class_word"] = class_word
+    values["is_fully_known"] = is_fully_known
+    values["unaccounted"] = unaccounted
+    return record
 
 
 @dataclass(frozen=True)
@@ -867,7 +1037,14 @@ class PhysicalToken(_FrozenModel):
 
 @dataclass(frozen=True)
 class PhysicalName(_FrozenModel):
-    """A logical name rendered as a governed physical name."""
+    """A logical name rendered as a governed physical name.
+
+    The record accounts for the whole logical name, not only the part of it that
+    became tokens. Every character of ``logical`` is either inside one of the
+    ``tokens``' words, or one of the separators
+    :mod:`~acronymkit.governed.tokenizer` names, or listed in
+    :attr:`unaccounted`.
+    """
 
     #: The logical name as supplied.
     logical: str
@@ -899,14 +1076,30 @@ class PhysicalName(_FrozenModel):
     #: flagged instead.
     truncated: bool = False
 
+    #: Characters of the LOGICAL name that ended up in no token and are not one
+    #: of the separators the splitter accounts for: a parenthesis or a comma out
+    #: of a caption, an emoji pasted from a spreadsheet, a currency sign, a
+    #: combining accent. One entry per occurrence, in input order. The
+    #: reverse-direction twin of IdentifierExpansion.unaccounted, and it exists
+    #: for the same reason: a rendered name is built out of tokens, so such a
+    #: character cannot appear in `physical`, and reporting FRAUD_RISK_VAL for a
+    #: logical name that also held a character this package silently discarded
+    #: would be a confident description of a name nobody wrote.
+    #:
+    #: It does NOT lower `confidence`. Confidence is the weakest link across the
+    #: tokens — how far the catalog stands behind the words it did read — and an
+    #: unaccounted character is not a statement about any of them. The two are
+    #: different questions and a caller that needs both reads both.
+    unaccounted: tuple[str, ...] = ()
+
     def __post_init__(self) -> None:
-        """Normalise the token tuple and bound the confidence.
+        """Normalise the sequence fields and bound the confidence.
 
         Raises:
-            GovernedValidationError: If ``tokens`` is not a sequence, or
-                ``confidence`` is outside ``[0, 1]``.
+            GovernedValidationError: If ``tokens`` or ``unaccounted`` is not a
+                sequence, or ``confidence`` is outside ``[0, 1]``.
         """
-        _freeze_sequences(self, "tokens")
+        _freeze_sequences(self, "tokens", "unaccounted")
         _freeze_confidence(self)
 
     def __str__(self) -> str:  # pragma: no cover - display helper

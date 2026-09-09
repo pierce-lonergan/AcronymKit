@@ -49,15 +49,18 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from acronymkit.exceptions import AcronymKitError, TokenizationError
 from acronymkit.governed import (
     ComplianceReasonCode,
     ExpansionSource,
     GovernedDictionary,
     IdentifierExpansion,
+    NamingPolicy,
     expand_identifier,
     expand_token,
     is_compliant,
     normalize,
+    to_physical_name,
 )
 from acronymkit.governed.tokenizer import (
     ACCOUNTED_SEPARATORS,
@@ -544,32 +547,128 @@ def test_an_ascii_token_upper_cased_splits_back_to_exactly_itself(text: str) -> 
         assert split_identifier(upper) == (upper,), f"{token!r} -> {upper!r}"
 
 
-def test_normalize_is_not_idempotent_when_upper_casing_creates_a_combining_mark() -> None:
-    """The one exception, pinned so the invariant is read with its limit attached.
+def test_normalize_refuses_a_name_whose_own_upper_case_form_would_lose_characters() -> None:
+    """The exception that used to make the idempotence claim ASCII-only.
 
     U+0390 is a single lowercase letter whose upper-case form is three characters
     — a capital iota and two combining marks — and a combining mark is not a
     letter, so the splitter reports it as unaccounted and the second pass drops
-    it. ``normalize`` therefore moves twice for this input.
+    it. ``normalize`` used to return that three-character string and then **drop
+    the marks on the next pass**, so the name moved twice and the idempotence
+    claim was published with an alphabet attached to it.
 
-    Nothing here shortens a name on purpose, and this is not that: it is
-    ``str.upper`` producing characters no token can hold. Fixing it would mean
-    either normalising Unicode (which rewrites text, and the tokenizer refuses
-    to) or declining to upper-case a word, and both are worse than saying where
-    the invariant stops.
+    Nothing about Unicode changed and nothing was repaired: the second source of
+    loss is checked now rather than documented. A value ``normalize`` returns has
+    to be a value ``normalize`` accepts, or it is not a normal form \u2014 so a
+    corrected name carrying an unaccounted character is refused exactly as an
+    input carrying one is. Normalising Unicode is still refused (it rewrites
+    text) and so is declining to upper-case a word. What the caller loses is a
+    plausible answer; what they gain is being told.
     """
     # Written as escapes: the point of the case is that one character becomes
     # three, and two of the three have no glyph of their own.
     letter = "\u0390"  # GREEK SMALL LETTER IOTA WITH DIALYTIKA AND TONOS
     iota = "\u0399"  # GREEK CAPITAL LETTER IOTA
     marks = ("\u0308", "\u0301")  # combining diaeresis, combining acute
-    once = normalize(letter, NDS)
-    twice = normalize(once, NDS)
 
     assert letter.upper() == iota + "".join(marks)
-    assert once == letter.upper()
-    assert twice == iota
-    assert expand_identifier(once, NDS).unaccounted == marks
+    assert expand_identifier(letter.upper(), NDS).unaccounted == marks
+
+    with pytest.raises(TokenizationError) as raised:
+        normalize(letter, NDS)
+    # The message says which of the two conditions fired, because "the name you
+    # handed me" and "the name I would have handed back" are different problems
+    # and only the second is this library's own doing.
+    assert "upper-cased form of its own tokens" in str(raised.value)
+    assert "U+0308" in str(raised.value) and "U+0301" in str(raised.value)
+
+
+@settings(max_examples=400, deadline=None)
+@given(st.text(max_size=40))
+def test_normalize_never_returns_a_name_that_lost_a_character(text: str) -> None:
+    """The guarantee the refusal buys, over arbitrary text rather than over ASCII.
+
+    Stated as what it is: **wherever ``normalize`` returns, the string it returns
+    holds nothing the splitter cannot account for.** That was false before \u2014 the
+    function returned ``'\u03aa\u0301'`` for ``'\u0390'``, a "governed name" carrying two
+    combining marks, and then deleted them on the next pass \u2014 and it is what the
+    two refusals establish, one on the way in and one on the way out.
+
+    Hypothesis draws unrestricted text on purpose. Restricting it to ASCII, which
+    is what the shipped idempotence property does, is what let both non-ASCII
+    breaks in this file go unfound for as long as they did.
+    """
+    try:
+        once = normalize(text, NDS)
+    except TokenizationError:
+        return
+    assert split_identifier_parts(once).unaccounted == (), f"{text!r} -> {once!r}"
+
+
+@settings(max_examples=400, deadline=None)
+@given(st.text(alphabet=st.characters(max_codepoint=127), max_size=40))
+def test_normalize_is_idempotent_over_arbitrary_ascii(text: str) -> None:
+    """``normalize(normalize(x)) == normalize(x)``, drawn rather than fixtured.
+
+    The shipped idempotence tests parametrise over a fixture corpus and over
+    catalog shapes. Neither draws, so neither could have reached ``'1sT'`` \u2014 the
+    input that broke this once \u2014 without somebody thinking of it first. ASCII,
+    for the reason the test below gives.
+
+    A refusal is not a counter-example to a claim about what the function
+    returns: ASCII includes the control characters, which are unaccounted, so
+    ``'\\x1b'`` is a name this function declines rather than a name it answers
+    inconsistently.
+    """
+    try:
+        once = normalize(text, NDS)
+    except TokenizationError:
+        return
+    assert normalize(once, NDS) == once, f"{text!r} -> {once!r} moved on the second pass"
+
+
+def test_a_letter_that_stays_lower_case_when_upper_cased_still_moves_a_name_twice() -> None:
+    """A SECOND non-ASCII idempotence break, found by the property above, NOT FIXED.
+
+    ``normalize('\u00baa')`` is ``'\u00baA'`` and ``normalize('\u00baA')`` is ``'\u00ba_A'``. U+00BA
+    MASCULINE ORDINAL INDICATOR answers ``str.islower()`` with ``True`` and
+    ``str.upper()`` with **itself**, so upper-casing the token ``\u00baa`` leaves a
+    lower-case character in front of a newly upper-case one \u2014 which is a
+    camelCase boundary, and the splitter puts one there on the second pass. The
+    premise ``tests/test_governed_edge_cases.py::
+    test_an_ascii_token_upper_cased_splits_back_to_exactly_itself`` carries is
+    false for it, and that test is ASCII-only, so nothing here could have found
+    it before an unrestricted draw did.
+
+    **This is not the defect this round fixed and it is not caused by it.** The
+    same three values come back from the tree before the change: no character is
+    lost, the name is merely unstable, and every string in the walk holds every
+    character it started with. It is reported rather than repaired because the
+    only repairs available are a splitting change \u2014 which is a behaviour change
+    across every identifier in the corpora and owes its own byte-identity pass \u2014
+    or a refusal, which would be refusing a name that lost nothing.
+
+    Its size is bounded and its incidence is measured. ``1050`` code points are
+    lower-case and stay lower-case under ``str.upper``, and every one of them
+    breaks the premise the same way. On the four published populations the count
+    of distinct strings carrying one is ``0`` physical identifiers of either
+    corpus and ``12`` Socrata captions \u2014 and ``normalize`` reads physical names,
+    so the incidence on what this verb is handed is zero.
+    """
+    ordinal = "\u00ba"  # MASCULINE ORDINAL INDICATOR
+    assert ordinal.islower() is True and ordinal.upper() == ordinal
+
+    once = normalize(f"{ordinal}a", NDS)
+    twice = normalize(once, NDS)
+
+    assert once == f"{ordinal}A"
+    assert twice == f"{ordinal}_A", "the second pass finds a camelCase boundary that was not there"
+    assert normalize(twice, NDS) == twice, "it is a fixed point after two steps, not a cycle"
+    # Nothing was lost on the way, which is what makes it a different defect from
+    # the one this file's headline is about.
+    for value in (once, twice):
+        assert split_identifier_parts(value).unaccounted == ()
+        assert ordinal in value and "A" in value
 
 
 # --------------------------------------------------------------------------
@@ -966,25 +1065,129 @@ def test_identifier_parts_unpacks_as_a_pair() -> None:
 # --------------------------------------------------------------------------
 # What the other verbs do with the same input
 # --------------------------------------------------------------------------
-def test_the_compliance_direction_does_not_carry_the_accounting() -> None:
-    """A gap, recorded rather than papered over.
+def test_the_compliance_direction_now_carries_the_accounting() -> None:
+    """The gap this file used to pin, closed, and the pin inverted.
 
-    ``ComplianceResult`` has no field for an unaccounted character, so a name
-    carrying one fails for the reason it *also* fails — it is not upper-snake —
-    and the suggested fix is the name with the character gone. That is a
-    defensible correction and it is visible, but it is visible as a casing
-    finding rather than as what it is, and ``normalize`` applies it without
-    comment. Closing the gap means a reason code and a field on a DTO this change
-    did not touch; until then the behaviour is pinned so it cannot drift while
-    nobody is looking.
+    What stood here asserted the defect: ``is_compliant`` reported a name holding
+    an unaccountable character as ``NOT_UPPER_SNAKE`` and nothing else — true,
+    and about the wrong thing — offered ``fix='TXN_ID'``, which is a
+    machine-readable instruction to delete the character, and ``normalize``
+    applied exactly that and returned the shortened name.
+
+    Three assertions replace it. The finding names what actually happened; it
+    carries **no** fix, because every fix available here is the name with the
+    character gone; and no *other* whole-name finding carries one either, which
+    is the half a reader would miss — the deletion used to travel on the casing
+    finding rather than on a finding of its own.
     """
     result = is_compliant("TXN_\U0001f600_ID", NDS)
 
     assert result.compliant is False
     codes = [reason.code for reason in result.reasons if reason.verdict.value == "fail"]
-    assert codes == [ComplianceReasonCode.NOT_UPPER_SNAKE]
-    assert [reason.fix for reason in result.reasons if reason.fix] == ["TXN_ID"]
-    assert normalize("TXN_\U0001f600_ID", NDS) == "TXN_ID"
+    assert ComplianceReasonCode.UNREADABLE_CHARACTER in codes
+    unreadable = next(
+        reason
+        for reason in result.reasons
+        if reason.code is ComplianceReasonCode.UNREADABLE_CHARACTER
+    )
+    assert unreadable.token is None
+    assert unreadable.fix is None
+    assert "U+1F600" in unreadable.detail
+    assert [reason.fix for reason in result.reasons if reason.fix] == []
+
+
+def test_a_name_made_only_of_unreadable_characters_is_not_reported_as_empty() -> None:
+    """``is_compliant('㎡')`` used to say the input had been blank. It had not.
+
+    U+33A1 is a single compatibility character, ``str.isalpha`` is false for it,
+    so it tokenises to nothing — and "there is no name to check: it is empty, or
+    holds only separators" is a false statement about a name that is one
+    character long. The two cases are told apart by the accounting, and the
+    genuinely empty ones still report ``EMPTY_NAME`` so a blank row in a schema
+    export still reads as a blank row.
+    """
+    square_metre = is_compliant("㎡", NDS)  # SQUARE M SQUARED
+
+    assert [reason.code for reason in square_metre.reasons] == [
+        ComplianceReasonCode.UNREADABLE_CHARACTER
+    ]
+    for blank in ("", "___", "  "):
+        assert [reason.code for reason in is_compliant(blank, NDS).reasons] == [
+            ComplianceReasonCode.EMPTY_NAME
+        ], blank
+
+
+def test_no_whole_name_fix_survives_that_would_delete_the_character() -> None:
+    """The branch the corpus never reached, exercised on purpose.
+
+    Three whole-name findings can carry a ``fix``: casing, the missing class
+    word, and the length rewrite. Over the published corpora only two of the
+    three were ever reachable, because the class-word suggestion is guarded on
+    the vocabulary governing ``VAL`` and every published governed figure is taken
+    with an **empty** catalog. A rule that has never fired where it runs is not
+    evidence, so this builds a catalog that does govern ``VAL``, turns on both
+    policies that produce the other two, and asserts the whole set at once.
+    """
+    catalog = GovernedDictionary.from_mapping(
+        {"TXN": "Transaction", "VAL": "Value"},
+        approved_abbreviations=["TXN", "VAL"],
+        class_words={"VAL": "Value"},
+    )
+    policy = NamingPolicy(
+        require_trailing_class_word=True, enforce_name_length=True, max_name_length=8
+    )
+    name = "txn€_" + "long_" * 6
+
+    findings = is_compliant(name, catalog, policy)
+    codes = {reason.code for reason in findings.reasons}
+
+    assert ComplianceReasonCode.NOT_UPPER_SNAKE in codes
+    assert ComplianceReasonCode.MISSING_CLASS_WORD in codes
+    assert ComplianceReasonCode.EXCEEDS_MAX_LENGTH in codes
+    assert ComplianceReasonCode.UNREADABLE_CHARACTER in codes
+    assert [reason.fix for reason in findings.reasons if reason.fix] == []
+    # And the same three fixes are still offered when nothing was unreadable, so
+    # the assertion above is about the character and not about the policy.
+    clean = is_compliant("txn_" + "long_" * 6, catalog, policy)
+    assert {reason.code for reason in clean.reasons if reason.fix} == {
+        ComplianceReasonCode.NOT_UPPER_SNAKE,
+        ComplianceReasonCode.MISSING_CLASS_WORD,
+    }
+
+
+@pytest.mark.parametrize("character", UNACCOUNTABLE, ids=lambda c: f"U+{ord(c):04X}")
+def test_normalize_refuses_rather_than_return_the_name_with_the_character_gone(
+    character: str,
+) -> None:
+    """The headline defect, and the shape of its fix.
+
+    ``normalize`` returns a bare ``str``. There is no field on a ``str`` to put
+    an accounting in, and the only string it could return is the name with the
+    character deleted — which is what it used to return, in silence, in the
+    subsystem whose whole thesis is reporting unknown rather than answering
+    plausibly. It refuses, and the refusal names the character and its code point
+    so a batch log identifies the row.
+    """
+    with pytest.raises(TokenizationError) as raised:
+        normalize(f"TXN_{character}_ID", NDS)
+
+    assert f"U+{ord(character):04X}" in str(raised.value)
+    assert "is_compliant" in str(raised.value), "the refusal names the non-raising pre-check"
+    # An AcronymKitError, so a batch already catching this package's errors
+    # catches this one rather than dying on an unfamiliar type.
+    assert isinstance(raised.value, AcronymKitError)
+
+
+def test_the_two_names_from_the_defect_report_reproduce_and_are_answered() -> None:
+    """The two inputs exactly as reported, with the real code points.
+
+    A token vanished, then a whole name vanished, and neither produced a signal
+    of any kind. Both now raise; the first is not silently ``'TXN_ID'`` and the
+    second is not silently ``''``.
+    """
+    for name in ("TXN_©_ID", "㎡"):
+        with pytest.raises(TokenizationError):
+            normalize(name, GovernedDictionary({}))
 
 
 def test_a_quoted_name_normalises_to_the_bare_one() -> None:
@@ -995,6 +1198,89 @@ def test_a_quoted_name_normalises_to_the_bare_one() -> None:
     """
     assert normalize('"txn_id"', NDS) == "TXN_ID"
     assert normalize("[txn_id]", NDS) == "TXN_ID"
+
+
+@pytest.mark.parametrize("character", UNACCOUNTABLE, ids=lambda c: f"U+{ord(c):04X}")
+def test_the_reverse_direction_reports_rather_than_refuses(character: str) -> None:
+    """``to_physical_name`` returns a record, so it has somewhere to put the truth.
+
+    The asymmetry with ``normalize`` is deliberate and it is a **measurement**
+    rather than a taste. ``normalize`` reads physical names, where the condition
+    is rare; this verb reads logical ones, which are prose — parentheses, commas,
+    ampersands — and on the two published caption populations the condition holds
+    for a large minority. Refusing here would stop a real schema walk over
+    punctuation somebody's caption was always going to have, so it reports.
+
+    ``physical`` is unchanged by the fix and ``confidence`` is deliberately
+    untouched: confidence is the weakest link across the *tokens*, and an
+    unaccounted character is not a statement about any of them.
+    """
+    rendered = to_physical_name(f"Transaction {character} Identifier", NDS)
+
+    assert rendered.physical == "TXN_ID"
+    assert rendered.unaccounted == (character,)
+    assert rendered.truncated is False
+    assert rendered.confidence == 1.0, "the character is not a claim about a token"
+
+    clean = to_physical_name("Transaction Identifier", NDS)
+    assert clean.unaccounted == ()
+    assert clean.physical == rendered.physical
+
+
+@pytest.mark.parametrize("character", UNACCOUNTABLE, ids=lambda c: f"U+{ord(c):04X}")
+def test_no_governed_verb_reading_a_name_discards_a_character_in_silence(
+    character: str,
+) -> None:
+    """The sweep, as an assertion rather than as a paragraph in a report.
+
+    Four public verbs in this subsystem read a whole name and split it:
+    ``expand_identifier``, ``is_compliant``, ``normalize`` and
+    ``to_physical_name``. ``expand_identifier`` always reported. The other three
+    did not, and two of them shared one line — ``compliance._prepare`` — so a
+    single call to the lossy splitter reached two verbs.
+
+    This asserts the closed set: **every** one of the four either reports the
+    character or refuses the name. It is written as a loop over the verbs rather
+    than as four tests so that a fifth verb added without an accounting fails
+    here, which is the failure mode that produced the defect in the first place.
+    """
+    name = f"TXN_{character}_ID"
+
+    assert expand_identifier(name, NDS).unaccounted == (character,)
+    assert to_physical_name(name, NDS).unaccounted == (character,)
+
+    reported = [
+        reason
+        for reason in is_compliant(name, NDS).reasons
+        if reason.code is ComplianceReasonCode.UNREADABLE_CHARACTER
+    ]
+    assert len(reported) == 1
+
+    with pytest.raises(TokenizationError):
+        normalize(name, NDS)
+
+
+def test_the_accounting_is_the_same_accounting_in_all_four_verbs() -> None:
+    """One splitter, one answer — not four opinions about one string.
+
+    The forward direction reports two characters for ``value[x]$``: the two
+    brackets, which are not positioned as quoting, and the currency sign. If a
+    verb produced a *different* list the subsystem would be carrying two readings
+    of one name, which is the drift every docstring in the tokenizer warns about.
+    """
+    name = "value[x]€"
+    expected = ("[", "]", "€")
+
+    assert expand_identifier(name, NDS).unaccounted == expected
+    assert to_physical_name(name, NDS).unaccounted == expected
+    detail = next(
+        reason.detail
+        for reason in is_compliant(name, NDS).reasons
+        if reason.code is ComplianceReasonCode.UNREADABLE_CHARACTER
+    )
+    assert "3 character(s)" in detail
+    for character in expected:
+        assert f"U+{ord(character):04X}" in detail
 
 
 # --------------------------------------------------------------------------

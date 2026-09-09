@@ -28,11 +28,17 @@ direction, and check a name against the standard::
     acronymkit check-name        APPLNT_BRTH_DT         --dictionary nds.json
     acronymkit governed-batch    --dictionary std/ --op expand  < columns.txt
     acronymkit governed-audit    --dictionary std/              < columns.txt
+    acronymkit governed-gap      schema.csv
 
-Every governed command takes ``--dictionary`` (required — a governed verb with
-no governed vocabulary is a contradiction), ``--dictionary-format``,
+Every governed command takes ``--dictionary``, ``--dictionary-format``,
 ``--columns``, ``--delimiter``, ``--policy``, ``--custom`` and the shared
-``--format``/``--indent`` pair. They take none of the engine configuration
+``--format``/``--indent`` pair. ``--dictionary`` is **required on all of them
+but one** — a governed verb with no governed vocabulary is a contradiction. The
+exception is ``governed-gap``, and it is an exception on purpose rather than
+for convenience: what that command reports is derived from the caller's own
+identifiers and labels and is true of *every* catalog-free method, so requiring
+the vocabulary it is designed to be run without would be requiring the thing
+the caller does not yet have. They take none of the engine configuration
 options, because none of them runs the engine: nothing in the governed
 subsystem tokenises for pronounceability, scores a candidate or consults a
 language resource, so offering ``--strategy`` there would advertise a knob
@@ -67,6 +73,15 @@ Three properties make it usable as a co-process rather than only as a script:
 schema: it reduces the same corpus to one report — coverage, the ranked list of
 tokens the catalog does not cover, compliance findings by reason code, and the
 round trips that are neither stable nor a governed correction.
+
+``governed-gap`` is the one that runs *before* either, because it is the only
+governed command that needs no vocabulary at all. Given a CSV of the caller's
+identifiers and the labels their schema already carries, it reports which
+tokens no catalog-free method can ever resolve — a derivation about what such a
+method can emit rather than a measurement of how often one is right — ranked by
+how many columns each one costs. It reads the same CSV
+``tools/byoc_eval.py`` scores, so one file answers *what would my glossary have
+to contain* and then *what is my glossary worth*.
 
 Optional dependency
 -------------------
@@ -128,6 +143,7 @@ interpreter.
 
 from __future__ import annotations
 
+import csv
 import errno
 import json
 import os
@@ -2745,6 +2761,205 @@ def build_cli() -> Any:
             for problem in problems:
                 print(f"  {problem}", file=sys.stderr)
             raise SystemExit(EXIT_FAILURE)
+
+    @group.command(
+        "governed-gap",
+        help="Report which of a schema's tokens no catalog-free method can ever reach, from a "
+        "CSV of identifier,label rows in FILE or on stdin. Needs no catalog.",
+    )
+    @click.argument(
+        "file",
+        required=False,
+        default=None,
+        type=click.Path(exists=True, dir_okay=False, readable=True, allow_dash=True),
+    )
+    @click.option(
+        "--identifier-column",
+        "identifier_column",
+        default="identifier",
+        show_default=True,
+        help="Header of the machine-name column in FILE.",
+    )
+    @click.option(
+        "--label-column",
+        "label_column",
+        default="label",
+        show_default=True,
+        help="Header of the human-label column in FILE. A row with an empty label is counted as "
+        "unlabelled and is NOT classified.",
+    )
+    @click.option(
+        "--schema-delimiter",
+        "schema_delimiter",
+        default=",",
+        show_default=True,
+        help="Field separator for FILE. Separate from --delimiter, which belongs to a CSV "
+        "--dictionary.",
+    )
+    @click.option(
+        "--limit",
+        "limit",
+        type=click.IntRange(min=0),
+        default=20,
+        show_default=True,
+        help="Rows of the ranked work list to compute and show; 0 shows none and still reports "
+        "every count.",
+    )
+    @click.option(
+        "--min-token-length",
+        "min_token_length",
+        type=click.IntRange(min=1),
+        default=1,
+        show_default=True,
+        help="Shortest token admitted to the work list. Raise it to drop the single-character "
+        "fragments of machine-generated names.",
+    )
+    @click.option(
+        "--require-letter",
+        "require_letter",
+        is_flag=True,
+        help="Admit only tokens carrying a letter, dropping ordinals and hash fragments. Off by "
+        "default: a report that silently drops part of its input is the failure this "
+        "subsystem exists to refuse.",
+    )
+    @click.option(
+        "--dictionary",
+        "dictionary_path",
+        default=None,
+        type=click.Path(exists=True, dir_okay=True, readable=True),
+        help="OPTIONAL here, and required by every other governed command. The report is "
+        "derived with no catalog; supplying one adds exactly one thing, which is marking the "
+        "unreachable tokens your vocabulary already answers.",
+    )
+    @click.option(
+        "--dictionary-format",
+        "dictionary_format",
+        type=click.Choice(_DICTIONARY_LAYOUTS),
+        default="auto",
+        show_default=True,
+        help="How to read --dictionary. Ignored when no --dictionary is given.",
+    )
+    @click.option(
+        "--columns",
+        "columns",
+        default=None,
+        help="The two --dictionary CSV headers, 'key,value'.",
+    )
+    @click.option(
+        "--delimiter",
+        "delimiter",
+        default=",",
+        show_default=True,
+        help="Field separator for a CSV --dictionary.",
+    )
+    @click.option(
+        "--custom",
+        "custom",
+        default=None,
+        help="Caller-supplied acronyms layered above the catalog, as inline JSON or a path.",
+    )
+    @click.option(
+        "--policy",
+        "policy_name",
+        type=click.Choice(_POLICY_PRESETS),
+        default="governed_default",
+        show_default=True,
+        help="Named NamingPolicy preset for the catalog lookups.",
+    )
+    @output_options
+    def governed_gap_command(
+        file: Optional[str],
+        identifier_column: str,
+        label_column: str,
+        schema_delimiter: str,
+        limit: int,
+        min_token_length: int,
+        require_letter: bool,
+        **options: Any,
+    ) -> None:
+        """Report the part of a schema no catalog-free method can ever resolve.
+
+        The one governed command that does **not** require ``--dictionary``, and
+        the reason is the derivation it rests on: a catalog-free method emits,
+        for an identifier, exactly the characters that identifier carries, so a
+        label carrying a character the identifier does not is unreachable by
+        construction. That is a property of two strings. No vocabulary, no
+        network and no guess is involved in computing it.
+
+        What it is *for* is the conversation before a catalog exists: a
+        governance function that has a schema and the labels the schema already
+        carries, and no glossary yet, gets a finite ranked list of the tokens
+        their glossary would have to contain, and how many columns each one
+        would clear. ``tools/byoc_eval.py`` reads the same CSV and measures what
+        a glossary is worth once they have one; this command says what it would
+        have to hold.
+
+        **Two things a reader should distrust, both printed rather than
+        footnoted.** The ranking assumes coverage-per-row-written is what a
+        governance function wants, and this project has never had one to ask --
+        so the report prices that assumption against a greedy cover of the same
+        budget on the caller's own data. And a head full of single characters is
+        fragments of machine-generated names rather than vocabulary; the report
+        counts those in the head and says so.
+
+        Args:
+            file: Path to the schema CSV, ``"-"`` for standard input, or ``None``
+                to use standard input when it is not a terminal.
+            identifier_column: Header of the machine-name column.
+            label_column: Header of the human-label column.
+            schema_delimiter: Field separator for the schema CSV.
+            limit: Ranked-row cap, and the budget the greedy control is given.
+            min_token_length: Shortest token admitted to the work list.
+            require_letter: Admit only tokens carrying a letter.
+            **options: The optional vocabulary options and the output pair.
+
+        Raises:
+            click.UsageError: If there is no readable CSV, if it does not carry
+                both named columns, or if ``--dictionary``/``--custom`` is
+                unusable.
+        """
+        from .governed.gap import catalog_gap, render_gap
+
+        dictionary = (
+            _governed_dictionary(click, options)
+            if options.get("dictionary_path") is not None
+            else None
+        )
+        policy = _governed_policy(str(options["policy_name"]))
+        custom = _governed_overlay(click, options.get("custom"))
+        stream, close_it = _batch_stream(click, file)
+        try:
+            reader = csv.DictReader(stream, delimiter=schema_delimiter)
+            missing = [
+                name
+                for name in (identifier_column, label_column)
+                if name not in (reader.fieldnames or ())
+            ]
+            if missing:
+                raise click.UsageError(
+                    f"schema CSV has no column(s) {', '.join(missing)}; it carries "
+                    f"{', '.join(reader.fieldnames or ()) or '<no header row>'}. "
+                    "Pass --identifier-column / --label-column."
+                )
+            gap = catalog_gap(
+                (
+                    ((row.get(identifier_column) or ""), (row.get(label_column) or ""))
+                    for row in reader
+                ),
+                dictionary,
+                policy,
+                custom=custom,
+                head=limit,
+                min_token_length=min_token_length,
+                require_letter=require_letter,
+            )
+        finally:
+            if close_it:
+                stream.close()
+        if options["output_format"] == "json":
+            _emit_json(click, gap.to_dict(), options["indent"])
+        else:
+            _emit(click, [render_gap(gap, limit=limit)])
 
     _GROUP = group
     return group

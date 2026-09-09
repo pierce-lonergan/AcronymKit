@@ -10,12 +10,15 @@ other.
 
 How a name is built
 -------------------
-The logical name is split by :func:`~acronymkit.governed.tokenizer.split_identifier`
-— the same splitter the forward direction uses, so the two cannot disagree about
-where a word ends — and each word is looked up in the dictionary's **reverse
-index** (``GovernedDictionary.abbreviate``, long form → entry). The entry's
-token is the governed short form. The tokens are joined with ``_`` and the
-result is the physical name.
+The logical name is split by
+:func:`~acronymkit.governed.tokenizer.split_identifier_parts` — the same splitter
+the forward direction uses, so the two cannot disagree about where a word ends —
+and each word is looked up in the dictionary's **reverse index**
+(``GovernedDictionary.abbreviate``, long form → entry). The entry's token is the
+governed short form. The tokens are joined with ``_`` and the result is the
+physical name. The *parts* form of the splitter is the one called here, because
+the characters it could not make a word out of are part of the answer; see
+"A character no word can hold" below.
 
 Three rules make the loop more than a ``dict.get``:
 
@@ -95,12 +98,46 @@ holds for every identifier in the fixture corpus and it is what a round-trip
 test should assert, because it says something true about the names where the
 identity does not hold instead of excluding them.
 
+A character no word can hold
+----------------------------
+A logical name is prose, and prose carries characters no token can contain: the
+parenthesis and comma of ``"Rent (Gross), Annual"``, an ampersand, a dagger, a
+currency sign, an emoji out of a spreadsheet. They are not letters, they are not
+digits, and they are not one of the separators
+:data:`~acronymkit.governed.tokenizer.ACCOUNTED_SEPARATORS` covers, so no word of
+the rendered name can hold them and this function cannot put them back.
+
+**It used to discard them without saying so.** ``to_physical_name("Rent
+(Gross)")`` answered ``RENT_GROSS`` and the record said nothing had happened, in
+a package whose forward direction had reported the same characters on
+:attr:`~acronymkit.governed.models.IdentifierExpansion.unaccounted` since it was
+written. They are now on
+:attr:`~acronymkit.governed.models.PhysicalName.unaccounted`, and the only edit
+that took was calling the splitter's lossless form.
+
+**This verb reports rather than refuses, and the split from
+:func:`~acronymkit.governed.compliance.normalize` — which refuses — is a
+measurement rather than a taste.** ``normalize`` reads physical names, where the
+condition is rare; this function reads logical ones, where it is not. The
+incidence on the two published corpora is in ``docs/GOVERNED_NAMING.md``; on
+captions it runs to a large minority, so a refusal here would stop a third of a
+real schema walk over punctuation somebody's caption was always going to have.
+
+``confidence`` is deliberately untouched by it. Confidence is the weakest link
+across the *tokens* — how far the catalog stands behind the words that were read
+— and an unaccounted character is not a statement about any of them. A caller
+gating on completeness reads ``unaccounted``; a caller gating on catalog backing
+reads ``confidence``; conflating them would make each unreadable.
+
 Length is a flag, never a truncation
 ------------------------------------
 ``NamingPolicy.enforce_name_length`` is not consulted here at all, and
 :attr:`~acronymkit.governed.models.PhysicalName.truncated` is written ``False``
 unconditionally. No policy, no argument and no code path in this function drops
-or shortens a token. A pipeline that silently trimmed
+or shortens a **token** — and that word is doing work it did not used to do,
+because the sentence was written as though it covered the whole input and did
+not: the section above is the part of the name it never covered. A pipeline that
+silently trimmed
 ``TXN_APPLNT_VERIF_STAT_CD`` to fit a platform limit would be inventing an
 identifier nobody governs, at the exact moment the caller most needs to be told,
 so an over-long name is reported by
@@ -157,7 +194,7 @@ from .enums import ExpansionSource
 from .expansion import _rejoin_digit_tokens
 from .models import GovernedEntry, PhysicalName, PhysicalToken
 from .policy import NamingPolicy
-from .tokenizer import split_identifier
+from .tokenizer import split_identifier_parts
 
 __all__ = ["DEFAULT_CLASS_WORD", "to_physical_name"]
 
@@ -495,11 +532,12 @@ def to_physical_name(
     Args:
         logical: The logical name — "Transaction Identifier", "customer account
             open date", "Fraud Risk Score". Split by
-            :func:`~acronymkit.governed.tokenizer.split_identifier`, so any of
-            the separator, camelCase and letter/digit conventions it understands
-            are accepted. An empty or separator-only name yields an empty
-            physical name rather than an error, so a blank cell does not stop a
-            batch.
+            :func:`~acronymkit.governed.tokenizer.split_identifier_parts`, so any
+            of the separator, camelCase and letter/digit conventions it
+            understands are accepted. An empty or separator-only name yields an
+            empty physical name rather than an error, so a blank cell does not
+            stop a batch, and so does a name made only of characters no token
+            can hold — with every one of them on ``unaccounted``.
         dictionary: The governed vocabulary. Required: a governed verb with no
             governed vocabulary is a contradiction. An **empty**
             ``GovernedDictionary()`` is the supported way to ask for
@@ -523,7 +561,10 @@ def to_physical_name(
         a word the catalog does not govern contributes ``0.0`` — not low
         confidence in an answer but, as in the forward direction, the absence of
         one. The word that caused it is the token whose ``source`` is
-        ``PASSTHROUGH``.
+        ``PASSTHROUGH``. ``unaccounted`` lists every character of ``logical``
+        that no word of ``physical`` can hold, one entry per occurrence, in input
+        order — empty for a name built only of letters, digits and governed
+        separators, which is what makes a non-empty one worth acting on.
 
     Raises:
         ConfigurationError: If ``dictionary`` is ``None``.
@@ -537,6 +578,9 @@ def to_physical_name(
         'TXN_ID'
         >>> to_physical_name("Transaction Fraud Identifier", catalog).physical
         'TXN_FRAUD_ID'
+        >>> rent = to_physical_name("Rent (Gross)", catalog)
+        >>> rent.physical, rent.unaccounted
+        ('RENT_GROSS', ('(', ')'))
     """
     if dictionary is None:
         raise ConfigurationError(
@@ -547,7 +591,11 @@ def to_physical_name(
     active = NamingPolicy.governed_default() if policy is None else policy
     layered = dictionary.with_custom(custom) if custom else dictionary
 
-    words = _rejoin_digit_tokens(split_identifier(logical), layered, active)
+    # The lossless splitter, so that a character no token can hold reaches the
+    # record instead of being dropped between the two. See "A character no word
+    # can hold" in the module docstring.
+    parts = split_identifier_parts(logical)
+    words = _rejoin_digit_tokens(parts.tokens, layered, active)
     rendered = _render(words, dictionary, layered, active.allow_override)
     appended = _appendable_class_word(layered, active, rendered)
     if appended is not None:
@@ -561,4 +609,5 @@ def to_physical_name(
         confidence=min((item.confidence for item in rendered), default=0.0),
         # Never anything else, under any policy. See the module docstring.
         truncated=False,
+        unaccounted=parts.unaccounted,
     )

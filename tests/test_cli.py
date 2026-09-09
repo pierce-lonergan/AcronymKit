@@ -162,6 +162,7 @@ def test_build_cli_returns_a_memoised_group() -> None:
         "generate",
         "governed-audit",
         "governed-batch",
+        "governed-gap",
         "normalize-name",
         "physical-name",
         "schema",
@@ -620,6 +621,7 @@ def test_invalid_tier_lists_every_valid_choice(run: Callable[..., Invocation]) -
         pytest.param(("check-name", "--help"), id="check-name"),
         pytest.param(("governed-batch", "--help"), id="governed-batch"),
         pytest.param(("governed-audit", "--help"), id="governed-audit"),
+        pytest.param(("governed-gap", "--help"), id="governed-gap"),
     ],
 )
 def test_help_exits_zero(run: Callable[..., Invocation], argv: Sequence[str]) -> None:
@@ -655,6 +657,7 @@ def test_every_command_appears_in_the_group_help(run: Callable[..., Invocation])
         "check-name",
         "governed-batch",
         "governed-audit",
+        "governed-gap",
     ):
         assert command in outcome.stdout
 

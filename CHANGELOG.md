@@ -7,13 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing here changes what the library *computes* by default. Read three sections before upgrading.
+**Read this first: one governed verb now raises where it used to return a string.**
+`normalize()` refuses a name holding a character it cannot account for, instead of deleting the
+character and handing you the rest. If you call it on machine-generated schema exports, see the first
+entry under **Changed** — it names who this reaches, measured on two real corpora before the design
+was chosen, and it names two public pre-checks that do not raise. Two entries under **Changed** are
+marked BREAKING and both are in the governed naming subsystem.
+
+Nothing else here changes what the library computes. Read three more sections before upgrading.
 **Positioning** does not change any code and is the most important entry this project has written:
 what this library says it is for has changed, and if you adopted it for something else you should
 know that before the next release. **Removed** takes a key out of the capability report, which is a
-breaking change if your CI asserts on that report's key set. **Changed** carries two behaviour
-changes, both of which make an existing report *stricter* rather than different, and one of which
-will newly flag identifiers a pipeline previously waved through.
+breaking change if your CI asserts on that report's key set. **Changed** also carries three reports
+that get *stricter* rather than different, one of which will newly flag identifiers a pipeline
+previously waved through, and one entry that makes governed expansion substantially faster while
+proving, over millions of records, that not one byte of output moved.
 
 **And if you are here to decide whether a governed catalog is worth building**, read the entry under
 **Documentation** headed *what a governed catalog is worth on a real schema*. It is the only
@@ -76,6 +84,60 @@ any behaviour; both change what you should expect next.
     that removal is a minor-release event. `docs/DECISIONS.md` D-038.
 
 ### Added
+
+- **`acronymkit governed-gap` — point it at a schema and it tells you what a catalog would have to
+  cover, without a catalog.** It reads the same `identifier,label` CSV
+  [`tools/byoc_eval.py`](tools/byoc_eval.py) reads, tokenises every identifier, and reports which
+  tokens a governed vocabulary would have to define before this library could expand the column at
+  all — with each unreachable column attributed to the tokens that made it unreachable. Text or
+  `--format json`. **It is the only governed command where `--dictionary` is optional**, because what
+  it reports is derived without a vocabulary. The same thing is available as
+  `acronymkit.governed.catalog_gap` and `render_gap`.
+  - **Read the two lines above the table before acting on the table.** On the public Socrata
+    catalog — `69,682<!--claim:catalog_gap.socrata.census.columns:,-->` columns — the top
+    `20<!--claim:catalog_gap.socrata.census.head_size:,-->` tokens cover
+    `55.55<!--claim:catalog_gap.socrata.census.head_coverage_pct:.2f-->` % of the columns that carry a
+    work item, **and `15<!--claim:catalog_gap.socrata.census.head_single_character:,-->` of those `20`
+    tokens are single characters.** They are fragments of machine-generated identifiers and no catalog
+    row would fix one. `--min-token-length 2 --require-letter` gives you a head you can act on and
+    costs a great deal: coverage drops to
+    `22.30<!--claim:catalog_gap.socrata.letters_min2.head_coverage_pct:.2f-->` % and the share of the
+    gap with no work item at all rises from
+    `24.32<!--claim:catalog_gap.socrata.census.unattributed_pct:.2f-->` % to
+    `56.86<!--claim:catalog_gap.socrata.letters_min2.unattributed_pct:.2f-->` %. **Both filters are
+    off by default, so the default output is the noisy one.**
+  - **It needs labels and will say so.** A schema with no human wording gets a token count and
+    nothing else. The obvious label-free shortcut — treat a token as an abbreviation if it is not in
+    the shipped English word list — was measured first and is wrong about
+    `77.87<!--claim:catalog_gap.socrata.word_list_control.false_positive_pct:.2f-->` % of what it
+    flags, so no word list is consulted.
+  - It changes no expansion: the same corpus expands byte-identically before and after, checked over
+    `155,272<!--claim:catalog_gap.socrata.identity.records:,-->` records with a positive control.
+
+- **`ConformalGate` — a refusal rule with a stated guarantee, off by default and shipped with the
+  sentence it does *not* license.** `acronymkit.conformal.ConformalGate` calibrates on your own
+  labelled examples and hands `LexicalDisambiguator` a `calibration=` argument; with it absent, the
+  default path is byte-identical to before.
+  - **The guarantee is on the joint rate of answering-and-being-wrong, not on the error rate among
+    the answers, and the difference is a factor of four.** At `alpha = 0.05` the joint rate measured
+    `2.07<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.joint_answered_and_wrong_pct:.2f-->`
+    % against its `5.00` % bound — and
+    `21.92<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.selective_error_pct:.2f-->`
+    % of the answers it gave were wrong. **If you read "at most one answer in twenty is wrong", that
+    is the sentence this ships to stop you writing.** `guarantee()` returns it in prose.
+  - **Calibrate per candidate-set size.** Pooled calibration hits its overall target while missing
+    inside every bucket; per-arity calibration cuts the worst bucket's deviation from
+    `32.54<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.marginal_worst_arity_gap_points:.2f-->`
+    points to
+    `2.34<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.mondrian_worst_arity_gap_points:.2f-->`
+    and answers far more often. Pass `group_by="arity"`.
+  - **It answers rarely and it is not free accuracy.** At `alpha = 0.05` it answered
+    `9.43<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.mondrian_answer_rate_pct:.2f-->`
+    % of instances. At a matched answer rate it is a wash against the existing `min_margin` gate. It
+    guarantees a property; it does not improve a score. And every figure above is on a split this
+    project declares contaminated and reserved for tuning.
+  - Stdlib only; refuses a calibration set too small for the `alpha` you asked for, and names which
+    group was short.
 
 - **The extractor can read `SF = Long Form` legend definitions, and it is off by default.**
   `AbbreviationExtractor(config, legend_syntax=True)` also scans for definitions introduced by an
@@ -157,6 +219,54 @@ any behaviour; both change what you should expect next.
 
 ### Changed
 
+- **BREAKING: `normalize` raises instead of silently returning a name with a character deleted.**
+  `normalize('TXN_©_ID', GovernedDictionary({}))` returned `'TXN_ID'` and `normalize('㎡', ...)`
+  returned `''` — a token gone, then a whole name gone, with no signal either time, in the subsystem
+  whose whole thesis is reporting unknown rather than answering plausibly. A name holding any
+  character that belongs to no token and is not one of the separators
+  `acronymkit.governed.tokenizer.ACCOUNTED_SEPARATORS` covers now raises
+  `acronymkit.exceptions.TokenizationError`, naming every such character with its code point.
+  - **Why raising rather than a result object.** `normalize` returns a bare `str`. There is no field
+    on a `str` to report on, so the only two answers available were the name with the character
+    deleted or a refusal. Widening the return type is the same size of break and moves every caller;
+    the exception moves only the callers whose input actually carries one.
+  - **Who this reaches.** Measured before it was chosen, on the two published corpora. `0.4664` % of
+    distinct Socrata field names and `0.0000` % of distinct SEC XBRL element names carry such a
+    character; per row rather than per distinct value the Socrata figure is `1.3145` %. **Every one
+    of the 325 Socrata hits is the portal's own `:@computed_region_…` family** — `:` and `@` are
+    Socrata's namespace marker — and no other physical identifier in either corpus carries one at
+    all. Figures and the derivation: [`docs/GOVERNED_NAMING.md`](docs/GOVERNED_NAMING.md#a-character-no-token-can-hold--the-defect-this-row-denied-and-the-fix).
+  - **What to do if you sweep a schema export and cannot afford an exception.** Two public
+    pre-checks, both already there and neither raising: `is_compliant`, which returns the finding, and
+    `split_identifier_parts`, which returns the accounting.
+  - **It is a break in a 0.x library and it is being taken deliberately.** Under the positioning in
+    [`docs/POSITIONING.md`](docs/POSITIONING.md), silent data loss is the worst defect available to
+    this package, and a caller who upgrades and sees an exception has learned something a caller who
+    upgrades and sees `'TXN_ID'` never could.
+
+- **`is_compliant` reports `unreadable_character`, and stops offering a `fix` that would delete one.**
+  A new `ComplianceReasonCode.UNREADABLE_CHARACTER` — a whole-name `FAIL` finding with `token=None`
+  and **no** `fix`, because every corrected name this package can build is the name with the
+  character gone. It also suppresses the `fix` on the three whole-name findings that would otherwise
+  have carried the deletion: `NOT_UPPER_SNAKE` used to answer `TXN_©_ID` with `fix='TXN_ID'`, which
+  is a machine-readable instruction to delete part of a name nobody approved.
+  - **`compliant` never changes value.** Such a name already failed `NOT_UPPER_SNAKE`, so it was
+    already non-compliant; confirmed over 857,517 records across both corpora and three policies.
+  - **BREAKING if you exhaustively match on the code set**, or if you consume the `fix` of a
+    whole-name finding without checking for `unreadable_character` first.
+  - **A name made only of such characters is no longer reported as `EMPTY_NAME`.** Its detail read
+    *"it is empty, or holds only separators"*, which was a false statement about a name that was one
+    character long. Genuinely empty and separator-only names are unchanged.
+
+- **`PhysicalName` gains `unaccounted`, and `to_physical_name` fills it.** The reverse direction had
+  the same defect and answers it differently: it returns a record, so it reports rather than refuses.
+  The split is a measurement — this verb reads *logical* names, which are prose, and the condition
+  holds for `14.6560` % of distinct Socrata captions and `36.0072` % of distinct SEC XBRL labels, so a
+  refusal here would stop a third of a real schema walk over punctuation somebody's caption was always
+  going to have. `physical`, `confidence`, `truncated` and `tokens` are byte-identical to before on
+  every input in both corpora; only the new field carries anything. **Additive, with a default**, so
+  existing constructions and JSON consumers are unaffected unless they assert on the exact field set.
+
 - **`AcronymPair.pattern` now describes all three of its values, and the text is visible in your
   generated schema.** The field description said "Which parenthetical arrangement matched:
   'long(short)' or 'short(long)'". Two words of that were wrong and one value was missing: the
@@ -179,6 +289,57 @@ any behaviour; both change what you should expect next.
   the token after it now refuses any join whose result is itself all digits. The consequence you may
   notice: with a catalog carrying `2020`, the name `FY_20_20` no longer resolves to it. Write
   `FY_2020` if that is what you mean. See **Fixed** below for why this was not optional.
+
+- **`expand_identifier` is substantially faster and not one byte of its output moved.** Two internal
+  changes, both proven behaviour-identical over full real corpora before they shipped. Nothing you
+  call, pass or read changed; the public `TokenExpansion(...)` and `IdentifierExpansion(...)`
+  constructors are untouched and still validate everything they always did.
+  - **Provenance records are built without the frozen-dataclass machinery.** Only the four
+    construction sites inside governed expansion changed. Worth
+    1.300<!--claim:governed_perf.socrata.empty.construction_ab.speedup:.3f--> x on a real Socrata
+    schema and 1.156<!--claim:governed_perf.sec_xbrl.empty.construction_ab.speedup:.3f--> x on SEC
+    XBRL — 23.06<!--claim:governed_perf.socrata.empty.construction_ab.call_removed_pct:.2f--> % and
+    13.49<!--claim:governed_perf.sec_xbrl.empty.construction_ab.call_removed_pct:.2f--> % of the whole
+    call. Building the record was the largest thing that call did, and most of what building it cost
+    was bookkeeping over values this library had already normalised.
+  - **The token memo now remembers a token your catalog did *not* answer for.** It used to record only
+    what the vocabulary resolved, so on an empty catalog it recorded nothing: it was worth
+    1.004<!--claim:governed_perf.memo.socrata_empty.vocabulary_speedup_over_none:.3f--> x on Socrata
+    and 0.992<!--claim:governed_perf.memo.sec_xbrl_empty.vocabulary_speedup_over_none:.3f--> x on SEC
+    XBRL, which on one corpus is a net loss. Remembering pass-throughs takes those to
+    1.912<!--claim:governed_perf.memo.socrata_empty.token_speedup_over_none:.3f--> x and
+    3.592<!--claim:governed_perf.memo.sec_xbrl_empty.token_speedup_over_none:.3f--> x, cutting catalog
+    lookups on the Socrata corpus from
+    451,263<!--claim:governed_perf.memo.socrata_empty.none_catalog_lookups:,--> to
+    107,012<!--claim:governed_perf.memo.socrata_empty.token_catalog_lookups:,--> and provenance records
+    from 578,816<!--claim:governed_perf.memo.socrata_empty.none_provenance_records_constructed:,--> to
+    234,565<!--claim:governed_perf.memo.socrata_empty.token_provenance_records_constructed:,-->. A
+    second, identifier-level memo is on as well and adds much less — together they reach
+    2.077<!--claim:governed_perf.memo.socrata_empty.full_speedup_over_none:.3f--> x and
+    3.637<!--claim:governed_perf.memo.sec_xbrl_empty.full_speedup_over_none:.3f--> x. **Both memos are
+    still bounded and still clear rather than evict when they fill.**
+  - **Byte-identity, forced on against forced off, because a cache that changes one `entry_id` in ten
+    million is invisible to a benchmark and catastrophic to an audit trail.** Every field of every
+    record was compared by `repr` and by `to_json` over
+    578,857<!--claim:governed_perf.socrata.empty.identity.records_compared:,--> provenance records on
+    Socrata and 745,977<!--claim:governed_perf.sec_xbrl.empty.identity.records_compared:,--> on SEC
+    XBRL, on four corpus-and-catalog arms, each with a control that moves a single `entry_id` and
+    reddens the comparison. Zero differences.
+  - **If you run governed expansion on threads on a free-threaded build, do not share one
+    `GovernedDictionary` across them.** At sixteen threads on the Socrata corpus a shared dictionary
+    reaches 0.368<!--claim:governed_perf.threads.freethreaded.socrata.t16_shared_scaling:.3f--> x of
+    single-thread throughput while a dictionary per thread reaches
+    5.541<!--claim:governed_perf.threads.freethreaded.socrata.t16_per_thread_scaling:.3f--> x. The
+    memo is not the cause: removing it entirely is *worse* than sharing it, at
+    0.165<!--claim:governed_perf.threads.freethreaded.socrata.t16_none_scaling:.3f--> x. The answers
+    agree either way — 40,000<!--claim:governed_perf.threads.freethreaded.socrata.thread_answer_identifiers_checked:,-->
+    identifiers checked across threads, 0<!--claim:governed_perf.threads.freethreaded.socrata.thread_answer_mismatches:,-->
+    mismatches.
+  - **Read the speed figures as this project reads them.** They are ratios of wall-clock on one
+    machine (`Python 3.13.4 on Windows AMD64`, and `3.14.5` for the free-threaded rows) and are not
+    quotable. The work counts beside them — catalog lookups, memo hits, provenance records, field
+    writes — are properties of the code and are what is gated. Run ids `governed_perf.*`;
+    `docs/EVALUATION.md`; `docs/DECISIONS.md` D-100 and D-101.
 
 ### Fixed
 
@@ -292,8 +453,10 @@ any behaviour; both change what you should expect next.
   measured, including one where the token memo is serving over nine calls in ten. `expand_identifier`
   builds close to four frozen records per call.
   - **Practical reading:** if you are calling it in a hot loop and only ever read `.phrase`, you are
-    paying for an audit trail you never open — and there is currently no way to turn that off.
-    Nothing has changed yet; this is the measurement that will decide what does.
+    paying for an audit trail you never open — and there is still no way to turn that off.
+    **What this measurement decided is in the last entry under Changed above, and it decided against
+    the obvious answer:** building the record was made cheaper rather than optional, because no caller
+    inside this library reads only `.phrase`, which is the premise deferring it would have rested on.
   - **The token memo is smaller than a real schema.** It holds `4096` entries and **clears** rather
     than evicting when it fills, and a real portal corpus carries roughly six times that many
     distinct tokens. If your identifiers are drawn from a wide vocabulary, the memo may be doing less

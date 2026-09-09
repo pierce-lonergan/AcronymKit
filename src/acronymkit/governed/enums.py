@@ -168,7 +168,7 @@ class ComplianceReasonCode(_StrEnum):
     person and may be reworded; the code is for a program and may not. Anything
     that filters, counts or routes findings should key on the code.
 
-    The first five codes accompany a ``PASS`` verdict and the last five a
+    The first five codes accompany a ``PASS`` verdict and the last six a
     ``FAIL``, but nothing enforces that pairing structurally — the verdict is
     carried on the finding, and it is the verdict that decides.
 
@@ -206,6 +206,24 @@ class ComplianceReasonCode(_StrEnum):
         ``EMPTY_NAME``
             There was no name to check. Reported rather than raised, because a
             batch of names being checked should not stop at the first blank row.
+            A name made **only** of characters no token can hold is not this
+            case and does not report it: it is ``UNREADABLE_CHARACTER``, because
+            saying "empty, or holds only separators" about ``'㎡'`` is a false
+            statement in an audit record.
+        ``UNREADABLE_CHARACTER``
+            The name holds a character that belongs to no token and that
+            :mod:`~acronymkit.governed.tokenizer` does not account for as a
+            separator — an emoji, a currency sign, a parenthesis, a combining
+            mark, a control character out of a bad export. Whole-name, and it
+            carries **no fix**: every corrected name this package could offer is
+            the name with that character deleted, and handing a caller a
+            machine-readable instruction to delete part of a name nobody
+            approved is the one correction a governance instrument may not make.
+            It is the compliance-side spelling of
+            :attr:`~acronymkit.governed.models.IdentifierExpansion.unaccounted`,
+            and it exists because such a name used to be reported only as
+            ``NOT_UPPER_SNAKE`` — true, about the wrong thing, and carrying a
+            ``fix`` that dropped the character.
     """
 
     CUSTOM_ABBREV = "custom_abbrev"
@@ -218,6 +236,7 @@ class ComplianceReasonCode(_StrEnum):
     NOT_UPPER_SNAKE = "not_upper_snake"
     EXCEEDS_MAX_LENGTH = "exceeds_max_length"
     EMPTY_NAME = "empty_name"
+    UNREADABLE_CHARACTER = "unreadable_character"
 
 
 class UnknownPolicy(_StrEnum):

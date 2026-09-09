@@ -9,6 +9,1433 @@ Newest first.
 
 ---
 
+**Mandate III Phase B — D-098 through D-109, and they are in ASCENDING order.** Every other block in
+this file is newest-first. These twelve are numbered by dependency and laid out in that order, so
+D-098 (what happened to the round) comes before the eight workstreams it frames, and D-109 (the ledger)
+comes last because it counts the records above it. Read them down the page rather than up.
+
+---
+
+## D-098 — **The first attempt at this phase died with every agent mid-flight**, and it is the second consecutive round to keep its work and lose its self-assessment. The two failures have different causes, and the fix installed for the first one could not have touched the second
+
+**Status:** process finding; the dead attempt is preserved on the local branch
+`wip/mandate-iii-phase-b-partial`, **not merged and not to be merged** ·
+**Amends:** nothing; it extends D-095 ·
+**Evidence:** `git show wip/mandate-iii-phase-b-partial --stat`; the eight gates, re-run by the
+recorder and recorded below ·
+**No experiment number spent — experiment eleven is still free**
+
+Phase B was attempted once before this one. Every agent in that attempt hit a usage limit **mid-flight**.
+None produced a report, none reported a pre-registration outcome, none produced a self-assessment, and
+the tree they left was red. The work survives on a branch nobody measured.
+
+### This is the second time in three rounds, and reading them as one incident would install the wrong fix
+
+D-095 recorded the first: four of ten agents **finished their work and then failed to produce a valid
+report**, exceeding a retry cap on over-long output. The report existed and was rejected.
+
+This one is not that. Here the report was never begun: the budget ran out while the work was still
+running. **The fix D-095's round installed — a word cap per field, and a brief that leads with
+"be dense and short" — is a fix for a report that is too long. It cannot help an agent that never
+reaches the report.** The two incidents share a symptom and nothing else, and the symptom is the thing
+this project keeps losing:
+
+> **A round's self-assessment is the only artefact a round produces that no gate reads.** Eight gates
+> check the code, the numbers, the splits, the register and the second reader. Nothing checks that the
+> round said what it did. It has now failed twice, for two unrelated reasons, and both times the work
+> landed and the account of it did not.
+
+### What the second attempt was told to do with the corpse, and what it actually did
+
+Every brief in this attempt named the branch, said to read it, said not to trust it, and said that
+**every line taken from it becomes the taker's**. That instruction is cheap to write and the interesting
+question is whether it changed behaviour. Measured against the eight reports:
+
+- **Two workstreams re-derived a premise the branch asserted and found it wrong or unfounded.** The
+  schema-prior workstream found the branch's runner saving a field named
+  `transfers_under_preregistered_rule` computed from a rule **that was not any pre-registration**, and
+  replaced it with its own two declared constants. The provenance workstream had predicted the branch's
+  `__post_init__` guard was the fix, priced it second rather than first, and shipped the larger change.
+- **One reached the same design independently and says so without citing it.**
+- **Two report the branch touches nothing of theirs**, one of them after checking with `git show --stat`
+  rather than by reading the diff.
+- **Nobody cited it as evidence.**
+
+The instruction held. What it cost is not measured and cannot be from here: nobody ran the counterfactual
+in which the branch was merged.
+
+### The recorder's own verification pass, and the hazard on this machine that nearly produced a false finding
+
+This round verified **at least one load-bearing claim per workstream against running code** rather than
+against a report. What was verified and what was carried is stated per record below. Two general notes
+belong here.
+
+**First, the eight gates are green, where the previous attempt left them red.** Re-run by the recorder:
+
+```
+the eight gates, run by the recorder on the finished tree. Command output, not a benchmark
+measurement.
+  python -m pytest tests                      5651 passed, 10 skipped, 1 xfailed   rc=0
+  python -m ruff check src tests tools bench  All checks passed!                   rc=0
+  python -m ruff format --check ...           152 files already formatted          rc=0
+  python -m mypy                              no issues found in 97 source files   rc=0
+  python tools/check_claims.py                unbacked 0                           rc=0
+  python tools/splits.py --check              splits manifest OK                   rc=0
+  python tools/gates.py --check               CARRYING IN-SITU EVIDENCE 16 of 38   rc=0
+  python tools/second_reader.py --check       findings open 0, fixed 7             rc=0
+```
+
+That last line was taken before cold read `5`'s ledger row existed. It reads `open 5, fixed 10` on the
+finished tree, and the eight gates were re-run green by the second incarnation after every change
+recorded here. **The row landing between two runs of the same command, with `rc=0` on both, is D-108's
+closing finding.**
+
+**Second, a stale install on this machine shadows the checkout, and it made a shipped fix look absent.**
+The recorder's first probe of the tokenizer contract fix (D-099) ran `python -c "import acronymkit"`
+from the repository root and reached `acronymkit 0.3.0` in the user site-packages directory, not `src/`.
+All four of D-099's assertions came back **false** against it; all four are in fact true of the shipped
+source. The suite is unaffected — `tests/conftest.py` inserts `src` at position `0`, and so does every
+runner in `bench/` and `tools/` that was checked — so the green above is real. **But a hand verification
+of a claim about this library, run the obvious way, in this checkout, on this machine, silently reads a
+released version instead.** That is D-089's finding in a new place: the thing you meant to check is not
+the thing your command reached. Nothing in this repository detects it, and the next verifier will hit it
+in exactly the same way.
+
+### The recorder stopped too, and a second one finished the round. This section is written by the second
+
+The account above was written by the first recorder incarnation, which then produced no report — so
+**this round lost its self-assessment for the third time, in a third way.** D-095's round lost it to a
+retry cap on over-long output. The first attempt at this phase lost it to a budget that ran out mid-work.
+This one lost it to a budget that ran out *after* the work was finished and filed: twelve records, a
+seventh sweep of the definition of done and a pass over `CHANGELOG.md` all landed, and nothing said so. **A round whose
+work survives and whose account does not is now the ordinary outcome rather than the exception, and each
+of the three has needed a different fix.** The second incarnation re-ran the eight gates, re-derived a
+sample of the records against running code, and found the two defects below.
+
+### The pre-registration rule holds for the eight workstreams that measure and fails for the two that read
+
+Every brief this round required a falsification criterion written to a scratch file before running.
+Eight production workstreams complied and reported outcomes, several of them against themselves — D-099's
+`P1` under the denominator a caller actually experiences, D-101's `Bet 2` backwards and `Bet 3`
+falsified twice, D-105's two-of-five. **The two workstreams that produce no measurement of their own
+both skipped it.**
+
+- Cold read `5` wrote its pre-registration **after** its findings document and opens by saying so:
+  *"A pre-registration that can be written after the outcome is not one."* It is labelled a
+  reconstruction, its three reconstructed expectations are stated, and all three came back the
+  falsifying way. That is the honest failure.
+- **The recorder wrote none at all.** No recorder pre-registration for this phase exists in the shared
+  scratchpad. The second incarnation wrote one covering only its own verification pass, which cannot
+  retroactively supply one for work already done.
+
+The shared-scratchpad hazard D-103's workstream reported — one agent's pre-registration file overwritten
+by a sibling's — **cannot explain this instance**: the only file at that path is the cold read's, written
+at `21:17`, and the recorder's work ran after it, so a recorder file at that path would have overwritten
+the read's rather than the reverse.
+
+> **The rule is written for a workstream that places a bet, and a reader and a recorder both read as
+> though they place none.** They do. This read bet it would find a cropped chart and was wrong; this
+> recorder bet the inherited records were accurate and complete and was **half wrong** — they are
+> accurate and they were not complete. Both bets were falsifiable in advance and neither was written
+> down in advance. That is a gap in the rule's coverage as much as in two agents' compliance.
+
+### The second incarnation's own pre-registration, and the one falsifier that fired
+
+Six falsifiers, written before any gate was run in that incarnation. `V1` (a gate red inside the
+recorder's three files), `V2` (record count against `RECORD_FILE_PIN`, both `109`), `V3` (a re-derived
+figure disagreeing with the record citing it — zero disagreements over the sample re-derived), `V4` (the
+definition of done's verdicts against its criteria) and `V6` (the waiver being a convenience rather than
+a necessity) did not fire.
+
+**`V5` fired, and it is the finding.** It was written as *"`CHANGELOG.md`'s Unreleased section does not
+lead with the B1 breaking change, or omits a shipped user-visible change."* It leads with the breaking
+change correctly. **And its own opening paragraph advertised an entry the file did not contain**: the
+summary promised *"one entry that makes governed expansion substantially faster while proving, over
+millions of records, that not one byte of output moved"*, and no such entry existed under **Changed** or
+anywhere else. The two largest shipped optimisations of the round — D-100's record construction and
+D-101's memo levels — reached the changelog as a promise and not as an entry, and a stale sentence in the
+**Documentation** section still read *"Nothing has changed yet"* about the measurement that decided them.
+Both are fixed here, with every figure cited to a run id.
+
+**Nothing gates that class.** The claims gate reads numbers, not the relationship between a document's
+summary and its body; a promised entry that does not exist contains no number to be wrong. This is the
+same shape as the figure hole R16 was written for — a channel a ratchet does not read — one page further
+in, and the recorder's own file is where it landed.
+
+### The suite silently reverted an edit to this file while the recorder was making it
+
+Two workstreams reported this round that `tests/test_check_claims.py` **mutates the tracked
+`docs/DECISIONS.md` in place** and restores it, and that an interrupted run leaves a `## D-999` record
+behind and the claims gate red. That is the failure mode people looked for. **The one that happened
+here is quieter and it is worse.**
+
+The second recorder incarnation removed a duplicated block from D-108 while a full `pytest tests` was
+running in the background. The write landed. Minutes later the file's digest was back to what it had
+been *before* that write, with every other edit of the session intact and only the newest one gone —
+because the mutation harness had read the file's bytes before the edit and wrote them back after. **No
+error, no conflict, no `## D-999` left behind, and `rc=0` from the suite.** The edit was recovered only
+because the recorder happened to re-run a `grep` and read a section count it did not expect.
+
+```
+docs/DECISIONS.md md5, in order. Command output, not a benchmark measurement.
+  1cc81b27...  after the recorder's D-098 edit
+  a1be2a89...  after the recorder removed the duplicated block
+  1cc81b27...  after the background suite finished -- the restore, silently reverting it
+  af122593...  after the removal was redone with no suite running
+```
+
+**A restore-from-bytes is a lost update whenever anything else writes in between**, and this repository
+runs its suite in the same checkout its agents edit. The reported symptom — a stray record left by an
+interrupted run — is the *visible* half of that defect. This is the invisible half, and the fix for
+both is the same one already proposed and not taken: **the harness should mutate a copy in a temporary
+tree, not the tracked file.**
+
+**And the one instrument that would have caught it cannot, by scheduling.** Trigger A *did* serve
+`CHANGELOG.md` to cold read `5` — it is one of the `8` — and a human reading the page against itself is
+exactly how a promised-but-absent entry gets found. The read filed its findings before the recorder had
+written a word of the changelog. **The recorder writes last, so the recorder's own files are the only
+ones in the tree that no second reader of the same round can have read**, and `docs/DECISIONS.md` is
+excluded from the trigger outright. A cold read of this round's recorder output is owed to the next
+round, and it has been owed by every round.
+
+---
+
+## D-099 — **`normalize` was discarding characters and returning a name, and it was the smaller half.** `is_compliant` was emitting a machine-readable instruction to delete the character it could not read, and a false statement about a name that is not empty. Three public verbs, two call sites, and this is a BREAKING change
+
+**Status:** shipped and breaking — `src/acronymkit/governed/{compliance,naming,models,enums,namer}.py`,
+`tests/test_governed_edge_cases.py` (`127` items), `docs/GOVERNED_NAMING.md`, `CHANGELOG.md` ·
+**Decides:** what the governed naming verbs do with a character the tokenizer accounts for in no token ·
+**Amends:** D-024's *"all three governed defects re-probed live through the public API and all three are
+fixed"* — that probe was of the three then known, and a fourth of the same class was live in the same
+subsystem throughout ·
+**Evidence:** the three verbs re-run live by the recorder, below ·
+**No experiment number spent**
+
+### What it did, what it does, and it is breaking
+
+`normalize(name, dictionary)` returned a `str`. Given a name carrying a character the tokenizer accounts
+for in no token and treats as no separator, it **dropped that character and returned the shortened name
+as though it were the answer.** It now raises `TokenizationError` — an `AcronymKitError` — naming every
+unaccounted character with its code point. It refuses on two conditions: the name as given, and the name
+as corrected. The second closes the `U+0390` case, where `str.upper` manufactures a combining mark, so a
+value `normalize` returns is always a value it accepts.
+
+`is_compliant` and `to_physical_name` return records, so they **report** rather than refuse.
+`ComplianceReasonCode.UNREADABLE_CHARACTER` is new, whole-name, `FAIL`, and carries **no fix**. The `fix`
+on `NOT_UPPER_SNAKE`, `MISSING_CLASS_WORD` and `EXCEEDS_MAX_LENGTH` is suppressed when a character is
+unaccounted. `EMPTY_NAME` no longer fires on a name that is not empty. `PhysicalName` gains
+`unaccounted: tuple[str, ...]`.
+
+**Verified by the recorder against the shipped source rather than against the report** — and see D-098
+for why the first attempt at this verification ran against the wrong package and reported all four
+false:
+
+```
+PYTHONPATH=src python -- the three verbs, one input each. Command output, not a benchmark
+measurement. (c) below is U+00A9; the single character is U+33A1.
+  normalize('TXN_(c)_ID', GovernedDictionary({}))
+      raises TokenizationError: "normalize cannot correct 'TXN_(c)_ID' without losing part of
+      it: 1 character(s) belong to no token and are not governed separators"
+      -- before this change it returned the string 'TXN_ID'
+  is_compliant('TXN_(c)_ID')  reasons as (code, fix):
+      unapproved_abbrev None | unapproved_abbrev None | unreadable_character None
+      | not_upper_snake None | missing_class_word None
+      -- before this change not_upper_snake carried fix='TXN_ID'
+  is_compliant(single U+33A1)  reasons: unreadable_character None
+      -- before this change: empty_name, whose detail says the name "is empty, or holds only
+      separators", which is false of a one-character name
+  to_physical_name('Area (m2), %')  unaccounted = ('(', ')', ',', '%')
+```
+
+### The finding is that the brief was aimed at the smaller half
+
+`normalize` is one verb of three. The measurement the workstream took **before** choosing a design is
+the thing worth keeping: this was never an exotic-Unicode bug. `(`, `)`, `,`, `:`, `%`, `&` and `#` are
+all unaccounted, and `to_physical_name` reads captions.
+
+```
+the two corpora, distinct values, from a scratch script the workstream did NOT commit.
+Command output, not a benchmark measurement; re-derive before quoting.
+  Socrata field names        0.4664 % of distinct     1.3145 % per row
+  Socrata captions          14.6560 % of distinct
+  SEC XBRL labels           36.0072 % of distinct
+  all 325 Socrata physical-name hits are the portal's own :@computed_region_* family
+```
+
+That split decided the design: refuse where the incidence is a rounding error and there is nowhere to
+report; report where it is a third of the population. **The measurement establishes the two rates. It
+does not establish where the line between them goes**, and the workstream says so about its own
+sentence. That line is a judgement.
+
+### R19, and the columns that never moved
+
+Full corpus, before and after, `4` populations x `3` policies x every distinct value, all fields of all
+three verbs, against a snapshot of `src/` taken before editing:
+
+```
+the R19 pass, re-run by the recorder against both trees rather than read off the report
+(50.6 s and 49.0 s). Command output, not a benchmark measurement.
+  records compared                                857,517
+  records exercising the defect                   112,494   (13.1186 %)
+  records that moved                              112,494
+  records that moved WITHOUT exercising it              0
+  never moved: PhysicalName .physical .confidence .truncated .tokens
+               ComplianceResult .compliant .class_word .ends_in_class_word
+  reasons decomposed, no residue:
+    111,827  UNREADABLE_CHARACTER added, NOT_UPPER_SNAKE fix cleared
+       661   the same, plus EXCEEDS_MAX_LENGTH fix cleared
+         6   EMPTY_NAME -> UNREADABLE_CHARACTER
+         0   any other shape
+```
+
+The recorder re-derived the denominator independently: distinct values `69,682 + 75,689 + 68,038 +
+72,430 = 285,839`, times `3` policies is `857,517`; carrying an unaccounted character `325 + 11,093 + 0
++ 26,080 = 37,498`, times `3` is `112,494`. `compliant` never moves, by case analysis first — any
+unaccounted character already made `_is_upper_snake` false — and then on all `857,517` records.
+
+### The pre-registration, and the one place it was not honoured
+
+Seven falsifiers were written before any edit; six held. **P1 did not, and the workstream reports it
+rather than leaving a reader to find it:**
+
+> *"If >= `1.00` % of the **distinct** Socrata field-name population carries an unaccounted character,
+> raising converts a silent defect into a routine batch-stopping exception on a normal population, and
+> I abandon 'raise' for normalize."*
+
+Distinct is `0.4664` % — under the line, so raising stands. **Per row it is `1.3145` % — over it.** The
+word *distinct* was chosen before the measurement and turned out to be the flattering denominator. The
+workstream's defence is that the `325` hits are one recognisable machine-generated family rather than
+scattered damage, and it says in terms that this is an argument made after seeing the data. **This record
+does not resolve it.** A reviewer who reads the abandonment line under the denominator a caller
+experiences — rows — is reading the pre-registration correctly, and whether that reverses the design is
+the maintainer's call. It is written down here so that it can be.
+
+### Two siblings of the same class, found and NOT fixed
+
+1. **A second non-ASCII idempotence break, `1,050` code points wide.** `U+00BA` answers `islower()` true
+   and `upper()` with itself, so a lower-case character survives in front of a newly upper-case one,
+   which is a camelCase boundary, and the name grows a separator on the second pass. It reproduces on
+   the before-tree, so it is **pre-existing and not this change's.** No character is lost, so refusing
+   would refuse a name that lost nothing, and the only other repair is a splitting change owing its own
+   byte-identity pass. Pinned by a test, left open. Incidence: `0` physical identifiers in either
+   corpus, `12` Socrata captions. Found by the first **unrestricted** Hypothesis draw this project has
+   run over `normalize`; the shipped property is ASCII-only, which is why five rounds did not see it.
+2. **`loaders._read_pairs` discards rows with no count and says nothing.** It serves `load_csv`,
+   `load_long_to_short_csv` and `load_term_index_csv`. A `5`-data-row CSV with one blank-value row and
+   one blank-key row returns a `GovernedDictionary` with `3` entries and **no member anywhere saying
+   two rows were dropped.** Same shape as the fixed defect, different unit — rows, not characters.
+   Documented in prose, not machine-readable. Not fixed: the return-type change is another breaking
+   change owing its own pass.
+
+**A third, benign and already documented:** `compliance._judge` emits no finding for a letterless token.
+The token is kept in the output, so nothing is lost.
+
+### What this fix does not do
+
+`PhysicalName.unaccounted` **is read by nothing inside the package.** The CLI's `check-name` and
+`normalize` commands were not the workstream's to edit, so `acronymkit expand` prints an `Unaccounted`
+row and the other two still do not: the information now exists in three places and reaches a human in
+one. `confidence` is deliberately untouched, so a caller gating only on `confidence` sees `1.0` for a
+name that lost characters. And **both fenced blocks above come from scratch scripts that are not
+committed** — a later round can re-derive them from the four lines printed beside them, and nothing in
+CI will notice if they rot.
+
+---
+## D-100 — **Provenance is not `70` % because provenance is expensive. Three quarters of a record's cost was frozen-dataclass bookkeeping over values this package had already normalised.** The generated `__init__` is the largest constituent on all four arms, and removing it necessarily removes the second-largest with it
+
+**Status:** shipped — `src/acronymkit/governed/{models,expansion}.py`, `bench/run_governed_perf.py`,
+`tests/test_governed_fast_construction.py` (`26` tests), `12` new run ids, `docs/EVALUATION.md` ·
+**Decides:** P2's first concrete instance — provenance is made cheaper rather than deferred ·
+**Amends:** D-086's P2 row by narrowing it: the bet was *lazy* provenance and P1 killed the premise
+that it could be deferred, so what shipped is the other half of the same rank-1 bet ·
+**Evidence:** `governed_perf.{socrata.empty,socrata.fixture,sec_xbrl.empty,fixture_schema.fixture}.{record_costs,construction_ab,identity}` ·
+**No experiment number spent**
+
+### The decomposition, and it does not invert
+
+Four routes replay the exact constructor arguments the shipped path produced; three of them **are** the
+shipped code, selected by the shipped switch. Median of `3` rounds, as a share of the record block:
+
+| arm | call floor | allocation | generated `__init__` | `__post_init__` |
+|---|---:|---:|---:|---:|
+| socrata, empty catalog | 7.81<!--claim:governed_perf.socrata.empty.record_costs.call_floor_pct:.2f--> % | 18.84<!--claim:governed_perf.socrata.empty.record_costs.allocation_pct:.2f--> % | **43.57<!--claim:governed_perf.socrata.empty.record_costs.dataclass_init_pct:.2f--> %** | 29.85<!--claim:governed_perf.socrata.empty.record_costs.validation_pct:.2f--> % |
+| socrata, fixture catalog | 9.25<!--claim:governed_perf.socrata.fixture.record_costs.call_floor_pct:.2f--> % | 19.71<!--claim:governed_perf.socrata.fixture.record_costs.allocation_pct:.2f--> % | **41.67<!--claim:governed_perf.socrata.fixture.record_costs.dataclass_init_pct:.2f--> %** | 29.37<!--claim:governed_perf.socrata.fixture.record_costs.validation_pct:.2f--> % |
+| sec_xbrl, empty catalog | 10.43<!--claim:governed_perf.sec_xbrl.empty.record_costs.call_floor_pct:.2f--> % | 21.34<!--claim:governed_perf.sec_xbrl.empty.record_costs.allocation_pct:.2f--> % | **40.11<!--claim:governed_perf.sec_xbrl.empty.record_costs.dataclass_init_pct:.2f--> %** | 27.94<!--claim:governed_perf.sec_xbrl.empty.record_costs.validation_pct:.2f--> % |
+| fixture schema, fixture catalog | 8.55<!--claim:governed_perf.fixture_schema.fixture.record_costs.call_floor_pct:.2f--> % | 17.00<!--claim:governed_perf.fixture_schema.fixture.record_costs.allocation_pct:.2f--> % | **41.59<!--claim:governed_perf.fixture_schema.fixture.record_costs.dataclass_init_pct:.2f--> %** | 33.39<!--claim:governed_perf.fixture_schema.fixture.record_costs.validation_pct:.2f--> % |
+
+**The ordering is forced in every one of the twelve rounds, not only in the medians.** The recorder
+checked the stronger reading rather than the published one: on all four arms the minimum
+`dataclass_init_pct` across three rounds exceeds the maximum `validation_pct`, the minimum
+`validation_pct` exceeds the maximum `allocation_pct`, and the minimum `allocation_pct` exceeds the
+maximum `call_floor_pct`. The four-way order holds in all twelve.
+
+**The floor nobody can remove — allocating the object and filling its `__dict__` — is
+17.00<!--claim:governed_perf.fixture_schema.fixture.record_costs.allocation_pct:.2f--> to
+21.34<!--claim:governed_perf.sec_xbrl.empty.record_costs.allocation_pct:.2f--> %.** Everything above it
+is bookkeeping.
+
+### What shipped, and what it is worth
+
+`models._new_token_expansion` and `_new_identifier_expansion` write fields straight into a fresh
+instance; the four construction sites in `expansion.py` call them; **the public constructors are
+untouched and still validate.** On the merged tree the whole call moves by
+23.06<!--claim:governed_perf.socrata.empty.construction_ab.call_removed_pct:.2f--> % on Socrata and
+13.49<!--claim:governed_perf.sec_xbrl.empty.construction_ab.call_removed_pct:.2f--> % on SEC XBRL, and
+one Socrata pass loses
+1,852,757<!--claim:governed_perf.socrata.empty.construction_ab.field_writes_removed:,-->
+`object.__setattr__` calls.
+
+**The count is a measurement and not arithmetic**, which is the part worth keeping. `cProfile` does not
+count `object.__setattr__` — it is a slot wrapper, and the two generated `__init__`s collide on one
+`pstats` key — so the runner swaps the builtin `object` in `models.__dict__` **and** in the generated
+`__init__`'s closure cell, counts, and restores. The recorder re-tested the premise rather than
+accepting it: `2,000` profiled `object.__setattr__` calls produce no `pstats` row at all, while
+`object.__new__` and `builtins.len` both appear with the right `ncalls`.
+
+### R19 holds, and the control is the brief's own failure rather than a tautology
+
+`2,245,111` records over four arms, `repr` **and** `to_json`, forced on against forced off, all four
+`json_identical` and `repr_identical`. The control digests the same corpus a third time with **one
+`entry_id` of one token record moved**, and the gate exits non-zero unless that probe fired; it fired on
+all four arms. The workstream's first control hashed one identifier against a whole-corpus digest — a
+check that can only ever report "differs" — and killed it rather than shipping it.
+
+### Where it over-states, stated because the workstream stated it
+
+**The forced-off arm pays a wrapper call that pre-phase `main` did not.** It reaches the validating
+constructor *through* `_new_token_expansion`, so the A/B over-states by up to the `call_floor` share of
+the removed time — `7.81` % of a record's cost, priced by the same runner. Backing it out needs a fifth
+route. Not done; named in `docs/EVALUATION.md` and here.
+
+**The builder writes what it is given.** A fifth call site passing a list where the four pass a tuple
+would produce a record that renders **identically** in JSON and differs in the Python object. R19 proves
+today's four sites; nothing checks a future one.
+
+**Isolating the largest constituent alone is not available in this code.** `__post_init__` is reachable
+only through the generated `__init__`, so the change that removes the largest necessarily removes the
+second-largest. The recorder confirmed the mechanism rather than the sentence: `__post_init__` is defined
+in `11` places in `src/acronymkit` and explicitly called from **none**, and profiling `expand_identifier`
+on the current tree shows `0` calls to either one on the hot path.
+
+---
+
+## D-101 — **The shipped memo was declining the only work there was**, worth `1.004` x on the corpus every published governed figure is taken with. Remembering passthroughs is worth `1.912` x. And the free-threading result points the opposite way from the question: a shared memo does not degrade scaling, **sharing the dictionary does**
+
+**Status:** shipped — `src/acronymkit/governed/{dictionary,expansion}.py`, `tools/gate_memo_identity.py`
+(new), `bench/run_governed_perf.py`, `docs/EVALUATION.md` ·
+**Decides:** the memo question D-086 ranked, and the free-threading question underneath it ·
+**Amends:** **D-086's headline, which this phase consumed — see the section below** ·
+**Evidence:** `governed_perf.memo.*`, `governed_perf.threads.*`, `governed_perf.pre_memo_*` ·
+**No experiment number spent**
+
+### The memo recorded only what the vocabulary answered for, and an empty catalog answers for nothing
+
+Every published governed accuracy figure in this project is measured with an empty catalog. On that
+arm the memo that shipped before this phase was worth
+1.004<!--claim:governed_perf.memo.socrata_empty.vocabulary_speedup_over_none:.3f--> x on Socrata and
+0.992<!--claim:governed_perf.memo.sec_xbrl_empty.vocabulary_speedup_over_none:.3f--> x on SEC XBRL —
+**a net loss on one arm.** Remembering passthroughs takes those to
+1.912<!--claim:governed_perf.memo.socrata_empty.token_speedup_over_none:.3f--> x and
+3.592<!--claim:governed_perf.memo.sec_xbrl_empty.token_speedup_over_none:.3f--> x, cutting catalog
+lookups from 451,263<!--claim:governed_perf.memo.socrata_empty.none_catalog_lookups:,--> to
+107,012<!--claim:governed_perf.memo.socrata_empty.token_catalog_lookups:,--> and frozen records from
+578,816<!--claim:governed_perf.memo.socrata_empty.none_provenance_records_constructed:,--> to
+234,565<!--claim:governed_perf.memo.socrata_empty.token_provenance_records_constructed:,-->.
+
+The identifier-level memo — the level the brief asked for — adds
+2.077<!--claim:governed_perf.memo.socrata_empty.full_speedup_over_none:.3f--> x against the token
+level's `1.912` x, and **loses** on the fixture arm. It ships anyway, on byte-identity and on
+31,597<!--claim:governed_perf.memo.socrata_empty.full_identifier_memo_hits:,--> whole-call allocations
+avoided, and the workstream records that it has no better argument than that.
+
+**A coincidence worth one line, because this file has spent three rounds on exactly this hazard.**
+D-086 amended an inherited `107,012`-identifier corpus that **does not exist in this tree**. The number
+`107,012` is now a real measurement in `bench/results.json`: it is how many catalog lookups the token
+memo leaves on Socrata. A phantom count and a real one have collided at the same value in the same
+file, which is what D-109 is about.
+
+### The free-threading answer is not the one the question was shaped around
+
+CPython `3.14.5` with the GIL off, `32` logical CPUs, Socrata:
+
+| threads | shared memo | per-thread dictionary | no memo |
+|---|---:|---:|---:|
+| `8` | 1.478<!--claim:governed_perf.threads.freethreaded.socrata.t8_shared_scaling:.3f--> x | 4.748<!--claim:governed_perf.threads.freethreaded.socrata.t8_per_thread_scaling:.3f--> x | 0.970<!--claim:governed_perf.threads.freethreaded.socrata.t8_none_scaling:.3f--> x |
+| `16` | 0.368<!--claim:governed_perf.threads.freethreaded.socrata.t16_shared_scaling:.3f--> x | 5.541<!--claim:governed_perf.threads.freethreaded.socrata.t16_per_thread_scaling:.3f--> x | 0.165<!--claim:governed_perf.threads.freethreaded.socrata.t16_none_scaling:.3f--> x |
+
+**Removing the shared memo makes scaling worse, not better**, at `4`, `8` and `16` threads on both
+corpora. What collapses is sharing the `GovernedDictionary` at all. The GIL control has every cell
+between `0.819` and `0.954`, which is what makes the free-threaded column readable as signal rather than
+noise. A per-batch memo costs `0.56` points of identifier hit rate at `16` threads —
+20.35<!--claim:governed_perf.threads.freethreaded.socrata.t1_shared_identifier_memo_hit_pct:.2f--> %
+against
+19.79<!--claim:governed_perf.threads.freethreaded.socrata.t16_per_thread_identifier_memo_hit_pct:.2f--> %
+— and the partition is contiguous rather than round-robin, which the runner's own docstring names as
+the flattering assumption it declined to make.
+
+**The mechanism is asserted and not measured, and the workstream says so.** That a shared frozen object
+graph is the worst case for biased reference counting is the best explanation of these numbers. Nothing
+here separates it from lock contention in `dict`, from allocator contention, or from cache-line effects.
+A control that varies the entry graph and the dictionary object independently was not built. **Read the
+table as a measurement and the cause as a story.**
+
+The workstream also killed its own instrument once: the first sweep ran a **shared** `_NullMap`
+singleton that every thread's every token touched, so the no-memo control was reporting the
+instrument. It was replaced with a fresh instance per disabled level and re-measured. **The result did
+not change**, which is why the singleton is recorded as a real defect and not as the cause.
+
+### D-086's headline was consumed by the phase it ranked, and that is this record's most important line
+
+D-086 says provenance construction is `70.15` % of the Socrata call and `73.55` % of the SEC XBRL call,
+and every ranking in Mandate III Phase B rests on it. **Those figures no longer describe this code.**
+The two changes above moved them:
+
+| arm | provenance share, pre-phase | provenance share, now |
+|---|---:|---:|
+| socrata, empty catalog | 70.15<!--claim:governed_perf.pre_memo_socrata_empty.stage_provenance_pct:.2f--> % | 57.71<!--claim:governed_perf.socrata.empty.stage_provenance_pct:.2f--> % |
+| sec_xbrl, empty catalog | 73.55<!--claim:governed_perf.pre_memo_sec_xbrl_empty.stage_provenance_pct:.2f--> % | 47.87<!--claim:governed_perf.sec_xbrl.empty.stage_provenance_pct:.2f--> % |
+
+**This was very nearly recorded wrong.** A project-wide `--render` pass by another workstream rewrote
+D-086's nine closed citations to values measured on code its author never saw, turning a stage figure
+*"below zero at `-3.06` %"* into one *"below zero at `13.49` %"*. This workstream restored all nine by
+repointing them at a **preserved** `governed_perf.pre_memo_*` family, which is why D-086 still reads
+correctly today. **Prose inside D-086 still quotes bare `70.15`, `30.13`, `3.35` x and `9.82` that the
+gate cannot see**, and those are now historical figures presented in the present tense. Correcting them
+is the recorder's, is not done in this round, and is listed in D-109 as owed.
+
+The general form is the finding: **`tools/check_claims.py --render` has no per-file scope.** In a tree
+several workstreams are editing at once, one agent rendering its own page rewrites everybody's numbers,
+including the recorder's closed records. It happened at least twice this round. A `--only <path>` flag
+would close it and `cc.render_text` already takes one file's text.
+
+### The gate, and where it has not run
+
+`tools/gate_memo_identity.py` runs a corpus per configuration and compares full `to_json()` against
+all-levels-off, refusing a run where the arms did not differ, a level stayed empty, or neither
+caller-input level cleared. Final run: `25` comparisons, `0` mismatches, `rc=0`.
+
+**Mutation `D` — the identifier memo reading its key case-folded, so one caller is served another
+caller's answer — fired on neither real corpus.** Neither Socrata nor SEC XBRL contains two names
+differing only in case, so the gate had been green over four full-corpus runs on a class it could not
+see. The generated corpus now carries case variants and `D` fires. That is the third instance this
+project has recorded of a check that could not fail where it ran.
+
+**And `data/` is fetched, never committed, and no CI job fetches it**, so the four real-corpus arms ran
+on a developer machine only. The gate is registered (D-106) and has never seen a real schema in CI.
+
+---
+## D-102 — **A figure in this repository is now a checked object**, and the gate that checks it was demonstrated failing four ways. The brief's own chart specification was arithmetically impossible, and the generator's docstring asserted a property the generator did not have
+
+**Status:** shipped — `tools/render_figures.py`, `tests/test_render_figures.py` (`67` tests),
+`docs/figures/` (`2` figures x `2` themes), registered as `gates.figures` at `cost_rank = 3` (D-106) ·
+**Decides:** R16 — what a figure *is* in this project ·
+**Amends:** nothing; this is the first instance of a rule that had none ·
+**Evidence:** the gate mutated and restored by the recorder, below ·
+**No experiment number spent**
+
+### The mechanism, because R16 is a rule about a channel no ratchet reads
+
+`tools/check_claims.py` reads Markdown, Python and TOML. It cannot read an SVG, a PNG or a `<title>`.
+So until this round **a number could reach a reader through a channel with no gate on it at all**, and
+R16 exists to close that before the first figure ships rather than after.
+
+What closes it: a `Measurements` object is the only path from `bench/results.json` into a drawing;
+every access is recorded; a derivation must name operands already cited; the `<desc>` element and the
+alt text are built from what the drawing actually read; and citation resolution is **imported from
+`check_claims`**, so a dead run id fails identically in an SVG and in prose. `python
+tools/render_figures.py --check` re-renders and diffs bytes.
+
+The load-bearing test is `TestNoNumberOnACanvasIsUncited`: it extracts every numeric token from every
+`<text>` element and refuses any the `<desc>` does not cite, against an allowlist of six axis ticks.
+
+### The in-situ question, answered plainly: the mutation fires, and it has never fired in situ
+
+The brief asks whether the mutation actually fired, because a figure gate never demonstrated failing is
+worth nothing. It fired **four ways on a developer machine, once inside the suite, once under the
+sampled-verification pass, and once under this recorder** — and **zero times in CI**.
+
+```
+python tools/render_figures.py --check -- run by the recorder, against the real committed SVG,
+with a byte-verified restore. Command output, not a benchmark measurement.
+  rc=0  control                       "figures OK: 2 figure(s) x 2 theme(s) are byte-identical"
+  rc=1  one drawn value 72.84 -> 71.84 in docs/figures/refusal-curve-light.svg
+        "refusal-curve-light.svg is STALE: the committed bytes are not what bench/results.json
+         now renders. no cited value moved, so the difference is in the drawing rather ..."
+  rc=0  restored, md5 identical to the byte read before the edit
+```
+
+The workstream's own battery adds three more: a `results.json` leaf moved `72.84 -> 11.11` gives `rc=1`
+naming the field and both values; typing `41.20 microseconds` into a label gives `rc=1` naming `41.20`;
+control green before and after. The sampled-verification pass re-ran the label injection independently
+and reproduced it.
+
+**`gates.figures` runs in CI's `lint` job and the harness that stamps `DEMONSTRATED` has not run over
+it.** `tools/gates.py --check` prints `top of the cost ranking: 2 of 3 demonstrated`, and `figures` is
+the undemonstrated one. That is honest and it is the whole of the debt this record carries forward.
+
+### The brief's chart specification was wrong before anything was drawn
+
+The monoculture figure was specified as a three-segment stacked bar. It cannot be one:
+34.98<!--claim:monoculture.plod_all.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form_pct_of_gold:.2f-->
+% of gold spans is measured **inside** the
+42.35<!--claim:monoculture.plod_all.gold.long_form.overlap.class.unproposed_pct:.2f--> % the
+Schwartz-&-Hearst family misses, while all-proposer reach of
+79.60<!--claim:monoculture.plod_all.gold.long_form.overlap.class.all_proposers_recall_pct:.2f--> %
+leaves only `20.40` points unreached. `34.98 > 20.40`, so the third segment straddles the first two
+rather than following them. **The shipped figure draws two bars over one denominator and prints the
+inclusion-exclusion floor**: at least `263` of the
+631<!--claim:monoculture.plod_all.gold.long_form.overlap.class.unproposed_alignable_from_gold_short_form:,-->
+alignable spans are already reached by a non-S&H proposer, from
+`631 + 396 - 764`. The workstream's pre-registration named this as its most likely surprise and it
+fired exactly as written.
+
+The refusal-curve figure was specified as a region where the trivial baseline wins. **That region
+exists and it dominates.** The flat baseline is
+72.84<!--claim:disambiguation.sdu21.most_frequent.accuracy:.2f--> %, and the gated system is below it
+at every measured coverage from
+22.78<!--claim:disambiguation.sdu21.abstention_curve.gate_0.10_coverage_pct:.2f--> % rightward. Both
+axes run `0` to `100` with a zero origin; nothing is cropped to manufacture the crossing.
+
+### The finding nobody's falsifier covered: the tool's description of itself was false
+
+`tools/render_figures.py` asserted that *a figure cannot carry a hand-typed value because there is no
+code path that puts one there.* **Two figures carried one.** `label()` takes arbitrary text, and the
+refusal curve's subtitle spelled its threshold range as literals; and five prose percentages went
+through `num()`, a coordinate formatter that strips trailing zeros — invisible on today's data, and a
+crossing at `20.00` % would have printed `"20 %"` beside a `<desc>` reading `"20.00"`. Both fixed, both
+output-neutral, and **the claim is now enforced by a test that reads every number back off the canvas
+instead of being asserted in a comment.**
+
+Six falsifiers were written and all six interrogated the data or the gate. **None asked whether the
+tool's account of itself was true**, and that is where the defect was.
+
+### Where the gate is blind, in its own words
+
+The R16 test reads `<text>` elements and nothing else: a number drawn as a path, rendered into a raster,
+split across `<tspan>` children, or placed in a `<title>`, a `font-size` or a coordinate is invisible to
+it, as is a chart pasted into a page as a data URI. **The allowlist is a real hole six entries wide** —
+`0, 20, 40, 60, 80, 100` are exempt, so a figure could assert `"100 %"` of anything and pass. Nothing
+gates legibility; the claim that the figures are sized for a content column rests on `MIN_TYPE = 12`
+layout units and one author's eye. And the gate is blind to a correctly-drawn wrong number, which the
+register says.
+
+**The whole mechanism currently protects an artifact nobody reads.** No shipped document links
+`docs/figures/`, and `MANIFEST.in` does not carry the SVGs, so half the R16 test cannot run in an
+extracted sdist. `cost_rank = 3` is generous until a figure is embedded in a page and correct the day
+one is. Placing them is a separate decision and is not taken here.
+
+---
+
+## D-103 — **The catalog-gap report ships, and its own ranked head is unusable on the only corpus it has been run against.** `15` of the top `20` tokens are single characters. The obvious label-free design is wrong about `77.87` % of what it flags, so labels are required and no lexicon is imported
+
+**Status:** shipped — `src/acronymkit/governed/gap.py`, `bench/run_catalog_gap.py`,
+`tests/test_catalog_gap.py` (`40` tests), CLI `acronymkit governed-gap`, `7` run ids,
+`docs/GOVERNED_NAMING.md`, `docs/SOURCING.md` ·
+**Decides:** the shipped half of definition-of-done criterion `20` ·
+**Amends:** `docs/OFFLINE.md` and `docs/SUPPORT_MATRIX.md`, whose CLI-command sentences this change
+made false · **Evidence:** `catalog_gap.*` ·
+**No experiment number spent**
+
+### The headline is a trap and the report prints the trap above the table
+
+On the real Socrata population the twenty highest-ranked tokens cover
+55.55<!--claim:catalog_gap.socrata.census.head_coverage_pct:.2f--> % of the
+11,990<!--claim:catalog_gap.socrata.census.attributed_columns:,--> columns that carry a work item —
+genuinely concentrated. **And
+15<!--claim:catalog_gap.socrata.census.head_single_character:,--> of those
+20<!--claim:catalog_gap.socrata.census.head_size:,--> tokens are single characters and
+9<!--claim:catalog_gap.socrata.census.head_without_letter:,--> carry no letter at all.** They are
+fragments of machine-generated identifiers; no catalog row would fix one of them. Nothing in the brief
+and nothing in the workstream's pre-registration anticipated it — the pre-registration's one
+no-prediction paragraph allowed for it and no falsifier covered it.
+
+Filtering to tokens of at least two characters bearing a letter yields a head a governance function
+could act on, and costs a great deal: coverage falls to
+22.30<!--claim:catalog_gap.socrata.letters_min2.head_coverage_pct:.2f--> % and the share of unreachable
+columns carrying **no** work item rises from
+24.32<!--claim:catalog_gap.socrata.census.unattributed_pct:.2f--> % to
+56.86<!--claim:catalog_gap.socrata.letters_min2.unattributed_pct:.2f--> %.
+**The filter is off by default, so the default output is the bad one.**
+
+### Two designs were priced and killed before `gap.py` was written
+
+**The label-free classifier** — a token is abbreviated iff it is absent from the shipped English word
+list — was scored against the whole corpus first. It is wrong about
+77.87<!--claim:catalog_gap.socrata.word_list_control.false_positive_pct:.2f--> % of the
+16,340<!--claim:catalog_gap.socrata.word_list_control.called_unreachable:,--> tokens it flags, for
+structural reasons: Spanish, ordinals, domain terms, concatenations. So `gap.py` imports no lexicon and
+**requires labels**, which is a correct refusal and is still a refusal: a schema with no human wording
+gets a token count and nothing else. The recorder confirmed the consequence in code rather than in
+prose — `gap.py` imports `collections.abc`, `dataclasses`, `typing`, `..exceptions` and four
+`.governed` modules, and no word list.
+
+**The ASCII label-word rule** that `tools/byoc_eval.py` uses splits on `[^0-9a-z]+`, so an accented
+caption word becomes two fragments and reads as fully accounted for. Measured at
+32.51<!--claim:catalog_gap.socrata.label_word_rule.ascii_unattributed_pct:.2f--> % against
+24.32<!--claim:catalog_gap.socrata.label_word_rule.unicode_unattributed_pct:.2f--> % of unattributed
+share. The module keeps `byoc_eval`'s identifier key byte-identical, so the denominators agree, and uses
+a Unicode word rule, so the derivation stays true.
+
+Two checks that could not fail were also removed: `GapToken.catalog_covered` was permanently `False` on
+every emitted row, and a dead dispatch dictionary in the runner carried a justification paragraph.
+
+### What it does not do, and DoD-20 is still open
+
+R19 is satisfied: `155,272<!--claim:catalog_gap.socrata.identity.records:,-->` records digest
+identically before and after, with a positive control on a sentinel token present in exactly `1`
+identifier moving the digest. `catalog_lookups` is
+`0<!--claim:catalog_gap.socrata.census.catalog_lookups:,-->` on every arm, which is the point: the
+report is derived without a vocabulary, and it is the only governed command where `--dictionary` is
+optional.
+
+**It moves no headline and it is a demotion.** Nothing here makes an expansion more likely to be right.
+It presumes token-frequency ranking is what a governance function wants, priced at
+2.02<!--claim:catalog_gap.socrata.census.ranking_cost_points:.2f--> and
+6.17<!--claim:catalog_gap.sec_xbrl.census.ranking_cost_points:.2f--> points against a greedy cover and
+not eliminated — and this project has never had a governance function to ask. Every figure comes from a
+portal catalog, not a governed schema, so the standing unknown is untouched.
+
+**Definition-of-done criterion `20` requires that one stranger runs it. Zero strangers have.** The
+workstream built the thing that is supposed to give somebody a reason and did not produce a reason for
+anybody to be given one. That half does not close and is not close to closing.
+
+**One pre-registered falsifier is undecided rather than passed, and the workstream says so.** F4 needed
+the greedy cover to beat frequency by at least `2` points at `k=20`; it beat it by `2.02`. An earlier
+probe under a different de-duplication rule gave `1.93`, a fail, and the rule was settled **after** the
+prediction was written. Report it as undecided.
+
+---
+## D-104 — **The sentence a caller would draw from a conformal gate is the overclaim, and it is off by a factor of four.** The bound is on answering-and-being-wrong jointly, not on the error rate among answers. Mondrian by arity beats marginal and it is not close. Shipped off by default
+
+**Status:** shipped, off by default — `src/acronymkit/conformal.py` (new), `src/acronymkit/disambiguation.py`
+(`+77/-2`), `bench/run_conformal.py`, `tests/test_conformal.py` (`54` tests), `6` run ids,
+`docs/EVALUATION.md` ·
+**Decides:** nothing about the shipped default; `calibration=None` is byte-identical ·
+**Amends:** nothing; it withdraws a sentence the brief proposed rather than one this file wrote ·
+**Evidence:** `conformal.*` · **No experiment number spent**
+
+### The distinction, stated once, because everything else here depends on it
+
+Split conformal bounds `P(gold in prediction set) >= 1 - alpha`. Answering only when the prediction set
+is a singleton inherits a bound on the **joint** rate of answering-and-being-wrong. It does **not**
+bound the error rate among answers. Measured on the exchangeable arm:
+
+| alpha | joint answered-and-wrong | its bound | selective error among answers |
+|---|---:|---:|---:|
+| `0.05` | 2.07<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.joint_answered_and_wrong_pct:.2f--> % | 5.00<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.joint_bound_pct:.2f--> % | **21.92<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.selective_error_pct:.2f--> %** |
+| `0.10` | 4.85<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.joint_answered_and_wrong_pct:.2f--> % | `10.00` % | 28.85<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.10.selective_error_pct:.2f--> % |
+| `0.20` | 10.27<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.joint_answered_and_wrong_pct:.2f--> % | `20.00` % | 37.02<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.selective_error_pct:.2f--> % |
+
+**A caller reading "at most one answer in twenty is wrong" at `alpha = 0.05` is out by `4.38` x.** The
+joint bound holds in every measured cell — `20` of `20` across two splits, two arms and five alphas.
+
+### Mondrian ships, and the margin is not arguable
+
+Marginal calibration hits pooled coverage and lies inside every arity: at `alpha = 0.05` it answers
+0.65<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.marginal_answer_rate_pct:.2f-->
+% of instances and its worst arity is
+32.54<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.marginal_worst_arity_gap_points:.2f-->
+points from nominal. Per-arity thresholds cut that to
+2.34<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.mondrian_worst_arity_gap_points:.2f-->,
+72.81<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.10.marginal_worst_arity_gap_points:.2f-->
+to
+2.63<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.10.mondrian_worst_arity_gap_points:.2f-->
+and
+76.14<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.20.marginal_worst_arity_gap_points:.2f-->
+to
+4.69<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.20.mondrian_worst_arity_gap_points:.2f-->,
+and raise the answer rate to
+9.43<!--claim:conformal.sdu21.exchangeable.mondrian_vs_marginal.alpha_0.05.mondrian_answer_rate_pct:.2f-->
+%.
+
+**Those are the exchangeable arm's numbers and the sentence above does not say so, so this record does.**
+The acronym-disjoint arm gives
+5.89<!--claim:conformal.sdu21.acronym_disjoint.mondrian_vs_marginal.alpha_0.05.mondrian_worst_arity_gap_points:.2f-->
+and
+3.39<!--claim:conformal.sdu21.acronym_disjoint.mondrian_vs_marginal.alpha_0.10.mondrian_worst_arity_gap_points:.2f-->
+points instead. The direction holds on both arms; the magnitudes quoted are the flattering split's.
+
+### Two of the workstream's own checks could not fail, and running them is what found it
+
+**Mutation `C` reinstated the exact overclaim inside `guarantee()`** — the words *"among answered
+instances too, which is the same quantity"* — and went **green**, because the disclaimer had been
+asserted as two loose fragments with the mutation site between them. **Mutation `D` deleted the `+1`
+from the order statistic `ceil((n+1)(1-alpha))`** and went **green**, because the only rank case pinned
+was one where both formulas agree, and a `2,000`-instance coverage test cannot see a one-place shift in
+an order statistic. Both are now pinned at sizes and phrasings where the possibilities disagree.
+**Two of ten mutations were inert. That is the price of the instrument and it was paid by running it.**
+
+The R19 check also came back red once and it was a false alarm of the workstream's own making: the
+compared record carries `metadata.execution_time_ms`, a wall clock, so the check could only ever fail.
+Excluded, and the exclusion is named in the saved record rather than hidden in it.
+`conformal.sdu21.identity.byte_identical` is `True` over
+6,189<!--claim:conformal.sdu21.identity.results_compared:,--> serialised results.
+
+### Where it is weak, and it is weak in the places that matter most
+
+**Every number is on a split `bench/splits.toml` declares `role = "tuning"` and `contaminated = true`.**
+Nothing here is evidence of generalisation, and D-043's genuinely blind arm is untouched — deliberately,
+because this ships off by default and D-043 reserves that split for an on-by-default cut-point.
+
+**"Conformal beats the trivial baseline" is one cell.** `alpha = 0.05`, `78.08` against `75.68`, on
+292<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.answered_instances:,--> answered
+instances of
+3,095<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.eval_instances:,-->. At
+`alpha = 0.10` and `0.20` the baseline wins by `3.85` and `14.67` points. **The workstream's own
+pre-registration P6 predicted the baseline would win at both, and it was falsified at `0.05` only.**
+Treat the one win as noise until it is re-measured.
+
+**The acronym-disjoint arm is a stand-in, not domain shift** — same genre, same tokenisation, same
+annotators. It shows the exchangeability assumption is load-bearing; it does not size what a real
+out-of-domain caller loses.
+
+**The governed half does not fit, and the reason is a construction artefact rather than an absence of
+ambiguity.** `0` of
+98,524<!--claim:conformal.governed.fit.fold_ab.voted_catalog.token_positions:,--> scored governed token
+positions carry a rival long form — because `bench/run_governed_catalog.py::build_catalog` constructs
+every `GovernedEntry` with no `candidates`, so `TokenExpansion.beat` is structurally empty for every
+position that harness can produce. **Any future reading of "the catalog resolved no collisions" from
+that harness is a derivation and not a result.** That defect is in another workstream's file and is
+reported, not fixed.
+
+**The prose rule that guards the guarantee sentence is crude**: three markers, whole-paragraph
+containment, four files. It caught two mutations and it is evadable by rewording.
+
+---
+
+## D-105 — **A schema prior does not transfer to prose, and the reason is vocabulary rather than distribution.** The prior has a key for `98.69` % of dev short forms and a matching expansion for `6.06` %. Deliverable three was deliberately not built, because the point the brief specified reads below no prior at all
+
+**Status:** measured; **no `src/acronymkit/` change shipped** — `bench/run_schema_prior.py`,
+`tests/test_schema_prior.py` (`22` tests), `11` run ids, `docs/EVALUATION.md` ·
+**Decides:** the public-substitute reading of the standing glossary unknown, and only that reading ·
+**Amends:** nothing · **Evidence:** `schema_prior.*` · **No experiment number spent**
+
+### The verdict, against a rule declared before the runner existed
+
+The success rule was written first: **transfers iff the prior-dominant blend scores at least `46.65` %
+accuracy — `+5.00` points over the shipped `41.65` % — and beats an information-free control by at
+least `2.00` points.** Measured:
+
+- A frequency prior harvested from Socrata plus SEC XBRL scores
+  32.51<!--claim:schema_prior.sdu21.transfer.accuracy_schema_prior_only:.2f--> % against a tie-break
+  floor of 31.81<!--claim:schema_prior.sdu21.transfer.accuracy_floor_constant:.2f--> % — `+0.70` points.
+- Blended with context it reaches
+  44.53<!--claim:schema_prior.sdu21.transfer.blend_best_accuracy_tuning_split:.2f--> % against
+  context-only's 43.82<!--claim:schema_prior.sdu21.transfer.accuracy_context_only:.2f--> %.
+- Against the permutation control it is
+  0.68<!--claim:schema_prior.sdu21.transfer.blend_minus_permuted_control_points:.2f--> points.
+
+**`44.53 < 46.65` and `0.68 < 2.00`. Both halves fail.** The harness pins itself against three existing
+figures first and all three land exactly, so this is a measurement of the prior and not of a new runner.
+
+### The mechanism, and the naive version of it is also wrong
+
+Key coverage is
+98.69<!--claim:schema_prior.census.union.dev_short_forms_in_prior_pct:.2f--> % of dev short forms — and
+**that is worthless.** A saturation control over the key set shows the prior covers `659` of the `676`
+two-letter strings, so a key space that dense contains any short form. The prior has a *matching
+expansion* for
+6.06<!--claim:schema_prior.census.union.dev_short_forms_with_matched_candidate_pct:.2f--> % of them, and
+only 47<!--claim:schema_prior.census.union.candidates_present_as_any_schema_value:,--> of
+2,306<!--claim:schema_prior.census.union.distinct_candidate_expansions:,--> candidate phrases —
+2.04<!--claim:schema_prior.census.union.candidates_present_as_any_schema_value_pct:.2f--> % — occur
+anywhere in the schema at all. **An open-data portal and an SEC filing do not contain the phrases a
+computer-science paper abbreviates.** Exactly
+`1<!--claim:schema_prior.census.union.short_forms_with_two_distinct_nonzero_candidates:,-->` short form
+in the split has two seen expansions with different counts.
+
+The permutation control matters and it went the workstream's way against its own suspicion: measured
+`44.53` sits above the permuted maximum
+44.03<!--claim:schema_prior.sdu21.transfer.accuracy_permuted_blend_max:.2f--> %, so **the association is
+real** and it is `0.68` of a point against a `31`-point gap.
+
+### Deliverable three was refused because building it would have shipped a regression
+
+The blend that helps is prior-**subordinate** — best weight
+0.85<!--claim:schema_prior.sdu21.transfer.blend_best_weight_on_context_tuning_split:.2f--> on context.
+The prior-dominant default the brief specified reads
+43.00<!--claim:schema_prior.sdu21.transfer.blend_prior_dominant_accuracy:.2f--> %, **below context alone
+at `43.82` %.** Wiring it as asked would have made the library worse. No `src/` change, no blend, no
+gated weight, no default — and therefore R19's obligation here is **vacuous rather than passed**, which
+the workstream states instead of claiming a pass.
+
+### One number in this record is a bound on a different question, and it is worth keeping
+
+Building a `GovernedDictionary` from the union prior keeps
+445,013<!--claim:schema_prior.contracts.governed_dictionary_rows_built:,--> rows and discards
+489,544<!--claim:schema_prior.contracts.schema_prior_values_lost_to_the_governed_contract:,-->
+harvested values — **the whole of the frequency information a blend would need.** `GovernedEntry`
+carries no vote count and the contract is one expansion per token, so no frequency survives the build.
+That is a property of the governed catalog format, not of this experiment, and any future attempt to
+give the governed half a prior meets it first.
+
+### Scope, plainly
+
+**This is one cell of a matrix with at least four.** One prose corpus in one genre against two schema
+corpora in two others. The finding retires the *public-substitute* version of the standing unknown and
+not the unknown: **the caller the positioning is written for — whose catalog and whose documents are
+about the same subject — is untested, because no corpus here is one.** The evaluation split is
+contaminated and the blend weight is swept on the split it is read on. Expansion matching is exact
+word-tuple equality, so `2.04` % is a floor under a looser match nobody measured. And the workstream's
+striking `IP` result — that excluding one short form drops the fired subset exactly onto the floor — is
+post hoc and is an `n = 1` story about one collision.
+
+**Two of five predictions were right.** The verdict prediction held; the mechanism was refined rather
+than confirmed; the magnitude predictions were wrong in both directions.
+
+---
+## D-106 — **The four gates owed forward had already been demonstrated on a runner and nobody had read the log.** The evidence sat green in the Actions tab for a fortnight while the register printed a lower number — which is the failure `docs/GATES.md` had already described in its own words, for the second time in the same direction
+
+**Status:** shipped — `.github/gates.toml`, `.github/workflows/ci.yml`, `tools/gates.py`,
+`tools/gate_packaging_mutation.py`, `tests/test_gate_{manifest,scripts}.py`, `docs/GATES.md` ·
+**Decides:** the in-situ debt for this round, and the registration of two gates the siblings handed over ·
+**Amends:** `docs/GATES.md`'s published packaging coverage of `4 of 5`, falsified on a runner twice ·
+**Evidence:** runs `34099756605` and `33379084166`, both at commit `34925f8`, **read by the recorder
+with `gh` rather than carried** · **No experiment number spent**
+
+### The harvest, verified independently
+
+```
+gh run view 34099756605 -- read by the recorder, not by the workstream. Command output, not a
+benchmark measurement.
+  workflowName  Gate mutation      conclusion  success
+  createdAt     2026-09-07         headSha     34925f8136001987d9e5e81623be7f11b2696b47
+  gate verdict lines, sorted and counted:
+    16 DEMONSTRATED, 0 INERT, 0 UNRESTORED, 0 not automated
+    claims, control_always_green, control_always_red, gate_manifest,
+    harness_lint_environment, import_ceiling, mypy, ngram_matches_lexicon,
+    resource_formats, ruff, ruff_format, schema_copies_match, splits_manifest,
+    suite, test_environment_control, tier_zero_purity
+  packaging table:  "build/extracted tree catches 5 of 5"
+```
+
+`34925f8` is `HEAD` and is where this round began. The count moves `12 of 36` to
+`16 of 38`; the debt is `22` against a ceiling of `22`, with `2` owed forward. **The brief for this
+round carried a ceiling of `24`; the register is self-consistent and the brief's figure was stale.**
+
+`suite`'s re-take is attributable rather than merely present: `34925f8` is the commit that shipped
+`expect_failure_matching`, so `DEMONSTRATED` there required the gate's output to contain the named
+test — which is exactly what the earlier, withdrawn verdict could not establish.
+
+### The published packaging coverage was wrong, and the cause was not the one predicted
+
+`docs/GATES.md` published `4 of 5`. Both runners say `5 of 5`. **Case `b` moved because the *previous*
+round's heredoc extraction added `tests/test_gate_scripts.py`, which calls
+`gate_sdist_files.missing(REPO_ROOT)` — and inside an extracted sdist `REPO_ROOT` is the artifact.**
+Nobody designed that and no round claimed it.
+
+The workstream's own prediction — that `387f739`'s link-integrity guard caught it — was **refuted in
+process**: `_LINKS_NOT_SHIPPED` exempts everything under `data/`, so the dangling list is empty. A
+second hypothesis was refuted too. Two guesses died before one survived, and the survivor was verified
+rather than asserted.
+
+### The drift check was rewritten because the old one caught one mutation in six
+
+`sequence_drift` was `11` bare substrings searched against the whole file. It is now three rules —
+`scope` (a fragment must sit inside the `run:` blocks of the job it was copied from), `order`, and
+`shape` (`3` pinned regions, `25` command lines, count plus sha256 prefix) — with a vacuity guard so a
+workflow the scanner reads as zero jobs reddens instead of passing. Measured, one mutation of a **copy**
+of `ci.yml` at a time with the live file md5-verified untouched: **old rule `1` of `6`, new rule `6` of
+`6`.**
+
+The workstream's pre-registered abort criterion fired here and was honoured: if completeness required
+naming more than roughly half the command lines individually, the check would be a second copy of
+`ci.yml` and the whitelist form was to be abandoned. `24` in-scope lines, about `14` would have needed
+naming. It was abandoned, and completeness reached instead by `3` counts and `3` digests that pin `25`
+lines and name none.
+
+### A rule this register called absolute is now waivable, for the second time
+
+`InSituRound.added_gates` is new. The top-of-ranking rule had the same hole the debt rule had, pointed
+at new work: **a correctly-ranked new gate cannot carry evidence in the commit that creates it**, so the
+only satisfiable answer was a dishonest `blast_radius`. The mechanism takes attribution, an
+`owed_forward` and a waiver. The workstream records that it could have satisfied the rule instead by
+naming `figures` in `withdrawn_gates` — nothing was withdrawn — and refused, because that would have
+been a lie in a checked field.
+
+**The guard is a promise plus a due-date check, and a round that renews the promise rather than paying
+it is visible to a reader and to nothing else.** D-087 made the debt rule waivable; this makes the
+ranking rule waivable. That is two of this register's absolutes in three rounds, and both were made
+waivable by the workstream that hit them.
+
+### What this round did not measure, said first
+
+**This round read a log.** All four new demonstrations were taken by a scheduled workflow before the
+round began, at a commit the round did not write. `16 of 38` is not four gates this round demonstrated.
+
+**The harvest is the failure it describes and nothing closes it for next round.** `docs/GATES.md` had
+already written that *a scheduled workflow whose artifacts nobody harvests is indistinguishable from
+one that never ran*, and then was that. The `report` job still only prints how to record a run. This
+page has now been wrong about `gate-mutation.yml` twice, in the same direction.
+
+**`0 of 16` on `--evidence-provenance` is stale as you read it.** Every stamp names `34925f8`; this
+commit moves `.github/gates.toml`, `tools/gates.py` and `ci.yml`, so most of the sixteen revert to
+*predates a change* on the next run. The flattering number is an artefact of when the snapshot was
+taken.
+
+**Both newly registered gates were verified only in a mirror of the working tree**, with `data/`
+excluded — so `memo_identity` was demonstrated against a generated fixture corpus alone. Their register
+entries point at files two other workstreams own, one of them **untracked**; if either moves before
+commit, `--mutate` errors and the register is wrong about its own probe.
+
+**A third copy of a falsified sentence still ships.** `tools/gate_sdist_files.py`'s reason string — the
+text the gate prints when it fires — says the extracted-tree suite passes with `data/LICENSES.md` gone.
+It does not. Reported, not fixed, and it is in a directory no cold-read trigger reaches.
+
+---
+
+## D-107 — **The fourth sampled-verification round returns `2` of `24` not true**, the lowest yet, and pooling all four gives `18.75` % on a confidence interval that describes four graders rather than this project. Three of the four conditions `docs/CLAIMS-LEDGER.md` §6 lists as unmet are still unmet
+
+**Status:** measured, read-only; seed `20260908`, `24` of `96` claims sampled across `8` workstreams ·
+**Decides:** nothing; it prices the reports the rest of this block rests on ·
+**Amends:** nothing; D-088 retired both earlier decompositions and this round proposes none ·
+**Evidence:** the sampler's own pre-registration and grading boundary, both written before grading ·
+**No experiment number spent**
+
+```
+R15 round four, seed 20260908. Command output of a grading pass, not a benchmark measurement.
+  sampled                     24 of 96 across 8 workstreams
+  FALSE 0 | MISLEADING 2 | UNCHECKABLE 1 | TRUE 21
+  headline (FALSE+MISLEADING)/24                    8.33 %
+  pre-registered sensitivity band                   0.00 % - 12.50 %
+  four rounds, counts of 24:            5, 5, 6, 2  =  18 of 96  =  18.75 %
+  Wilson 95 % CI                                    12.20 % - 27.70 %
+  binomial homogeneity chi-square 2.462, df 3, p = 0.48
+  P(X <= 2 | n=24, p=0.1875) = 0.146
+  none of the five pre-registered falsifiers fired
+```
+
+**This round is a low draw from the same process rather than a different process** — that is what the
+chi-square says, and it is the only thing it says.
+
+### The interval is not this project's error rate and the sampler says so
+
+Three conditions attach, and they are the same three §6 already lists:
+
+1. **Three instruments, not one.** Rounds one and two had no grading boundary on file. Round three wrote
+   one. This round wrote a different one. The interval is a binomial interval on counts produced by
+   three graders under three rules.
+2. **The statistic is not the same each round.** Round three reported `25.0` % not-true and `20.8` %
+   strictly false; whether `MISLEADING` was even available in rounds one and two is not on file. This
+   round's `8.33` % is `FALSE + MISLEADING` with `FALSE = 0`, a shape no earlier round produced.
+3. **The pool moved.** Rounds one and two drew `24` of `210` submitted claims; this round drew `24` of
+   `96`. A `25` % sample of a smaller pool is not the same population as an `11` % sample of a larger one.
+
+**Condition four — a second grader on the same sample — is unmet for the fourth round running.** R15's
+own framing is that the sampler's verdicts are claims too, and `21` `TRUE` verdicts by one reader is
+exactly the shape that most needs a second one.
+
+Quote `18.75` % `[12.2, 27.7]` as four graders' pooled error rate. **Do not quote it as this project's.**
+
+### The largest risk this round is outside the band the sampler pre-registered, and it says so
+
+Four verdicts graded `TRUE` turn on a boundary the pre-registration did not anticipate: **a sentence
+whose numbers are exact but whose scope or causal clause is wider than the measurement.** Two of them
+quote the exchangeable conformal arm without naming it, where the acronym-disjoint arm is materially
+worse (D-104 names both). One attributes a locality mechanism to a memo hit-rate difference; one calls a
+discarded field set *"the whole of the frequency information a blend would need"*. **A second grader one
+notch tighter returns `6` of `24` = `25.0` %, which is round three exactly.** The sensitivity band cannot
+see that swing because it only moves `MISLEADING` and `UNCHECKABLE`. It is reported as a post-hoc note
+rather than folded in, which is the right call and leaves the published band narrower than the real
+uncertainty.
+
+### This round had more instrument than its predecessors, and that is a confound
+
+`gh` was authenticated, so two CI runs were readable rather than `UNCHECKABLE`; both corpora were on
+disk, so an `857,517`-record identity pass took `100` seconds; the sample was unusually operational and
+unusually light on narrative. Prior rounds' dominant failure modes were staleness and an unmeasured
+premise stated as a measurement, and this sample offered few sentences of that shape. **Whether `8.33` %
+is a property of this round's claims, this round's checkability, or this round's grader is not separable
+from one draw.**
+
+---
+
+## D-108 — **The fifth cold read found that the four figures this round created are invisible to both of its own triggers**, and it wrote no ledger row — the second read of five to write none, and the second consecutive stall of the rotation cursor. The round's largest claim is also the first one a reader with no GitHub token could not adjudicate at all
+
+**Status:** read-only; findings in `docs/notes/cold-read-5-findings.md`; `docs/cold-reads.toml`
+**unwritten** · **Decides:** nothing; it reports ·
+**Amends:** nothing this recorder owns · **Evidence:** `python tools/second_reader.py --check`, green
+throughout · **No experiment number spent — experiment eleven is still free**
+
+Trigger A served `8` files. Trigger B served `docs/GATES.md`, and the read's own verdict is that the
+figures are honest on the axis the brief flagged and that **the defect is one level up.**
+
+### The structural finding: `is_user_facing()` cannot see a figure
+
+`tools/second_reader.py::is_user_facing()` drops every non-Markdown file under `docs/`. The four SVGs
+this round created are therefore **invisible to trigger A, invisible to the rotation, and invisible to
+`--check`'s tree-reachability rule** — the rule that exists because a set checked only against itself
+agrees with itself. Their numbers are gated twice, by `gates.figures` and by
+`TestNoNumberOnACanvasIsUncited`. **Their title sentence, their shading choice and their accent
+assignment are gated by nothing.** The proposed replacement takes the rotation from `21` files to `25`
+and was untested when the read filed it, because the read is read-only. **It has since been applied by
+somebody else and it is green — see the last section of this record, which is the part of it worth
+reading.**
+
+### Three other live falsehoods, each with a refuting command and replacement text
+
+Live when the read filed them. The first two are **fixed in this tree** and the third is not; which is
+which, and by whom, is the last section.
+
+- `docs/GATES.md` kept a tracked-file count **on the explicit ground that it reproduces.** It was
+  `231`, not `216`, and it was inside a code span, so `--residue` reported the page as `0` deferred.
+- Two commands the page published exited `2` — a missing `--out` — one of them in *Running it yourself*.
+- `gates.figures` is ranked on a present-tense sentence about a page embedding that has not happened.
+  That is the rank that bought the `added_gates` waiver in D-106, and the reader says plainly that the
+  rank may be right and what is provable is only the tense.
+
+### The ledger row, and the shape this is now in
+
+`docs/cold-reads.toml` records reads `1`, `2` and `4`. Read `3` wrote none and the recorder wrote read
+`4`'s row retrospectively in the salvage round. **Read `5` had written none when this paragraph was
+written, and the cursor had not moved for the second consecutive read.** `--check` still said
+`trigger B serves docs/GATES.md next`, which read `5` had already served. **Both of those sentences
+were overtaken during the recorder's own verification pass — the row exists, one of five reads has none
+rather than two, and the cursor has moved. The last section of this record is what happened and it is
+the part worth reading.**
+
+The blocking decision is unchanged and is still one sentence nobody has taken: **whether the read-only
+boundary is prose or filesystem.** §5.1 says in terms that it is not a filesystem permission. Until it
+is answered, `tools/second_reader.py --check` stays green while cold reads accumulate outside it, and
+D-096's finding — that the gate cannot tell *no read happened* from *a read happened and could not
+record it* — is now true of two reads rather than one.
+
+**The recorder did not write read `5`'s row**, because `docs/cold-reads.toml` is not this round's file
+and because its `8` findings were open: writing them would take `open` from `0` to `8` and the
+disposition rule requires a second name. **It was named here as owed, and it was then paid by somebody
+who had the second name — see the last section.** Naming an obligation in this file and having it
+discharged inside the same round is the first time that has happened; it is one instance and it is not
+a mechanism.
+
+### The cold read's own disclosure, kept because it is the most useful thing in it
+
+> The round's largest claim — `12 of 36` to `16 of 38` — is a transcription of a run log, and
+> `docs/GATES.md` says plainly that nothing in this repository reads one. I checked it with `gh`, which
+> was authenticated here. **In a checkout with no token that claim is unadjudicable**, and no round has
+> priced a cold read that depends on a GitHub credential.
+
+That is a new class for this project: **a claim whose verifiability depends on a credential the
+repository does not carry.** This recorder verified the same run for the same reason and hit the same
+dependency, so the observation is confirmed rather than merely repeated.
+
+### And no mutation was run in situ
+
+§4.3 asks for one. Both available probes edit files other workstreams were writing, and `--mutate`
+restores from bytes read beforehand. The read took the negative demonstration §4.3 says is valid on a
+developer machine — a gate shown blind — and that is the figures finding above. **Nothing in this read
+shows a gate catching anything.**
+
+### And then it all moved underneath the record, twice, while the recorder was verifying it
+
+Everything above was written by the **first** recorder incarnation of this round and was true when it
+was written. This section is the **second** incarnation's, and it exists because the tree changed
+twice during its verification pass. **Both changes are good and both make paragraphs above false.**
+
+**What an operator did.** Three of the read's eight findings were applied — `F-5-1` (`docs/GATES.md`'s
+tracked-file count, corrected to `231` in both places with the *retained-because-it-reproduces*
+sentence retired in place), `F-5-2` (all three published invocations now carry `--out DIR`, both
+verified `rc=0` as published) and `F-5-4` (`is_user_facing` and `user_facing_files` admit
+`docs/**/*.svg`; `.toml` stays machine state; the rotation goes `21` to `25`). Then the ledger row was
+written, from `docs/notes/cold-read-5-findings.md`, **by a second party** — `docs/cold-reads.toml`
+carries `applied_by = "operator, phase B salvage"` on each of the three, which is exactly what §5's
+disposition rule demands and which the reader could not supply for itself.
+
+**So two paragraphs above are now wrong and they are wrong in the good direction.** Read `5` has a
+row. `docs/cold-reads.toml` records reads `1`, `2`, `4` and `5`; **one** of five has none, not two.
+The cursor moved. The recorder's stated reason for not writing the row — that it would take `open`
+from `0` to `8` and needs a second name — was answered by somebody who had the second name.
+
+**And the window between the two is the finding.** This recorder ran the same command at the start of
+its pass and at the end of it:
+
+```
+python tools/second_reader.py --check -- the same command, twice, by the same reader, on the
+same working tree, about ninety minutes apart. Command output, not a benchmark measurement.
+
+  first run, at the start of the verification pass         rc=0
+      cold reads: 3 recorded; newest 2026-08-26
+      rotation: 25 file(s); trigger B serves docs/SECOND-READER.md next
+      findings: open 0, fixed 7, blocked 0, permanent 0  (of 7)
+
+  last run, at the end of it                               rc=0
+      cold reads: 4 recorded; newest 2026-09-08
+      rotation: 25 file(s); trigger B serves docs/SECOND-READER.md next
+      findings: open 5, fixed 10, blocked 0, permanent 0  (of 15)
+      OPEN AND AT THE LIMIT: 0 of 5
+```
+
+Read the first block against what was already in the tree when it was printed. **The rotation already
+said `25`** — `F-5-4` was already applied — while the findings ledger still said `open 0, fixed 7`,
+which is the state of a repository where nothing has been found and nothing has been repaired. Three
+repairs had landed and the gate was green over a ledger that did not know about any of them.
+
+> **D-096 recorded that this gate cannot tell *no read happened* from *a read happened and could not
+> record it*. This is the same blindness in the other direction, observed rather than argued: it
+> cannot tell *a finding was fixed* from *a finding was never opened*.** The window here was minutes,
+> because somebody was actively closing it. **The gate cannot distinguish minutes from rounds**, and
+> D-096's window was two rounds. An unrecorded read leaves the work undone and visible; an unrecorded
+> repair leaves the tree **better** and the record wrong in the flattering direction.
+
+That is the third distinct blindness found in this instrument in three rounds, and they do not overlap:
+D-089 — no trigger can reach a source file; D-096 — a read that cannot record itself is invisible;
+this one — a repair that records nothing is invisible. **Each was found by a person looking, not by the
+gate.**
+
+**Five findings are open and every one carries a `blocked_on`:** the `gates.figures` ranking tense
+(the register's owner has to re-take the rank or the waiver), the trigger-B-serves-a-trigger-A-file
+rule, `tools/gate_sdist_files.py`'s refuted reason string (blocked on whether the rotation should cover
+`tools/` prose at all — the question cold read `4` already took a position on), the second undocumented
+allowlist in the figure pipeline, and the paraphrase under a *verbatim* header.
+`OPEN AND AT THE LIMIT: 0 of 5`.
+
+**A note on evidence, because this recorder nearly published a worse version of this section.** Its
+first draft ordered these events from working-tree modification times and asserted that no row had been
+written at all. The modification times on this machine do not order these writes consistently with what
+the recorder observed by running the command, and the row existed by the time it looked again. **The
+defensible evidence is the two command outputs above, which this reader produced itself.** A file's
+mtime in a checkout several agents are writing is not a clock.
+
+---
+## D-109 — **The second consecutive waiver, and that is the policy telling you it has finished rather than the recorder telling you it was busy.** The probe was re-run and the residue is still terminal; the coincidence surface it is measured against grew `19.49` % in one phase; and `CHANGELOG.md`'s residue turns out to be terminal too, for a different reason nobody had written down
+
+**Status:** shipped — `docs/DECISIONS.md` (`12` records added), `tools/check_claims.py`'s trajectory row
+and pin · **Amends:** D-097's *"the next round owes the same probe before it may take the same waiver"* —
+the probe was run, and it returned a **different** answer in one cell ·
+**Evidence:** `python tools/check_claims.py`; the two probes below ·
+**No experiment number spent — experiment eleven is still free**
+
+Twelve records were added — D-098 through D-109 — so the pin went red before a word of migration was
+written. That is the binding working for the fifth round running.
+
+```
+python tools/check_claims.py -- command output, run by the recorder while adding these records
+  docs/DECISIONS.md now holds 109 record(s); RECORD_FILE_PIN says 97.
+    Adding a record IS a round. Append a LedgerRound that migrates at least
+    12 number(s) out of docs/DECISIONS.md -- or that records a waiver
+    saying why it could not -- and re-take the pin in the same commit.
+  rc=1
+```
+
+### The payment: `0`, and a second waiver, and the brief said what that means
+
+`docs/DECISIONS.md` stays at `42`. Nothing was cited, nothing was deleted, nothing was fenced. **The
+round's brief said in terms that two consecutive waivers is a policy that has stopped working. This
+record agrees with that sentence and takes the waiver anyway**, because the alternative — manufacturing
+a payment out of a residue three independent walks have now measured as unreachable — is worse than
+saying so.
+
+### The probe, re-run as D-097 required, and it did not return the same answer
+
+The `gate-able` classification means *some measurement somewhere has this value*. So "is anything here
+citable" reduces to: for each of the `42`, does any field in `bench/results.json` carry that value at the
+precision written, and is that field a measurement of what the sentence is about?
+
+```
+a probe over the 42 deferred numbers in docs/DECISIONS.md against bench/results.json, run
+against BOTH the pre-phase file and today's. DERIVED, no judgement applied. The probe is a
+scratch script and is NOT committed. Command output, not a benchmark measurement.
+
+  numeric leaves in bench/results.json      before 38,130   after 41,901   +3,771  (+9.89 %)
+  of the 42 residue numbers, with >= 1 matching field        16  ->  17
+  total coincidental fields across the 42                   831  ->  993  (+19.49 %)
+
+  the nine that moved
+    D-051  30       57 ->  82 fields
+    D-048  31       52 ->  57
+    D-026  44       39 ->  66
+    D-023  2.1      22 ->  24
+    D-023  89.08     0 ->   1     <-- crossed from NO MATCH to matched
+    D-023  0.26      3 ->   6
+    D-023  30       57 ->  82
+    D-013  3.6      10 ->  17
+    D-007  100     558 -> 625
+```
+
+**Not one of the seventeen is a measurement of the thing its sentence is about**, which is D-097's
+finding reproduced on a larger corpus. The residue is milliseconds, microseconds and percentages of an
+import; the matches are Jaccard indices between proposer vertex sets, false-positive counts, gate
+precisions, elapsed seconds and percent-of-gold. **The newcomer is the clearest instance this project
+has produced:** `D-023`'s `89.08` — the cost in milliseconds of importing `acronymkit.config` with
+pydantic already resident — is now matched by
+`conformal.sdu21.seed_spread.alpha_0.10.min_coverage_pct`. A conformal coverage percentage has matched a
+millisecond.
+
+**And that is the general finding, which is about the mechanism rather than about the residue:**
+
+> **Value-matched backing gets *less* sound the more this project measures, and it degrades faster than
+> the corpus grows.** One phase added `9.89` % more numeric leaves and `19.49` % more coincidental
+> matches for the same forty-two sentences. A number that matched nothing a round ago matches something
+> now, for reasons that have nothing to do with the sentence. `docs/CLAIMS-LEDGER.md` says value matching
+> cannot tell a correct claim from a coincidence; this prices the rate at which the coincidences arrive.
+
+The three deletion refusals D-097 published were re-read and not re-litigated: the reachable instances
+were taken by the two rounds before it, and the three that remain each require rewording a closed record
+or leaving a malformed table or range.
+
+### The new finding: `CHANGELOG.md`'s `28` are terminal too, and for a reason this project has never written down
+
+`CHANGELOG.md` is the recorder's file and holds `28` of the `189`. It looked like the obvious place to
+pay this round's quota — several of its numbers have exact, semantically correct fields in
+`bench/results.json`. **It was refused, on a measurement.**
+
+A released changelog entry is a statement about a past version. A citation is a live value that
+`--render` rewrites. **Migrating one converts frozen history into a number that a later benchmark run
+silently overwrites**, and the hazard is not prospective:
+
+```
+python -- three numbers in CHANGELOG.md's released [0.2.0] section, against the fields a
+citation would have to point at. Command output, not a benchmark measurement.
+  CHANGELOG [0.2.0] "precision 92.07 %, recall 76.99 %, F1 83.85 %"
+  extraction.med1250.acronymkit.exact_precision  = 92.46
+  extraction.med1250.acronymkit.exact_recall     = 77.31
+  extraction.med1250.acronymkit.exact_f1         = 84.21
+  -- all three moved. docs/AUDIT-PROHIBITIONS-2026-08.md already records 83.85 -> 84.21 as
+     "TRUE, comparator superseded". Citing them would rewrite what v0.2.0 shipped.
+  the same section's generation figures (75.5, 89.7) still render unchanged, so the hazard is
+  per-number and not per-section, which makes a mixed document the likely outcome of paying here.
+```
+
+**And the same hazard is already loaded in this file.** All `10` citations `CHANGELOG.md` carries sit in
+`[Unreleased]`. They are correct today and they become historical statements pointing at live values
+**the day a version is cut.** Nothing warns anybody at that moment.
+
+So the reachable register is smaller than the trajectory implies: **`70` of the `189` — `42` in
+`docs/DECISIONS.md` and `28` in `CHANGELOG.md` — are terminal by construction rather than by neglect**,
+and one of those two populations was only discovered to be terminal this round, by trying to pay out of
+it.
+
+### The waiver was measured over `70` of the `189`, and the largest population in the register has never been probed by anybody — a second recorder's addition
+
+The two files this record measures are both the recorder's. They are not most of the register.
+
+```
+python -- the deferred register by file, and the coincidence probe re-run on the two largest
+populations nobody has walked. Scratch script over check_claims' own API, NOT committed.
+Command output, not a benchmark measurement.
+
+  total deferred                                                189
+     70  docs/notes/pydantic-cost.md          <-- largest, never probed
+     42  docs/DECISIONS.md                    <-- measured terminal, three walks
+     32  bench/splits.toml                    <-- never probed
+     28  CHANGELOG.md                         <-- measured terminal, this round
+     10  docs/EVALUATION.md
+      3  docs/OFFLINE.md
+      1  each: README.md, docs/DEFINITION-OF-DONE.md,
+            docs/notes/scoring-objective.md, governed/models.py
+
+  docs/notes/pydantic-cost.md   70 deferred | 46 carry >= 1 coincidental field | 883 fields
+  bench/splits.toml             32 deferred | 30 carry >= 1 coincidental field | 241 fields
+```
+
+**Those `46` and `30` are not a payment and this record does not offer them as one.** The whole finding
+of D-097 and of the probe above is that *has a matching field* and *is about the same thing* are
+different questions, and on `docs/DECISIONS.md` the answer was `17` matched and **zero** correct. What
+the numbers do show is that **nobody has asked the question of the largest file in the register**, and
+that the population the two waivers have been measured over is `70` of `189`.
+
+> **The quota is owed by the recorder and the residue is mostly in files the recorder may not touch.**
+> The round's file-assignment rule and the quota's payment rule can only both be satisfied out of
+> `docs/DECISIONS.md` and `CHANGELOG.md`, and both are now measured terminal. **That is not a residue
+> problem, it is an ownership problem, and it makes a third waiver forecastable before the next round
+> starts.** `docs/notes/pydantic-cost.md` alone is larger than either recorder file and no round has
+> been assigned it.
+
+### The escalation, because a waiver every round is the rubber stamp the floor's own docstring warns about
+
+`RECORD_FILE_FLOOR = 12` was sized when `docs/DECISIONS.md` held `115` deferred numbers. It holds `42`,
+all measured unreachable three times. **A floor larger than any payment its file can make will be waived
+every round for ever, which is precisely the failure mode `RECORD_FILE_FLOOR`'s own documentation
+attributes to a waiver-only rule.** The trajectory is now `316, 262, 231, 213, 201, 189, 189, 189` — the
+shape of a burn-down that finished two rounds ago and has been filing paperwork since.
+
+**This recorder does not change the policy.** D-091's carve-out was withdrawn *by the maintainer* on the
+recorder's escalation, and that is the right shape here too. What is escalated, for a decision:
+
+1. **A per-file `closed` disposition** — a file whose residue has been resolved to field names and found
+   unreachable is marked closed with the probe attached, and stops owing a waiver until a number is
+   added to it. That keeps the ratchet (adding a number reopens the file) and stops the paperwork.
+2. **Or re-size the floor** against the reachable population rather than the historical one.
+3. **Or fix the arming rule**, which would move numbers *into* the register rather than out and is the
+   only option that makes the count worse and the instrument better. D-097 called the one-sided range
+   endpoint *"the only item on this list whose fix is a change to the gate"*. **It is not the only one:
+   `D-023`'s `134.7, 139.6, 150.4 and 154.7 ms` defers exactly one of four, because the unit follows the
+   last.** The gate arms on adjacency to a unit, so in any list of magnitudes it sees the final member
+   and is blind to the rest. That is at least three instances, in three records, of one asymmetry.
+
+4. **Or assign the residue rather than the quota.** The register is `189` numbers across `10` files and
+   the quota is owed by one workstream that may edit `3` of them. A round that owns a file could owe its
+   own share, which is the only option that puts `docs/notes/pydantic-cost.md`'s `70` in front of
+   somebody. This is the second recorder's addition and it follows from the measurement above rather
+   than from the shape of the previous waivers.
+
+**Doing nothing is also an answer and it has a cost:** the next recorder writes a third waiver, and by
+then the word will mean nothing.
+
+### R11: what the gate can and cannot see on the twelve records added here
+
+Six mutations, one at a time, each restored from bytes read before it and md5-verified, with an
+unmutated control before and after. **All six fire red and all six name the thing that moved.**
+
+```
+python tools/check_claims.py -- command output, not a benchmark measurement. The messages go
+to stderr; the summary block stays on stdout and stays green-looking, which is itself worth
+knowing.
+  rc=0  control, unmutated                          <nothing named>
+  rc=1  A  pin left at the previous round's count
+           "docs/DECISIONS.md now holds 109 record(s); RECORD_FILE_PIN says 97."
+  rc=1  B  pin label left naming the previous round
+           "RECORD_FILE_PIN names round 'M3-PB (the salvage)'; the newest round is
+            'M3-PB (the eight briefs)'."
+  rc=1  C  the waiver set to the empty string        TWO problems:
+           "moved 0 against a quota of 12, and records no waiver."
+           "moved 0 number(s) out of docs/DECISIONS.md against a floor of 12, and records no
+            waiver."
+  rc=1  D  deferred 189 -> 188 with no accounting
+           "the deferred ledger fell by 1 and the round accounts for 0 (citation 0, deletion 0,
+            fencing 0, other 0)."
+  rc=1  E  a new record_costs citation edited by one
+           "stale rendered value: file says '43.58',
+            governed_perf.socrata.empty.record_costs.dataclass_init_pct is now '43.57'."
+  rc=1  F  a new citation repointed at a dead field
+           "'catalog_gap.socrata.census.head_coverage_pctt' is not in bench/results.json.
+            Did you mean: ..."
+  restored, both files md5 identical           rc=0  <nothing named>
+```
+
+**`C` was a false demonstration the first time it was run and this record says so rather than
+publishing the `rc=1`.** The first cut of the mutation removed the whole `waiver=(...)` expression and
+left an unmatched parenthesis, so `check_claims.py` exited `1` on a `SyntaxError` before reaching any
+rule. **A crash and a detection are the same exit code**, and the only thing separating them was reading
+the output rather than the return value. The mutation was re-cut to `waiver=""` and the two named
+problems above are what it actually produces. This is the fourth instance this project has recorded of
+a check that reported the wrong thing for the right-looking reason, and it happened inside the battery
+whose whole purpose is to catch that.
+
+**`C` is again the mutation that matters and again it proves only half of what a reader wants.** It shows
+that a round cannot *silently* skip the quota. It does not and cannot show that a waiver's content means
+anything, because a waiver is free text nothing grades. That is the same limit `docs/CLAIMS-LEDGER.md`
+§2 names, and this is the second consecutive round to rest its entire compliance on it. **Two rounds is
+where that stops being a limit and starts being the policy.**
+
+### What this round left undone in its own file
+
+**D-086's prose quoted bare `70.15`, `30.13`, `3.35` x and `9.82` in the present tense**, inside code
+spans the gate cannot see, describing a decomposition D-101 shows this phase consumed. Its citations
+were repointed at the preserved `pre_memo` family and were correct; the prose was not. **The first
+recorder incarnation left this owed and named; the second did it.** D-086 now opens with an amendment
+block saying every share in it is a share of the pre-Phase-B call and must not be quoted as a property
+of the shipped library, and the three most quotable prose sites are marked in place. The numbers were
+not changed — they were correct measurements of the code they were taken on, and `70.15` against
+`57.71` is the pair a reader needs, both of them still gated under their own run ids.
+
+**What that repair does not fix, and it is the more useful half.** The class is *a number the gate
+cannot see going stale inside a closed record*, and this is one instance of it treated by hand. There
+are `512` unexamined numbers in `docs/DECISIONS.md` and nothing distinguishes the ones that have gone
+stale from the ones that never could. Marking one record is not a mechanism, and the only reason this
+one was found is that a sibling workstream re-ran the benchmark and noticed its own citations move.
+
+---
+
 ## D-097 — **The waiver arrived**, three rounds after D-084 forecast it and two after the floor became a target. It is the first one this project has written, and the residue that owes it was **measured** rather than asserted: every value match left in `docs/DECISIONS.md` is a coincidence, in the wrong unit, about something else
 
 **Status:** shipped — `docs/DECISIONS.md`, `tools/check_claims.py`'s trajectory row and pin ·
@@ -1261,25 +2688,38 @@ Mandate III lists five optimisations for the governed subsystem and ranks them i
 measured what the hot path spends its time on. This record is the measurement and the re-ranking it
 forces.
 
+> **AMENDED BY D-101, AND READ EVERY SHARE BELOW AS PAST TENSE.** Every percentage in this record is a
+> share of the pre-Phase-B call. Phase B changed the call: D-101's memo levels and D-100's record
+> construction moved the provenance share on the Socrata arm from `70.15` to `57.71`. **The
+> measurements are not wrong and they are not current.** Each citation in this record was repointed at
+> the preserved `governed_perf.pre_memo_*` family, which is the same code measured again, so what the
+> gate renders is stable and historical. The bare figures in the prose below carry no citation, the
+> claims gate cannot see them, and they are marked in place where they are most quotable. **Do not
+> quote a share from this record as a property of the shipped library.**
+
 ### The go/no-go on each, with the number
 
 | bet | verdict | the number it rests on |
 |---|---|---|
-| **P2** — lazy provenance | **GO, rank 1, wider than predicted, with a named design constraint** | provenance is 70.15<!--claim:governed_perf.socrata.empty.stage_provenance_pct:.2f--> % of the Socrata call, 73.55<!--claim:governed_perf.sec_xbrl.empty.stage_provenance_pct:.2f--> % on SEC XBRL, 49.85<!--claim:governed_perf.fixture_schema.fixture.stage_provenance_pct:.2f--> % on the memo-saturated arm |
+| **P2** — lazy provenance | **GO, rank 1, wider than predicted, with a named design constraint** | provenance is 70.15<!--claim:governed_perf.pre_memo_socrata_empty.stage_provenance_pct:.2f--> % of the Socrata call, 73.55<!--claim:governed_perf.pre_memo_sec_xbrl_empty.stage_provenance_pct:.2f--> % on SEC XBRL, 49.85<!--claim:governed_perf.pre_memo_fixture_schema_fixture.stage_provenance_pct:.2f--> % on the memo-saturated arm |
 | **P3** — memoisation | **GO, rank 2, shape changed: the ceiling is an eviction policy, not a second memo** | 24,536<!--claim:governed_perf.socrata.census.distinct_tokens:,--> distinct tokens against a `_MEMO_LIMIT` of 4,096<!--claim:governed_perf.socrata.census.memo_limit:,-->, 5.99<!--claim:governed_perf.socrata.census.distinct_tokens_per_memo_limit:.2f-->× over, and the memo **clears** when full |
 | **P4** — streaming batch | **DOWNGRADED to a delivery mechanism for P2, not an optimisation** | `_prepare` runs once per identifier out of `139.87` Python calls — `0.7` % of the call graph |
-| **P5** — a tokenizer automaton | **NO-GO, near-dead** | tokenisation is 9.82<!--claim:governed_perf.socrata.empty.stage_tokenise_pct:.2f--> % on Socrata, the path is already a C regex, and `_scan` executed `0` times across `245,927` real identifiers |
+| **P5** — a tokenizer automaton | **NO-GO, near-dead** | tokenisation is 9.82<!--claim:governed_perf.pre_memo_socrata_empty.stage_tokenise_pct:.2f--> % on Socrata, the path is already a C regex, and `_scan` executed `0` times across `245,927` real identifiers |
 | **P6** — free-threading | **UNMEASURED, and given no number** | nothing in this phase bears on it, and the workstream said so instead of inventing a figure |
 
-**Provenance is not merely first, it is larger than everything else combined, on every arm.**
+**Provenance is not merely first, it is larger than everything else combined, on every arm** — of the
+**pre-Phase-B** call, and the ordering is what survived rather than the magnitudes.
 `70.15` against `30.13` on Socrata; `73.55` against `26.43` on SEC XBRL; `49.85` against `43.14` even
 on the fixture arm where the expansion memo serves
-92.98<!--claim:governed_perf.fixture_schema.fixture.expansion_memo_hit_pct:.2f--> % of token
+92.98<!--claim:governed_perf.pre_memo_fixture_schema_fixture.expansion_memo_hit_pct:.2f--> % of token
 expansions. `expand_identifier` builds
-578,816<!--claim:governed_perf.socrata.empty.provenance_records_constructed:,--> frozen records for
+578,816<!--claim:governed_perf.pre_memo_socrata_empty.provenance_records_constructed:,--> frozen records for
 `155,272` Socrata identifiers —
-3.728<!--claim:governed_perf.socrata.empty.provenance_records_per_identifier:.3f--> per call — and a
-phrase-only reimplementation that emits byte-identical phrases runs `3.35×` faster.
+3.728<!--claim:governed_perf.pre_memo_socrata_empty.provenance_records_per_identifier:.3f--> per call — and a
+phrase-only reimplementation that emits byte-identical phrases runs `3.35×` faster. **That `3.35×` is
+the headroom a lazy design would have had against the pre-Phase-B call. D-100 took part of it by making
+the record cheaper instead, which is the opposite design, and the premise the lazy one rested on is
+refuted two paragraphs below.**
 
 ### The premise under rank 1 is false against the only caller population that exists
 
@@ -1391,15 +2831,16 @@ configuration in which half the subsystem is switched off.
 **Three of the four cost centres are differences of two large, similar timings and inherit both their
 noise.** Only provenance is large enough for its magnitude to survive; one round put the fixture
 arm's assembly centre below zero at
--3.06<!--claim:governed_perf.fixture_schema.fixture.stage_assembly_pct_min:.2f--> %. **Take the
+-3.06<!--claim:governed_perf.pre_memo_fixture_schema_fixture.stage_assembly_pct_min:.2f--> %. **Take the
 ordering. The magnitude of any centre but provenance is not quotable.**
 
 **P5's near-death rests on the two real-name arms and the fixture arm disagrees with it by a factor
 of two.** Tokenisation is `9.82` % on Socrata and
-23.02<!--claim:governed_perf.fixture_schema.fixture.stage_tokenise_pct:.2f--> % on the fixture
+23.02<!--claim:governed_perf.pre_memo_fixture_schema_fixture.stage_tokenise_pct:.2f--> % on the fixture
 schema, whose identifiers average `16.069` tokens against Socrata's `2.728`. **The automaton is dead
 on schema identifiers of the length real portals publish and not obviously dead on long ones**, and
-the sentence "tokenisation is `9.82` %" is a fact about one corpus being used to close a workstream.
+the sentence "tokenisation is `9.82` %" is a fact about one corpus being used to close a workstream —
+**and about the pre-Phase-B call, which is a second scope the sentence does not carry.**
 
 **The caller census counts sites, not calls, and there are eleven of them in one repository.** A site
 inside a loop over ten million columns weighs the same as a one-shot CLI command. It cannot speak for

@@ -55,7 +55,11 @@ from acronymkit.governed import (
     expand_token,
     is_compliant,
 )
-from acronymkit.governed.dictionary import _MEMO_LIMIT, _MEMO_POLICY_LIMIT
+from acronymkit.governed.dictionary import (
+    _IDENTIFIER_MEMO_LIMIT,
+    _MEMO_LIMIT,
+    _MEMO_POLICY_LIMIT,
+)
 from acronymkit.governed.tokenizer import _scan, split_identifier, split_identifier_parts
 
 # --------------------------------------------------------------------------
@@ -315,9 +319,11 @@ def test_the_surface_spelling_survives_a_second_call_with_a_different_one() -> N
 def test_an_unknown_token_is_reported_unknown_however_often_it_is_asked_about() -> None:
     """The passthrough contract does not soften on the second call.
 
-    Passthroughs are deliberately not remembered — see ``_Memo`` — so this is
-    also the assertion that the road not taken stays not taken: every call
-    re-reaches the same answer rather than being served one.
+    Passthroughs *are* now remembered, in ``_Memo.passed`` — see the module
+    docstring of :mod:`acronymkit.governed.dictionary` for the two sentences that
+    were retired to get there. So this is no longer "the road not taken stays not
+    taken"; it is the assertion that the road taken changes no answer, which is
+    the only property that ever mattered here.
     """
     catalog = GovernedDictionary.from_mapping({"TXN": "Transaction"})
 
@@ -327,27 +333,96 @@ def test_an_unknown_token_is_reported_unknown_however_often_it_is_asked_about() 
         assert expansion.source is ExpansionSource.PASSTHROUGH
 
 
-def test_the_memo_holds_governed_answers_and_nothing_else() -> None:
-    """The bound is structural: what is remembered is keyed by the vocabulary.
+def test_each_answer_lands_in_the_map_whose_bound_fits_it() -> None:
+    """Four maps, and which one an answer goes in is what bounds its key set.
 
-    A memo that also recorded misses would be keyed by whatever names the caller
-    happened to have, which is the shape that grows without limit. Reaching into
-    the memo is reaching into an implementation detail, and it is done here
-    because "small" is the property being claimed and the only way to see it is
-    to look.
+    ``resolved`` and ``expanded`` are keyed by the vocabulary and cannot outgrow
+    it; ``passed`` and ``identifiers`` are keyed by caller input and are bounded
+    by a limit and a clear instead. Two hundred tokens no catalog answers for
+    must therefore leave the vocabulary-keyed pair empty and fill the other two.
+    Reaching into the memo is reaching into an implementation detail, and it is
+    done here because the split is the property being claimed and the only way to
+    see it is to look.
     """
     catalog = GovernedDictionary.from_mapping({"TXN": "Transaction"})
     policy = NamingPolicy.governed_default()
+    strangers = "_".join(f"ZZ{index}" for index in range(200))
 
-    expand_identifier("_".join(f"ZZ{index}" for index in range(200)), catalog)
+    expand_identifier(strangers, catalog)
     memo = catalog._memo(policy)
 
     assert memo.resolved == {}
     assert memo.expanded == {}
+    # 201 rather than 200: the tokenizer splits at every letter/digit boundary,
+    # so ``ZZ0..ZZ199`` is the one token ``ZZ`` and two hundred ordinals.
+    assert len(memo.passed) == 201
+    assert list(memo.identifiers) == [strangers]
 
     expand_identifier("TXN_TXN_TXN", catalog)
 
     assert list(memo.expanded) == ["TXN"]
+    assert sorted(memo.identifiers) == sorted([strangers, "TXN_TXN_TXN"])
+
+
+def test_a_passthrough_memo_is_not_consulted_by_a_policy_that_refuses() -> None:
+    """``UnknownPolicy.REJECT`` keeps raising after a lenient call warmed ``passed``.
+
+    This is the hazard the old docstring named as its reason for not remembering
+    a passthrough at all: "the one thing a cache must never do is answer a
+    question that was supposed to stop the pipeline". The reason it cannot happen
+    is that ``unknown`` is a ``NamingPolicy`` field and so participates in that
+    frozen record's ``__eq__``, giving a refusing policy a memo of its own. That
+    is a mechanism, and a mechanism nobody exercised is an argument.
+    """
+    catalog = GovernedDictionary.from_mapping({"TXN": "Transaction"})
+    lenient = NamingPolicy.governed_default()
+    strict = NamingPolicy(unknown=UnknownPolicy.REJECT)
+
+    assert expand_identifier("TXN_KYC", catalog, lenient).phrase == "Transaction Kyc"
+    assert catalog._memo(lenient).passed
+
+    with pytest.raises(LexiconError, match="KYC"):
+        expand_identifier("TXN_KYC", catalog, strict)
+
+    assert catalog._memo(strict).passed == {}
+
+
+def test_an_overlay_is_never_served_the_answer_computed_without_it() -> None:
+    """``custom=`` builds a different dictionary, so it consults a different memo.
+
+    The identifier memo is keyed by the identifier alone. That would be a defect
+    if the overlay lived on the same object, and it is not one because
+    ``with_custom`` returns a new instance whose memos are empty — the same
+    argument the token levels have always rested on, now load-bearing for a level
+    that caches a whole result.
+    """
+    catalog = GovernedDictionary.from_mapping({"TXN": "Transaction"})
+
+    warm = expand_identifier("TXN_KYC", catalog)
+    overlaid = expand_identifier("TXN_KYC", catalog, custom={"KYC": "Know Your Customer"})
+    after = expand_identifier("TXN_KYC", catalog)
+
+    assert warm.phrase == "Transaction Kyc"
+    assert overlaid.phrase == "Transaction Know Your Customer"
+    assert overlaid.is_fully_known
+    assert after.to_json() == warm.to_json()
+
+
+def test_the_identifier_memo_stops_growing_at_its_limit() -> None:
+    """More distinct names than the bound, and the map still fits inside it.
+
+    The clear is the branch where a memo is likeliest to serve a stale answer, so
+    it is taken here and the answer either side of it is compared.
+    """
+    catalog = GovernedDictionary.from_mapping({"TXN": "Transaction"})
+    policy = NamingPolicy.governed_default()
+    first = expand_identifier("TXN_N00000", catalog, policy)
+
+    for index in range(_IDENTIFIER_MEMO_LIMIT + 50):
+        expand_identifier(f"TXN_N{index:05d}", catalog, policy)
+
+    assert len(catalog._memo(policy).identifiers) <= _IDENTIFIER_MEMO_LIMIT
+    assert expand_identifier("TXN_N00000", catalog, policy).to_json() == first.to_json()
 
 
 def test_the_memo_stops_growing_at_its_limit() -> None:

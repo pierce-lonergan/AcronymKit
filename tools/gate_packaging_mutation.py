@@ -79,8 +79,10 @@ job that runs it.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -88,7 +90,7 @@ import tarfile
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TOOLS = Path(__file__).resolve().parent
@@ -192,34 +194,102 @@ BREAKAGES: Dict[str, Tuple[str, str, Mutator]] = {
 }
 
 
-#: THE RESIDUE, DECLARED. Every literal this file's reproduction depends on,
-#: paired with what it reproduces. :func:`sequence_drift` requires each to be
-#: present in ``ci.yml``; a rename or a flag change there reddens this run
-#: instead of silently making the reproduction describe a sequence CI no longer
-#: performs.
+#: THE RESIDUE, DECLARED, SCOPED AND ORDERED. Every literal this file's
+#: reproduction depends on, paired with the ci.yml JOB it was copied out of and
+#: with what it reproduces. :func:`sequence_drift` requires each to be present
+#: **inside that job's own ``run:`` blocks**, and in the order written here.
 #:
-#: This is the WEAKER half of the fix and it is labelled as such. The two
+#: This is the WEAKER half of the fix and it is still labelled as such. The two
 #: assertions above are invoked. The multi-step sequence around them cannot be:
 #: it spans ``$RUNNER_TEMP``, ``$GITHUB_WORKSPACE`` and a virtual environment
 #: the workflow creates, none of which exists outside a runner, and a job's
-#: ``run:`` block is not addressable from outside the workflow at all. So the
-#: sequence stays reproduced, and what is checkable about it is that every
-#: command it copies still appears in the file it was copied from.
-SEQUENCE_FRAGMENTS: Tuple[Tuple[str, str], ...] = (
-    ("python -m build --sdist", "the sdist build in installed-suite"),
-    ("python -m build\n", "the sdist+wheel build in build"),
-    ("--strip-components=1", "how both jobs extract the sdist"),
-    ("python -m pytest -q -x", "build's extracted-tree suite"),
+#: ``run:`` block is not addressable from outside the workflow at all.
+#:
+#: WHAT THE PREVIOUS VERSION OF THIS COULD NOT CATCH, IN ITS OWN WORDS: "it
+#: catches a rename or a flag change and it cannot catch a reordering, an added
+#: step, or a ``run:`` block that means something different with the same words
+#: in it." The first two of those three are closed here -- the scope and the
+#: order below close the reordering, and :data:`REPRODUCED_REGIONS` closes the
+#: added step. The third is not closed and cannot be by a textual check.
+SEQUENCE_FRAGMENTS: Tuple[Tuple[str, str, str], ...] = (
+    ("build", "python -m build", "the sdist+wheel build in build"),
+    ("build", "--strip-components=1", "how build extracts the sdist"),
+    ("build", "tools/gate_sdist_files.py", "the file list this file imports"),
+    ("build", "python -m pytest -q -x", "build's extracted-tree suite"),
+    ("installed-suite", "python -m build --sdist", "the sdist build in installed-suite"),
+    ("installed-suite", "--strip-components=1", "how installed-suite extracts the sdist"),
     (
+        "installed-suite",
+        'cp -r "$RUNNER_TEMP/sdist/tests" "$RUNNER_TEMP/run/tests"',
+        "the run-directory layout",
+    ),
+    (
+        "installed-suite",
+        'cp "$RUNNER_TEMP/sdist/pyproject.toml"',
+        "pytest configuration travelling with the tests",
+    ),
+    (
+        "installed-suite",
+        'test ! -e "$RUNNER_TEMP/run/src"',
+        "the assertion that no source tree is reachable",
+    ),
+    (
+        "installed-suite",
         "--continue-on-collection-errors --tb=short -rfEs",
         "installed-suite's pytest invocation",
     ),
+    (
+        "installed-suite",
+        "tools/gate_installed_suite.py",
+        "the adjudicator this file imports",
+    ),
+)
+
+#: THE ENV KEY THE LOG PARSER DEPENDS ON. It is not a command line, so it is not
+#: in the sequence above and is not inside any ``run:`` block; it is checked
+#: against the whole file, which is the honest scope for it.
+ENV_FRAGMENTS: Tuple[Tuple[str, str], ...] = (
     ('COLUMNS: "200"', "the terminal width the log parser depends on"),
-    ('cp -r "$RUNNER_TEMP/sdist/tests" "$RUNNER_TEMP/run/tests"', "the run-directory layout"),
-    ('cp "$RUNNER_TEMP/sdist/pyproject.toml"', "pytest configuration travelling with the tests"),
-    ('test ! -e "$RUNNER_TEMP/run/src"', "the assertion that no source tree is reachable"),
-    ("tools/gate_installed_suite.py", "the adjudicator this file imports"),
-    ("tools/gate_sdist_files.py", "the file list this file imports"),
+)
+
+
+class Region(NamedTuple):
+    """A stretch of ``ci.yml`` this file claims to reproduce, pinned by shape.
+
+    ``lines`` and ``digest`` are the whole of the completeness check and they
+    are two scalars rather than a transcript, on purpose. The obvious way to
+    catch an added step is to list every command line the region may contain --
+    and a list of every command line in a job **is** that job, copied into
+    Python, which is the defect this whole file is about. So the region is
+    pinned by its shape: how many command lines it has, and one digest over
+    them, normalised (stripped; comments and blank lines dropped; heredoc
+    bodies dropped, because a heredoc body is a program and not a step).
+
+    An added step, a deleted step, a reordering and an edited command all move
+    one or both. None of them can move neither.
+    """
+
+    job: str
+    step: Optional[str]
+    lines: int
+    digest: str
+
+
+#: THE SHAPE OF WHAT IS REPRODUCED, PINNED. Regenerate with
+#: ``python tools/gate_packaging_mutation.py --print-regions`` after
+#: re-deriving the reproduction -- and note that regenerating it is a button
+#: that silences this check, exactly as the shrink waiver on the in-situ quota
+#: is a sentence nobody grades. What it buys is that the button has to be
+#: pressed deliberately, in a diff a reviewer sees.
+REPRODUCED_REGIONS: Tuple[Region, ...] = (
+    Region("installed-suite", None, 21, "b914d817205e495a"),
+    Region("build", "Build sdist and wheel", 1, "723c5e86c09ab8df"),
+    Region(
+        "build",
+        "Verify the sdist ships the files its own test suite reads",
+        3,
+        "c16bab555f469178",
+    ),
 )
 
 #: DIVERGENCES THIS FILE KNOWS IT HAS, written down because an undeclared
@@ -235,33 +305,218 @@ KNOWN_DIVERGENCES: Tuple[str, ...] = (
     "runs in a temp directory rather than under `$RUNNER_TEMP`, and copies the run "
     "directory with `shutil` rather than `cp -r`.",
     "does not re-run `build`'s wheel steps at all: `wheel_budget`, `wheel_resources` "
-    "and `installed_wheel_smoke` are outside this harness and remain `inline`.",
+    "and `installed_wheel_smoke` are outside this harness and remain `inline`. Those "
+    "three steps are OUTSIDE the pinned regions below, so a change to them does not "
+    "redden this check -- which is what scoping it honestly costs.",
+    "does not reproduce the heredoc BODIES of either job -- the import-resolution "
+    "probe in `installed-suite` and the two wheel probes in `build` are programs, "
+    "not steps, and are dropped before the region digest is taken.",
 )
 
 
-def sequence_drift(root: Path = REPO_ROOT) -> List[str]:
-    """Every command this file reproduces that ``ci.yml`` no longer contains.
+def _normalise(body: Sequence[str]) -> List[str]:
+    """Command lines only: no blanks, no comments, no heredoc bodies."""
+    out: List[str] = []
+    terminator: Optional[str] = None
+    for raw in body:
+        line = raw.strip()
+        if terminator is not None:
+            if line == terminator:
+                terminator = None
+            continue
+        if not line or line.startswith("#"):
+            continue
+        out.append(line)
+        opener = re.search(r"<<'([A-Za-z_][A-Za-z0-9_]*)'", line)
+        if opener:
+            terminator = opener.group(1)
+    return out
 
-    **This is the check that replaces a comment.** The previous guard here
-    compared one copied list against the workflow and printed a WARNING if they
-    disagreed; a warning in a log nobody reads is how a reproduction drifts for
-    a whole phase. The two copied *lists* are gone -- they are imported now --
-    and what is left is the sequence, which cannot be invoked from outside the
-    workflow. So the sequence's literals are asserted instead, and a miss is a
-    non-zero exit rather than a line of output.
+
+def _workflow_run_blocks(text: str) -> Dict[str, List[Tuple[str, List[str]]]]:
+    """``ci.yml`` as ``job -> [(step name, command lines)]``.
+
+    A scanner, not a YAML parser, and it says so: it keys off this repository's
+    two-space job keys and six-space ``- name:`` steps, the same convention
+    ``tools/gates.py`` scans with. A workflow written another way scans to
+    nothing and would make every rule built on it vacuously true, which is the
+    exact defect this register catalogues -- so :func:`sequence_drift` refuses a
+    scan that finds no jobs.
+    """
+    lines = text.split("\n")
+    jobs: Dict[str, List[Tuple[str, List[str]]]] = {}
+    job: Optional[str] = None
+    step = "<no name>"
+    in_jobs = False
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if re.match(r"^jobs:\s*$", line):
+            in_jobs = True
+            index += 1
+            continue
+        if in_jobs:
+            job_key = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", line)
+            if job_key:
+                job = job_key.group(1)
+                jobs.setdefault(job, [])
+                step = "<no name>"
+                index += 1
+                continue
+            name_key = re.match(r"^      - name: (.*)$", line)
+            if name_key and job:
+                step = name_key.group(1).strip()
+                index += 1
+                continue
+            block = re.match(r"^(\s+)run: \|\s*$", line)
+            if block and job:
+                indent = len(block.group(1))
+                body: List[str] = []
+                index += 1
+                while index < len(lines):
+                    following = lines[index]
+                    if following.strip() and len(following) - len(following.lstrip()) <= indent:
+                        break
+                    body.append(following)
+                    index += 1
+                jobs[job].append((step, _normalise(body)))
+                continue
+            inline = re.match(r"^\s+run: (?!\|)(.+)$", line)
+            if inline and job:
+                jobs[job].append((step, _normalise([inline.group(1)])))
+                index += 1
+                continue
+        index += 1
+    return jobs
+
+
+def _region_lines(
+    scanned: Dict[str, List[Tuple[str, List[str]]]], region: Region
+) -> Optional[List[str]]:
+    """Every command line of one declared region, in order, or ``None``."""
+    if region.job not in scanned:
+        return None
+    found: List[str] = []
+    seen_step = region.step is None
+    for step, body in scanned[region.job]:
+        if region.step is not None and step != region.step:
+            continue
+        seen_step = True
+        found.extend(body)
+    return found if seen_step else None
+
+
+def _digest(lines: Sequence[str]) -> str:
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()[:16]
+
+
+def region_shapes(root: Path = REPO_ROOT) -> List[Region]:
+    """The pinned regions as ``ci.yml`` has them right now."""
+    text = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    scanned = _workflow_run_blocks(text)
+    shapes: List[Region] = []
+    for region in REPRODUCED_REGIONS:
+        found = _region_lines(scanned, region) or []
+        shapes.append(Region(region.job, region.step, len(found), _digest(found)))
+    return shapes
+
+
+def sequence_drift(root: Path = REPO_ROOT) -> List[str]:
+    """Every way this file's reproduction no longer matches ``ci.yml``.
+
+    **This is the check that replaced a comment, strengthened twice.** The first
+    version compared one copied list against the workflow and printed a
+    ``WARNING:``; a warning in a log nobody reads is how a reproduction drifts
+    for a whole phase, and it drifted through run 32808357572, in which all six
+    sdist builds failed and the job was green. The second version made the miss
+    fatal but checked bare substrings against the whole file, and wrote down
+    that it "cannot catch a reordering, an added step, or a ``run:`` block that
+    means something different with the same words in it".
+
+    Three checks now, and the first two of those three holes are closed:
+
+    ``scope``    each fragment must appear inside the ``run:`` blocks of the job
+                 it was copied from. A command that moved to another job is not
+                 this job's sequence any more.
+    ``order``    the fragments of one job must appear in the declared order, so
+                 a reordering of the steps reddens.
+    ``shape``    every pinned region must still hold the declared number of
+                 command lines with the declared digest, so an added step, a
+                 deleted step or an edited command reddens.
+
+    The third hole stays open: a ``run:`` block that means something different
+    with the same words in it passes all three, and no textual check of a
+    workflow can see that. **This is weaker than invoking the sequence and this
+    docstring will not pretend otherwise.**
     """
     workflow = root / ".github" / "workflows" / "ci.yml"
     if not workflow.is_file():
         return [f"{workflow} does not exist; the reproduction cannot be checked at all"]
     text = workflow.read_text(encoding="utf-8")
-    problems = []
-    for fragment, what in SEQUENCE_FRAGMENTS:
+    scanned = _workflow_run_blocks(text)
+    if not scanned:
+        # THE VACUITY GUARD. Every rule below is a statement about a scan, and a
+        # scan that found nothing makes all of them true and none of them
+        # meaningful -- which is the class of defect this file sits downstream
+        # of. `tools/gates.py`'s `validate()` refuses a zero-job scan for the
+        # same reason.
+        return [
+            "the workflow scanner found no jobs in ci.yml, so every check below would pass "
+            "vacuously. The scanner keys off two-space job keys and six-space `- name:` "
+            "steps; either the workflow was rewritten in another style, or the scanner is "
+            "broken. Either way nothing here is checking anything."
+        ]
+
+    problems: List[str] = []
+    for fragment, what in ENV_FRAGMENTS:
         if fragment not in text:
             problems.append(
                 f"ci.yml no longer contains {fragment!r} ({what}). This file REPRODUCES that "
-                "sequence and can only be reproducing something else now. Re-derive the "
-                "reproduction from the workflow, or update SEQUENCE_FRAGMENTS and say what "
-                "moved."
+                "sequence and can only be reproducing something else now."
+            )
+
+    for job in sorted({job for job, _, _ in SEQUENCE_FRAGMENTS}):
+        body = "\n".join(line for _, commands in scanned.get(job, []) for line in commands)
+        cursor = -1
+        for job_name, fragment, what in SEQUENCE_FRAGMENTS:
+            if job_name != job:
+                continue
+            at = body.find(fragment)
+            if at < 0:
+                problems.append(
+                    f"ci.yml's {job!r} job no longer runs {fragment!r} ({what}). This file "
+                    "REPRODUCES that sequence and can only be reproducing something else "
+                    "now. Re-derive the reproduction from the workflow, or update "
+                    "SEQUENCE_FRAGMENTS and say what moved."
+                )
+                continue
+            if at < cursor:
+                problems.append(
+                    f"ci.yml's {job!r} job still runs {fragment!r} ({what}), but no longer in "
+                    "the declared order. A reproduction performs its steps in an order, and a "
+                    "set of substrings cannot tell that the order changed -- which is why "
+                    "this is checked rather than assumed."
+                )
+            cursor = max(cursor, at)
+
+    for region, actual in zip(REPRODUCED_REGIONS, region_shapes(root)):
+        where = f"{region.job!r}" + (f" / step {region.step!r}" if region.step else "")
+        found = _region_lines(scanned, region)
+        if found is None:
+            problems.append(
+                f"ci.yml has no {where} for this file to reproduce. The region is pinned "
+                "because the reproduction is a copy of it, so a region that is gone means "
+                "the copy is of nothing."
+            )
+            continue
+        if (actual.lines, actual.digest) != (region.lines, region.digest):
+            problems.append(
+                f"the reproduced region {where} is now {actual.lines} command line(s) at "
+                f"digest {actual.digest}, against the declared {region.lines} at "
+                f"{region.digest}. A step was added, removed, reordered or edited and this "
+                "file still performs the old sequence. Re-derive the reproduction, then "
+                "re-pin with `--print-regions`. The region now holds:\n      "
+                + "\n      ".join(found)
             )
     return problems
 
@@ -444,7 +699,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="only check this file's reproduction against ci.yml, and exit",
     )
+    parser.add_argument(
+        "--print-regions",
+        action="store_true",
+        help="print REPRODUCED_REGIONS as ci.yml has them now, and exit",
+    )
     args = parser.parse_args(argv)
+
+    if args.print_regions:
+        # RE-PINNING IS A DELIBERATE ACT AND THIS IS THE BUTTON. It prints and
+        # changes nothing: somebody has to paste it into REPRODUCED_REGIONS,
+        # in a diff a reviewer sees, after re-deriving the reproduction.
+        for shape in region_shapes():
+            print(f"    Region({shape.job!r}, {shape.step!r}, {shape.lines}, {shape.digest!r}),")
+        return 0
 
     # THE DRIFT CHECK RUNS FIRST AND IS FATAL, WHICH IT WAS NOT BEFORE.
     #
@@ -460,12 +728,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for problem in drift:
             print(f"  - {problem}", file=sys.stderr)
         return 1
+    pinned = sum(region.lines for region in REPRODUCED_REGIONS)
     print(
-        f"reproduction check: {len(SEQUENCE_FRAGMENTS)} sequence fragment(s) still present in "
-        f"ci.yml; {len(KNOWN_DIVERGENCES)} divergence(s) declared; the two ASSERTIONS "
-        "(EXPECTED_NON_PASSING/PASS_FLOOR and the sdist file list) are imported from the "
-        "scripts ci.yml runs, not copied"
+        f"reproduction check: {len(SEQUENCE_FRAGMENTS)} sequence fragment(s) present in the "
+        f"ci.yml JOB each was copied from and in the declared order; "
+        f"{len(REPRODUCED_REGIONS)} pinned region(s) holding {pinned} command line(s) at the "
+        f"declared digests; {len(KNOWN_DIVERGENCES)} divergence(s) declared; the two "
+        "ASSERTIONS (EXPECTED_NON_PASSING/PASS_FLOOR and the sdist file list) are imported "
+        "from the scripts ci.yml runs, not copied"
     )
+    for shape in region_shapes():
+        step = f" / {shape.step}" if shape.step else ""
+        print(f"  pinned region: {shape.job}{step} -- {shape.lines} line(s), {shape.digest}")
     for divergence in KNOWN_DIVERGENCES:
         print(f"  declared divergence: {divergence}")
     if args.check_drift:

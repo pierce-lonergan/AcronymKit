@@ -20,10 +20,10 @@ instead. Passing tokens get findings too, so a review can see *why* a name was
 accepted rather than only that it was.
 
 Whole-name findings (casing, a missing trailing class word, length, an empty
-name) carry ``token=None``. They are emitted only on failure: the five codes
-that name a defect would read as their own opposite attached to a ``PASS``
-verdict, and "this name is not NOT_UPPER_SNAKE" is not a sentence worth putting
-in an audit trail.
+name, a character no token can hold) carry ``token=None``. They are emitted only
+on failure: the six codes that name a defect would read as their own opposite
+attached to a ``PASS`` verdict, and "this name is not NOT_UPPER_SNAKE" is not a
+sentence worth putting in an audit trail.
 
 Each ``fix`` is the smallest edit that clears *its own* finding and nothing
 else, so a caller can apply one without silently accepting another. The casing
@@ -91,10 +91,58 @@ intended reading of the two verbs rather than a gap between them.
 ``acronymkit check-name --unknown reject`` therefore accepts the flag and
 reports; it does not stop.
 
+The one refusal in this module is not an exception to that, because it is not
+about the vocabulary at all: :func:`normalize` raises on a character the
+*splitter* could not read, under every policy and whatever ``unknown`` says. An
+unknown token is a row somebody owes the catalog and this module can report it
+and leave the token alone; an unreadable character is a question about the name
+itself, no row answers it, and there is no string to leave alone — every string
+available has the character deleted. Keeping the two apart is the whole of why
+the tokenizer reports them in two different fields.
+
+A character no token can hold
+-----------------------------
+This section exists because the sentence three sections down — *"It never
+shortens a name"* — was true of the length rule and false of the function.
+
+``normalize('TXN_©_ID')`` returned ``'TXN_ID'`` and ``normalize('㎡')`` returned
+``''``. A token gone, then a whole name gone, with no signal either time, in the
+subsystem whose thesis is that an unknown reported as unknown is recoverable and
+an unknown quietly answered is not. ``is_compliant`` was worse rather than
+better: it reported the same name as ``NOT_UPPER_SNAKE`` — true, and about the
+wrong thing — and attached ``fix='TXN_ID'``, a machine-readable instruction to
+delete the character. ``expand_identifier`` had reported that same character on
+:attr:`~acronymkit.governed.models.IdentifierExpansion.unaccounted` the whole
+time; the accounting existed and this module threw it away by calling
+:func:`~acronymkit.governed.tokenizer.split_identifier` where its lossless twin
+was one word away.
+
+**The shape of each answer follows from what the verb returns.**
+
+* :func:`normalize` returns a bare :class:`str`, so it **raises**
+  :class:`~acronymkit.exceptions.TokenizationError`. There is no field to report
+  on and no correction to make.
+* :func:`is_compliant` returns a record, so it **reports** —
+  ``ComplianceReasonCode.UNREADABLE_CHARACTER``, with no ``fix``, and it stops
+  offering the three whole-name fixes that would have carried the deletion. A
+  name made *only* of such characters is no longer called ``EMPTY_NAME``, which
+  was a false statement about a name that was not empty.
+* :func:`~acronymkit.governed.naming.to_physical_name` returns a record and also
+  reports, on :attr:`~acronymkit.governed.models.PhysicalName.unaccounted`.
+
+**Refusing is not free, and the price was measured before the split was
+chosen.** ``normalize`` reads physical names and ``to_physical_name`` reads
+logical ones, and those two populations differ by two orders of magnitude in how
+often the condition fires. The figures, the corpora and the run are in
+``docs/GOVERNED_NAMING.md``; that measurement is why one verb refuses and the
+other does not.
+
 Idempotence
 -----------
-``normalize(normalize(x)) == normalize(x)`` for every ASCII ``x``, and it holds
-by construction rather than by testing: a rewrite is proposed **only when its
+``normalize(normalize(x)) == normalize(x)`` wherever the first call returns —
+which is now the whole of the qualification, where it used to read "for every
+ASCII ``x``" — and it holds by construction rather than by testing: a rewrite is
+proposed **only when its
 target is approved**, so the second pass finds an approved token, has nothing to
 propose, and returns it unchanged. When the catalog offers nothing approved the
 token is left exactly as it was, which is also a fixed point. Both branches
@@ -121,14 +169,30 @@ narrowed to refuse a join whose result is itself all digits. The premise is
 tested by varying the catalog rather than the name, which is the dimension the
 corpus-parametrised test above cannot reach.
 
-Outside ASCII it is **false**, and the honest thing is to say where rather than
-to claim the invariant unqualified. ``str.upper`` is not length-preserving and
-can produce characters that are not letters: ``"ΐ"`` upper-cases to a
-capital iota followed by two combining marks, a combining mark is unaccounted,
-and the second pass drops them. Repairing that would mean either applying Unicode
-normalisation — which rewrites text, and
-:mod:`~acronymkit.governed.tokenizer` refuses to — or declining to upper-case a
-word, and both are worse than a stated limit.
+It has a fourth, and it is the one that used to make the invariant ASCII-only.
+``str.upper`` is not length-preserving and can produce characters that are not
+letters: ``"ΐ"`` upper-cases to a capital iota followed by two combining marks,
+and a combining mark is unaccounted. The old behaviour returned that three-
+character string and then **dropped the marks on the next pass**, so
+``normalize`` moved twice for that input and the invariant was stated with
+"ASCII" attached to it.
+
+**It is now a premise the function checks rather than a limit it documents.**
+:func:`normalize` refuses a corrected name that carries an unaccounted character,
+exactly as it refuses one on the way in, so the value it returns is always a
+value it would accept — which is what a normal form has to be. Nothing was
+repaired: the Unicode fact is unchanged, and repairing it would still mean either
+applying Unicode normalisation, which rewrites text and
+:mod:`~acronymkit.governed.tokenizer` refuses to, or declining to upper-case a
+word. What changed is that the loss is now a refusal instead of a silent
+shortening, and the invariant no longer needs an alphabet in it.
+
+The check costs one ``str.isascii`` on every call and a second split on nothing
+that ships: across the four published identifier and caption populations of the
+Socrata and SEC XBRL corpora, not one string whose input was clean has a
+corrected form that manufactures an unaccounted character. The count and the
+command that produced it are in ``docs/GOVERNED_NAMING.md``. It is a guard
+against a shape that exists rather than a tax on one that occurs.
 
 ``normalize`` and ``is_compliant`` share one decision ladder — ``normalize``
 applies precisely the ``fix`` that ``is_compliant`` reports — so the check and
@@ -151,6 +215,11 @@ where there is one, is the governed rewrite — which is sometimes shorter becau
 ``CUSTMR`` becomes ``CUST`` — and never a name with a token dropped out of it.
 No code path here removes a token to make a name fit.
 
+That sentence is about the length rule, it was read as though it were about the
+function, and for the unaccounted character it was false. It is true now, and it
+is true because the function refuses rather than because the character became
+representable — see "A character no token can hold" above.
+
 Worked examples use the fictional **Northwind Data Standards** (``NDS``) catalog
 with synthetic ids. Nothing here describes a real organisation's standard.
 """
@@ -159,14 +228,14 @@ from __future__ import annotations
 
 from typing import Mapping, Optional, Union
 
-from ..exceptions import ConfigurationError
+from ..exceptions import ConfigurationError, TokenizationError
 from .dictionary import GovernedDictionary
 from .enums import ComplianceReasonCode, EntryKind, ExpansionSource, Verdict
 from .expansion import _rejoin_digit_tokens
 from .models import ComplianceReason, ComplianceResult, GovernedEntry
 from .naming import DEFAULT_CLASS_WORD
 from .policy import NamingPolicy
-from .tokenizer import split_identifier
+from .tokenizer import split_identifier_parts
 
 __all__ = ["is_compliant", "normalize"]
 
@@ -437,8 +506,15 @@ def _prepare(
     policy: Optional[NamingPolicy],
     custom: Optional[Mapping[str, Union[str, GovernedEntry]]],
     verb: str,
-) -> tuple[NamingPolicy, GovernedDictionary, tuple[str, ...]]:
+) -> tuple[NamingPolicy, GovernedDictionary, tuple[str, ...], tuple[str, ...]]:
     """Shared entry work for both verbs: validate, default, layer, tokenise.
+
+    Splits through
+    :func:`~acronymkit.governed.tokenizer.split_identifier_parts` rather than
+    :func:`~acronymkit.governed.tokenizer.split_identifier`, so the characters
+    the splitter could not account for reach both verbs instead of being dropped
+    on the floor between them. That one-word difference is the whole of the fix
+    for the defect recorded on :func:`normalize`.
 
     Args:
         name: The physical name as supplied.
@@ -448,8 +524,9 @@ def _prepare(
         verb: The public function's name, for the error message.
 
     Returns:
-        The active policy, the dictionary with the overlay layered on, and the
-        name's tokens with digit-leading catalog forms rejoined.
+        The active policy, the dictionary with the overlay layered on, the
+        name's tokens with digit-leading catalog forms rejoined, and every
+        character of ``name`` that ended up in no token.
 
     Raises:
         ConfigurationError: If ``dictionary`` is ``None``.
@@ -462,7 +539,90 @@ def _prepare(
         )
     active = NamingPolicy.governed_default() if policy is None else policy
     layered = dictionary.with_custom(custom) if custom else dictionary
-    return active, layered, _rejoin_digit_tokens(split_identifier(name), layered, active)
+    parts = split_identifier_parts(name)
+    return (
+        active,
+        layered,
+        _rejoin_digit_tokens(parts.tokens, layered, active),
+        parts.unaccounted,
+    )
+
+
+def _listed(characters: tuple[str, ...]) -> str:
+    """Render unaccounted characters for a message: the character and its code point.
+
+    The code point is not decoration. Half of these characters have no glyph a
+    terminal will draw — a combining mark, a control character, a zero-width
+    space — so a message that showed only the character would read as though it
+    named nothing at all.
+
+    Args:
+        characters: The unaccounted characters, in input order.
+
+    Returns:
+        A comma-separated list, one entry per occurrence.
+    """
+    return ", ".join(f"{character!r} (U+{ord(character):04X})" for character in characters)
+
+
+def _refusal(name: str, unaccounted: tuple[str, ...], because: str) -> TokenizationError:
+    """The exception :func:`normalize` raises rather than answer with a character gone.
+
+    :class:`~acronymkit.exceptions.TokenizationError` rather than a new type:
+    this package keeps its exceptions in one module, that module is not this
+    workstream's to extend, and the meaning already fits — the input cannot be
+    tokenised into usable units without part of it being discarded. It descends
+    from :class:`~acronymkit.exceptions.AcronymKitError`, so a batch that already
+    catches this package's errors catches this one.
+
+    Args:
+        name: The name as supplied, quoted back so a batch log identifies the row.
+        unaccounted: The offending characters, in input order.
+        because: The clause saying which of the two conditions fired — the name
+            as given, or the name as this function would have corrected it.
+
+    Returns:
+        The exception, for the caller to raise. Built rather than raised so the
+        two call sites read as the refusals they are.
+    """
+    return TokenizationError(
+        f"normalize cannot correct {name!r} without losing part of it: "
+        f"{len(unaccounted)} character(s) {because} -- {_listed(unaccounted)}. Every name "
+        "this function could return has them deleted, and deleting part of a name nobody "
+        "approved is the one correction it may not make. Call is_compliant for the finding "
+        "(ComplianceReasonCode.UNREADABLE_CHARACTER) or split_identifier_parts for the "
+        "accounting -- neither raises -- and fix the name at its source."
+    )
+
+
+def _unreadable_finding(unaccounted: tuple[str, ...]) -> ComplianceReason:
+    """The whole-name finding for characters no token can hold.
+
+    Carries no ``fix``, and the absence is the point. Every corrected name this
+    module can build is ``"_".join`` over the tokens, and the tokens are what is
+    left once these characters were taken out — so any fix offered here would be
+    the name with a character missing, handed to a caller as advice. The module's
+    own rule is that a fix is the smallest edit clearing *its own* finding and
+    nothing else; a fix that also deletes a character is not that, and there is
+    no smaller edit, because nothing here knows what the character was for.
+
+    Args:
+        unaccounted: The characters, in input order, one entry per occurrence.
+
+    Returns:
+        One ``FAIL`` finding with ``token=None`` and ``fix=None``.
+    """
+    return ComplianceReason(
+        token=None,
+        verdict=Verdict.FAIL,
+        code=ComplianceReasonCode.UNREADABLE_CHARACTER,
+        detail=(
+            f"The name holds {len(unaccounted)} character(s) that no token can contain and "
+            f"that are not governed separators: {_listed(unaccounted)}. Nothing here can "
+            "correct that without deleting them, so no fix is offered and normalize refuses "
+            "the name."
+        ),
+    )
 
 
 def is_compliant(
@@ -514,26 +674,39 @@ def is_compliant(
         >>> result.ends_in_class_word
         False
     """
-    active, layered, tokens = _prepare(name, dictionary, policy, custom, "is_compliant")
+    active, layered, tokens, unaccounted = _prepare(
+        name, dictionary, policy, custom, "is_compliant"
+    )
 
     if not tokens:
+        # A name made only of characters the splitter cannot read is not an
+        # empty name, and reporting it as one put a false sentence in an audit
+        # record: is_compliant('㎡') said the input had been blank.
+        blank = ComplianceReason(
+            token=None,
+            verdict=Verdict.FAIL,
+            code=ComplianceReasonCode.EMPTY_NAME,
+            detail="There is no name to check: it is empty, or holds only separators.",
+        )
         return ComplianceResult(
             name=name,
             compliant=False,
-            reasons=(
-                ComplianceReason(
-                    token=None,
-                    verdict=Verdict.FAIL,
-                    code=ComplianceReasonCode.EMPTY_NAME,
-                    detail="There is no name to check: it is empty, or holds only separators.",
-                ),
-            ),
+            reasons=(_unreadable_finding(unaccounted),) if unaccounted else (blank,),
             ends_in_class_word=False,
             class_word=None,
         )
 
     judged, rewritten = _judge(layered, active, tokens)
     findings = list(judged)
+
+    # Every whole-name ``fix`` below is the name rebuilt out of ``tokens``, and
+    # ``tokens`` is what is left once the unreadable characters were taken out.
+    # So when there are any, no whole-name fix may be offered: the alternative
+    # is handing a caller a machine-readable instruction to delete part of the
+    # name they asked about. That is not a hypothetical -- is_compliant
+    # ('TXN_©_ID') used to answer NOT_UPPER_SNAKE with fix='TXN_ID'.
+    if unaccounted:
+        findings.append(_unreadable_finding(unaccounted))
 
     if not _is_upper_snake(name):
         findings.append(
@@ -542,7 +715,7 @@ def is_compliant(
                 verdict=Verdict.FAIL,
                 code=ComplianceReasonCode.NOT_UPPER_SNAKE,
                 detail="A governed physical name is written in UPPER_SNAKE form.",
-                fix="_".join(token.upper() for token in tokens),
+                fix=None if unaccounted else "_".join(token.upper() for token in tokens),
             )
         )
 
@@ -550,7 +723,7 @@ def is_compliant(
     if active.require_trailing_class_word and class_word is None:
         suggestion = (
             f"{'_'.join(token.upper() for token in tokens)}_{DEFAULT_CLASS_WORD}"
-            if layered.class_word_for(DEFAULT_CLASS_WORD) is not None
+            if layered.class_word_for(DEFAULT_CLASS_WORD) is not None and not unaccounted
             else None
         )
         findings.append(
@@ -581,7 +754,9 @@ def is_compliant(
                 ),
                 fix=(
                     rewritten
-                    if rewritten != name and len(rewritten) <= active.max_name_length
+                    if not unaccounted
+                    and rewritten != name
+                    and len(rewritten) <= active.max_name_length
                     else None
                 ),
             )
@@ -611,9 +786,24 @@ def normalize(
     stands, including tokens the vocabulary has never heard of: an unknown token
     rewritten to a guess is worse than an unknown token reported as unknown.
 
-    Idempotent for an ASCII name: ``normalize(normalize(x)) == normalize(x)``.
-    See the module docstring for why that holds by construction, for the premise
-    it rests on, and for the Unicode case where it does not hold.
+    **A name holding a character no token can contain is refused, not silently
+    shortened.** This function returns a bare :class:`str`, so it has no field to
+    report on, and the only two answers available for a name carrying a
+    parenthesis, a currency sign, an emoji or a combining mark are that name with
+    the character deleted — which is what it used to return, ``'TXN_©_ID'`` in
+    and ``'TXN_ID'`` out, with no signal of any kind — or a refusal. It refuses.
+    The refusal names every character and its code point, and the two verbs that
+    *can* report do: :func:`is_compliant` gives
+    ``ComplianceReasonCode.UNREADABLE_CHARACTER`` and
+    :func:`~acronymkit.governed.tokenizer.split_identifier_parts` gives the
+    accounting, so a batch that cannot afford an exception has two pre-checks
+    that never raise.
+
+    Idempotent: ``normalize(normalize(x)) == normalize(x)`` wherever the first
+    call returns, and the qualifier is now "wherever it returns" rather than "for
+    an ASCII name". See the module docstring for why it holds by construction,
+    for the two premises it rests on, and for how the Unicode case that used to
+    break it is answered instead.
 
     This is **not** a promise of compliance. It does not append a missing class
     word — the contract assigns that to ``to_physical_name`` — and it never
@@ -636,6 +826,12 @@ def normalize(
 
     Raises:
         ConfigurationError: If ``dictionary`` is ``None``.
+        TokenizationError: If any character of ``name``, or of the corrected name
+            this function would otherwise return, belongs to no token and is not
+            one of the separators
+            :data:`~acronymkit.governed.tokenizer.ACCOUNTED_SEPARATORS` covers.
+            The message lists every one with its code point. Nothing partial is
+            returned, because a partial answer here is exactly the defect.
 
     Example:
         >>> from acronymkit.governed import GovernedDictionary, normalize
@@ -647,6 +843,29 @@ def normalize(
         'TXN_NBR'
         >>> normalize(normalize("txnNum", catalog), catalog)
         'TXN_NBR'
+        >>> normalize("TXN_\\u00a9_ID", catalog)  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+            ...
+        acronymkit.exceptions.TokenizationError: normalize cannot correct ...
     """
-    active, layered, tokens = _prepare(name, dictionary, policy, custom, "normalize")
-    return _judge(layered, active, tokens)[1]
+    active, layered, tokens, unaccounted = _prepare(name, dictionary, policy, custom, "normalize")
+    if unaccounted:
+        raise _refusal(name, unaccounted, "belong to no token and are not governed separators")
+    corrected = _judge(layered, active, tokens)[1]
+    # The second source, and it is not the caller's doing: ``str.upper`` is not
+    # length-preserving and can manufacture characters that are not letters --
+    # "ΐ" upper-cases to a capital iota and two combining marks. A name
+    # returned here has to be a name this function would accept, or it is not a
+    # normal form; see "Idempotence" in the module docstring. The guard is
+    # ``isascii``: upper-casing ASCII yields ASCII, and no ASCII letter or digit
+    # is unaccounted, so the second split is paid only by a non-ASCII answer.
+    if not corrected.isascii():
+        manufactured = split_identifier_parts(corrected).unaccounted
+        if manufactured:
+            raise _refusal(
+                name,
+                manufactured,
+                "appear in the upper-cased form of its own tokens, belong to no token, "
+                "and are not governed separators",
+            )
+    return corrected

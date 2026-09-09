@@ -45,11 +45,12 @@ gets deleted.
 from __future__ import annotations
 
 import importlib.util
+import re
 import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import List
+from typing import Callable, List
 
 import pytest
 
@@ -280,10 +281,22 @@ class TestSdistFileList:
         assert [name for name, _ in absent] == [sdist_files.REQUIRED[0][0]]
 
     def test_data_licenses_is_on_the_list(self) -> None:
-        # Held by this list and by nothing else in the repository: the
-        # extracted-tree suite passes with it gone, because no test reads it,
-        # and two shipped documents cite it as evidence. Deleting this entry
-        # removes the only check on it.
+        # THIS COMMENT USED TO SAY THE LIST WAS THE ONLY NET, AND THE TEST
+        # DIRECTLY ABOVE IT HAD ALREADY FALSIFIED THAT.
+        #
+        # It read: "Held by this list and by nothing else in the repository: the
+        # extracted-tree suite passes with it gone, because no test reads it."
+        # `test_the_checkout_holds_all_of_them`, six lines up, calls
+        # `sdist_files.missing(REPO_ROOT)` -- and inside an extracted sdist
+        # REPO_ROOT is the artifact, so the extracted-tree suite DOES fail with
+        # the file gone. Both runner runs of `packaging-gates` report exactly
+        # that (run 34099756605, replicated by 33379084166), and
+        # [[defect_coverage]] row `b` in .github/gates.toml now carries it.
+        #
+        # The sentence was inherited from `tools/gate_sdist_files.py`'s reason
+        # string, where it is STILL false and is still printed when that gate
+        # fires. Reported rather than edited here: changing what a shipped gate
+        # prints is not this file's business.
         assert "data/LICENSES.md" in [name for name, _ in sdist_files.REQUIRED]
 
 
@@ -343,6 +356,22 @@ class TestTheInstalledSuiteAdjudicator:
         assert installed_suite.adjudicate(log)["rc"] == 0
 
 
+def _ci_tree(root: Path, mutate: Callable[[str], str]) -> Path:
+    """A tree holding one mutated copy of ``ci.yml``, and nothing else.
+
+    The mutation is asserted to have CHANGED the file. Five cases of
+    ``docs/GATES.md``'s own mutation battery were once silent no-ops that
+    reported ``rc=0``, and five green rows were nearly published as refusals; a
+    probe that did not fire is not a probe that found nothing.
+    """
+    original = CI.read_text(encoding="utf-8")
+    text = mutate(original)
+    assert text != original, "the mutation changed nothing; this case proves nothing"
+    (root / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
+    (root / ".github" / "workflows" / "ci.yml").write_text(text, encoding="utf-8")
+    return root
+
+
 # ---------------------------------------------------------------------------
 # the two-copy problems that are gone, and the one that is left
 # ---------------------------------------------------------------------------
@@ -375,13 +404,10 @@ class TestTheWorkflowAndTheScriptsAgree:
         # run in which all six sdist builds failed and the job was green. A
         # drift check that cannot fail would be the same defect again.
         packaging = _load("gate_packaging_mutation")
-        fragment = packaging.SEQUENCE_FRAGMENTS[0][0]
-        (tmp_path / ".github" / "workflows").mkdir(parents=True)
-        (tmp_path / ".github" / "workflows" / "ci.yml").write_text(
-            CI.read_text(encoding="utf-8").replace(fragment, "python -m nothing"),
-            encoding="utf-8",
+        fragment = packaging.SEQUENCE_FRAGMENTS[0][1]
+        problems: List[str] = packaging.sequence_drift(
+            _ci_tree(tmp_path, lambda text: text.replace(fragment, "python -m nothing"))
         )
-        problems: List[str] = packaging.sequence_drift(tmp_path)
         assert problems and fragment in problems[0]
 
     def test_the_harness_imports_the_gate_rather_than_copying_it(self) -> None:
@@ -391,6 +417,126 @@ class TestTheWorkflowAndTheScriptsAgree:
         assert set(installed_suite.EXPECTED_NON_PASSING) == packaging.EXPECTED_NON_PASSING
         assert packaging.PASS_FLOOR == installed_suite.PASS_FLOOR
         assert tuple(name for name, _ in sdist_files.REQUIRED) == packaging.TEST_F_LINES
+
+
+@needs_workflow
+class TestTheDriftCheckCatchesWhatItSaidItCouldNot:
+    """The three holes the previous version of ``sequence_drift`` wrote down.
+
+    It said, in its own docstring and in ``docs/GATES.md``: *"it catches a
+    rename or a flag change and it cannot catch a reordering, an added step, or
+    a ``run:`` block that means something different with the same words in
+    it."* Two of those three are closed and the third is not. Each case below
+    is one mutation of a COPY of ``ci.yml``; the live file is never touched.
+
+    Measured together on 2026-09-08, Windows, one mutation at a time -- the old
+    whole-file substring rule caught 1 of 6, the rule shipped here catches 6:
+
+    ==== ======= ======= =========================================
+    case old     new     what moved
+    ==== ======= ======= =========================================
+    A    FAILS   FAILS   a fragment is renamed
+    B    passes  FAILS   two commands of one step are swapped
+    C    passes  FAILS   an unregistered step is added
+    D    passes  FAILS   a command is demoted to a comment
+    E    passes  FAILS   the adjudicator invocation is deleted
+    F    passes  FAILS   the workflow scans to no jobs at all
+    ==== ======= ======= =========================================
+    """
+
+    def test_the_live_workflow_passes_all_three_rules(self) -> None:
+        # THE CONTROL, AND IT IS NOT DECORATION. A check that refused every
+        # workflow would "catch" all six mutations below and mean nothing.
+        packaging = _load("gate_packaging_mutation")
+        assert packaging.sequence_drift(REPO_ROOT) == []
+
+    def test_a_reordering_reddens(self, tmp_path: Path) -> None:
+        packaging = _load("gate_packaging_mutation")
+        first = '          cp -r "$RUNNER_TEMP/sdist/tests" "$RUNNER_TEMP/run/tests"\n'
+        second = (
+            '          cp "$RUNNER_TEMP/sdist/pyproject.toml" "$RUNNER_TEMP/run/pyproject.toml"\n'
+        )
+
+        def swap(text: str) -> str:
+            return text.replace(first, "\x00").replace(second, first).replace("\x00", second)
+
+        problems: List[str] = packaging.sequence_drift(_ci_tree(tmp_path, swap))
+        assert any("declared order" in problem for problem in problems), problems
+
+    def test_an_added_step_reddens(self, tmp_path: Path) -> None:
+        # THE ONE THE FRAGMENT CHECK COULD NEVER SEE. Every declared fragment
+        # is still present, in its own job, in order. What changed is the SHAPE
+        # of the region, which is why the region is pinned by a count and a
+        # digest rather than by a list of lines nobody could maintain.
+        packaging = _load("gate_packaging_mutation")
+        after = '          ls -A "$RUNNER_TEMP/run"\n'
+
+        def add(text: str) -> str:
+            return text.replace(after, after + '          echo "unregistered"\n', 1)
+
+        problems: List[str] = packaging.sequence_drift(_ci_tree(tmp_path, add))
+        assert any("command line(s) at digest" in problem for problem in problems), problems
+        assert not any("no longer runs" in problem for problem in problems), problems
+
+    def test_a_command_demoted_to_a_comment_reddens(self, tmp_path: Path) -> None:
+        # THE SCOPE RULE, ISOLATED. The fragment is still in the FILE, so the
+        # old whole-file substring search passed; it has left the SEQUENCE, and
+        # the sequence is what this harness reproduces.
+        packaging = _load("gate_packaging_mutation")
+        line = '          test ! -e "$RUNNER_TEMP/run/src"\n'
+
+        def comment_out(text: str) -> str:
+            return text.replace(line, '          # test ! -e "$RUNNER_TEMP/run/src"\n', 1)
+
+        tree = _ci_tree(tmp_path, comment_out)
+        text = (tree / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        assert 'test ! -e "$RUNNER_TEMP/run/src"' in text  # the old rule passed here
+        problems: List[str] = packaging.sequence_drift(tree)
+        assert any("no longer runs" in problem for problem in problems), problems
+
+    def test_a_deleted_command_reddens(self, tmp_path: Path) -> None:
+        packaging = _load("gate_packaging_mutation")
+        line = (
+            '          python "$GITHUB_WORKSPACE/tools/gate_installed_suite.py" '
+            '"$RUNNER_TEMP/pytest.log"\n'
+        )
+
+        def drop(text: str) -> str:
+            return text.replace(line, "")
+
+        problems: List[str] = packaging.sequence_drift(_ci_tree(tmp_path, drop))
+        assert any("gate_installed_suite.py" in problem for problem in problems), problems
+
+    def test_a_workflow_the_scanner_cannot_read_reddens_rather_than_passing(
+        self, tmp_path: Path
+    ) -> None:
+        # THE VACUITY GUARD, AND IT IS THE WHOLE POINT OF THE FILE IT LIVES IN.
+        # The scanner keys off indentation. A workflow written another way
+        # scans to nothing, every rule above becomes true of an empty set, and
+        # the harness reports a reproduction it never checked.
+        packaging = _load("gate_packaging_mutation")
+
+        def reindent(text: str) -> str:
+            return re.sub(r"(?m)^  ([A-Za-z0-9_-]+):$", r"   \1:", text)
+
+        problems: List[str] = packaging.sequence_drift(_ci_tree(tmp_path, reindent))
+        assert problems and "vacuously" in problems[0], problems
+
+    def test_the_pinned_regions_are_what_the_workflow_holds(self) -> None:
+        # RE-PINNING IS A BUTTON AND THIS IS WHAT IT PRINTS. If `--print-regions`
+        # ever disagreed with the declared tuple on an unmutated tree, the
+        # button would be re-pinning to something other than the file.
+        packaging = _load("gate_packaging_mutation")
+        assert list(packaging.region_shapes(REPO_ROOT)) == list(packaging.REPRODUCED_REGIONS)
+
+    def test_every_pinned_region_holds_at_least_one_command(self) -> None:
+        # A region that scans to zero lines has a stable digest and asserts
+        # nothing -- the same shape as the scan that finds no jobs, one level
+        # down, and it would not otherwise be visible.
+        packaging = _load("gate_packaging_mutation")
+        for region in packaging.REPRODUCED_REGIONS:
+            assert region.lines > 0, region
+            assert region.digest, region
 
 
 @needs_register
@@ -407,6 +553,25 @@ class TestTheRegisterAndTheScriptsAgree:
         ):
             declared = register[gate]["mutation"]["expect_failure_matching"]
             assert declared == module.FAILURE_MARKER, gate
+
+    @needs_parser
+    def test_the_two_handed_over_gates_declare_a_marker_their_script_prints(self) -> None:
+        # REGISTERED BY A WORKSTREAM THAT DID NOT WRITE THE SCRIPT, so the
+        # marker is a literal in the register rather than `module.FAILURE_MARKER`
+        # -- tools/render_figures.py declares no such constant. A literal is a
+        # second copy, and a marker that drifts turns every future demonstration
+        # of that gate into INERT while the register goes on reporting a gate
+        # nobody can demonstrate. So the copy is pinned against the source it
+        # was copied from, which is the only guard available in this direction.
+        register = _register()["gates"]
+        for gate, script in (
+            ("figures", "render_figures.py"),
+            ("memo_identity", "gate_memo_identity.py"),
+        ):
+            declared = register[gate]["mutation"]["expect_failure_matching"]
+            assert declared, gate
+            source = (TOOLS / script).read_text(encoding="utf-8")
+            assert declared in source, (gate, declared)
 
     @needs_parser
     def test_each_extracted_gate_declares_the_command_ci_runs(self) -> None:

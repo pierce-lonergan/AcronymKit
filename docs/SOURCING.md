@@ -17,6 +17,18 @@ glossary*. [`tools/byoc_eval.py`](../tools/byoc_eval.py) makes it *run this insi
 send us a JSON file of counts*. That is a different question, and it is the one most likely to get a
 yes.
 
+**And there is now a step before that one, which asks for nothing at all.**
+`acronymkit governed-gap` reads the same two-column CSV the kit reads — their identifiers and the
+labels their schema already carries — and returns *their* answer rather than ours: which tokens in
+their schema no catalog-free method can ever resolve, ranked by how many columns each one costs
+them. It needs no glossary, no network and no agreement, it is a derivation rather than an estimate
+([`docs/GOVERNED_NAMING.md`](GOVERNED_NAMING.md#the-catalog-gap-what-no-catalog-free-method-can-reach)),
+and the output is the thing a data-governance function is usually trying to build by hand. **That is
+what makes somebody want to run the second script**: the gap report says what their glossary would
+have to contain, and the kit says what it turned out to be worth. One CSV, two questions, in that
+order — and the two report the same column count over it, which is checked by running both
+(`catalog_gap.socrata.byoc_agreement`) rather than asserted here.
+
 **How numbers are handled on this page.** Figures that are measurements of this library cite a run
 id. Figures about third parties (PyPI, GitHub) and figures that size the ask cannot be cited, because
 no benchmark runner can or should `--save` a property of somebody else's website — so they appear as
@@ -282,10 +294,17 @@ So the counterparty's side of the exercise is:
 
 ```
 pip install acronymkit                      # or the offline bundle, on an air-gapped host
+acronymkit governed-gap schema.csv          # THEIR answer, no glossary, nothing leaves the host
 python byoc_eval.py --self-test             # positive fixture and negative control, on their machine
 python byoc_eval.py --template ./example    # the two input shapes, written out
 python byoc_eval.py --schema schema.csv --catalog glossary.csv --out report.json
 ```
+
+The first command after the install is the one that costs them nothing and returns something. It
+writes no file, asks for no glossary and produces the work list described in
+[`docs/GOVERNED_NAMING.md`](GOVERNED_NAMING.md#the-catalog-gap-what-no-catalog-free-method-can-reach);
+`schema.csv` is the same two columns the kit reads, so a counterparty who runs it and stops has
+still got the useful half of the exercise, and one who continues has already built the input.
 
 They read `report.json`. They send it. Nothing else moves, ever.
 
@@ -339,19 +358,29 @@ Short, because a long cold email is an unread cold email. This is the text, not 
 > data-standards glossary is public. So the library cannot currently say whether a governed
 > vocabulary is worth anything on a real schema, and it says so on its own front page.
 >
-> I am not asking for your glossary. I am asking whether someone on your side would run a single
-> Python script inside your network. It reads your identifiers, your glossary and the labels your
-> schema already carries; it scores the expander with and without your vocabulary; and it writes a
-> JSON file of counts and percentages. The script refuses to write that file if it contains any
-> string from your data, and it ships with a test that proves the refusal works.
+> **Before any of that, there is something you can run today that sends us nothing.** Export your
+> column names beside the display labels your schema already carries, two columns of CSV, and run
+> `acronymkit governed-gap schema.csv`. It needs no glossary. It tells you which tokens in your
+> schema *no* method without a catalog can ever resolve — not a guess about which look
+> abbreviated; a derivation, because a label carrying a character your identifier does not is
+> unreachable by anything that can only re-cut the characters you gave it — ranked by how many of
+> your columns each one costs you. That list is your glossary's backlog, and it is yours whether or
+> not you ever reply to this message.
+>
+> If it looks like a list worth clearing, the second script is the one that decides whether clearing
+> it was worth it. I am not asking for your glossary. I am asking whether someone on your side would
+> run a single Python script inside your network. It reads the same CSV plus your glossary; it scores
+> the expander with and without your vocabulary; and it writes a JSON file of counts and percentages.
+> The script refuses to write that file if it contains any string from your data, and it ships with a
+> test that proves the refusal works.
 >
 > If you send back that file, you get: the first independent measurement of whether your glossary
 > improves automated column understanding, and a worklist of every token in your schema your standard
 > does not cover. You choose whether the result is published named, published anonymised by sector,
 > or not published at all.
 >
-> The script, and the full description of what it measures and what it cannot see:
-> <link to `tools/byoc_eval.py` and `docs/SOURCING.md`>
+> The scripts, and the full description of what each measures and what it cannot see:
+> <link to `acronymkit governed-gap`, `tools/byoc_eval.py` and `docs/SOURCING.md`>
 
 ---
 
@@ -433,6 +462,17 @@ Three readings, and the third is the one that changes the ask.
 
 **About one column in four is a pair a catalog could help on.** The rest are already spelled out, and
 on those the empty catalog is doing the whole job. Criterion 7 exists because of this line.
+
+**Three of those figures are no longer fenced, and that is the only thing about this block that has
+changed.** `bench/run_catalog_gap.py` computes the same population through a second implementation
+and saves it, so the column count, the expanding count and the distinct-token count are now gated
+rather than quoted from a command output nothing checks: 69,682<!--claim:catalog_gap.socrata.census.columns:,d-->
+columns, 15,842<!--claim:catalog_gap.socrata.census.unreachable_columns:,d--> where the label carries a
+character the identifier does not, 24,536<!--claim:catalog_gap.socrata.census.distinct_tokens:,d--> distinct
+tokens. `catalog_gap.socrata.byoc_agreement` runs both implementations over that population and
+compares them directly. **This does not make the block above re-derived** — the two accuracy lines
+in it are the kit's and are still fenced — and it does move the three counts a reader is most likely
+to quote out of the class D-052 calls mechanically indistinguishable from hiding.
 
 **On the quarter that remains, the empty catalog is bad** — six of every hundred exactly right,
 against sixty-five over the whole population. That is the headroom a real glossary would be competing

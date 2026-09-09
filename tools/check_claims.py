@@ -2533,6 +2533,75 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
             "inconvenient round becomes a permanent exemption."
         ),
     ),
+    LedgerRound(
+        label="M3-PB (the eight briefs)",
+        deferred=189,
+        value_matched=64,
+        note=(
+            "Mandate III Phase B proper, after the first attempt at it died with every agent "
+            "mid-flight (docs/DECISIONS.md D-098). 12 records were added, D-098 through D-109, so "
+            "the pin went red at 109 against 97 before a word of migration was written. IT "
+            "MIGRATED NOTHING AND TOOK THE SECOND CONSECUTIVE WAIVER, which the round's own brief "
+            "named as the signature of a policy that has stopped working, and D-109 agrees with "
+            "that sentence rather than arguing with it. THE PROBE D-097 SAID THE NEXT ROUND OWED "
+            "WAS RUN, and it did not return the same answer: bench/results.json grew from 38,130 "
+            "numeric leaves to 41,901 during this phase, a rise of 9.89 percent; the 42 residue "
+            "numbers went from 16 to 17 with at least one coincidental field match; and the total "
+            "coincidental field count for those same 42 sentences went from 831 to 993, a rise of "
+            "19.49 percent. D-023's 89.08 -- milliseconds to import acronymkit.config with "
+            "pydantic resident -- crossed from NO MATCH ANYWHERE to matched, by "
+            "conformal.sdu21.seed_spread.alpha_0.10.min_coverage_pct. A conformal coverage "
+            "percentage has matched a millisecond. THE MECHANISM FINDING IS THAT VALUE-MATCHED "
+            "BACKING DEGRADES FASTER THAN THE MEASUREMENT CORPUS GROWS: 9.89 percent more leaves "
+            "bought 19.49 percent more coincidences for an unchanged set of sentences. Not one of "
+            "the 17 is a measurement of what its sentence is about, which is D-097's verdict "
+            "reproduced on a larger corpus by a third independent walk. NEW THIS ROUND, AND IT "
+            "MAKES THE REGISTER SMALLER THAN THE TRAJECTORY IMPLIES: CHANGELOG.md's 28 are "
+            "terminal too, for a reason nobody had written down. A released changelog entry is a "
+            "statement about a past version; a citation is a live value that --render rewrites. "
+            "Three of the 28 would be rewritten TODAY -- the [0.2.0] entry's precision 92.07, "
+            "recall 76.99 and F1 83.85 against a shipped extractor now at 92.46, 77.31 and 84.21 "
+            "-- so migrating them would falsify what v0.2.0 shipped. The same hazard is already "
+            "loaded: all 10 citations CHANGELOG.md carries sit in [Unreleased] and become "
+            "historical statements pointing at live values the day a version is cut. So 70 of the "
+            "189 -- 42 in docs/DECISIONS.md and 28 in CHANGELOG.md -- are terminal by construction "
+            "rather than by neglect, and one of those two populations was discovered to be "
+            "terminal only by trying to pay out of it. THE ESCALATION IS IN D-109 AND IT IS THE "
+            "MAINTAINER'S: a per-file 'closed' disposition backed by the probe, or a floor "
+            "re-sized against the reachable population rather than the historical one, or a fix to "
+            "the one-sided arming rule -- which would move numbers INTO the register and is the "
+            "only option that makes the count worse and the instrument better. D-097 called that "
+            "arming asymmetry the only item whose fix is a change to the gate; it is at least "
+            "three items, because D-023's list of four session timings defers exactly one, the one "
+            "the unit follows. Doing nothing is also an answer and its cost is a third waiver. 73 "
+            "of 115 in six bound rounds; the trajectory is now 316, 262, 231, 213, 201, 189, 189, "
+            "189, which is the shape of a burn-down that finished two rounds ago and has been "
+            "filing paperwork since. This row plus a pin re-taken at 109 is what closes it."
+        ),
+        waiver=(
+            "SECOND CONSECUTIVE WAIVER, and D-109 says this is the policy reporting its own "
+            "terminal state rather than the recorder reporting a busy week. Citation: the probe "
+            "D-097 required was re-run against a bench/results.json 3,771 numeric leaves larger, "
+            "and the residue is still unreachable -- 25 of the 42 match no field anywhere, and the "
+            "other 17 match only Jaccards, false-positive counts, gate precisions, elapsed seconds, "
+            "percent-of-gold figures and now a conformal coverage percentage, none of them a "
+            "measurement of the milliseconds and microseconds of an import attribution that no "
+            "runner saves. The coincidence surface for those 42 sentences grew 19.49 percent in "
+            "one phase while the corpus grew 9.89 percent, so the population of things that LOOK "
+            "citable is rising while the population of things that ARE has not moved. Deletion: "
+            "all four published clauses were walked by M2-P6 and M3-PA, which took the reachable "
+            "instances; the three that remain each require rewording a closed record or leaving a "
+            "malformed table or range, and the rule licenses deleting a number rather than "
+            "rewriting a record. Paying out of another file was attempted and refused on a "
+            "measurement rather than on taste: CHANGELOG.md is this recorder's file and holds 28 "
+            "of the register, and citing a released entry re-points a frozen historical statement "
+            "at a live value -- three of its numbers would be rewritten today. The waiver is free "
+            "text nothing grades, which docs/CLAIMS-LEDGER.md section 2 names as the mechanism by "
+            "which a first inconvenient round becomes a permanent exemption; this is the second, "
+            "it is recorded as such, and D-109 escalates three specific replacements so that a "
+            "third does not have to be written."
+        ),
+    ),
 )
 
 #: How many records :data:`RECORD_FILE` held when the newest round was appended.
@@ -2558,7 +2627,7 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
 #: the gate reads, and ``label`` puts the words "which round paid for this"
 #: into the diff. It is a deterrent, not a mechanism, and calling it a mechanism
 #: would be the same overclaim this policy exists to stop.
-RECORD_FILE_PIN = RecordPin(label="M3-PB (the salvage)", records=97)
+RECORD_FILE_PIN = RecordPin(label="M3-PB (the eight briefs)", records=109)
 
 
 def count_records(text: str) -> int:

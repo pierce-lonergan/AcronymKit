@@ -101,6 +101,31 @@ ahead both before and after gating. Expect the gate to work on prose that
 defines or echoes its abbreviations and to refuse nearly everything on prose
 that does not.
 
+Saying "I don't know" with a guarantee attached
+-----------------------------------------------
+``min_margin`` refuses at a number nobody can defend as the caller's.
+:mod:`acronymkit.conformal` refuses at a number derived from the caller's own
+labelled data and a target error rate they name, by split conformal prediction
+-- deterministic, model-free, no new dependency, and **no calibration data
+shipped**, because a shipped calibration set would make the guarantee a
+statement about this project's tuning split published as a statement about the
+caller's.
+
+Pass the resulting :class:`~acronymkit.conformal.ConformalGate` as
+``calibration=`` and the refusal is the same mechanism as ``min_margin``:
+``primary_expansion`` comes back ``None`` with ``abstained`` set. What is
+different is that the refusal now carries a stated bound. What is *not*
+different is who chooses: the gate does not exist until the caller builds one,
+so the default is still off.
+
+**Read the guarantee with its assumption, which is not optional.** Coverage is
+marginal, and it holds only if the calibration instances and the instances the
+gate is later asked about are exchangeable. An out-of-domain caller violates
+exactly that. And the bound is on the prediction *set* containing the truth,
+which makes ``alpha`` a bound on the joint rate of answering and being wrong,
+**not** on the error rate among the answers -- that one is larger, and is
+measured under ``conformal.sdu21.*`` in ``bench/results.json``.
+
 Determinism
 -----------
 No randomness, no clock-dependent behaviour and no set-iteration order reaches
@@ -128,6 +153,7 @@ from pathlib import Path
 from typing import Iterable, Iterator, Mapping, Optional, Sequence
 
 from .config import Config, ScoringWeights
+from .conformal import ConformalGate
 from .enums import EngineTier
 from .exceptions import (
     ConfigurationError,
@@ -733,7 +759,15 @@ class LexicalDisambiguator:
         'inline'
     """
 
-    __slots__ = ("_config", "_dictionary", "_extractor", "_min_margin", "_tokenizer", "_warnings")
+    __slots__ = (
+        "_calibration",
+        "_config",
+        "_dictionary",
+        "_extractor",
+        "_min_margin",
+        "_tokenizer",
+        "_warnings",
+    )
 
     def __init__(
         self,
@@ -742,6 +776,7 @@ class LexicalDisambiguator:
         tokenizer: Optional[Tokenizer] = None,
         *,
         min_margin: Optional[float] = None,
+        calibration: Optional[ConformalGate] = None,
     ) -> None:
         """Build a disambiguator.
 
@@ -768,6 +803,19 @@ class LexicalDisambiguator:
                 second candidate, and one whose top two come from different
                 sources, where the gap is fixed by
                 ``INLINE_SCORE - MAX_DICTIONARY_SCORE`` rather than measured.
+            calibration: A :class:`~acronymkit.conformal.ConformalGate` the
+                caller built from **their own** labelled data. ``None``, the
+                default, disables it. Given one, an answer is returned only when
+                the conformal prediction set is a singleton; otherwise
+                ``primary_expansion`` comes back ``None`` with ``abstained``
+                set, exactly as ``min_margin`` does. The two are mutually
+                exclusive: they are two refusal policies over one field, and
+                composing them would produce a refusal rate neither one's
+                published figures describe. The prediction set itself is not
+                carried on the result -- call
+                :meth:`~acronymkit.conformal.ConformalGate.decide` for it -- so
+                that turning this on cannot change the serialised shape of a
+                :class:`~acronymkit.models.DisambiguationResult`.
 
         Raises:
             TierUnavailableError: If ``config.engine_tier`` is
@@ -778,7 +826,8 @@ class LexicalDisambiguator:
                 real number in ``[0.0, 1.0]``. A margin cannot exceed
                 :data:`INLINE_SCORE`, so a threshold above it would abstain on
                 everything for ever, and silently doing that is the failure this
-                refusal exists to prevent.
+                refusal exists to prevent. Also if ``min_margin`` and
+                ``calibration`` are both supplied.
 
         Note:
             **Why the gate is opt-in and not on by default.** Defaulting it on
@@ -801,12 +850,31 @@ class LexicalDisambiguator:
             ``disambiguation.sdu21.abstention_curve`` with its
             ``*_most_frequent_accuracy_same_subset`` column, or the decomposed
             tables in ``docs/EVALUATION.md``, before choosing a value here.
+
+            **``calibration`` is the same refusal with a different thing
+            supplied.** ``min_margin`` asks the caller for a threshold this
+            library measured on a tuning split and cannot defend as theirs;
+            ``calibration`` asks them for a target error rate and their own
+            labelled data, and derives the threshold from those. It is still off
+            by default, for a reason that is not conservatism: a calibration set
+            shipped by this library would make the guarantee a statement about
+            *our* tuning split published as a statement about the caller's data.
+            Available always, guaranteed only with caller-supplied calibration,
+            on once that calibration is present.
         """
         self._config = config
         self._dictionary = dictionary if dictionary is not None else ExpansionDictionary()
         self._tokenizer = tokenizer
         self._extractor: Optional[AbbreviationExtractor] = None
+        if min_margin is not None and calibration is not None:
+            raise ConfigurationError(
+                "min_margin and calibration are two refusal policies over one field; supply at "
+                "most one. A margin gate refuses below a number the caller chose off a published "
+                "curve; a conformal gate refuses when the calibrated prediction set is not a "
+                "singleton. Composing them refuses at a rate neither one's figures describe."
+            )
         self._min_margin = _validated_min_margin(min_margin)
+        self._calibration = calibration
         self._warnings: tuple[str, ...] = ()
         if config.engine_tier is EngineTier.NEURAL:
             if config.strict:
@@ -828,6 +896,11 @@ class LexicalDisambiguator:
     def min_margin(self) -> Optional[float]:
         """The abstention gate this disambiguator was built with, or ``None``."""
         return self._min_margin
+
+    @property
+    def calibration(self) -> Optional[ConformalGate]:
+        """The conformal gate this disambiguator was built with, or ``None``."""
+        return self._calibration
 
     @property
     def tokenizer(self) -> Tokenizer:
@@ -984,6 +1057,8 @@ class LexicalDisambiguator:
             metadata=self._metadata(len(tokens), len(candidates), elapsed_ms),
         )
         if self._min_margin is not None and _below_gate(result, self._min_margin):
+            return result.model_copy(update={"primary_expansion": None})
+        if self._calibration is not None and self._calibration.decide(result).abstained:
             return result.model_copy(update={"primary_expansion": None})
         return result
 
