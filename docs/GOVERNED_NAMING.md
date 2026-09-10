@@ -1327,7 +1327,19 @@ other repair is a splitting change, which is a behaviour change across every ide
 corpora and owes its own byte-identity pass. Reported, pinned by a test, and left open.
 
 Its size is bounded and its incidence is measured: `1050` code points are lower-case and stay
-lower-case under `str.upper`, and every one breaks the premise the same way. Distinct strings
+lower-case under `str.upper`, and every one breaks the premise the same way.
+
+**That figure is a property of the interpreter's Unicode data, not of this library, and it moves.**
+Measured on real interpreters rather than interpolated: `977` on Unicode `14.0` (CPython 3.11),
+`1050` on `15.0` and `15.1` (3.12, 3.13), and `1048` on `16.0` (3.14) — the class *shrinks* again at
+16. So `1050` is true of two Unicode versions and of no others, and it was published as though it
+were a fact about the defect.
+
+It reddened five CI cells before anybody noticed, because the test asserting it was a bare equality.
+The counts now live in a version-keyed table in `tests/test_unicode_properties.py`, an unrecorded
+version reports its count rather than failing, and Unicode `13.0` — CPython 3.9 and 3.10 — is
+**still unmeasured** and will report. This is R18's subject one level over from wall-clock: a number
+that changes with the runner, gated as though it belonged to the code. Distinct strings
 carrying one, across the four published populations: `0` Socrata field names, `0` SEC XBRL element
 names, `0` SEC XBRL labels, `12` Socrata captions. `normalize` reads physical names, so the incidence
 on what this verb is handed is zero.
