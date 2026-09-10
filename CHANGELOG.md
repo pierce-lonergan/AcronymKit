@@ -96,6 +96,42 @@ naming how long the old paths are kept and what would end that.
 
 ### Added
 
+- **`selective=` on `propagate()`, and `acronymkit.core.selective` behind it — a refusal you can put
+  a number on, and the number is about the answers rather than about everything.** Opt-in, off by
+  default, and byte-identical when you do not pass it. The existing `gate=` bounds the **joint**
+  rate — how often the library *answers and is wrong* out of everything it sees — and it does
+  **not** bound how often it is wrong among the things it answers. That gap is a factor of `4.38` at
+  `alpha=0.05`, and the joint bound is unchanged by this release. A
+  `SelectiveRiskGate`, calibrated by Learn-Then-Test over your own labelled occurrences, bounds the
+  second quantity directly. Both parameters can be set; they are two bounds side by side and the new
+  one does **not** tighten the old one.
+  - **Read the answer rate before you read the bound, because a gate that answers nothing satisfies
+    any bound.** Every certificate carries its answer rate and the runtime `guarantee()` string
+    states both. On MED1250, at `alpha=0.05` a pooled gate answers
+    `99.95` % of held-out occurrences and is wrong on `2.38` % of them, which is `0.4754` times
+    `alpha`. At `alpha=0.01` and `0.02` **nothing certifies and the gate answers `0.00` %.**
+  - **On the corpus the `4.38` gap was measured on, the method refuses, and that is published rather
+    than footnoted.** On SDU-21 AD dev not one of the `21` candidate thresholds certifies at any of
+    six alphas from `0.01` to `0.20`. The reason is not a small calibration set (`3,094` units): the
+    lowest selective risk *any* threshold can reach there is `17.53` %, over a base disambiguator
+    that is `40.82` % accurate when it answers everything. More data will not move that. **If your
+    data looks like SDU-21, this parameter will decline to give you a gate rather than give you a
+    loose one.**
+  - **A certificate that fails is an object, not an exception.** `StratumCertificate` carries its
+    p-value, the accepted count, the required count at zero losses, and a refusal string. Three
+    refusal codes are raised at the `propagate()` seam, and an uncertified stratum **refuses
+    everything in that stratum** rather than quietly falling back to a pooled threshold.
+  - **What it is conditional on, stated where the guarantee is stated.** Exchangeability between your
+    calibration occurrences and the ones you will score; a `0`/`1` loss (a graded loss is refused
+    rather than served, because the binomial argument does not apply to one); and the fact that
+    document-level gold cannot see a within-document sense shift, so the loss being bounded is the
+    *observable* one. All figures above are from a `role=tuning`, `contaminated=true` corpus and none
+    is evidence of generalisation.
+  - **Stratifying by extraction mode was measured and is not recommended.** It costs `21.82` points
+    of answer rate — `78.13` % against `99.95` % — and separates no risk, because under one pooled
+    threshold both inline and propagated occurrences are already under `alpha`. Stratifying by
+    *arity*, which the conformal gate already does, still helps. `docs/DECISIONS.md` D-128.
+
 - **`acronymkit.propagation.propagate()` — one definition licenses the rest of the document, and it
   is opt-in.** A2 ships. Give it the text and the pairs `extract()` returned and it commits to the
   **first** definition of each short form in document order, then licenses every whole-token
@@ -821,6 +857,33 @@ naming how long the old paths are kept and what would end that.
   had read before. `docs/DECISIONS.md` D-064 to D-067.
 
 ### Notes
+
+- **A known defect you can hit today: for `26` code points, `to_physical_name()` hands you a name
+  that `normalize()` will refuse to read back.** `str.upper()` on those `26` returns a base letter
+  plus a combining mark — `'ǰ'` becomes `J` followed by COMBINING CARON — and a combining mark is a
+  character no governed token can hold. So the naming verb emits it and reports `unaccounted=()`,
+  and the reading verb then rejects the name it just produced. **The two halves of the governed round
+  trip disagree about these inputs and one of them tells you nothing was lost.** It is **not fixed**
+  in this release; it is written down, pinned by a strict test so a future fix cannot land silently,
+  and its incidence is measured: `0` occurrences across the `285,839` distinct identifiers, captions,
+  element names and labels in the two published governed corpora. The pre-existing `1,050`-code-point
+  ordinal-indicator class (`º` and its relatives) is unchanged and pinned the same way; it occurs
+  `12` times in those `285,839`. Both classes were found by walking **all `1,114,112` code points**
+  rather than by sampling, so the counts are exhaustive on Unicode `15.1.0` and will be re-derived
+  against whatever Unicode data your interpreter carries. `docs/DECISIONS.md` D-130.
+
+- **No faster governed expansion is coming from deferred provenance, and this is the measurement that
+  closes that avenue.** The obvious optimisation — hand back span offsets and build the provenance
+  records only when somebody reads them — was built against the shipped resolver and **rejected**.
+  Where the deferral is possible it allocates *exactly* as many objects as today (`325,837` against
+  `325,837` on Socrata, `176,433` against `176,433` on SEC XBRL, difference `0`); where it is not, it
+  costs `3.20` to `18.02` times as many. The cause is structural: the token memo already hands one
+  expansion object to every occurrence of a token — `78.20` % of Socrata resolutions and `98.12` % of
+  SEC XBRL's — and a span is per-occurrence, so a deferred route cannot share what the current one
+  shares. **And every consumer shape that exists reads provenance on every record** (`100.00` % on
+  all three), so there is nothing to postpone. Judged in machine-independent object counts rather
+  than on a clock, deliberately; the wall-clock and memory figures point the same way and are
+  published unarmed beside the counts. `docs/DECISIONS.md` D-129.
 
 - **The proof that the package split changed no output is real, and you cannot re-run it.** The
   `3,619,227`-record comparison was produced by a harness that is **not committed to this repository**,

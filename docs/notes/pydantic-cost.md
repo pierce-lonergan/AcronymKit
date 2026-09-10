@@ -65,7 +65,7 @@ second:
 
 Session-to-session drift is larger than that. `from acronymkit import
 AcronymEngine` measured 134.7, 139.6, 150.4 and 154.7 ms in four sessions on the
-same machine on the same day, against 128.1 ms recorded in
+same machine on the same day, against 128.1<!--claim:micro.import.cold_import_engine_ms:.1f--> ms recorded in
 `bench/results.json`. **Only within-session ratios are used below**, and the
 whole import table comes from one interleaved session. `bench/results.json`
 remains the figure of record; nothing here supersedes it.

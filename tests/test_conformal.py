@@ -63,11 +63,21 @@ GUARANTEE_MARKERS = ("distribution-free", "probability at least", "coverage guar
 #: exactly one contributes no offender because it contains no prose to offend,
 #: which is the shape D-110 named: a green parametrised case that is
 #: indistinguishable from a file being correct.
+#: **Four entries were added when Learn-Then-Test landed**, and the reason is the
+#: one this rule exists for: ``acronymkit.core.selective`` states a *selective*
+#: guarantee, which is a different functional from the one split conformal
+#: bounds and rests on exactly the same exchangeability assumption plus one more.
+#: A new module stating a new guarantee is precisely the place a paragraph
+#: forgets to carry the assumption, so the rule was widened in the same commit
+#: rather than in the one after it.
 GUARANTEE_FILES = (
     "src/acronymkit/core/conformal.py",
     "src/acronymkit/conformal.py",
+    "src/acronymkit/core/selective.py",
     "src/acronymkit/disambiguation.py",
+    "src/acronymkit/nlp/propagation.py",
     "bench/run_conformal.py",
+    "bench/run_selective_risk.py",
     "docs/EVALUATION.md",
 )
 

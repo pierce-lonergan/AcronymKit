@@ -869,7 +869,7 @@ WHAT IT CAN BUY: an honest precision delta for a shipped flag on an arm nobody
 mined to invent it. Nothing else in this repository can buy that.
 
 CAPABILITY, counted before the spend rather than after it (R9's fifth question).
-Legal dev carries 26 multi-token gold short-form spans of 1,213 (2.14%), against
+Legal dev carries 26 multi-token gold short-form spans of 1,213 ({{claim:shortform.sdu22_ae_legal_dev.corpus.gold_short_form_spans_multi_token_pct:.2f=2.14}}%), against
 PLOD's 0 of 2,869 -- which is why PLOD could not score experiment nine even in
 principle and why this split can. Scaling on the `shortform_recall_ceiling_basis`
 above (train 9,532 gold acronym spans against dev's 1,213, a factor of 7.86), dev density
@@ -1150,8 +1150,8 @@ population with the same run id. A held-out role does NOT mean a frozen split
 here; it means nothing was fitted to it.
 
 THE GOLD HAS A MEASURED NOISE FLOOR, which is better than a caveat.
-0.27% of identifiers carry two different cut placements across portals,
-covering 2.62% of admitted occurrences (governed_gold.socrata.gold_conflict).
+{{claim:governed_gold.socrata.gold_conflict.contested_identifiers_pct:.2f=0.27}}% of identifiers carry two different cut placements across portals,
+covering {{claim:governed_gold.socrata.gold_conflict.contested_occurrences_pct:.2f=2.62}}% of admitted occurrences (governed_gold.socrata.gold_conflict).
 That is a floor under the disagreement any system can record against this gold.
 
 THE ADMISSION RULE KEEPS A BIASED THIRD OF COLUMNS -- only pairs whose caption

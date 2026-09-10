@@ -50,13 +50,16 @@ mechanism this extends has an error rate of exactly **zero** on those
 occurrences, because it declines to answer at all. A2 buys coverage and pays in
 correctness. That is the whole trade and a caller has to want it.
 
-The conformal gate, and the guarantee it is NOT
------------------------------------------------
-:func:`propagate` accepts a caller-built
-:class:`~acronymkit.conformal.ConformalGate` and then propagates only where the
-gate answers on the committed definition. What that buys is a **joint** bound
-and not a selective one. **Read the next two paragraphs before relying on it,
-because the natural reading is the wrong one and its wrongness has a measured
+The two gates, and which quantity each one bounds
+-------------------------------------------------
+:func:`propagate` accepts two caller-built gates and neither is on by default.
+``gate=`` is a :class:`~acronymkit.conformal.ConformalGate` and buys a **joint**
+bound. ``selective=`` is a
+:class:`~acronymkit.core.selective.SelectiveRiskGate` and buys a bound on the
+**answers**, which is the quantity the joint bound was being misread as. They
+are independent, they may be supplied together, and the sections below say what
+each does and does not close. **Read them before relying on either, because for
+``gate=`` the natural reading is the wrong one and its wrongness has a measured
 size.**
 
 The gate's bound is on the *joint* rate of answering and being wrong -- over
@@ -72,10 +75,29 @@ loosest setting the selective rate is finally *under* its nominal. Quoting
 **the overshoot is worst exactly where a governance caller would set the
 threshold.** So ``gate=ConformalGate.calibrate(..., alpha=0.05)`` does **not**
 mean one propagation in twenty is wrong. See :meth:`ConformalGate.guarantee`, which
-returns both halves in one string, and ``docs/EVALUATION.md``. Bounding the
-selective rate needs risk-controlled selective classification, which is not
-implemented here; when it lands, this gate tightens and this paragraph is what
-has to change.
+returns both halves in one string, and ``docs/EVALUATION.md``.
+
+**Bounding the selective rate needs risk-controlled selective classification,
+and this paragraph is the one that said "when it lands, this paragraph is what
+has to change". It landed, and it is a second bound rather than a repair of the
+joint one.** ``selective=`` takes a
+:class:`~acronymkit.core.selective.SelectiveRiskGate`, calibrated by
+Learn-Then-Test over the caller's own labelled occurrences, and a short form
+then propagates only where that gate admits :func:`selective_score` of the
+committed definition in the
+:data:`~acronymkit.core.selective.MODE_PROPAGATED` stratum. What it carries is
+``P(wrong | answered) <= alpha`` with probability at least ``1 - delta`` over the
+calibration draw, **under exchangeability between the calibration documents and
+the deployment documents, and under independence of the accepted calibration
+units** -- Learn-Then-Test changes which functional is bounded and repeals
+neither condition. On ``selective.modes.ltt`` the held-out selective error came
+in under nominal at every alpha where anything certified, at an answer rate that
+is reported beside every bound because a gate that answers nothing satisfies
+every selective bound there is.
+
+It does **not** tighten ``gate=``. The two are separate parameters because they
+are separate guarantees, and folding one into the other would put a caller who
+passed only ``gate=`` under a bound nobody computed for them.
 
 **And there is a second gap on top of the first, which is this module's own.**
 The joint bound is about *the definition*. Nothing it says transfers to the
@@ -101,6 +123,7 @@ from typing import Iterable, Optional, Sequence
 
 from ..core.conformal import ANSWERED, ConformalGate
 from ..core.exceptions import ConfigurationError
+from ..core.selective import MODE_PROPAGATED, SelectiveRiskGate
 from ..core.spans import Span
 from ..enums import EngineTier
 from ..models import AcronymPair, DisambiguationCandidate, DisambiguationResult, EngineMetadata
@@ -109,6 +132,7 @@ __all__ = [
     "JOINT_NOT_SELECTIVE",
     "NOT_TERM_SHAPED",
     "PROPAGATION_GAP",
+    "SELECTIVE_IS_NOT_ONE_SENSE",
     "SOURCE_DEFINITION",
     "SOURCE_PROPAGATED",
     "Occurrence",
@@ -116,6 +140,7 @@ __all__ = [
     "document_result",
     "gate_disclosure",
     "propagate",
+    "selective_score",
     "term_shaped",
     "whole_token_occurrences",
 ]
@@ -133,9 +158,31 @@ JOINT_NOT_SELECTIVE = (
     "alpha = 0.05 -- 4.38 times alpha -- and 37.02 % at alpha = 0.20. That "  # measured: conformal.sdu21.exchangeable
     "multiple is a MAXIMUM: it falls monotonically as alpha rises and is under "
     "1 at the loosest alpha measured, so the overshoot is worst exactly where a "
-    "governance caller would set the threshold. Bounding "
-    "the selective rate needs risk-controlled selective classification, which "
-    "is not implemented here; when it lands this gate tightens."
+    "governance caller would set the threshold. Bounding the selective rate "
+    "needs risk-controlled selective classification, and that is what the "
+    "separate selective= parameter supplies -- gate= alone still bounds only "
+    "the joint rate and this sentence is about gate=."
+)
+
+#: What a SELECTIVE gate does and does not close. Held as a constant for the same
+#: reason as its two neighbours: the sentence that follows the good news is the
+#: one a reader skips, so it is not allowed to be a separate string.
+#:
+#: **Learn-Then-Test bounds the definition decision and not the transfer.** It
+#: replaces the joint rate with the larger rate among answers, the one D-104
+#: measured at 4.38 times alpha and the one no conformal argument ever bounded.
+#: It does not touch one-sense-per-discourse, which is a different unguaranteed
+#: step in the same composition, and a caller who reads a selective certificate
+#: as covering both has made the second half of the same mistake with the first
+#: half fixed.
+SELECTIVE_IS_NOT_ONE_SENSE = (
+    "A selective certificate bounds the share of the gate's ANSWERS about the "
+    "committed definition that are wrong, with probability at least 1 - delta "
+    "over the calibration draw. It closes the joint-versus-selective gap and it "
+    "closes nothing else: whether a licensed occurrence means what its "
+    "definition meant is one-sense-per-discourse, which no risk-control argument "
+    "bounds, and the two unguaranteed steps in this module were never the same "
+    "step. Learn-Then-Test also does not repeal exchangeability."
 )
 
 #: The second gap, which is this module's own and not conformal's. Nothing a gate
@@ -164,6 +211,14 @@ GATE_NO_PLAUSIBLE_CANDIDATE = "gate_no_plausible_candidate"
 GATE_NO_CANDIDATES = "gate_no_candidates"
 GATE_UNCALIBRATED_GROUP = "gate_uncalibrated_group"
 GATE_DISAGREED = "gate_disagreed_with_commitment"
+
+#: Refusals a :class:`~acronymkit.core.selective.SelectiveRiskGate` adds. Three,
+#: matching its three refusal reasons one for one, prefixed so a reader of a
+#: refusal list can tell which of the two gates declined without consulting the
+#: call site.
+SELECTIVE_UNCALIBRATED = "selective_uncalibrated_stratum"
+SELECTIVE_UNCERTIFIED = "selective_uncertified_stratum"
+SELECTIVE_ABOVE_THRESHOLD = "selective_above_threshold"
 
 #: Shortest and longest short form this rule will license, and the admission
 #: rule's other two clauses. Held as constants because ``bench/run_one_sense.py``
@@ -347,23 +402,38 @@ def document_result(
     )
 
 
-def gate_disclosure(gate: ConformalGate) -> str:
-    """Everything a caller must read before trusting ``gate=``, in one string.
+def gate_disclosure(
+    gate: Optional[ConformalGate] = None,
+    selective: Optional[SelectiveRiskGate] = None,
+) -> str:
+    """Everything a caller must read before trusting either gate, in one string.
 
-    :meth:`ConformalGate.guarantee` first -- it is the only surface carrying the
-    exchangeability assumption -- then :data:`JOINT_NOT_SELECTIVE`, then
-    :data:`PROPAGATION_GAP`. Concatenated here rather than left to a caller
-    because each is a different reader's failure mode, and quoting one is how the
-    other two get lost.
+    Each gate's own ``guarantee()`` first -- those are the only surfaces carrying
+    the exchangeability assumption -- then the standing caveat that belongs to
+    it, which for ``gate=`` is that its bound is the joint one, then
+    :data:`PROPAGATION_GAP`, which belongs to neither gate and to this module.
+    Concatenated here rather than left to a caller because each part is a
+    different reader's failure mode, and quoting one is how the rest get lost.
+
+    ``PROPAGATION_GAP`` comes last and is emitted **whichever** gate was passed,
+    because it is the gap neither of them closes: risk control replaces a joint
+    bound with a selective one and leaves one-sense-per-discourse untouched.
 
     Args:
-        gate: The gate whose guarantee is being disclosed.
+        gate: The conformal gate being disclosed, if any.
+        selective: The selective-risk gate being disclosed, if any.
 
     Returns:
-        The three parts, space-joined, in that order.
+        The parts, space-joined, conformal first.
+
+    Raises:
+        ConfigurationError: If neither gate is supplied. A disclosure about no
+            gate would be a paragraph of caveats attached to nothing, which
+            reads as reassurance and carries none.
 
     Example:
         >>> from acronymkit.conformal import ConformalGate
+        >>> from acronymkit.core.selective import Observation, SelectiveRiskGate
         >>> from acronymkit.models import AcronymPair
         >>> pairs = [AcronymPair(short_form="AB", long_form="alpha beta")]
         >>> calibration = [(document_result("AB", pairs), "alpha beta")] * 20
@@ -372,8 +442,33 @@ def gate_disclosure(gate: ConformalGate) -> str:
         True
         >>> "exchangeab" in disclosure
         True
+
+        The selective disclosure carries the exchangeability assumption too --
+        Learn-Then-Test does not repeal it -- and still carries the propagation
+        gap, because that one is nobody's to close but this module's.
+
+        >>> units = [Observation("propagated", 0.0, 0)] * 60
+        >>> risk = SelectiveRiskGate.calibrate(units, alpha=0.2, delta=0.05)
+        >>> selective_disclosure = gate_disclosure(selective=risk)
+        >>> "exchangeab" in selective_disclosure
+        True
+        >>> "one-sense-per-discourse" in selective_disclosure
+        True
     """
-    return f"{gate.guarantee()} {JOINT_NOT_SELECTIVE} {PROPAGATION_GAP}"
+    if gate is None and selective is None:
+        raise ConfigurationError(
+            "gate_disclosure() needs at least one gate; a disclosure about no gate is a "
+            "paragraph of caveats attached to nothing, which reads as reassurance."
+        )
+    parts: list[str] = []
+    if gate is not None:
+        parts.append(gate.guarantee())
+        parts.append(JOINT_NOT_SELECTIVE)
+    if selective is not None:
+        parts.append(selective.guarantee())
+        parts.append(SELECTIVE_IS_NOT_ONE_SENSE)
+    parts.append(PROPAGATION_GAP)
+    return " ".join(parts)
 
 
 def _gate_refusal(reason: str) -> str:
@@ -386,11 +481,48 @@ def _gate_refusal(reason: str) -> str:
     }.get(reason, reason)
 
 
+def selective_score(definition: AcronymPair) -> float:
+    """The selection score a selective gate reads off the committed definition.
+
+    ``1 - confidence``, so that **lower is more confident** -- the direction
+    :func:`~acronymkit.core.conformal.nonconformity` uses and the direction
+    :class:`~acronymkit.core.selective.SelectiveRiskGate` compares in. It is one
+    public function with no arguments beyond the pair for the reason
+    ``nonconformity`` is: risk control is valid only when the same score is
+    applied to calibration and to deployment, and two spellings of "the score"
+    is how that stops being true.
+
+    Args:
+        definition: The definition A2 committed to -- the *first* in document
+            order, which is what ``propagate`` licenses from.
+
+    Returns:
+        The score, in ``[0, 1]`` for any confidence in ``[0, 1]``.
+
+    Example:
+        >>> from acronymkit.models import AcronymPair
+        >>> selective_score(AcronymPair(short_form="BP", long_form="blood pressure",
+        ...                             confidence=0.8))
+        0.19999999999999996
+    """
+    return 1.0 - definition.confidence
+
+
+def _selective_refusal(reason: str) -> str:
+    """Map a :class:`~acronymkit.core.selective.SelectiveRiskGate` reason onto ours."""
+    return {
+        "uncalibrated_stratum": SELECTIVE_UNCALIBRATED,
+        "uncertified_stratum": SELECTIVE_UNCERTIFIED,
+        "above_threshold": SELECTIVE_ABOVE_THRESHOLD,
+    }.get(reason, reason)
+
+
 def propagate(
     text: str,
     pairs: Iterable[AcronymPair],
     *,
     gate: Optional[ConformalGate] = None,
+    selective: Optional[SelectiveRiskGate] = None,
 ) -> PropagationResult:
     """License a document's later occurrences of every short form it defines.
 
@@ -410,6 +542,21 @@ def propagate(
     one-sense-per-discourse and is bounded only by ``one_sense.pmc_oa.a2.*``.
     Two unguaranteed steps compose here and neither is the other's warrant.
 
+    **What ``selective`` changes, which is the first of those two and not the
+    second.** With ``selective`` supplied, a short form propagates only where the
+    gate admits :func:`selective_score` of the committed definition in the
+    :data:`~acronymkit.core.selective.MODE_PROPAGATED` stratum. That carries a
+    bound on the share of *answers* that are wrong rather than on the joint rate,
+    which is the ``4.38``-times-``alpha`` gap closed rather than restated -- and
+    it holds with probability at least ``1 - delta`` over the calibration draw,
+    under exchangeability between the calibration documents and the deployment
+    documents. It leaves one-sense-per-discourse exactly where it was. See
+    :data:`SELECTIVE_IS_NOT_ONE_SENSE`, which
+    :func:`gate_disclosure` returns and which says so in one string.
+
+    The two are independent and may be supplied together, in which case both must
+    admit. Neither is on by default and neither is constructed here.
+
     Args:
         text: The document the pairs were extracted from. Offsets are read
             against it, so it must be the same string.
@@ -419,15 +566,22 @@ def propagate(
             that identity is one :meth:`AbbreviationExtractor.extract
             <acronymkit.nlp.extractor.AbbreviationExtractor.extract>` documents, so
             a violation means the text and the pairs do not belong together.
-        gate: Optional calibrated gate. See above for what it does and does not
-            promise.
+        gate: Optional calibrated conformal gate. See above for what it does and
+            does not promise.
+        selective: Optional calibrated
+            :class:`~acronymkit.core.selective.SelectiveRiskGate`. Refusals are
+            reported under :data:`SELECTIVE_UNCALIBRATED`,
+            :data:`SELECTIVE_UNCERTIFIED` and :data:`SELECTIVE_ABOVE_THRESHOLD`.
+            An uncertified stratum refuses **everything**, which is the correct
+            behaviour and the expensive one: the bound was never computed for it.
 
     Returns:
         The occurrences and the refusals.
 
     Raises:
         ConfigurationError: If ``gate`` is not a
-            :class:`~acronymkit.conformal.ConformalGate`.
+            :class:`~acronymkit.conformal.ConformalGate`, or if ``selective`` is
+            not a :class:`~acronymkit.core.selective.SelectiveRiskGate`.
 
     Example:
         >>> from acronymkit.config import Config
@@ -450,6 +604,11 @@ def propagate(
         raise ConfigurationError(
             f"gate must be a ConformalGate or None, not {type(gate).__name__}. "
             "Build one with ConformalGate.calibrate() over your own labelled data."
+        )
+    if selective is not None and not isinstance(selective, SelectiveRiskGate):
+        raise ConfigurationError(
+            f"selective must be a SelectiveRiskGate or None, not {type(selective).__name__}. "
+            "Build one with SelectiveRiskGate.calibrate() over your own labelled data."
         )
     if not text:
         return PropagationResult()
@@ -479,6 +638,12 @@ def propagate(
                 continue
             if decision.expansion != first.long_form:
                 refused.append((short_form, GATE_DISAGREED))
+                occurrences.extend(_definition_sites(definitions))
+                continue
+        if selective is not None:
+            declined = selective.refusal(MODE_PROPAGATED, selective_score(first))
+            if declined:
+                refused.append((short_form, _selective_refusal(declined)))
                 occurrences.extend(_definition_sites(definitions))
                 continue
         defined_at = {pair.short_form_span[0] for pair in definitions}

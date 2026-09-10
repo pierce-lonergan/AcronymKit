@@ -1724,6 +1724,103 @@ here is the marker check against `.github/gates.toml`, which skips with a reason
 
 ---
 
+## No forty-third gate, and the argument against one is this register's own
+
+`tests/test_unicode_properties.py` landed this round: `36` collected, exhaustive over all
+`1,114,112` code points, holding three metamorphic invariants over the two governed verbs and the
+prose tokenizer's offsets. **It is not registered as a gate, and this section is the disposition
+R14 requires for that refusal.**
+
+The obvious move was a forty-third entry — `python -m pytest tests/test_unicode_properties.py` in
+the `lint` environment, exactly the shape `gates.architecture_boundaries` took one round earlier.
+Three measurements argue against it and none of them is about effort.
+
+**It would be redundant with `gates.suite` in the one dimension that matters here.** The two
+classes this file pins are derived from `str.islower`, `str.upper` and `unicodedata.combining` on
+the running interpreter, so the quantity at risk is **an interpreter's Unicode data**, not a line
+of this package. `gates.suite` runs `python -m pytest` in **fifteen matrix cells**; a `lint`-job
+duplicate runs it in one, on one CPython, against one Unicode version. For this file, the matrix
+*is* the instrument, and the cheap single-cell copy is strictly the weaker of the two.
+
+**The register already wrote this argument against itself, one round ago, and it applies harder
+here.** `gates.architecture_boundaries` is ranked `40` of `42` and its own `cost_if_inert` says
+`gates.suite` catches everything it catches, in fifteen cells, whether or not the entry exists —
+that what a separate entry buys is a named mutation, a cheap named failure and visibility in this
+file. Two of those three are already available without an entry: the mutations are recorded below
+and reproducible by anyone, and the file names itself in its failure messages. The third is this
+section.
+
+**And a forty-third gate would raise the debt in the round after the fourth consecutive quota
+waiver.** `D-126` records that the migration quota could not be paid for a fourth time and was
+escalated. Adding a gate with no in-situ evidence moves `gates` `42 → 43` and `in_situ` debt
+`21 → 22`, payable only by an `owed_forward` promise on a run that has not happened. Spending that
+on an entry whose own best argument is *"`gates.suite` already catches this"* is the shape of
+coverage-by-arithmetic this register exists to refuse.
+
+**What that costs, stated rather than left implied.** There is no entry in `.github/gates.toml`
+naming this file, so a reader of the register does not learn the invariants exist; they learn it
+here and in the file's own docstring. If `gates.suite` were ever narrowed to a marker expression
+that deselected `slow`, the full-space sweep would stop running and **nothing would say so**. That
+is a real hole and it is one line of `pytest` away in either direction. The mitigation inside the
+file is that its own budget test refuses a `@pytest.mark.skipif` anywhere in the module, which
+closes the skip route and leaves the deselect route open.
+
+### The four mutations, run by hand, and what each one reached
+
+Not in-situ evidence — CPython 3.13.4 on win32, which is precisely the evidence R11 says does not
+count — and recorded here in that character, as a statement that the assertions **can** fail rather
+than that they have failed on a runner.
+
+```
+mutations applied by hand to an isolated worktree at 1e0d6d5, restored after each.
+Command output, not a benchmark measurement.
+
+  M1  tests: assert len(found) == 1050  ->  1051
+      1 failed  -- test_the_ordinal_indicator_class_is_exactly_1050_code_points
+
+  M2  catalog/tokenizer.py: `unaccounted.append(char)` -> `pass`
+      6 failed  -- three named blocks, the combining-mark sweep, and two drawn properties
+                   (this is the NON-VANISHING invariant catching silent character loss)
+
+  M3  nlp/tokenizer.py: `end=end` -> `end=max(start, end - 1)`
+      8 failed  -- every span test in the file, including the drawn one
+
+  M4  catalog/naming.py: strip combining marks from the emitted physical name
+                         (a plausible REPAIR of the 26-code-point class)
+      2 failed  -- the strict xfail XPASSED, and the positive pin beside it went red
+```
+
+**M4 is the one worth reading.** Both known classes ship as `xfail(strict=True)`, so a future
+repair does not quietly turn them green and leave a stale exemption in the tree: it reddens this
+file and forces the record to be rewritten. That property was demonstrated rather than asserted —
+a plausible fix was applied and the file went red in the two places it should.
+
+### What the file adds to `gates.suite`, and what it cannot see
+
+**Adds.** An equality rather than an absence: the set of code points that break idempotence *is*
+the union of two enumerated classes — `1,050` ordinal-indicator code points and `26` upper-case
+expansion code points, `1,076` together, disjoint — with nothing outside it and nothing missing
+from either. Non-vanishing over `3,342,298` non-separator inputs, zero silent empties. A lossless
+span partition over `10,716` inputs across the named blocks, combining marks and the surrogate
+boundaries.
+
+**Cannot see.** The enumeration is **single-character**: every code point is exercised in five
+one-character contexts, so a defect needing two different unusual characters adjacent to each other
+is outside it and reachable only by the drawn half, which at `200` examples over a `1.1`-million
+code-point space is a statement about the draw. The drawn half's weakness is measured rather than
+guessed: with the ordinal class present and undisposed, the shipped property at Hypothesis's
+default `100` examples finds it on **`2` of `20` seeds**, and at `1,000` examples on `14` of `20`.
+**A property test that finds a `1,050`-member class one time in ten is not a gate**, and that
+measurement is the whole reason the primary instrument in this file is a loop.
+
+**And the example database is not the durable mechanism, despite being the obvious one.**
+`.hypothesis/` is in `.gitignore` and no `actions/cache` step in `.github/workflows/ci.yml`
+restores it, so a failure found on a runner is gone when that runner is. What survives is
+`@example(...)`, which is a committed line; five are pinned.
+
+
+---
+
 ## Running it yourself
 
 ```

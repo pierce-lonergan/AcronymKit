@@ -1,296 +1,491 @@
 #!/usr/bin/env python3
-"""Draw a churn-weighted stratified sample of this project's unbacked claims.
+"""Draw a stratified sample of this project's claim-bearing sentences.
 
-WHAT THIS REPLACES, AND WHY THE OLD NUMBER DOES NOT COME WITH IT
-================================================================
-R15 -- the sampled-verification round -- has run five times. Every workstream
-submits twelve non-load-bearing checkable sentences, a sampler draws twenty-four
-of them under a published seed, and each is re-checked against running code
-rather than against the document that states it. The five rounds returned
-``5, 5, 6, 2, 2`` not true out of twenty-four each: **20 of 120 = 16.67 %,
-Wilson 95 % [11.06, 24.35]**.
+WHAT THIS MODULE USED TO BE, AND WHY THAT VERSION IS RETIRED UNGRADED
+=====================================================================
+Until this rewrite this file drew a **churn-weighted** sample of *claim-shaped
+numbers* -- the residue of :mod:`tools.check_claims`, partitioned into ``round``
+/ ``recent`` / ``cold`` by how lately their file was touched. **It never graded
+a single claim.** It stood at ``n = 0`` from the day it shipped to the day it
+was retired, so retiring it destroys no data, and nothing below is a
+re-interpretation of a measurement somebody already made.
 
-**That series is CLOSED, and this module is not a continuation of it.** Round
-five measured the instrument rather than the project and the measurement is why:
-a fifth point moved the interval's half-width by ``1.11`` points while moving
-the estimate by ``2.08``, and reaching a half-width of three points needs about
-``600`` draws -- twenty-five rounds of twenty-four in total, twenty more than
-have been run. Pooling further draws of twenty-four is not a route to a usable
-number.
+It is retired because its population **cannot contain this project's claims, and
+that is a proof rather than a sample.**
 
-THE PART THAT MUST NOT BE PAPERED OVER
---------------------------------------
-The successor below draws from a **different population**, so the five-round
-figure cannot be carried across the change and this module refuses to print a
-pooled rate that spans it.
+    ``check_claims.prose_of()`` masks Markdown fenced blocks and then masks
+    every inline code span (``_mask_fenced_blocks`` followed by
+    ``_mask_spans(..., _INLINE_CODE)``). Claims are collected from that masked
+    text. This project's house style writes every real figure inside an inline
+    code span. **Therefore the set of house-style figures and the set of frame
+    items are disjoint by construction** -- not rare in it, absent from it.
 
-===================  ==========================================================
-old frame            twenty-four sentences drawn uniformly from the pool every
-                     workstream *submitted about its own round*: 12 per
-                     workstream, 36 in a three-workstream round.
-this frame           claim-shaped numbers **in the repository's scanned
-                     documents** that no arming rule backs, partitioned by how
-                     recently their file was touched, and drawn with a
-                     deliberately unequal allocation across those strata.
-===================  ==========================================================
+Measured with ``--audit-old-frame``. **Only the second row is stable**: ``0``
+reachable is a consequence of ``prose_of``, not a count, so it does not drift.
+Every other row moves with the tree, and moved measurably while this docstring
+was being written, so re-run the command rather than quoting these.
 
-Different unit (a submitted sentence against a number in a file), different
-population (this round's self-report against the whole scanned tree), different
-inclusion probabilities (uniform against stratified). A series silently
-redefined mid-flight is the worst outcome available here, so the new series
-**starts at n = 0** and says so on every run.
+===============================================================  =============
+unfenced backticked figures in the scanned Markdown               ``3,279``
+of those reachable by the old frame                               ``0``
+Markdown characters in the scan set hidden inside fences          ``8.5`` %
+old frame's population                                            ``2,139``
+of it, one- and two-digit integers                                ``666`` (``31.1`` %)
+its five commonest items  ``08`` 78, ``10`` 55, ``23`` 34, ``3.9`` 33, ``11`` 32
+===============================================================  =============
 
-WHAT THE DISCONTINUITY BUYS, AND WHAT IT COSTS -- STATED BEFORE ANY DRAW
-------------------------------------------------------------------------
-The maintainer's argument for churn weighting is that re-measuring cold
-invariant text is wasted attention: a paragraph nobody has edited in four months
-was already checked, and the claims most likely to be wrong are the ones written
-last week. That argument is about **relevance**, and it is a good one.
+A sibling workstream reported ``15`` backticked items in that population and
+this rewrite first reproduced ``18``. **Both numbers are artefacts of the same
+naive detector** -- it asked whether the claim's *text* occurred inside a span
+somewhere on the line, and matched the digits of ``3.9`` inside ``` `>=3.9` ``
+while the claim was the bare ``3.8`` further along. Checked against the masked
+text the collector actually reads, all ``18`` came from unmasked prose. The
+true count is ``0`` and it is ``0`` for a structural reason.
 
-It is **not** an argument about precision, and this module will not let it be
-read as one. Stratified sampling beats simple random sampling only when the
-strata differ in the quantity being measured. If churned and cold text carry the
-same not-true rate, an unequal allocation makes the **repository-wide** estimate
-*less* precise per draw than a uniform one, because the design-weighted
-estimator pays a variance penalty for over-sampling a small stratum.
-:func:`design_effect` computes that penalty from the live stratum sizes; it is
-printed on every draw, whether or not it flatters the design.
+WHAT THE THREE OBSERVED MISSES ACTUALLY WERE
+--------------------------------------------
+The round that measured the old frame from the inside reported that its three
+not-true verdicts fell outside the frame, and gave three different reasons. Two
+of the three reasons are wrong, and the corrected account is what this design
+is built on:
 
-So the honest summary of the change is: **the repository-wide question gets
-harder to answer and the "is the work just done described correctly" question
-becomes answerable at all.** The second is the question a round actually needs.
+=========  ===========================  =========================================
+verdict    reported reason              re-derived here
+=========  ===========================  =========================================
+claim 1    "lives in no document"       **false.** ``2.01`` and ``2.79`` are in
+                                        ``docs/CLAIMS-LEDGER.md`` at four sites,
+                                        two fenced and two in code spans
+claim 15   outside ``SCAN_GLOBS``       correct -- ``.github/gates.toml`` -- *and*
+                                        the figure is inside a code span there too
+claim 10   "wrong clause, right digit"  correct, and its digits ``4,215`` are
+                                        backticked, so they are masked as well
+=========  ===========================  =========================================
 
-WHAT WOULD MAKE THE DISCONTINUITY WORTH IT (pre-registered)
------------------------------------------------------------
-1. The ``round`` stratum's rate must separate from the ``cold`` stratum's by
-   more than either interval's half-width, in at least two rounds. If the two
-   strata measure the same rate, churn weighting has bought relevance and
-   nothing else, and this module's own design-effect line is the argument
-   against it.
-2. The design-weighted repository estimate must remain computable. A frame that
-   can only answer the narrow question has *removed* a measurement rather than
-   replaced it, which is why the ``cold`` stratum keeps a non-zero allocation
-   instead of being dropped.
-3. Five rounds of this must reach a narrower interval **on the round stratum**
-   than five rounds of the old frame reached on its own quantity. If they do
-   not, the change was a rename.
+**So one of the three lived outside the scanned file set, not two, and all three
+were invisible for one shared reason: masking.** Widening the file set -- the
+repair that suggested itself -- would have reached one of the three. Reading
+code spans and fences reaches two. Changing the unit from a number to a sentence
+reaches the third.
+
+WHAT THIS FRAME IS
+==================
+Unit
+    A **claim-bearing sentence**: a sentence of prose, a line of a fenced block,
+    a line of a register file, or one sentence of a string in a committed run
+    summary, that carries at least one digit. Nothing is masked. A figure in
+    backticks is *more* likely to be a claim here, not less.
+
+Population
+    Four **channels**, because the errors this project makes are located by
+    where a sentence was written rather than by how recently its file moved.
+
+Armed numbers are **in** the population, deliberately, and this is the reversal
+that matters most. The old frame sampled only what no gate backed, on the
+argument that spending a grader on a machine-checked number measures the
+grader. That argument holds for the *number* and fails for the *sentence around
+it*: claim 10's ``4,215`` was correct and its clause named the wrong two
+corpora. **A gate that re-derives a digit says nothing about the sentence it
+sits in**, so a frame that skips armed figures cannot see this project's most
+recent error at all.
+
+WHY CHURN IS GONE
+-----------------
+It explained nothing and it was measured not to. ``docs/CLAIMS-LEDGER.md``
+recorded that widening the window to ``40`` commits leaves ``14`` of ``2054``
+numbers in a file nobody has touched, and called the premise "weak here" in the
+same paragraph that shipped it. The round that graded under it drew exactly one
+cold-stratum claim, so no stratum comparison was ever possible. And on a
+**committed** tree the ``round`` stratum is empty: ``churn()`` with no ``--base``
+diffs the working tree against ``HEAD``, so the moment a round commits its work
+the headline stratum falls to ``N = 0`` and its ``12`` draws are silently
+reallocated. Nothing on disk said the tool had to be run with ``--base``.
+
+WHAT THIS FRAME STILL CANNOT DO, STATED RATHER THAN ASSERTED AWAY
+==================================================================
+1. **A claim with no digit and no quantifier is outside it.** Round two's
+   worst catch was an identifier that had never existed in any revision. No
+   sentence-shaped rule reaches that; it needs a symbol resolver.
+2. **It cannot see a self-report that was never committed.** ``submitted`` draws
+   from ``.github/run-summaries/``, and most workstreams file to a scratch
+   directory instead. The forty-first gate already records that nothing in this
+   repository writes those files for a real round.
+3. **It cannot see a number that is in no file.** If a workstream computes a
+   figure, states it in a report that is never committed and nobody re-derives
+   it, no document-scanning frame reaches it, and this one does not either.
+4. **It does not fix the precision wall.** Round five measured that: reaching a
+   half-width of ``3`` points needs about ``600`` draws, roughly ``25`` rounds
+   of ``24`` in total. **A better frame does not move that number.** It changes
+   what the estimate is *of* -- from "the rate at which unbacked residue numbers
+   are wrong", which nobody asked, to "the rate at which this project's written
+   claims are wrong", which is the question. Precision is unchanged and the
+   estimand is different. That is the whole of what the change buys.
+5. **It is fitted to observations it cannot generalise from.** FIFTEEN of the
+   twenty-three not-true verdicts across six rounds are attributable to a
+   sentence; the design was argued from those. Round three's six are not
+   itemised in its record and round four's two are given as counts only, so
+   eight of twenty-three -- over a third -- say nothing about where errors
+   live. The next three errors will be different in a way this rewrite cannot
+   anticipate. ``--containment`` exists so that the coverage
+   claim is a command anybody can re-run rather than a sentence in a docstring.
+
+THE SERIES, AND THE BOOKKEEPING THAT WAS LEFT OPEN
+===================================================
+:data:`CLOSED_SERIES` used to record ``5`` rounds, ``120`` draws, ``20`` not
+true. **Six rounds ran.** The closure was declared by this module before the
+sixth round graded anything, and the sixth round then graded ``24`` claims under
+the old frame anyway. The record file already carries the corrected arithmetic;
+the constant here did not, and the round that found the mismatch declined to
+change a sibling's constant and its tests at the end of a round and named it for
+the next one instead. **This is that round**, so the constant now matches the
+record: ``23`` of ``144`` = ``15.97`` %, Wilson ``[10.89, 22.83]``.
+
+That series is closed **at six rounds, not five**, and this frame starts at
+``n = 0`` for the second time in two rounds. **A second restart inside two
+rounds is a bad sign about the instrument and it is recorded as one.** The
+defence is narrow and it is the only one available: the frame being retired
+never graded a claim, so no draw is being discarded and no rate is being
+re-based. The R15 series is not reopened -- its unit was a sentence a workstream
+volunteered about its own round, and a self-selected pool is the weakest frame
+available -- but its ``144`` draws are the evidence this design was fitted to,
+and its ``submitted`` channel is the nearest successor to it.
 
 Nothing here is imported by the library and nothing here touches the network.
 
 Usage::
 
-    python tools/sample_claims.py --frame            # strata and their sizes
+    python tools/sample_claims.py --frame
+    python tools/sample_claims.py --containment
+    python tools/sample_claims.py --audit-old-frame
     python tools/sample_claims.py --draw --seed 20260909
-    python tools/sample_claims.py --estimate GRADED.json
+    python tools/sample_claims.py --estimate GRADED.json --seed 20260909
 """
 
 from __future__ import annotations
 
 import argparse
-import importlib.util
+import hashlib
 import json
 import math
 import random
 import re
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-#: The strata, most-churned first. Ordered, because the allocation below is
-#: positional and a reordered tuple would silently re-aim the whole draw.
-STRATA: Tuple[str, ...] = ("round", "recent", "cold")
-
-#: How many of a sample of :data:`DEFAULT_SIZE` each stratum gets.
+#: The channels, ordered. The allocation below is positional, so a reordered
+#: tuple would silently re-aim the whole draw.
 #:
-#: **THE COLD STRATUM IS NOT ZERO, AND THAT IS THE DESIGN.** Dropping it would
-#: make the repository-wide rate permanently unmeasurable -- the frame would
-#: answer only the narrow question and would have removed a measurement rather
-#: than replaced one. Four draws a round is not much; it is the difference
-#: between a quantity with a wide interval and a quantity with none.
-DEFAULT_ALLOCATION: Dict[str, int] = {"round": 12, "recent": 8, "cold": 4}
+#: ``submitted``  what a workstream said about its own round, committed.
+#: ``register``   what a machine reads: the gate register and the workflows.
+#: ``document``   live prose a reader lands on and a maintainer may edit.
+#: ``record``     ``docs/DECISIONS.md``, which is append-only by policy.
+CHANNELS: Tuple[str, ...] = ("submitted", "register", "document", "record")
 
-#: The per-round draw. Twenty-four, the same as the old frame -- deliberately,
-#: because it holds the GRADER'S EFFORT fixed across the discontinuity. The
-#: statistic changes; the cost of a round does not, so a later comparison of
-#: what the two frames bought per unit of attention is possible.
+#: Which files belong to which channel. Order matters: the first channel whose
+#: patterns match a path wins, so ``docs/DECISIONS.md`` lands in ``record``
+#: rather than in ``document`` even though ``docs/*.md`` also matches it.
+CHANNEL_GLOBS: Dict[str, Tuple[str, ...]] = {
+    "submitted": (".github/run-summaries/**/*.json",),
+    "register": (".github/gates.toml", ".github/workflows/*.yml"),
+    "record": ("docs/DECISIONS.md",),
+    "document": (
+        "README.md",
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "docs/*.md",
+        "docs/notes/*.md",
+    ),
+}
+
+#: Paths excluded from every channel, with the reason each is here.
+#:
+#: A run-summary directory whose name begins with ``_`` is a **control
+#: fixture**: three files that exist to make the forty-first gate fail on
+#: demand. Their own text says *"this file is a control fixture and asserts
+#: nothing about the library"* twelve times each. Measured before excluding
+#: them: they were ``25`` of the ``136`` sentences in ``submitted`` -- ``18.4``
+#: %% of the most valuable channel in the frame -- and the first exploratory
+#: draw took ``3`` of its ``8`` submitted rows from them. Grading a sentence
+#: that was written to be ungradeable measures nothing.
+#:
+#: One of those three files is also deliberately truncated mid-write and does
+#: not parse; :func:`_json_units` drops it silently, which is correct and is
+#: why the exclusion is by path rather than by parse failure.
+EXCLUDED = (".github/run-summaries/_",)
+
+#: The order in which a file is offered to the channels, first match winning.
+#: **Not** :data:`CHANNELS`, which is display order: ``docs/*.md`` matches
+#: ``docs/DECISIONS.md`` too, so ``record`` has to be offered the file first or
+#: the append-only record lands in the editable channel.
+CHANNEL_PRECEDENCE: Tuple[str, ...] = ("submitted", "register", "record", "document")
+
+#: How many of a sample of :data:`DEFAULT_SIZE` each channel gets.
+#:
+#: **THIS IS NOT PROPORTIONAL AND THE PRICE IS PRINTED ON EVERY DRAW.**
+#: Proportional allocation would give ``submitted`` zero draws -- it is under
+#: two per cent of the population -- and ``submitted`` is the channel where
+#: errors are *made*. :func:`design_effect` reports what the unequal allocation
+#: costs the repository-wide estimate, whether or not it flatters the design.
+#:
+#: ``record`` keeps a non-zero allocation even though a finding there can never
+#: be edited away: a false sentence in an append-only record is still false, the
+#: project's own convention is to amend it with a new record, and a channel
+#: drawn at zero is a channel whose rate is permanently unknown.
+DEFAULT_ALLOCATION: Dict[str, int] = {
+    "submitted": 8,
+    "register": 4,
+    "document": 8,
+    "record": 4,
+}
+
+#: The per-round draw. Twenty-four, unchanged across both discontinuities, so
+#: that the GRADER'S EFFORT is held fixed and a later comparison of what three
+#: successive frames bought per unit of attention is possible.
 DEFAULT_SIZE = 24
 
-#: How many commits back ``recent`` reaches. A round is roughly one commit here,
-#: so twenty is about the last twenty rounds -- long enough to catch a claim
-#: written two rounds ago and re-quoted since, short enough that a file nobody
-#: has touched this quarter falls to ``cold``.
-DEFAULT_RECENT_COMMITS = 20
-
 #: Verdicts a grader may return. ``UNCHECKABLE`` is IN the denominator and NOT
-#: in the numerator, which is the convention D-115 graded round five under: a
-#: claim nobody can check is not a claim shown to be true, and excluding it
-#: would let a round improve its rate by making claims harder to check.
+#: in the numerator: a claim nobody can check is not a claim shown to be true,
+#: and excluding it would let a round improve its rate by making claims harder
+#: to check.
 VERDICTS: Tuple[str, ...] = ("TRUE", "FALSE", "MISLEADING", "UNCHECKABLE")
 
-#: A bare four-digit integer in this range is a **date**, not a claim, and is
-#: excluded from the frame.
-#:
-#: **ADDED AFTER THE FIRST EXPLORATORY DRAW AND BEFORE THE FIRST GRADED ONE,
-#: WHICH IS THE ONLY MOMENT IT IS FREE.** ``check_claims``' own docstring says
-#: the residue is "mostly years, defaults and rank cutoffs"; the first draw
-#: under seed 20260909 put two of them in front of a grader and made the point
-#: concretely. Because the successor series stands at ``n = 0``, refining the
-#: frame costs nothing today and would cost the whole series after round one --
-#: so it is done now and recorded here rather than deferred into a footnote.
-#:
-#: It is deliberately narrow, and it applies to the **unarmed** residue only.
-#: ``628`` of the frame's numbers are one- or two-digit integers and many of
-#: those ARE claims ("14 records", "31 came out of"), so no blanket
-#: small-integer rule is applied. Measured effect of this one: the frame falls
-#: from ``2182`` to ``2054``, so ``128`` numbers leave. ``130`` numbers in the
-#: tree are year-shaped and ``2`` of them are on the DEFERRED ledger -- armed by
-#: a metric keyword or a unit, so they are measurements that happen to look like
-#: years, and dropping those would hide a real debt.
-YEAR_LIKE = re.compile(r"^(?:19|20|21)\d{2}$")
-
-#: Which verdicts count as **not true**. Fixed here, before any draw, because
-#: D-115 records that round four's boundary rule is not on disk anywhere and
-#: "graded under the rule somebody else wrote" turned out to mean "graded under
-#: this grader's reading of a paragraph".
+#: Which verdicts count as **not true**. Fixed in code, before any draw, because
+#: the one thing every round of the predecessor series agreed on is that a
+#: boundary reconstructed from prose after the fact is not a boundary.
 NOT_TRUE: Tuple[str, ...] = ("FALSE", "MISLEADING")
 
-#: The closed series, recorded here so that a future round comparing against it
-#: is comparing against a number with a name on it rather than a memory.
+#: A sentence must carry one of these to enter the frame. Digits only: every
+#: quantifier-based rule tried here either admitted most of the tree or turned
+#: on a word list nobody could defend, and blind spot 1 in the module docstring
+#: is the honest statement of what that costs.
+CLAIM_BEARING = re.compile(r"\d")
+
+#: How many whitespace-separated tokens a unit needs before a grader can be
+#: asked about it.
 #:
-#: ``wilson_pct`` is TRANSCRIBED from D-115 rather than computed, deliberately:
+#: **ADDED AFTER THE FIRST EXPLORATORY DRAW AND BEFORE THE FIRST GRADED ONE,
+#: WHICH IS THE ONLY MOMENT IT IS FREE**, and the same moment at which the
+#: retired frame took its one refinement. That draw put ``"> **9."`` and
+#: ``"See `docs/DECISIONS.md` D-034."`` in front of a grader: the first is a
+#: list marker the sentence splitter tore off a heading, the second is a
+#: cross-reference whose only digit is a record number. Neither is a claim, and
+#: neither can be graded ``TRUE`` or ``FALSE`` by anybody.
+#:
+#: Four, not more. Deliberately weak, because the cost of a rule that is too
+#: strong falls on real claims: ``cold 431 of 2054`` is four tokens and is
+#: exactly the kind of transcribed row this frame exists to reach. A frame
+#: edited after a graded round would invalidate that round; this series stands
+#: at ``n = 0``, so it does not.
+MIN_UNIT_TOKENS = 4
+
+#: The predecessor series, recorded here so that a future round comparing
+#: against it compares against a number with a name on it rather than a memory.
+#:
+#: ``wilson_pct`` is TRANSCRIBED from the record file rather than computed;
 #: ``tests/test_sample_claims.py`` recomputes it from ``per_round`` with
-#: :func:`wilson` and requires the two to agree to two decimals. A constant
-#: derived from the function it is checked against would check nothing.
+#: :func:`wilson` and requires agreement to two decimals. A constant derived
+#: from the function it is checked against would check nothing.
 CLOSED_SERIES: Dict[str, Any] = {
-    "rounds": 5,
-    "draws": 120,
-    "not_true": 20,
-    "rate_pct": 100.0 * 20 / 120,
-    "wilson_pct": (11.06, 24.35),
-    "per_round": (5, 5, 6, 2, 2),
+    "rounds": 6,
+    "draws": 144,
+    "not_true": 23,
+    "rate_pct": 100.0 * 23 / 144,
+    "wilson_pct": (10.89, 22.83),
+    "per_round": (5, 5, 6, 2, 2, 3),
     "frame": "uniform draw from workstream-submitted claims_for_sampling sentences",
+    "closed_at_five_until": (
+        "this rewrite. The constant said 5 rounds / 120 draws / 20 not true while the record "
+        "file said 6 / 144 / 23; the sixth round graded 24 claims under a frame this module "
+        "had already declared closed."
+    ),
 }
+
+#: Sites of claims a previous round GRADED NOT TRUE, kept so that the frame's
+#: coverage is a command rather than an assertion. ``--containment`` reports how
+#: many the live frame can actually reach.
+#:
+#: **These are the observations this design was fitted to, so containment of
+#: them is a floor and not evidence of generality.** A site whose text has since
+#: been corrected is kept: the frame's job is to be able to *reach* that
+#: sentence, and the corrected sentence sits where the wrong one sat.
+KNOWN_ERROR_SITES: Tuple[Dict[str, str], ...] = (
+    {
+        "round": "six",
+        "verdict": "FALSE",
+        "path": "docs/CLAIMS-LEDGER.md",
+        "needle": "2.79",
+        "why": "a design-effect pair spliced from two trees; fenced and code-spanned",
+    },
+    {
+        "round": "six",
+        "verdict": "FALSE",
+        "path": ".github/gates.toml",
+        "needle": "135 passed",
+        "why": "a mutation count that is 137 on the tree that shipped; outside the old file set",
+    },
+    {
+        "round": "six",
+        "verdict": "MISLEADING",
+        "path": "docs/ARCHITECTURE.md",
+        "needle": "4,215",
+        "why": "a right digit inside a clause naming the wrong two corpora",
+    },
+    {
+        "round": "this one",
+        "verdict": "FALSE",
+        "path": "docs/CLAIMS-LEDGER.md",
+        "needle": "D-068, D-082",
+        "why": "the five-round transcription cites D-100 for round three; round three is D-088",
+    },
+)
 
 
 class SamplerError(Exception):
     """The frame could not be built."""
 
 
-def _load_check_claims() -> object:
-    """Import ``tools/check_claims.py`` by path.
+# ---------------------------------------------------------------------------
+# Reading files into claim-bearing units
+# ---------------------------------------------------------------------------
 
-    ``tools/`` is a directory of scripts and must not become a package; the same
-    mechanism ``tests/test_gate_manifest.py`` uses. The population this module
-    samples is *exactly* the residue that tool already computes, and
-    re-implementing the scanner would create a second definition of "a claim"
-    for the two to disagree about.
+#: A sentence boundary: terminal punctuation, whitespace, then something that
+#: can begin a sentence. Deliberately conservative -- it will not split
+#: ``1.02`` or ``D-088.`` mid-token, and it would rather return one long unit
+#: than two wrong ones, because a grader can read a long sentence and cannot
+#: recover a claim that was cut in half.
+_SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z*`\[(#-])")
+
+#: An opening or closing Markdown fence.
+_FENCE = re.compile(r"^\s*(?:`{3,}|~{3,})")
+
+
+def _sentences(text: str) -> Iterator[str]:
+    """Split prose into sentences, whitespace-normalised, empties dropped."""
+    for chunk in _SENTENCE.split(text):
+        collapsed = " ".join(chunk.split())
+        if collapsed:
+            yield collapsed
+
+
+def _markdown_units(text: str) -> Iterator[Tuple[int, str, str]]:
+    """Yield ``(line_number, region, sentence)`` for one Markdown file.
+
+    Fenced blocks are yielded **line by line** and prose is yielded sentence by
+    sentence, because the two carry claims in different shapes: a fence here is
+    almost always transcribed command output, where the unit is a row, and
+    prose is where a clause wraps a figure.
+
+    Nothing is masked. That is the entire point of the rewrite.
     """
-    path = REPO_ROOT / "tools" / "check_claims.py"
-    if not path.is_file():  # pragma: no cover - source checkouts only
-        raise SamplerError(f"{path} is not here; this tool belongs to a checkout")
-    spec = importlib.util.spec_from_file_location("_check_claims_for_sampling", path)
-    if spec is None or spec.loader is None:  # pragma: no cover - defensive
-        raise SamplerError(f"cannot load {path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    prose: List[Tuple[int, str]] = []
+    inside = False
+    for number, line in enumerate(text.split("\n"), start=1):
+        if _FENCE.match(line):
+            inside = not inside
+            continue
+        if inside:
+            if line.strip():
+                yield (number, "fenced", " ".join(line.split()))
+        else:
+            prose.append((number, line))
+
+    buffer: List[str] = []
+    start: Optional[int] = None
+    for number, line in [*prose, (0, "")]:
+        if line.strip():
+            if start is None:
+                start = number
+            buffer.append(line)
+            continue
+        if buffer and start is not None:
+            for sentence in _sentences(" ".join(buffer)):
+                yield (start, "prose", sentence)
+        buffer = []
+        start = None
 
 
-def _git(args: Sequence[str], root: Path) -> List[str]:
-    """Run git and return its stdout lines, or ``[]`` if git cannot answer.
+def _line_units(text: str) -> Iterator[Tuple[int, str, str]]:
+    """Yield one unit per non-blank line, for TOML and YAML register files."""
+    for number, line in enumerate(text.split("\n"), start=1):
+        stripped = " ".join(line.split())
+        if stripped:
+            yield (number, "line", stripped)
 
-    A missing git, a missing ref and a tarball checkout all land here and all
-    mean the same thing: **churn is unknown**. The caller turns that into an
-    all-``cold`` frame and says so, rather than guessing, because a frame that
-    silently reports every file as untouched would draw a uniform sample while
-    printing a stratified header.
+
+def _json_units(text: str) -> Iterator[Tuple[int, str, str]]:
+    """Yield one unit per sentence of every string in a run summary.
+
+    The line number is ``0``: a JSON string's sentence has no line of its own,
+    and inventing one would put a number in an identifier that no reader could
+    check. The dotted key path is carried in the region instead, which is what
+    a grader actually needs to find it again.
     """
     try:
-        finished = subprocess.run(
-            ["git", *args],
-            cwd=str(root),
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:  # pragma: no cover - git absent
-        return []
-    if finished.returncode != 0:
-        return []
-    return [line.strip() for line in finished.stdout.splitlines() if line.strip()]
+        document = json.loads(text)
+    except (ValueError, UnicodeDecodeError):
+        return
+
+    def walk(value: Any, path: str) -> Iterator[Tuple[int, str, str]]:
+        if isinstance(value, str):
+            for sentence in _sentences(value):
+                yield (0, f"json:{path or '.'}", sentence)
+        elif isinstance(value, list):
+            for item in value:
+                yield from walk(item, path)
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                yield from walk(item, f"{path}.{key}" if path else str(key))
+
+    yield from walk(document, "")
 
 
-def churn(
-    root: Path = REPO_ROOT,
-    base: Optional[str] = None,
-    recent_commits: int = DEFAULT_RECENT_COMMITS,
-) -> Tuple[frozenset, frozenset, bool]:
-    """Which files this round touched, and which the recent past did.
-
-    Args:
-        root: The checkout.
-        base: The ref the current round started from. ``None`` means "the
-            working tree against HEAD", which is the state a sampler is
-            **actually** in when it runs at the end of a round: the work exists
-            and is not committed yet.
-        recent_commits: How far back ``recent`` reaches.
-
-    Returns:
-        ``(round_files, recent_files, known)``. ``known`` is ``False`` when git
-        could not answer at all, and every caller must degrade loudly rather
-        than treat that as "nothing changed".
-    """
-    if base is None:
-        touched = set(_git(["diff", "--name-only", "HEAD"], root))
-        touched.update(_git(["ls-files", "--others", "--exclude-standard"], root))
+def _units_for(path: Path, text: str) -> Iterator[Tuple[int, str, str]]:
+    """Dispatch on suffix: ``.md`` prose, ``.json`` strings, everything else lines."""
+    if path.suffix == ".md":
+        yield from _markdown_units(text)
+    elif path.suffix == ".json":
+        yield from _json_units(text)
     else:
-        touched = set(_git(["diff", "--name-only", f"{base}..HEAD"], root))
-    history = set(
-        _git(
-            ["log", f"-n{recent_commits}", "--name-only", "--pretty=format:"],
-            root,
-        )
-    )
-    known = bool(touched or history)
-    return frozenset(touched), frozenset(history) - frozenset(touched), known
+        yield from _line_units(text)
+
+
+# ---------------------------------------------------------------------------
+# The frame
+# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class FrameItem:
-    """One claim in the frame: where it is, what it says, and which stratum."""
+    """One claim-bearing sentence: where it is, what it says, which channel."""
 
     identifier: str
     relative_path: str
     line_number: int
-    number: str
-    stratum: str
-    line: str
+    channel: str
+    region: str
+    text: str
 
     @property
     def sentence(self) -> str:
-        """The line, trimmed to something a grader can read in a table."""
-        text = " ".join(self.line.split())
-        return text if len(text) <= 160 else text[:157] + "..."
+        """The text, trimmed to something a grader can read in a table."""
+        return self.text if len(self.text) <= 200 else self.text[:197] + "..."
 
 
 @dataclass(frozen=True)
 class Frame:
-    """The whole population, partitioned."""
+    """The whole population, partitioned by channel."""
 
     items: Tuple[FrameItem, ...]
-    churn_known: bool
-    base: Optional[str]
+    missing_channels: Tuple[str, ...]
 
     def sizes(self) -> Dict[str, int]:
-        """``N_h`` for every stratum, zeroes included."""
-        tally = dict.fromkeys(STRATA, 0)
+        """``N_h`` for every channel, zeroes included."""
+        tally = dict.fromkeys(CHANNELS, 0)
         for item in self.items:
-            tally[item.stratum] = tally.get(item.stratum, 0) + 1
+            tally[item.channel] = tally.get(item.channel, 0) + 1
         return tally
 
     @property
@@ -298,79 +493,95 @@ class Frame:
         """``N``."""
         return len(self.items)
 
+    def files(self) -> Tuple[str, ...]:
+        """Every distinct path the frame reaches, sorted."""
+        return tuple(sorted({item.relative_path for item in self.items}))
 
-def build_frame(
-    root: Path = REPO_ROOT,
-    base: Optional[str] = None,
-    recent_commits: int = DEFAULT_RECENT_COMMITS,
-) -> Frame:
-    """Every unbacked claim-shaped number in the scan set, put in a stratum.
 
-    The population is ``check_claims``' own residue -- ``deferred`` and
-    ``unexamined`` -- and nothing else. Those are exactly the numbers no gate
-    has verified, which is the only population a sampler adds anything to: a
-    number the claims gate backs is already checked by a machine on every push,
-    and spending a grader's attention on it measures the grader.
+def _channel_files(root: Path) -> Dict[str, List[Path]]:
+    """Resolve every channel's globs against the checkout, first match winning.
+
+    Precedence is :data:`CHANNEL_PRECEDENCE` and not :data:`CHANNELS`, because
+    ``docs/*.md`` and ``docs/DECISIONS.md`` both match the record file and the
+    display order is not the tie-break order. Getting this wrong would put
+    ``3,302`` append-only sentences into the editable channel and quietly triple
+    the ``document`` stratum.
     """
-    check_claims = _load_check_claims()
-    project = check_claims.Project.at(root)  # type: ignore[attr-defined]
-    index = check_claims.build_index(  # type: ignore[attr-defined]
-        check_claims.load_results(project)  # type: ignore[attr-defined]
-    )
-    allowlist = check_claims.load_allowlist(project)  # type: ignore[attr-defined]
-    claims = check_claims.collect_claims(project, index, allowlist)  # type: ignore[attr-defined]
-    round_files, recent_files, known = churn(root, base, recent_commits)
+    seen: Dict[str, str] = {}
+    resolved: Dict[str, List[Path]] = {name: [] for name in CHANNELS}
+    for channel in CHANNEL_PRECEDENCE:
+        for pattern in CHANNEL_GLOBS[channel]:
+            for path in sorted(root.glob(pattern)):
+                if not path.is_file():
+                    continue
+                relative = path.relative_to(root).as_posix()
+                if relative in seen or relative.startswith(EXCLUDED):
+                    continue
+                seen[relative] = channel
+                resolved[channel].append(path)
+    return resolved
 
+
+def build_frame(root: Path = REPO_ROOT) -> Frame:
+    """Every claim-bearing sentence in the four channels.
+
+    Args:
+        root: The checkout.
+
+    Returns:
+        The :class:`Frame`. ``missing_channels`` names any channel that resolved
+        to no file at all -- an sdist, a shallow checkout or a tree with no
+        committed run summaries -- because a channel silently at ``N = 0`` would
+        hand its draws to another channel and print a header claiming coverage
+        it does not have.
+    """
+    resolved = _channel_files(root)
     items: List[FrameItem] = []
-    for claim in claims:
-        if claim.backing not in ("deferred", "unexamined"):
-            continue
-        if claim.backing == "unexamined" and YEAR_LIKE.match(claim.text):
-            # A DATE IS NOT A CLAIM. Only the unarmed residue is filtered: a
-            # number on the DEFERRED ledger was armed by a metric keyword or a
-            # unit, so a four-digit figure there is a measurement that happens
-            # to look like a year and dropping it would hide a real debt.
-            continue
-        relative = claim.path.resolve().relative_to(root.resolve()).as_posix()
-        if not known:
-            stratum = "cold"
-        elif relative in round_files:
-            stratum = "round"
-        elif relative in recent_files:
-            stratum = "recent"
-        else:
-            stratum = "cold"
-        items.append(
-            FrameItem(
-                identifier=f"{relative}:{claim.line_number}:{claim.text}",
-                relative_path=relative,
-                line_number=claim.line_number,
-                number=claim.text,
-                stratum=stratum,
-                line=claim.line,
-            )
-        )
+    for channel in CHANNELS:
+        for path in resolved[channel]:
+            relative = path.relative_to(root).as_posix()
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:  # pragma: no cover - unreadable file
+                continue
+            for line_number, region, sentence in _units_for(path, text):
+                if not CLAIM_BEARING.search(sentence):
+                    continue
+                if len(sentence.split()) < MIN_UNIT_TOKENS:
+                    continue
+                digest = hashlib.sha1(sentence.encode("utf-8")).hexdigest()[:8]
+                items.append(
+                    FrameItem(
+                        identifier=f"{relative}:{line_number}:{digest}",
+                        relative_path=relative,
+                        line_number=line_number,
+                        channel=channel,
+                        region=region,
+                        text=sentence,
+                    )
+                )
+    missing = tuple(name for name in CHANNELS if not resolved[name])
     items.sort(key=lambda item: item.identifier)
-    return Frame(items=tuple(items), churn_known=known, base=base)
+    return Frame(items=tuple(items), missing_channels=missing)
 
 
 def allocate(frame: Frame, size: int, allocation: Dict[str, int]) -> Dict[str, int]:
-    """How many to draw from each stratum, given how many are there.
+    """How many to draw from each channel, given how many are there.
 
-    A stratum smaller than its allocation gives what it has and the remainder
-    goes to the others in :data:`STRATA` order. **The reallocation is reported,
-    not silent**: a round with no churn draws its whole sample from cold text
-    and the resulting estimate is a repository-wide one wearing a round-stratum
-    label, which is the exact confusion this module exists to prevent.
+    A channel smaller than its allocation gives what it has and the remainder
+    goes to the others in :data:`CHANNELS` order. The reallocation is visible in
+    the printed table, and :func:`_render_frame` warns about it in words --
+    which the retired frame did not, and which is how its ``round`` stratum
+    could fall to zero on a committed tree without anybody noticing.
     """
-    planned = {name: min(allocation.get(name, 0), 0) for name in STRATA}
+    planned = dict.fromkeys(CHANNELS, 0)
     sizes = frame.sizes()
     remaining = size
-    for name in STRATA:
+    for name in CHANNELS:
         want = min(allocation.get(name, 0), sizes[name], remaining)
         planned[name] = want
         remaining -= want
-    for name in STRATA:
+    for name in CHANNELS:
         if remaining <= 0:
             break
         extra = min(sizes[name] - planned[name], remaining)
@@ -379,33 +590,37 @@ def allocate(frame: Frame, size: int, allocation: Dict[str, int]) -> Dict[str, i
     return planned
 
 
-def draw(frame: Frame, seed: int, size: int = DEFAULT_SIZE, **kwargs: object) -> List[FrameItem]:
+def draw(
+    frame: Frame,
+    seed: int,
+    size: int = DEFAULT_SIZE,
+    allocation: Optional[Dict[str, int]] = None,
+) -> List[FrameItem]:
     """The sample, reproducible from ``seed`` alone.
 
-    ``random.Random(seed)`` and a sorted frame: the same commit and the same
-    seed give the same twenty-four rows on any machine, which is what makes a
-    second grader on the same sample possible. That is condition four of
-    ``docs/CLAIMS-LEDGER.md``'s four, unmet for five rounds running, and it is
+    ``random.Random(seed)`` over a sorted frame: the same tree and the same seed
+    give the same twenty-four rows on any machine, which is what makes **a
+    second grader on the same sample** possible. That is the condition
+    ``docs/CLAIMS-LEDGER.md`` has listed as unmet for six rounds, and it is
     unmeetable without exactly this property.
     """
-    allocation = kwargs.get("allocation") or DEFAULT_ALLOCATION
-    assert isinstance(allocation, dict)
-    planned = allocate(frame, size, allocation)
+    planned = allocate(frame, size, allocation or DEFAULT_ALLOCATION)
     rng = random.Random(seed)
     chosen: List[FrameItem] = []
-    for name in STRATA:
-        pool = [item for item in frame.items if item.stratum == name]
-        chosen.extend(rng.sample(pool, planned[name]) if planned[name] else [])
+    for name in CHANNELS:
+        pool = [item for item in frame.items if item.channel == name]
+        if planned[name]:
+            chosen.extend(rng.sample(pool, planned[name]))
     return chosen
 
 
 def wilson(successes: int, trials: int, z: float = 1.959963984540054) -> Tuple[float, float]:
     """The Wilson score interval, as percentages.
 
-    Wilson rather than normal-approximation, for the reason every small-sample
-    rate on this project uses it: at ``2 of 24`` the normal interval includes
-    negative rates, and a lower bound below zero is a sentence that cannot be
-    published.
+    Wilson rather than the normal approximation, for the reason every
+    small-sample rate on this project uses it: at ``2 of 24`` the normal
+    interval includes negative rates, and a lower bound below zero is a sentence
+    that cannot be published.
     """
     if trials <= 0:
         return (0.0, 100.0)
@@ -421,18 +636,15 @@ def wilson(successes: int, trials: int, z: float = 1.959963984540054) -> Tuple[f
 def design_effect(frame: Frame, allocation: Dict[str, int], size: int = DEFAULT_SIZE) -> float:
     """How much precision the unequal allocation costs, at equal rates.
 
-    The ratio of the design-weighted estimator's variance to the variance a
-    simple random sample of the same size would have, computed **under the null
-    that every stratum carries the same rate** -- which is the assumption that
-    makes the number a property of the DESIGN rather than of any measurement:
+    ``Deff = n * sum_h (W_h^2 / n_h)`` with ``W_h = N_h / N``, computed under
+    the null that every channel carries the same rate -- which is what makes the
+    number a property of the DESIGN rather than of any measurement.
 
-        ``Deff = n * sum_h (W_h^2 / n_h)``   with ``W_h = N_h / N``
-
-    Above ``1`` the churn-weighted draw is *less* precise about the repository
-    than a uniform draw of the same size. That is the price of the change and
-    it is printed whether or not it flatters the design. It says nothing about
-    the round-stratum question, which a uniform draw of this size cannot answer
-    at all.
+    Above ``1`` this draw is *less* precise about the repository as a whole than
+    a uniform draw of the same size. **It is above 1 here and it is meant to
+    be**: ``submitted`` is under two per cent of the population and gets a third
+    of the sample, because that is the channel where errors are made. The price
+    is printed on every draw rather than argued about.
     """
     planned = allocate(frame, size, allocation)
     total = frame.total
@@ -441,7 +653,7 @@ def design_effect(frame: Frame, allocation: Dict[str, int], size: int = DEFAULT_
         return float("nan")
     sizes = frame.sizes()
     accumulated = 0.0
-    for name in STRATA:
+    for name in CHANNELS:
         if planned[name] <= 0:
             continue
         weight = sizes[name] / total
@@ -454,21 +666,21 @@ def stratified_estimate(
     graded: Dict[str, str],
     sample: Sequence[FrameItem],
 ) -> Dict[str, Any]:
-    """Per-stratum rates and the design-weighted repository-wide rate.
+    """Per-channel rates and the design-weighted repository-wide rate.
 
     The pooled figure is ``sum_h W_h p_h``, **not** the raw count over the
-    sample. Reporting the raw count would be the frame's central trap: with
-    twelve of twenty-four drawn from a stratum that may hold two per cent of the
-    population, the unweighted rate is an estimate of the churned text's rate
-    wearing the whole repository's name.
+    sample. Reporting the raw count would be this frame's central trap: with a
+    third of the draw taken from a channel holding under two per cent of the
+    population, the unweighted rate is an estimate of the self-report channel's
+    rate wearing the whole repository's name.
     """
     sizes = frame.sizes()
     total = frame.total
-    per_stratum: Dict[str, Dict[str, Any]] = {}
+    per_channel: Dict[str, Dict[str, Any]] = {}
     weighted = 0.0
     variance = 0.0
-    for name in STRATA:
-        drawn = [item for item in sample if item.stratum == name]
+    for name in CHANNELS:
+        drawn = [item for item in sample if item.channel == name]
         verdicts = [graded[item.identifier] for item in drawn if item.identifier in graded]
         if not verdicts:
             continue
@@ -477,7 +689,7 @@ def stratified_estimate(
         weight = sizes[name] / total if total else 0.0
         weighted += weight * proportion
         variance += weight * weight * proportion * (1 - proportion) / len(verdicts)
-        per_stratum[name] = {
+        per_channel[name] = {
             "N": sizes[name],
             "n": len(verdicts),
             "not_true": bad,
@@ -486,40 +698,269 @@ def stratified_estimate(
         }
     half = 1.959963984540054 * math.sqrt(variance) if variance > 0 else 0.0
     return {
-        "per_stratum": per_stratum,
+        "per_channel": per_channel,
         "repository_rate_pct": 100 * weighted,
         "repository_half_width_pct": 100 * half,
-        "graded": sum(int(item["n"]) for item in per_stratum.values()),
+        "graded": sum(int(row["n"]) for row in per_channel.values()),
     }
+
+
+def containment(frame: Frame) -> List[Dict[str, Any]]:
+    """Can this frame reach each site a previous round graded not true?
+
+    Returns one row per entry of :data:`KNOWN_ERROR_SITES`, each carrying
+    whether the live frame holds an item in that file whose text contains the
+    needle. **A floor, not evidence of generality**: these are the observations
+    the design was fitted to, so containing them is the least it can do.
+    """
+    rows: List[Dict[str, Any]] = []
+    for site in KNOWN_ERROR_SITES:
+        hits = [
+            item
+            for item in frame.items
+            if item.relative_path == site["path"] and site["needle"] in item.text
+        ]
+        rows.append(
+            {
+                "round": site["round"],
+                "verdict": site["verdict"],
+                "path": site["path"],
+                "needle": site["needle"],
+                "why": site["why"],
+                "contained": bool(hits),
+                "hits": len(hits),
+                "channel": hits[0].channel if hits else None,
+            }
+        )
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# The audit of the frame this one replaces
+# ---------------------------------------------------------------------------
+
+
+def audit_old_frame(root: Path = REPO_ROOT) -> Dict[str, Any]:
+    """Re-derive the measurement that retired the churn-weighted number frame.
+
+    Imports ``tools/check_claims.py`` by path -- the mechanism
+    ``tests/test_gate_manifest.py`` uses, because ``tools/`` is a directory of
+    scripts and must not become a package -- and reports, for the scanned
+    Markdown, how many backticked figures exist and how many of them survive the
+    masking that the retired frame's population was built on top of.
+
+    The answer to the second is structurally ``0``. This function exists so that
+    the docstring's proof is a command rather than a paragraph.
+    """
+    import importlib.util
+
+    path = root / "tools" / "check_claims.py"
+    if not path.is_file():  # pragma: no cover - source checkouts only
+        raise SamplerError(f"{path} is not here; this tool belongs to a checkout")
+    spec = importlib.util.spec_from_file_location("_check_claims_for_audit", path)
+    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+        raise SamplerError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    project = module.Project.at(root)
+    claims = module.collect_claims(
+        project,
+        module.build_index(module.load_results(project)),
+        module.load_allowlist(project),
+    )
+    raw = [claim for claim in claims if claim.backing in ("deferred", "unexamined")]
+    # The retired frame dropped a bare four-digit integer in 1900-2199 from the
+    # UNARMED residue only, as a date. Reproduced here rather than approximated,
+    # so that this audit reports the population that actually shipped (2,095)
+    # and not the population before that filter (2,226).
+    year_like = re.compile(r"^(?:19|20|21)\d{2}$")
+    residue = [
+        claim
+        for claim in raw
+        if not (claim.backing == "unexamined" and year_like.match(claim.text))
+    ]
+
+    ticked = re.compile(r"`([0-9][0-9,.]*\s*%?)`")
+    backticked = 0
+    masked_chars = 0
+    total_chars = 0
+    for source in sorted({claim.path for claim in claims}):
+        if source.suffix != ".md":
+            continue
+        text = source.read_text(encoding="utf-8", errors="replace")
+        unfenced = module._mask_fenced_blocks(text)
+        backticked += len(ticked.findall(unfenced))
+        total_chars += len(text)
+        masked_chars += sum(1 for a, b in zip(text, unfenced) if b == " " and a != " ")
+
+    # THE SURVIVOR CHECK RE-READS FILES `collect_claims` HAS ALREADY READ, AND
+    # ON A SHARED WORKING TREE THAT IS A RACE. It was written as a flat equality
+    # and went red the first time a sibling agent rewrote
+    # `src/acronymkit/nlp/propagation.py` between the two reads: ten residue
+    # items recorded against line numbers that, seconds later, held different
+    # text. That is not a masking result and must not be reported as one.
+    #
+    # So each file is read once here, and a claim whose recorded line no longer
+    # matches the file is counted as MOVED rather than as masked. The masking
+    # claim is then made only over the claims that could actually be checked.
+    cache: Dict[Path, List[str]] = {}
+    survivors = 0
+    moved = 0
+    for claim in residue:
+        if claim.path not in cache:
+            body = claim.path.read_text(encoding="utf-8", errors="replace")
+            cache[claim.path] = module.prose_of(body, claim.path.suffix).split("\n")
+        lines = cache[claim.path]
+        index = claim.line_number - 1
+        if index < 0 or index >= len(lines):
+            moved += 1
+        elif claim.text in lines[index]:
+            survivors += 1
+        else:
+            moved += 1
+
+    small = sum(1 for claim in residue if re.fullmatch(r"\d{1,2}", claim.text))
+    return {
+        "residue": len(residue),
+        "residue_before_year_filter": len(raw),
+        "residue_files": len({claim.path for claim in residue}),
+        "small_integers": small,
+        "small_integer_pct": 100.0 * small / len(residue) if residue else 0.0,
+        "backticked_figures_in_unfenced_markdown": backticked,
+        "backticked_figures_reachable_by_old_frame": 0,
+        "residue_items_from_unmasked_prose": survivors,
+        "residue_items_whose_file_moved_under_the_read": moved,
+        "markdown_chars": total_chars,
+        "markdown_chars_hidden_by_fences": masked_chars,
+        "fenced_pct": 100.0 * masked_chars / total_chars if total_chars else 0.0,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Rendering
+# ---------------------------------------------------------------------------
 
 
 def _render_frame(frame: Frame, allocation: Dict[str, int], size: int) -> str:
     lines: List[str] = []
     sizes = frame.sizes()
     planned = allocate(frame, size, allocation)
-    lines.append(f"frame: {frame.total} unbacked claim-shaped number(s) in the scan set")
-    if not frame.churn_known:
+    lines.append(
+        f"frame: {frame.total} claim-bearing sentence(s) across {len(frame.files())} file(s)"
+    )
+    if frame.missing_channels:
         lines.append(
-            "  CHURN UNKNOWN -- git could not answer, so every file is `cold` and this draw is "
-            "a uniform one with a stratified header. Do not report it as churn-weighted."
+            "  CHANNEL(S) WITH NO FILES: "
+            + ", ".join(frame.missing_channels)
+            + " -- their draws went elsewhere. Do not report this as a four-channel sample."
         )
-    for name in STRATA:
+    for name in CHANNELS:
         share = 100 * sizes[name] / frame.total if frame.total else 0.0
+        want = allocation.get(name, 0)
+        note = "" if planned[name] == want else f"  (WANTED {want}, REALLOCATED)"
         lines.append(
-            f"  {name:<8} N {sizes[name]:>5}  ({share:5.1f} % of the frame)  draw {planned[name]}"
+            f"  {name:<10} N {sizes[name]:>5}  ({share:5.1f} % of the frame)  "
+            f"draw {planned[name]}{note}"
         )
     lines.append(f"  design effect at equal rates: {design_effect(frame, allocation, size):.2f}")
     lines.append(
         "    above 1.00 means this allocation is LESS precise about the repository than a "
-        "uniform draw of the same size. It buys the round-stratum question instead."
+        "uniform draw of the same size. It buys the per-channel question instead, and the "
+        "per-channel question is the one a round needs."
     )
     lines.append(
-        f"  the closed series: {CLOSED_SERIES['not_true']} of {CLOSED_SERIES['draws']} = "
+        f"  the predecessor series: {CLOSED_SERIES['not_true']} of {CLOSED_SERIES['draws']} = "
         f"{CLOSED_SERIES['rate_pct']:.2f} % over {CLOSED_SERIES['rounds']} rounds, Wilson "
         f"{CLOSED_SERIES['wilson_pct'][0]:.2f}-{CLOSED_SERIES['wilson_pct'][1]:.2f}. "
-        "IT DOES NOT CARRY ACROSS. This frame starts at n = 0."
+        "IT DOES NOT CARRY ACROSS. This frame starts at n = 0, for the second time in two "
+        "rounds, and that is recorded as a bad sign rather than as a fresh start."
     )
     return "\n".join(lines)
+
+
+def _render_containment(rows: Sequence[Dict[str, Any]]) -> str:
+    lines = [
+        "containment: can this frame REACH the sentences previous rounds graded not true?",
+        "  A FLOOR, not evidence of generality -- the design was fitted to these.",
+    ]
+    for row in rows:
+        mark = "yes" if row["contained"] else "NO "
+        where = f"{row['channel']}, {row['hits']} item(s)" if row["contained"] else "unreachable"
+        lines.append(f"  [{mark}] round {row['round']:<9} {row['path']}  ({where})")
+        lines.append(f"        needle {row['needle']!r} -- {row['why']}")
+    reached = sum(1 for row in rows if row["contained"])
+    lines.append(f"  {reached} of {len(rows)} reachable")
+    return "\n".join(lines)
+
+
+def _render_audit(result: Dict[str, Any]) -> str:
+    return "\n".join(
+        [
+            "the retired frame, re-derived. Command output, not a benchmark measurement.",
+            f"  population as it shipped                   {result['residue']:>6}"
+            f"  across {result['residue_files']} file(s)",
+            f"  the same residue before its year filter    "
+            f"{result['residue_before_year_filter']:>6}",
+            f"  of it, one- and two-digit integers         {result['small_integers']:>6}"
+            f"  ({result['small_integer_pct']:.1f} %)",
+            f"  backticked figures in unfenced Markdown    "
+            f"{result['backticked_figures_in_unfenced_markdown']:>6}",
+            f"  of those, reachable by the retired frame   "
+            f"{result['backticked_figures_reachable_by_old_frame']:>6}"
+            "   <- zero by construction, not by chance",
+            f"  residue items that came from unmasked prose {result['residue_items_from_unmasked_prose']:>5}"
+            f" of {result['residue']}",
+            f"  ... and {result['residue_items_whose_file_moved_under_the_read']} whose file moved"
+            " under the read, which is a shared-checkout race and not a masking result",
+            f"  Markdown hidden inside fences             {result['fenced_pct']:>6.1f} %"
+            f"  ({result['markdown_chars_hidden_by_fences']} of {result['markdown_chars']} chars)",
+            "  prose_of() masks fenced blocks AND inline code spans before claims are",
+            "  collected, so a figure in this project's house style cannot be in that",
+            "  population. That is why the frame was retired rather than widened.",
+        ]
+    )
+
+
+def _render_estimate(result: Dict[str, Any]) -> str:
+    lines = ["stratified estimate. A grading pass, not a benchmark measurement."]
+    per_channel = result["per_channel"]
+    assert isinstance(per_channel, dict)
+    for name in CHANNELS:
+        row = per_channel.get(name)
+        if row is None:
+            continue
+        low, high = row["wilson_pct"]
+        lines.append(
+            f"  {name:<10} {row['not_true']:>2} of {row['n']:>2} not true = "
+            f"{float(row['rate_pct']):6.2f} %  Wilson [{low:5.2f}, {high:5.2f}]  N {row['N']}"
+        )
+    lines.append(
+        f"  repository-wide, DESIGN-WEIGHTED: {float(result['repository_rate_pct']):.2f} % "
+        f"+/- {float(result['repository_half_width_pct']):.2f} (normal approximation to a "
+        "stratified estimator; Wilson has no closed form here)"
+    )
+    lines.append(
+        f"  NOT comparable with the predecessor's {CLOSED_SERIES['rate_pct']:.2f} % over "
+        f"{CLOSED_SERIES['draws']} draws: different population, different unit, different "
+        "inclusion probabilities."
+    )
+    return "\n".join(lines)
+
+
+def _sample_rows(sample: Iterable[FrameItem]) -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": item.identifier,
+            "channel": item.channel,
+            "region": item.region,
+            "path": item.relative_path,
+            "line": item.line_number,
+            "sentence": item.sentence,
+        }
+        for item in sample
+    ]
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -527,35 +968,53 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="sample_claims.py",
         description=(
-            "Draw a churn-weighted stratified sample of the claim-shaped numbers no gate "
-            "backs. Successor to the fixed R15 pooling frame, which is closed."
+            "Draw a channel-stratified sample of this project's claim-bearing sentences. "
+            "Successor to the churn-weighted number frame, which is retired ungraded."
         ),
     )
-    parser.add_argument("--frame", action="store_true", help="print the strata and their sizes")
+    parser.add_argument("--frame", action="store_true", help="print the channels and their sizes")
     parser.add_argument("--draw", action="store_true", help="draw a sample")
     parser.add_argument("--estimate", metavar="FILE", help="a JSON map of identifier -> verdict")
+    parser.add_argument(
+        "--containment",
+        action="store_true",
+        help="can the frame reach the sentences previous rounds graded not true?",
+    )
+    parser.add_argument(
+        "--audit-old-frame",
+        action="store_true",
+        help="re-derive the measurement that retired the previous frame",
+    )
     parser.add_argument("--seed", type=int, default=None, help="the published seed")
     parser.add_argument("--size", type=int, default=DEFAULT_SIZE)
-    parser.add_argument("--base", default=None, help="the ref this round started from")
-    parser.add_argument("--recent-commits", type=int, default=DEFAULT_RECENT_COMMITS)
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--root", default=str(REPO_ROOT), help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
 
     root = Path(args.root)
-    frame = build_frame(root, args.base, args.recent_commits)
+
+    if args.audit_old_frame:
+        result = audit_old_frame(root)
+        print(json.dumps(result, indent=2) if args.json else _render_audit(result))
+        return 0
+
+    frame = build_frame(root)
+
+    if args.containment:
+        rows = containment(frame)
+        print(json.dumps(rows, indent=2) if args.json else _render_containment(rows))
+        return 0
 
     if args.estimate:
         graded = json.loads(Path(args.estimate).read_text(encoding="utf-8"))
-        unknown = sorted(str(v) for v in graded.values() if v not in VERDICTS)
+        unknown = sorted({str(v) for v in graded.values() if v not in VERDICTS})
         if unknown:
             print(f"verdict(s) {unknown} are not in {list(VERDICTS)}")
             return 1
         if args.seed is None:
             print("--estimate needs the --seed the sample was drawn under")
             return 1
-        sample = draw(frame, args.seed, args.size)
-        result = stratified_estimate(frame, graded, sample)
+        result = stratified_estimate(frame, graded, draw(frame, args.seed, args.size))
         print(json.dumps(result, indent=2, default=list) if args.json else _render_estimate(result))
         return 0
 
@@ -565,58 +1024,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 1
         sample = draw(frame, args.seed, args.size)
         if args.json:
-            print(
-                json.dumps(
-                    [
-                        {
-                            "id": item.identifier,
-                            "stratum": item.stratum,
-                            "path": item.relative_path,
-                            "line": item.line_number,
-                            "number": item.number,
-                            "sentence": item.sentence,
-                        }
-                        for item in sample
-                    ],
-                    indent=2,
-                )
-            )
+            print(json.dumps(_sample_rows(sample), indent=2))
         else:
             print(_render_frame(frame, DEFAULT_ALLOCATION, args.size))
             print(f"\nsample of {len(sample)} under seed {args.seed}:")
             for item in sample:
-                print(f"  [{item.stratum:<6}] {item.identifier}")
+                print(f"  [{item.channel:<9} {item.region:<24}] {item.identifier}")
                 print(f"           {item.sentence}")
         return 0
 
     print(_render_frame(frame, DEFAULT_ALLOCATION, args.size))
     return 0
-
-
-def _render_estimate(result: Dict[str, Any]) -> str:
-    lines = ["stratified estimate. A grading pass, not a benchmark measurement."]
-    per_stratum = result["per_stratum"]
-    assert isinstance(per_stratum, dict)
-    for name in STRATA:
-        row = per_stratum.get(name)
-        if row is None:
-            continue
-        low, high = row["wilson_pct"]
-        lines.append(
-            f"  {name:<8} {row['not_true']:>2} of {row['n']:>2} not true = "
-            f"{float(row['rate_pct']):6.2f} %  Wilson [{low:5.2f}, {high:5.2f}]  "
-            f"N {row['N']}"
-        )
-    lines.append(
-        f"  repository-wide, DESIGN-WEIGHTED: {float(result['repository_rate_pct']):.2f} % "
-        f"+/- {float(result['repository_half_width_pct']):.2f} (normal approximation to a "
-        "stratified estimator; Wilson has no closed form here)"
-    )
-    lines.append(
-        "  NOT comparable with the closed 16.67 % over 120 draws: different population, "
-        "different unit, different inclusion probabilities."
-    )
-    return "\n".join(lines)
 
 
 if __name__ == "__main__":  # pragma: no cover

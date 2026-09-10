@@ -38,6 +38,10 @@ What is here instead is arithmetic and vocabulary that neither half can damage:
   risk arithmetic. Sorting, an order statistic and a comparison; the objects it
   scores are duck-typed, so the module reads ``.candidates`` and ``.score``
   without importing the class that supplies them.
+* :mod:`~acronymkit.core.selective` -- Learn-Then-Test risk control for
+  *selective* classification: a binomial tail, a multiplicity correction and a
+  comparison. It bounds the error rate among the answers, which is the quantity
+  :mod:`~acronymkit.core.conformal` explicitly does not bound.
 * :mod:`~acronymkit.core.spans` -- immutable half-open character coordinates,
   the one vocabulary the two halves genuinely share.
 
@@ -90,6 +94,18 @@ _EXPORT_SOURCES = {
     "group_counts": "conformal",
     "nonconformity": "conformal",
     "smallest_calibration_size": "conformal",
+    "BONFERRONI": "selective",
+    "EXTRACTION_MODES": "selective",
+    "FIXED_SEQUENCE": "selective",
+    "MODE_CATALOG": "selective",
+    "MODE_INLINE": "selective",
+    "MODE_PROPAGATED": "selective",
+    "Observation": "selective",
+    "SELECTIVE_ASSUMPTION": "selective",
+    "SelectiveRiskGate": "selective",
+    "StratumCertificate": "selective",
+    "selective_p_value": "selective",
+    "smallest_certifiable_size": "selective",
     "AcronymKitError": "exceptions",
     "ConfigurationError": "exceptions",
     "EmptyPhraseError": "exceptions",
@@ -106,10 +122,17 @@ _EXPORT_SOURCES = {
 #: Submodules reachable as attributes of this package, so that
 #: ``import acronymkit.core; acronymkit.core.spans`` works without the package
 #: having imported any of them up front.
-_SUBMODULES = frozenset({"conformal", "exceptions", "spans"})
+_SUBMODULES = frozenset({"conformal", "exceptions", "selective", "spans"})
 
 __all__ = [
     "ASSUMPTION",
+    "BONFERRONI",
+    "EXTRACTION_MODES",
+    "FIXED_SEQUENCE",
+    "MODE_CATALOG",
+    "MODE_INLINE",
+    "MODE_PROPAGATED",
+    "SELECTIVE_ASSUMPTION",
     "AcronymKitError",
     "ConfigurationError",
     "ConformalDecision",
@@ -119,15 +142,20 @@ __all__ = [
     "GroupCalibration",
     "LexiconError",
     "NoCandidateError",
+    "Observation",
     "OfflineError",
     "ResourceNotFoundError",
+    "SelectiveRiskGate",
     "Span",
+    "StratumCertificate",
     "TierUnavailableError",
     "TokenizationError",
     "arity_group",
     "group_counts",
     "nonconformity",
+    "selective_p_value",
     "smallest_calibration_size",
+    "smallest_certifiable_size",
 ]
 
 

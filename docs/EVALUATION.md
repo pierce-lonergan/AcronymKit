@@ -1088,6 +1088,256 @@ an order statistic. Both are now pinned at sizes and phrasings where the two pos
 That is the measured price of this section's own instrument, and it was two of ten.
 
 
+### Risk-controlled selective classification: the bound on the answers, and the corpus where it refuses
+
+The section above measures a **joint** bound and prices the gap between it and what a governance
+caller reads. `acronymkit.core.selective` closes that gap by Learn-Then-Test, and this section is
+the evidence for where it closes and where it declines to. The guarantee, stated with its
+assumption because the two are only honest together: **with probability at least `1 - delta` over
+the draw of the calibration set, at most `alpha` of the instances the gate answers are wrong — under
+exchangeability between the calibration instances and the deployment instances, and under
+independence of the accepted calibration units.** Learn-Then-Test changes which functional is
+controlled. It does not repeal exchangeability and it adds a second condition, and an out-of-domain
+caller violates the first while a caller whose units cluster inside one document violates the
+second.
+
+The device is a family of candidate thresholds, an exact binomial-tail p-value per candidate, and a
+Bonferroni correction across the family. `delta = 0.05` throughout, and the grid is
+21<!--claim:selective.modes.ltt.pooled.threshold_grid_size:,--> evenly spaced thresholds fixed before any data was
+read, so the level actually spent per candidate is `0.05 / 21`.
+
+#### The abort condition, pre-registered, and its two clauses are one clause
+
+The condition was written down before the module existed: *if `R_selective > alpha` anywhere in
+`alpha` between `0.01` and `0.20`, or the joint-to-selective inflation stays above `1.0`, the method
+has not done its job.* **Those are the same inequality.** The inflation the defect was stated in is
+`selective_error / alpha` — `21.92 / 5 = 4.38`, which is the shipped `selective_error_over_alpha`
+field exactly — so "risk above nominal" and "inflation above one" are one test, and this section
+reports it once. The other reading, `selective_error / joint_error`, is `1 / answer_rate` and exceeds
+one whenever a gate abstains at all; it is recorded per cell as `selective_over_joint` and it is not
+the abort.
+
+**It did not fire.** Across every cell where anything was certified, on both corpora and both
+splits, the held-out error rate among answers stayed under its own nominal, which is not the joint
+rate and is the quantity this section is about. The worst ratio anywhere on the exchangeable arm is
+0.4754<!--claim:selective.modes.ltt.abort.worst_selective_over_alpha:.4f-->.
+
+#### SDU-21: the method refuses, and the refusal is the headline
+
+On the corpus the `4.38` was measured on, Learn-Then-Test certifies **nothing at any of the six
+alphas**, so the gate answers nothing and there is nothing to report about its answers. That is not a
+null result to bury. It is what a correct instrument does to a base classifier this weak, and the
+diagnosis separates the two possible causes rather than leaving them pooled.
+
+| | |
+|---|---|
+| calibration units | 3,094<!--claim:selective.sdu21.ltt.floor.calibration_units:,--> |
+| top-one accuracy answering everything | 40.82<!--claim:selective.sdu21.ltt.floor.full_answer_accuracy_pct:.2f--> % |
+| lowest calibration risk among answers anywhere on the grid at 50 or more accepted | 17.53<!--claim:selective.sdu21.ltt.floor.lowest_calibration_selective_error_pct:.2f--> % |
+| at threshold | 0.40<!--claim:selective.sdu21.ltt.floor.at_threshold:.2f--> |
+| on accepted / errors | 97<!--claim:selective.sdu21.ltt.floor.at_accepted:,--> / 17<!--claim:selective.sdu21.ltt.floor.at_errors:,--> |
+| smallest p-value seen at `alpha = 0.20` | 0.3220<!--claim:selective.sdu21.ltt.marginal.alpha_0.20.certificates.pooled.p_value:.4f--> |
+| level it had to reach | 0.00238<!--claim:selective.sdu21.ltt.marginal.alpha_0.20.certificates.pooled.per_candidate_level:.5f--> |
+
+**The refusal is not a small calibration set.** 3,094<!--claim:selective.sdu21.ltt.floor.calibration_units:,-->
+units is ample; the floor of the selection family is
+17.53<!--claim:selective.sdu21.ltt.floor.lowest_calibration_selective_error_pct:.2f--> %, which is greater
+than every alpha a governance caller would set. More data cannot move that and a looser `delta` would
+only buy a certificate this corpus does not deserve. The two causes need opposite responses, which is
+why the runner reports them apart.
+
+The selection family here is deliberately **not** the conformal singleton rule — it is *answer with
+the top candidate when its nonconformity is at most `lambda`*, which is strictly more discriminating,
+and it still does not get below
+17.53<!--claim:selective.sdu21.ltt.floor.lowest_calibration_selective_error_pct:.2f--> %.
+
+#### MED1250, stratified by extraction mode: the bound holds, at a usable answer rate
+
+The unit is a **licensed occurrence** — every site at which this library asserts an expansion —
+because that is what a caller is exposed to. Its mode is `inline` when the site is the definition
+the extractor found and `propagated` when A2 licensed it out of sentence. Documents are dealt
+50/50 under one seed; calibration keeps one unit per `(document, short form, mode)` cluster because
+the binomial tail needs independent accepted units, and the held-out arm keeps every occurrence.
+
+| | |
+|---|---|
+| documents scored | 1,252<!--claim:selective.modes.work.documents_scored:,--> |
+| occurrences licensed | 3,876<!--claim:selective.modes.work.occurrences_licensed:,--> |
+| occurrences whose short form is outside gold, excluded | 143<!--claim:selective.modes.work.occurrences_outside_gold:,--> |
+| occurrences scored | 3,733<!--claim:selective.modes.work.occurrences_scored:,--> |
+| inline / propagated | 992<!--claim:selective.modes.work.inline_units:,--> / 2,741<!--claim:selective.modes.work.propagated_units:,--> |
+| clusters | 1,766<!--claim:selective.modes.work.clusters:,--> |
+
+Mondrian by extraction mode, held-out arm, per alpha. Every bound carries the answer rate it was
+bought at, because a gate that answers nothing satisfies every selective bound there is.
+
+| `alpha` | strata certified | threshold | answered | answer % | error % among answers | multiple of `alpha` |
+|---|---|---|---|---|---|---|
+| 0.01 | 0 | — | 0 | 0.00 | — | — |
+| 0.02 | 0 | — | 0 | 0.00 | — | — |
+| 0.05 | 2 | 0.15<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.certificates.inline.threshold:.2f--> | 1,447<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.answered_instances:,--> | 78.13<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.answer_rate_pct:.2f--> | **1.59<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.selective_error_pct:.2f-->** | **0.3179<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.selective_error_over_alpha:.4f-->** |
+| 0.10 | 2 | 0.30<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.10.certificates.inline.threshold:.2f--> | 1,851<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.10.answered_instances:,--> | 99.95<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.10.answer_rate_pct:.2f--> | 2.38<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.10.selective_error_pct:.2f--> | 0.2377<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.10.selective_error_over_alpha:.4f--> |
+| 0.15 | 2 | 0.30<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.15.certificates.inline.threshold:.2f--> | 1,851<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.15.answered_instances:,--> | 99.95<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.15.answer_rate_pct:.2f--> | 2.38<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.15.selective_error_pct:.2f--> | 0.1585<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.15.selective_error_over_alpha:.4f--> |
+| 0.20 | 2 | 0.30<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.20.certificates.inline.threshold:.2f--> | 1,851<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.20.answered_instances:,--> | 99.95<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.20.answer_rate_pct:.2f--> | 2.38<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.20.selective_error_pct:.2f--> | 0.1189<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.20.selective_error_over_alpha:.4f--> |
+
+At `alpha = 0.01` and `0.02` nothing certifies and the gate answers nothing. That is the honest floor
+of this instrument on this corpus, and it is in the table rather than in a footnote.
+
+Decomposed by mode at `alpha = 0.05`, held out:
+
+*Not the joint rate. The last two columns divide by the answered column, which is what makes
+them the selective quantity.*
+| mode | held-out units | answered | answer % | wrong | error % among answers | multiple of `alpha` |
+|---|---|---|---|---|---|---|
+| inline | 514<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.inline.held_out_units:,--> | 401<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.inline.answered:,--> | 78.02<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.inline.answer_rate_pct:.2f--> | 11<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.inline.wrong:,--> | 2.74<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.inline.selective_error_pct:.2f--> | 0.55<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.inline.selective_error_over_alpha:.2f--> |
+| propagated | 1,338<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.propagated.held_out_units:,--> | 1,046<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.propagated.answered:,--> | 78.18<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.propagated.answer_rate_pct:.2f--> | 12<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.propagated.wrong:,--> | 1.15<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.propagated.selective_error_pct:.2f--> | 0.23<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.propagated.selective_error_over_alpha:.2f--> |
+
+#### The premise this section was asked to test, and the measurement says no
+
+The premise was that **propagated definitions must not dilute the threshold high-confidence inline
+ones earn**, and that Mondrian by mode would do for extraction mode what Mondrian by arity did for
+arity — worst-group deviation `76.14` to `4.69`. Measured rather than assumed, and it does not.
+
+Stratum 2 is not the worse stratum, and the rate compared here is the selective one rather than the
+joint one. On the held-out arm at `alpha = 0.05` the propagated stratum is wrong on
+1.15<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.propagated.selective_error_pct:.2f--> %
+of what it answers, which is not larger than the inline stratum's
+2.74<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.by_stratum.inline.selective_error_pct:.2f--> %,
+and the two calibration risks are
+1.37<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.certificates.propagated.calibration_selective_error_pct:.2f--> %
+and
+1.16<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.certificates.inline.calibration_selective_error_pct:.2f--> %.
+A2 concentrates on short forms a document defines once and then repeats, which are the well-defined
+ones; there is no dilution to prevent on this corpus.
+
+**And splitting the calibration set costs answer rate for nothing.** A pooled threshold at
+`alpha = 0.05` answers
+99.95<!--claim:selective.modes.ltt.pooled.alpha_0.05.answer_rate_pct:.2f--> % of held-out occurrences and is
+wrong on 2.38<!--claim:selective.modes.ltt.pooled.alpha_0.05.selective_error_pct:.2f--> % of them, which is
+not the joint rate and is
+0.4754<!--claim:selective.modes.ltt.pooled.alpha_0.05.selective_error_over_alpha:.4f--> times `alpha`, where
+Mondrian by mode answers
+78.13<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.answer_rate_pct:.2f--> %. That is the
+multiplicity being paid twice: each stratum must clear the floor on its own calibration set, and
+471<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.certificates.inline.calibration_units:,--> and
+402<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.certificates.propagated.calibration_units:,-->
+units buy a tighter threshold each than
+873<!--claim:selective.modes.ltt.pooled.alpha_0.05.certificates.pooled.calibration_units:,--> units buy
+once. **Mondrian by mode is the wrong stratification here and the pooled gate is the one to ship.**
+Arity is a property of the candidate set the score is computed from; extraction mode is not, and the
+shape did not transfer.
+
+#### How large is each calibration set, and is any too small to carry its claim
+
+A stratum needs `ceil(log(level) / log(1 - alpha))` accepted units carrying **zero** losses before
+any certificate is possible. That floor is a property of `alpha` and the level alone, so it can be
+printed beside each stratum's size and the question becomes a comparison.
+
+| `alpha` | accepted units required at zero losses |
+|---|---|
+| 0.01 | 602<!--claim:selective.modes.catalog_stratum.required_units_at_zero_errors.alpha_0.01:,--> |
+| 0.02 | 299<!--claim:selective.modes.catalog_stratum.required_units_at_zero_errors.alpha_0.02:,--> |
+| 0.05 | 118<!--claim:selective.modes.catalog_stratum.required_units_at_zero_errors.alpha_0.05:,--> |
+| 0.10 | 58<!--claim:selective.modes.catalog_stratum.required_units_at_zero_errors.alpha_0.10:,--> |
+| 0.15 | 38<!--claim:selective.modes.catalog_stratum.required_units_at_zero_errors.alpha_0.15:,--> |
+| 0.20 | 28<!--claim:selective.modes.catalog_stratum.required_units_at_zero_errors.alpha_0.20:,--> |
+
+Stratum 1 has 471<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.certificates.inline.calibration_units:,-->
+calibration units and stratum 2 has
+402<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.certificates.propagated.calibration_units:,-->;
+both clear the `alpha = 0.05` floor and neither clears the `alpha = 0.01` one, which is exactly why
+the two tightest rows of the table above are empty. These floors are for the selective bound; the
+joint bound `gate=` supplies has its own and smaller floor, published in the section above as
+`smallest_calibration_size_for_alpha`.
+
+**Stratum 3 does not clear any of them, and by a wide margin.** The catalog stratum is derived from
+this project's own published governed figures rather than re-measured — Socrata is a held-out corpus
+and re-reading it to reproduce a number already in `bench/results.json` would spend a held-out arm to
+learn nothing. Over both portal-disjoint folds there are
+1,104<!--claim:selective.modes.catalog_stratum.token_positions:,--> abbreviated token positions and the voted
+catalog answers on 8<!--claim:selective.modes.catalog_stratum.catalog_answered_positions:,--> of them.
+The loosest alpha tested needs
+28<!--claim:selective.modes.catalog_stratum.smallest_required_over_alphas:,-->. **Stratum 3 cannot support
+a selective bound at any alpha in the tested range**, and that is a statement about the size of the
+accepted set rather than about the catalog being wrong — the catalog declining is the governance
+behaviour this library is built around.
+
+#### The assumption, measured: what breaking exchangeability costs
+
+`selective.modes.short_form_disjoint` re-splits so that no short form appears in both halves — a
+within-corpus stand-in for the out-of-domain caller the assumption excludes. Every certified cell
+still landed under its own nominal, and the visible cost is in the answer rate at the tightest
+certifiable alpha:
+42.01<!--claim:selective.modes.short_form_disjoint.mondrian_by_mode.alpha_0.05.answer_rate_pct:.2f--> %
+against 78.13<!--claim:selective.modes.ltt.mondrian_by_mode.alpha_0.05.answer_rate_pct:.2f--> % on the
+exchangeable split, with only
+0<!--claim:selective.modes.short_form_disjoint.mondrian_by_mode.alpha_0.05.certificates.inline.candidates_certified:,-->
+of 21<!--claim:selective.modes.short_form_disjoint.mondrian_by_mode.alpha_0.05.certificates.inline.candidates_tested:,-->
+thresholds certifying in the inline stratum. **One arm surviving one shift is not evidence that
+anything survives shift in general** — the shift here is lexical, inside one genre, one annotation
+convention and one tokenizer.
+
+#### Not breaking, and the byte-identity pass that says so
+
+The `selective=` parameter is opt-in and the R19 comparison is over the whole corpus rather than a
+fixture: 3,882<!--claim:selective.identity.records_compared:,--> records over
+1,252<!--claim:selective.identity.documents_compared:,--> documents, compared with the parameter absent,
+passed as `None`, and passed as a gate **certified at a non-binding threshold** — plus
+3,846<!--claim:selective.identity.conformal_path_records_compared:,--> records over the pre-existing
+conformal path. Every field is compared including provenance: `short_form`, `long_form`, `span`,
+`source`, `licensed_by`, `confidence` and every refusal.
+0<!--claim:selective.identity.absent_vs_forced_off_differences:,--> differences forced off,
+0<!--claim:selective.identity.absent_vs_forced_on_differences:,--> forced on,
+0<!--claim:selective.identity.conformal_path_differences:,--> on the conformal path.
+
+The third arm is the one worth having. Comparing *absent* against *off* tests that a `None` check
+works; comparing against a gate that is switched **on** and non-binding demands the old bytes back
+out of the new code path. That arm caught a real defect during authoring: a permissive gate built
+from units scored `0.0` certifies at threshold `0.0` and admits only a confidence of exactly `1.0` —
+switched on and binding, which is not a non-binding arm at all.
+
+#### What this does not establish
+
+**MED1250 is a tuning corpus and it is contaminated.** `bench/splits.toml` says so: the miss taxonomy
+has been read in full and a boundary experiment was run against it. Every figure above is a tuning
+figure and none of them is evidence of generalisation. There is still no held-out short-form/long-form
+pair corpus in this project.
+
+**The loss on the propagated stratum is the observable one, and it is not the whole one.** Gold here
+is per-document, so a within-document sense shift is invisible to it: an occurrence licensed from a
+correct definition but used for a second sense scores zero loss and is wrong. MED1250's own gold puts
+a **floor** of 0.2508<!--claim:selective.modes.work.one_sense_violation_floor_pct:.4f--> % on that —
+3<!--claim:selective.modes.work.document_short_forms_with_two_or_more_gold_expansions:,--> of
+1,196<!--claim:selective.modes.work.document_short_forms:,--> document-level short forms carry two or more
+gold expansions — and it cannot put a ceiling on it, because a roster is where inconsistency gets
+fixed rather than where it shows. The only ceiling this project has measured is `0.581` to `9.68` %
+on PMC Open Access **article bodies**, a longer genre than MEDLINE abstracts. If MED1250's true rate
+were at that ceiling the `alpha = 0.05` certificate would not survive it. The certificate is
+therefore conditional on a quantity this corpus cannot bound, and the joint bound `gate=` supplies is
+conditional on the same one.
+
+**Clustering is handled by construction and not by a correction.** Calibration keeps one unit per
+cluster because the binomial tail needs independent accepted units; that makes the calibration honest
+and it does not make the *held-out* occurrences independent of one another. The held-out figure is
+not itself a bound, its sampling variability is smaller than the clustering deserves, and no interval
+is published on it here.
+
+**A 0/1 loss only.** The p-value is a binomial tail and is exact only for a binary loss;
+`SelectiveRiskGate.calibrate` refuses anything else rather than applying a binomial argument to a
+bounded loss. A bounded-loss Learn-Then-Test needs a Hoeffding-Bentkus bound and it is not
+implemented.
+
+**Two corpora, two answers, and they must not be averaged.** SDU-21 is where the `4.38` overshoot was
+measured and it is where this method refuses; MED1250 is where propagation lives and it is where the
+bound holds. A sentence about the MED1250 answer rate is a sentence about MED1250 and nothing else,
+and reading it as a repair of the SDU-21 figure would be the same compression this section exists to
+remove.
+
+```bash
+python tools/fetch_data.py med1250 sdu21-ad-diction sdu21-ad-dev
+python bench/run_selective_risk.py --save
+```
+
 ### Can a governed catalog supply the missing prior? Measured, and no
 
 `GovernedDictionary` and `ExpansionDictionary` are two caller-supplies-the-data contracts in one
@@ -2600,8 +2850,19 @@ answers. That rate is the joint rate divided by the answer rate, and on
 21.92<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.05.selective_error_pct:.2f--> % at
 `alpha` of `0.05` -- `4.38` times `alpha` -- and
 37.02<!--claim:conformal.sdu21.exchangeable.mondrian_by_arity.alpha_0.20.selective_error_pct:.2f--> % at
-`0.20`. Bounding the selective rate needs risk-controlled selective classification, which is not
-implemented; when it lands, this gate tightens.
+`0.20`.
+
+**CORRECTED: IT LANDED, AND IT DID NOT TIGHTEN THIS GATE.** This paragraph read *"bounding the
+selective rate needs risk-controlled selective classification, which is not implemented; when it
+lands, this gate tightens."* Risk-controlled selective classification is implemented — in this same
+file, `1,105` lines earlier, by the same round — and the sentence survived because its **twin in
+`src/acronymkit/nlp/propagation.py` was rewritten and this copy was not.** *One sentence in two
+places corrected in one*, for the seventh recorded time, found by a cold reader diffing the pair.
+
+And the correction is not the obvious one. `gate=` did **not** tighten: the selective bound is a
+**second, separate** guarantee beside the joint one, taken by `selective=`. An obsolete caveat is as
+wrong as a missing one and harder to notice, but so is a repair claimed where a second mechanism was
+added — the joint bound stated above is still exactly what `gate=` gives.
 
 **And a second gap sits on top of the first, which is propagation's own rather than conformal's.**
 The joint bound is about the *definition*. Whether a licensed occurrence means what its definition
@@ -4333,6 +4594,210 @@ thread count where anything breaks at all. The premise was directionally inverte
 that it attributes the contention to the mutable structure when the contention is on the shared object
 graph, most of which is frozen.
 
+### The deferral, built and rejected: what a caller reads, counted by execution rather than by call site
+
+The subsection above ends by naming its own hole — *"the caller census counts call sites, not
+calls"* — and this is the measurement that fills it. `bench/run_governed_deferral.py` installs a spy
+on `IdentifierExpansion.__getattribute__`, records per record which attribute names were read, and
+runs five consumer shapes that all exist in this repository over the whole corpus. A site is a place
+a read could happen. This counts the ones that did.
+
+| consumer shape | where it lives | records | forcing a token record | never read |
+|---|---|---:|---:|---:|
+| `.phrase` only | `bench/run_governed_gold.py` — every published governed figure | 123,675<!--claim:governed_perf.socrata.empty.reads.phrase_only.records:,--> | 0.00<!--claim:governed_perf.socrata.empty.reads.phrase_only.forcing_pct:.2f--> % | 0<!--claim:governed_perf.socrata.empty.reads.phrase_only.never_read:,--> |
+| `.is_fully_known` only | nothing in this tree; the bet's best case | 123,675<!--claim:governed_perf.socrata.empty.reads.gate_only.records:,--> | 0.00<!--claim:governed_perf.socrata.empty.reads.gate_only.forcing_pct:.2f--> % | 0<!--claim:governed_perf.socrata.empty.reads.gate_only.never_read:,--> |
+| the library's own audit | `acronymkit.catalog.audit._observe` | 123,675<!--claim:governed_perf.socrata.empty.reads.audit.records:,--> | **100.00<!--claim:governed_perf.socrata.empty.reads.audit.forcing_pct:.2f--> %** | 0<!--claim:governed_perf.socrata.empty.reads.audit.never_read:,--> |
+| `to_json()` | `bench/run_catalog_gap.py`, `tools/gate_memo_identity.py` | 123,675<!--claim:governed_perf.socrata.empty.reads.to_json.records:,--> | **100.00<!--claim:governed_perf.socrata.empty.reads.to_json.forcing_pct:.2f--> %** | 0<!--claim:governed_perf.socrata.empty.reads.to_json.never_read:,--> |
+| `to_dict()` | `acronymkit expand --format json` | 123,675<!--claim:governed_perf.socrata.empty.reads.to_dict.records:,--> | **100.00<!--claim:governed_perf.socrata.empty.reads.to_dict.forcing_pct:.2f--> %** | 0<!--claim:governed_perf.socrata.empty.reads.to_dict.never_read:,--> |
+
+Socrata, empty catalog. SEC XBRL and the fixture schema give the same five rows to the digit.
+
+**The read rate is not one number, it is two, and "most callers read provenance" would be a phrasing
+tighter than the measurement.** Every shape that exists outside `bench/` reaches provenance on every
+record. Every shape that does not is one that reads a field this library computes *eagerly anyway* —
+and that is what the whole workstream turns on, because `phrase` is the join of every token's `long`
+and `is_fully_known` is a conjunction over every token's `is_known`. Reading either requires
+resolving every token. **What a deferral can postpone is not the work; it is only the object.**
+
+**No record on any arm is built and then never looked at**, which is the one population a maximal
+deferral — a thunk holding `(identifier, catalog, policy)` — would serve. There are
+0<!--claim:governed_perf.socrata.empty.reads.phrase_only.never_read:,--> of them.
+
+**One thing the census found that is not about provenance.** The audit arm refused
+2,041<!--claim:governed_perf.socrata.empty.reads.audit_refusals:,--> Socrata identifiers —
+1.3145<!--claim:governed_perf.socrata.empty.reads.audit_refusal_pct:.4f--> % — because `_observe`
+calls `normalize`, which raises rather than delete an unreadable character. `audit_identifiers` has
+no handler, so a corpus audit over real portal names stops on the first `:@computed_region_…`
+column. That is a defect in a public verb, it was not this workstream's to fix, and it is recorded
+here rather than left in a scratch file.
+
+### The deferred route was built. It allocates more objects, not fewer, on every arm
+
+The design the roadmap describes, implemented against the shipped resolver rather than a copy of it:
+a flat tuple of `(start, end, answer_slot, flags)` integers per identifier, one compact answer tuple
+per distinct token, and a record that materialises `TokenExpansion` objects only when `.tokens` is
+read. Every token is split by the shipped tokenizer, rejoined by the shipped digit pass, resolved by
+the shipped `_expand` and remembered through the shipped `_remember` with the shipped bound.
+
+Objects allocated per full corpus pass, Socrata, empty catalog,
+155,272<!--claim:governed_perf.socrata.empty.deferral.identifiers:,--> identifiers:
+
+| consumer shape | shipped | deferred | ratio | SEC XBRL | fixture |
+|---|---:|---:|---:|---:|---:|
+| `.phrase` only | 325,837<!--claim:governed_perf.socrata.empty.deferral.phrase_only.eager_objects:,--> | 325,837<!--claim:governed_perf.socrata.empty.deferral.phrase_only.lazy_objects:,--> | **1.000<!--claim:governed_perf.socrata.empty.deferral.phrase_only.lazy_over_eager:.3f-->** | 1.000<!--claim:governed_perf.sec_xbrl.empty.deferral.phrase_only.lazy_over_eager:.3f--> | 1.000<!--claim:governed_perf.fixture_schema.fixture.deferral.phrase_only.lazy_over_eager:.3f--> |
+| `.is_fully_known` only | 325,837<!--claim:governed_perf.socrata.empty.deferral.gate_only.eager_objects:,--> | 325,837<!--claim:governed_perf.socrata.empty.deferral.gate_only.lazy_objects:,--> | **1.000<!--claim:governed_perf.socrata.empty.deferral.gate_only.lazy_over_eager:.3f-->** | 1.000<!--claim:governed_perf.sec_xbrl.empty.deferral.gate_only.lazy_over_eager:.3f--> | 1.000<!--claim:governed_perf.fixture_schema.fixture.deferral.gate_only.lazy_over_eager:.3f--> |
+| the library's own audit | 325,837<!--claim:governed_perf.socrata.empty.deferral.audit.eager_objects:,--> | 1,169,666<!--claim:governed_perf.socrata.empty.deferral.audit.lazy_objects:,--> | 3.590<!--claim:governed_perf.socrata.empty.deferral.audit.lazy_over_eager:.3f--> | 8.310<!--claim:governed_perf.sec_xbrl.empty.deferral.audit.lazy_over_eager:.3f--> | 17.520<!--claim:governed_perf.fixture_schema.fixture.deferral.audit.lazy_over_eager:.3f--> |
+| `to_json()` | 325,837<!--claim:governed_perf.socrata.empty.deferral.to_json.eager_objects:,--> | 1,324,938<!--claim:governed_perf.socrata.empty.deferral.to_json.lazy_objects:,--> | 4.066<!--claim:governed_perf.socrata.empty.deferral.to_json.lazy_over_eager:.3f--> | 8.824<!--claim:governed_perf.sec_xbrl.empty.deferral.to_json.lazy_over_eager:.3f--> | 18.019<!--claim:governed_perf.fixture_schema.fixture.deferral.to_json.lazy_over_eager:.3f--> |
+| `to_json()`, records shared | 325,837<!--claim:governed_perf.socrata.empty.deferral.to_json_shared.eager_objects:,--> | 1,043,348<!--claim:governed_perf.socrata.empty.deferral.to_json_shared.lazy_objects:,--> | 3.202<!--claim:governed_perf.socrata.empty.deferral.to_json_shared.lazy_over_eager:.3f--> | 5.467<!--claim:governed_perf.sec_xbrl.empty.deferral.to_json_shared.lazy_over_eager:.3f--> | 10.011<!--claim:governed_perf.fixture_schema.fixture.deferral.to_json_shared.lazy_over_eager:.3f--> |
+
+**Where the deferral is possible it breaks exactly even, and the zero is structural rather than
+small.** On both real corpora the two non-forcing arms come out at exactly
+0<!--claim:governed_perf.socrata.empty.deferral.phrase_only.lazy_minus_eager:,--> objects of difference, not
+approximately zero. Every substitution is one for one: the integer array replaces the tuple of
+records, the deferred record replaces the identifier record, the compact answer tuple replaces the
+token record. There is nothing to remove, because the shipped design already allocates one object per
+call and one per *distinct* token.
+
+**Where the deferral is impossible it multiplies the objects by three to eighteen, and the cause is
+sharing.** The shipped token memo hands the same `TokenExpansion` to every occurrence of a token —
+78.20<!--claim:governed_perf.socrata.empty.deferral.token_memo_hit_pct:.2f--> % of Socrata
+resolutions and 98.12<!--claim:governed_perf.sec_xbrl.empty.deferral.token_memo_hit_pct:.2f--> % of
+SEC XBRL's are served that way. **A span is per occurrence, so a deferred route cannot share**: it
+materialises one record per token per identifier. The last row is that objection answered rather
+than dismissed — a deferred route that caches materialised records by `(answer, raw)`, which is the
+shipped memo rebuilt one layer out — and it still costs
+3.202<!--claim:governed_perf.socrata.empty.deferral.to_json_shared.lazy_over_eager:.3f--> times the
+shipped route, because it re-slices a `raw` the tokenizer had already built.
+
+**"Zero-copy" is the wrong name for this design in this codebase.** `TokenExpansion.raw` already
+*is* the tokenizer's string; the deferred route throws that string away, carries offsets, and slices
+it again at materialisation. The integer array is not free either:
+1,440,308<!--claim:governed_perf.socrata.empty.deferral.to_json.lazy_ir_integers:,--> integers
+carried on the Socrata pass, of which
+353,094<!--claim:governed_perf.socrata.empty.deferral.to_json.lazy_ir_large_integers:,--> are above
+CPython's small-integer cache and are heap objects like any other.
+
+### R19 for the deferred route, and the representation that failed it
+
+`repr` **and** `to_json`, deferred route against shipped route, over
+155,272<!--claim:governed_perf.socrata.empty.deferral.identity_records:,--> Socrata,
+90,655<!--claim:governed_perf.sec_xbrl.empty.deferral.identity_records:,--> SEC XBRL and
+20,000<!--claim:governed_perf.fixture_schema.fixture.deferral.identity_records:,--> fixture
+identifiers: 0<!--claim:governed_perf.socrata.empty.deferral.identity_json_mismatches:,--> JSON
+mismatches and 0<!--claim:governed_perf.socrata.empty.deferral.identity_repr_mismatches:,--> `repr`
+mismatches on every arm, with the control probe — one `entry_id` moved on one token of one record —
+firing on all three. `tests/test_governed_deferral.py` breaks the materialiser and requires the same
+comparison to report mismatches, so the zeros above are known to be reachable from the other side.
+
+**It did not pass first time, and what it caught is the finding.** The first version encoded every
+token as `(start, end)` into the identifier and lost
+3<!--claim:governed_perf.fixture_schema.fixture.deferral.identity_tokens_not_a_slice:,--> records of
+20,000 on the fixture arm. `_rejoin_digit_tokens` puts `AMT_1_MM` back together as the token `1MM`,
+**which is not a substring of the identifier** — the separator is still sitting between the two
+halves — so `raw` is a synthesised string that no pair of offsets can address. The representation
+now carries a side table for those, and the incidence is published.
+
+**The part worth keeping is where that count is zero.** The rejoin fires only when a catalog vouches
+for the joined token, so the incidence is
+0<!--claim:governed_perf.socrata.empty.deferral.identity_tokens_not_a_slice:,--> on Socrata and
+0<!--claim:governed_perf.sec_xbrl.empty.deferral.identity_tokens_not_a_slice:,--> on SEC XBRL —
+**both of which are measured with an empty catalog, which is every published governed arm in this
+document.** A span representation would have passed R19 on every arm this project runs and dropped a
+character on the first customer with a real vocabulary. That is D-058's shape — a check that could
+not fail in the environment where it ran — arriving from the other direction.
+
+### The wall-clock and the memory, as an unarmed note, with the machine named
+
+The roadmap that commissioned this work proposed two abort conditions: end-to-end time down `25` %
+and memory high-water down `40` %. **Operating rule 18 forbids both**, and D-013 is the record of
+this project ratcheting on a nanosecond once. So the figures are printed and nothing is armed on
+them. They also happen to point the other way.
+
+```
+UNARMED. Wall-clock and peak TRACED PYTHON ALLOCATION -- not RSS -- over 20,000 identifiers of each
+corpus on the to_json arm. Nothing in this repository compares these against a threshold.
+Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD.
+A shared developer machine with a sibling workstream running in the same checkout.
+
+  corpus            shipped              deferred             deferred / shipped
+  socrata           1230.2 ms  2.85 MB   1798.7 ms   6.26 MB   1.46x time, 2.20x peak
+  sec_xbrl          2246.9 ms  3.74 MB   3192.1 ms  11.10 MB   1.42x time, 2.97x peak
+  fixture_schema    4669.6 ms  3.74 MB   6301.1 ms  21.88 MB   1.35x time, 5.85x peak
+```
+
+`tracemalloc` counts blocks handed to Python objects; RSS also holds the interpreter, the corpus and
+every arena the allocator has not returned. The two move together and they are not the same number.
+
+### The premise the ranking rested on had gone stale by two thirds, and nothing recomputed it
+
+D-086 ranked lazy provenance first partly on `3.728` provenance records per identifier. D-100 made
+the record cheaper and D-101 taught the memo to remember passthroughs, and **nothing in this
+repository recomputes that number** — so a later round re-opening the bet would have re-opened it on
+whatever the last decision record happened to carry.
+
+| | records per identifier | token memo hit | identifier memo hit | deferrable share |
+|---|---:|---:|---:|---:|
+| socrata, empty | 1.302<!--claim:governed_perf.socrata.empty.deferral.provenance_records_per_identifier:.3f--> | 78.20<!--claim:governed_perf.socrata.empty.deferral.token_memo_hit_pct:.2f--> % | 20.35<!--claim:governed_perf.socrata.empty.deferral.identifier_memo_hit_pct:.2f--> % | 38.82<!--claim:governed_perf.socrata.empty.deferral.deferrable_records_pct:.2f--> % |
+| sec_xbrl, empty | 1.036<!--claim:governed_perf.sec_xbrl.empty.deferral.provenance_records_per_identifier:.3f--> | 98.12<!--claim:governed_perf.sec_xbrl.empty.deferral.token_memo_hit_pct:.2f--> % | 8.94<!--claim:governed_perf.sec_xbrl.empty.deferral.identifier_memo_hit_pct:.2f--> % | 12.08<!--claim:governed_perf.sec_xbrl.empty.deferral.deferrable_records_pct:.2f--> % |
+| fixture schema | 1.006<!--claim:governed_perf.fixture_schema.fixture.deferral.provenance_records_per_identifier:.3f--> | 99.96<!--claim:governed_perf.fixture_schema.fixture.deferral.token_memo_hit_pct:.2f--> % | 0.00<!--claim:governed_perf.fixture_schema.fixture.deferral.identifier_memo_hit_pct:.2f--> % | 0.59<!--claim:governed_perf.fixture_schema.fixture.deferral.deferrable_records_pct:.2f--> % |
+
+**These are taken with every shipped memo level live**, which is the library's default and is *not*
+the configuration `governed_perf.socrata.empty` reports — that entry runs with the identifier level
+off, deliberately, because a decomposition by subtraction cannot hold a level that removes whole
+calls. The two entries disagree on `identifier_expansions_constructed` for that reason and no other.
+
+**The deferrable share is the ceiling and it is the smaller column.** Even granting a design that
+deferred perfectly and cost nothing, at most
+38.82<!--claim:governed_perf.socrata.empty.deferral.deferrable_records_pct:.2f--> % of Socrata's
+records and 12.08<!--claim:governed_perf.sec_xbrl.empty.deferral.deferrable_records_pct:.2f--> % of
+SEC XBRL's are token records at all. The rest is the one identifier record per call, which no
+deferral removes, because the deferred object is an object.
+
+### The pre-registration for the deferral workstream, and the falsifier that fired
+
+Written to a scratch file before the first line of the route was written, and reported here against
+its outcome.
+
+```
+pre-registration vs outcome -- scratchpad/PREREG-m3pd2-zero-copy-spans.md
+  F1  read rate >= 90 % kills the bet     FIRED, and the phrasing was too tight:
+                                          100.00 % on all three shapes that exist,
+                                          0.00 % on the two that do not
+  F2  lazy objects >= eager kills it      FIRED on every arm. Equal where deferral is
+                                          possible, 3.20-18.02x where it is not. The
+                                          revival threshold was <= 0.80x
+  F3  <= 5 points removable above floor   FIRED, in counts rather than in the timing
+                                          share the prediction was written in: 0
+                                          objects of 325,837. UNIT CHANGE DECLARED,
+                                          threshold not adjusted to suit it
+  F4  any R19 mismatch kills it outright  FIRED ONCE, on the first representation --
+                                          3 of 20,000 fixture records. Repaired with a
+                                          side table; the incidence is published above
+  F5  token memo already >= 50 %          RIGHT. 78.20 / 98.12 / 99.96
+  F6  a construction route below the      NOT falsified, NOT actionable. A dict literal
+      floor kills "the floor is the       assigned through object.__setattr__ is
+      floor"                              byte-identical and 5.3 % cheaper per record
+                                          on one machine in nanoseconds, which R18 says
+                                          is not a result, and it costs the instance
+                                          dict its key sharing. Not taken
+```
+
+**F1's phrasing was wrong and the measurement is what says so.** "The read rate is `>= 90` %" asked
+for one number from a quantity that turns out to be bimodal — `100` % or `0` %, with nothing between.
+The bet survives F1 in the two `0` % shapes and F2 kills it there instead, which is a falsifier doing
+its job through a prediction that was badly written.
+
+**F3 was adjudicated in a different unit from the one it was written in, and that is declared rather
+than buried.** The prediction said "percentage points of the record block", which is a timing share;
+what is reported is objects removable, which is a count. R18 is why. The threshold was not moved to
+suit the unit — `0` of
+325,837<!--claim:governed_perf.socrata.empty.deferral.to_json.eager_objects:,--> is under any reading
+of "at most five points".
+
+**Nothing shipped into `src/acronymkit`.** The deferred route lives in `bench/` because it was
+measured and rejected, and it is committed rather than deleted so that the next round re-derives the
+rejection instead of re-litigating it. This workstream is retired.
+
 ### How this fails
 
 **Both corpora are schema corpora, and nothing here describes a prose caller.** `extract`,
@@ -4398,7 +4863,21 @@ decomposition of them exists.
 **The caller census counts call sites, not calls.** A site inside a loop over ten million columns and
 a site in a one-shot CLI command weigh the same. The population is eleven classified non-test sites
 in one repository, which is the whole of what can be said about callers today and is not a
-measurement of demand.
+measurement of demand. **The execution census above answers the "not calls" half and
+not the "demand" half**: it counts what five shapes read over three corpora, and every one of those
+shapes is a consumer inside this repository. Nothing here observes a caller this project did not
+write.
+
+**The deferral census compares two routes and neither of them is a product.** The shipped route is
+the library; the deferred route is a bench-tree instrument that exists to be counted. A third design
+nobody has thought of is not ruled out by any figure here, and the specific thing that is ruled out
+is narrow: **carrying `(start, end, rule_id, flags)` through the intermediate passes and building the
+records at the boundary, on the consumer shapes this repository contains.**
+
+**Objects are not bytes, and the object counts are the armed quantity.** A design that allocated
+fewer, larger objects would look like a win in every table above and could be a loss in memory. The
+peak-allocation figures beside them are unarmed, are `tracemalloc` rather than RSS, and were taken on
+one machine.
 
 **The wall-clock was taken on a shared, loaded developer machine.** Another workstream was running in
 this checkout throughout, which is the likeliest cause of the `43` % swing between runs; the spreads

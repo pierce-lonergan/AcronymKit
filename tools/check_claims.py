@@ -472,7 +472,17 @@ DEFERRED_BASELINE: Dict[str, int] = {
     # is truer without a figure than with that one.
     "CHANGELOG.md": 28,
     "README.md": 1,
-    "bench/splits.toml": 32,
+    # LOWERED FROM 32 BY THE ROUND THAT WALKED THIS FILE FOR THE FIRST TIME.
+    # Three citations, no deletions, no fencing. Every previous walk of the
+    # deferred ledger -- D-097, D-109, D-118, D-126 -- resolved
+    # `docs/DECISIONS.md` and nothing else, so 147 of the 189 numbers the QUOTA
+    # reads had never been probed by anybody. The three paid here are the corpus
+    # noise floor `governed_gold.socrata.gold_conflict` reports as
+    # `contested_identifiers_pct` and `contested_occurrences_pct`, and legal dev's
+    # multi-token gold span share. All three sentences already NAMED their run in
+    # prose; what was missing was the machine-readable form. See
+    # LEDGER_TRAJECTORY["M3-PD2 (the first walk of the other nine files)"].
+    "bench/splits.toml": 29,
     # Lowered from 115 by the round that withdrew this file's carve-out from
     # MIGRATION_QUOTA. 30 numbers became run-id citations and one rounded
     # restatement was deleted; see LEDGER_TRAJECTORY[RECORD_BINDING_LABEL].
@@ -508,7 +518,15 @@ DEFERRED_BASELINE: Dict[str, int] = {
     "docs/DEFINITION-OF-DONE.md": 1,
     "docs/EVALUATION.md": 10,
     "docs/OFFLINE.md": 3,
-    "docs/notes/pydantic-cost.md": 70,
+    # LOWERED FROM 70 BY ONE. D-126 named this file's 70 as "the largest
+    # population in the register, never probed by anybody" and assigned it to
+    # nobody for a fourth round. It has now been probed: 69 of the 70 are
+    # BLOCKED under the whole-file judgement below and the seventieth is the one
+    # figure the note itself says is gated -- `micro.import.cold_import_engine_ms`,
+    # in the sentence whose whole subject is what `bench/results.json` records.
+    # The DEBT_JUDGEMENTS entry that flagged it as gate-able is deleted in the
+    # same edit, because it is now cited rather than pending.
+    "docs/notes/pydantic-cost.md": 69,
     "docs/notes/scoring-objective.md": 1,
     # RE-KEYED, NOT RAISED. The file did not change and neither did the number
     # on it: `src/acronymkit/governed/models.py` became
@@ -1934,15 +1952,12 @@ class Judgement:
 #: judgement pointing at a sentence that is no longer there is worse than no
 #: judgement at all.
 DEBT_JUDGEMENTS: Tuple[Judgement, ...] = (
-    # docs/notes/pydantic-cost.md quotes one figure that IS gated, and the
-    # whole-file entry below would otherwise bury it with the rest.
-    Judgement(
-        path="docs/notes/pydantic-cost.md",
-        number="128.1",
-        anchor="against 128.1 ms recorded in",
-        bucket="gate-able",
-        reason="quotes micro.import.cold_import_engine_ms, which D-013 gated",
-    ),
+    # docs/notes/pydantic-cost.md's one gated figure USED to need an entry here,
+    # flagging it gate-able so the whole-file judgement below would not bury it.
+    # It was migrated to a run-id citation by M3-PD2 and the entry is deleted
+    # rather than left pointing at a number that is no longer on the ledger: a
+    # judgement matching no live claim is reported as stale, which is the check
+    # working. The whole-file entry below now covers 69 numbers, not 70.
     # Both are the perturbation range of tools/tune_presets.py -- how far the
     # coefficients move while the sixteen-entry corpus still reproduces. That
     # script is not a bench runner and writes no run id, so there is nothing to
@@ -2818,6 +2833,84 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
             "nobody for a fourth round."
         ),
     ),
+    LedgerRound(
+        label="M3-PD2 (the first walk over all ten files)",
+        deferred=185,
+        value_matched=64,
+        by_citation=4,
+        from_record_file=0,
+        note=(
+            "Mandate III Phase D round two. 10 records were added, D-127 through D-136, so the "
+            "pin went red at 136 against 126 before a word of migration was written -- the eighth "
+            "consecutive round in which the binding did its job. THIS IS THE FIRST NON-ZERO "
+            "MOVEMENT IN FIVE ROUNDS AND IT IS 4, AND THE REASON IT IS NOT 0 IS SCOPE RATHER THAN "
+            "EFFORT. MIGRATION_QUOTA is a floor on `fall` over the WHOLE deferred ledger; only "
+            "RECORD_FILE_FLOOR is about docs/DECISIONS.md. D-097, D-109, D-118 and D-126 each "
+            "resolved that one file's 42, concluded terminal -- correctly, and this round "
+            "confirms it a fourth time -- and then wrote the waiver against a quota that reads "
+            "ten files. 147 of the 189 had never been probed by anybody, including the 70 in "
+            "docs/notes/pydantic-cost.md that D-126 named as never probed and assigned to nobody "
+            "for a fourth round. THE TENTH WALK IS THE FIRST OVER ALL TEN FILES. --classify puts "
+            "the 189 at gate-able 56, blocked 129, not-a-claim 4, with the 56 split "
+            "bench/splits.toml 28, docs/DECISIONS.md 17, docs/EVALUATION.md 10, pydantic-cost.md "
+            "1. Resolved one number at a time the 56 give 7 UNIQUE, 0 REPLICATED, 49 AMBIGUOUS. A "
+            "second and stronger probe was built for this round -- candidates restricted to "
+            "fields under a run-id prefix the surrounding prose NAMES, which is how this "
+            "project's documents actually attribute figures -- and over all 189 it returns "
+            "CITABLE 9, run-id-named-but-no-field 97, no-run-id-nearby 55, "
+            "named-run-several-fields 28. Six of the 9 CITABLE are in CHANGELOG.md, whole-file "
+            "blocked since D-109 because --render would rewrite a released entry. SO THE PAYABLE "
+            "POPULATION ACROSS THE ENTIRE DEFERRED LEDGER IS 4, AND ALL FOUR ARE PAID HERE: "
+            "splits.toml:872 2.14 -> "
+            "shortform.sdu22_ae_legal_dev.corpus.gold_short_form_spans_multi_token_pct; :1153 "
+            "0.27 and :1154 2.62 -> governed_gold.socrata.gold_conflict.contested_identifiers_pct "
+            "and .contested_occurrences_pct, in a sentence that ALREADY NAMED that run id in "
+            "prose and lacked only the machine-readable form; and pydantic-cost.md:68 128.1 -> "
+            "micro.import.cold_import_engine_ms, in the sentence whose whole subject is what "
+            "bench/results.json records, so --render keeping it current is the point rather than "
+            "the hazard. THE RECORD FILE IS 0 OF 42 AND THIS WALK NAMES THE FIVE THAT LOOKED "
+            "PAYABLE: 17 of the 42 are gate-able, 12 of those AMBIGUOUS and 5 UNIQUE, and every "
+            "one of the five is a unit mismatch -- 30.09 ms of pydantic import time against a PMC "
+            "OA Jaccard, 89.08 ms against a conformal minimum coverage percentage, 25.50 us "
+            "against a definitional-at-caps gold share, 56.80 us against a scispaCy overlap "
+            "recall, and 29.73 % of MED1250 gold long forms occurring more than once against a "
+            "PLOD Jaccard, in a record whose next sentence names "
+            "shortform.med1250_all.legend_exposure as the gated field. D-126 said the payable "
+            "population in that file was 1; it is 0, and the 1 it named is in pydantic-cost.md. "
+            "Trajectory: 316, 262, 231, 213, 201, 189, 189, 189, 189, 189, 185. This row plus a "
+            "pin re-taken at 136 is what closes it. D-136."
+        ),
+        waiver=(
+            "FIFTH WAIVER AND THE FIRST ONE WITH A PAYMENT ATTACHED. fall is 4 against "
+            "MIGRATION_QUOTA 12; from_record_file is 0 against RECORD_FILE_FLOOR 12. The round's "
+            "brief said a fifth silent waiver is the policy ceasing to exist and told the "
+            "recorder to pay the quota or state plainly that the mechanism is broken. BOTH, IN "
+            "THAT ORDER: 4 of a measured payable population of 4 are paid above, and the plain "
+            "statement is this. THE QUOTA IS UNSATISFIABLE BY ARITHMETIC AND NOT BY DISCIPLINE. "
+            "Both floors are set to 12 per round against a payable population this round measured "
+            "at 4 across all ten files and 0 in the file the record floor is written against. The "
+            "only remaining payment shapes are deletion -- refused four times, because deleting a "
+            "number from a CLOSED decision record to satisfy a gate is precisely the gaming this "
+            "policy exists to stop -- and fencing, which trajectory_problems already refuses to "
+            "count toward the floor, correctly. TWO QUESTIONS FOR THE MAINTAINER, AND THE SECOND "
+            "IS NEW. (1) D-126's, re-asked unanswered: should MIGRATION_QUOTA and "
+            "RECORD_FILE_FLOOR count movement on the VALUE-MATCHED ledger, where 13 numbers in "
+            "docs/DECISIONS.md are unambiguously citable today and the schema turns the build red "
+            "for recording them honestly and green for recording them as zero? (2) NEW: both "
+            "floors should be re-set to a number the ledger can supply, or replaced by D-109's "
+            "first escalated replacement -- a per-file `closed` disposition backed by the probe "
+            "-- because a floor of 12 on a population of 4 forces a waiver every round forever "
+            "and the waiver then carries no information. WHAT THE PAYMENT DOES NOT BUY, STATED SO "
+            "NOBODY READS IT AS PROGRESS: 4 numbers is 2.12 % of the ledger, it does not lift "
+            "this waiver, and it does not improve the next round's position. It buys one thing -- "
+            "the terminal state of the burn-down is now a MEASURED 0-remaining rather than an "
+            "asserted one, over all ten files instead of one. pydantic-cost.md's 70 is closed at "
+            "1 payable and 69 blocked; splits.toml's 32 is walked and 29 remain, 27 AMBIGUOUS and "
+            "2 blocked; EVALUATION.md's 10 are all AMBIGUOUS and none is payable; CHANGELOG.md's "
+            "28 stay blocked for D-109's reason. FOUR MEASUREMENTS NOW SAY THE SAME THING AND THE "
+            "FIFTH IS THIS ONE; WHAT HAS NEVER HAPPENED IS AN ANSWER."
+        ),
+    ),
 )
 
 #: How many records :data:`RECORD_FILE` held when the newest round was appended.
@@ -2843,7 +2936,7 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
 #: the gate reads, and ``label`` puts the words "which round paid for this"
 #: into the diff. It is a deterrent, not a mechanism, and calling it a mechanism
 #: would be the same overclaim this policy exists to stop.
-RECORD_FILE_PIN = RecordPin(label="M3-PD (the quota is reading the wrong ledger)", records=126)
+RECORD_FILE_PIN = RecordPin(label="M3-PD2 (the first walk over all ten files)", records=136)
 
 
 def count_records(text: str) -> int:

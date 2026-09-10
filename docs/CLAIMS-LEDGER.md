@@ -467,130 +467,259 @@ them, so the gate cannot see them and cannot tell you when they go stale. Re-run
 
 ---
 
-## 6. The one rate this project has on its own prose. **The series is closed at `16.67` %, and the successor starts at `n = 0`**
+## 6. The one rate this project has on its own prose. **The series is closed at `15.97` % over SIX rounds, its churn-weighted successor is retired ungraded, and a second successor starts at `n = 0`**
 
 Everything above is about numbers a gate can see. The residue this page keeps publishing —
 `unexamined`, uncapped, reached by no arming rule — has exactly one instrument on it, and it is not a
 gate. R15 makes every workstream submit at least twelve non-load-bearing checkable claims; a sampler
 draws from them under a published seed and re-checks each one against running code, a live endpoint or
-a mutation rather than against the document that states it. **It has now run five times, and this
-section closes it.** The subsections below the closure are the record of rounds one to three and are
-left as they were written.
+a mutation rather than against the document that states it. **It ran six times.** The subsections
+below the closure are the record of rounds one to three and are left as they were written.
 
 ### The closure, and the arithmetic it is closed at
 
 ```
-        the five rounds, transcribed from docs/DECISIONS.md D-068, D-082, D-100, D-107, D-115.
-        Not a benchmark measurement. The Wilson figures were re-derived independently for this
-        section and reproduce to 2 d.p.
+        the six rounds, transcribed from docs/DECISIONS.md D-068, D-082, D-088, D-107, D-115
+        and D-122. Not a benchmark measurement. Every figure below is re-derived by
+        tests/test_sample_claims.py from the per-round counts rather than trusted.
 
-  round        1      2      3      4      5
-  not true     5      5      6      2      2      of 24 each
-  pooled                       20 of 120  =  16.67 %
-  Wilson 95 %                  11.06 % - 24.35 %   (half-width 6.64)
-  four rounds                  18 of  96  =  18.75 %,  half-width 7.75
+  round        1      2      3      4      5      6
+  not true     5      5      6      2      2      3      of 24 each
+  pooled                          23 of 144  =  15.97 %
+  Wilson 95 %                     10.89 % - 22.83 %   (half-width 5.97)
+  five rounds                     20 of 120  =  16.67 %,  half-width 6.64
 ```
 
-**The series is CLOSED at those numbers.** Round five measured the instrument rather than the
-project, and the measurement is the reason: adding a fifth point moved the half-width by `1.11`
-points while moving the estimate by `2.08`. **The interval is still moving faster than it is
-shrinking.** Re-derived here rather than quoted: a half-width of `3` points at this rate needs about
-`600` draws — `25` rounds of `24` **in total**, so `20` more than have been run, not `25` more.
-Pooling further draws of `24` is not a route to a usable number and nobody should spend twenty rounds
-finding that out.
+**Two corrections to what this section used to say, and the second is the more embarrassing.**
 
-### The successor, and the discontinuity it forces
+**It was closed at five rounds and six had run.** The closure was declared here and in
+`tools/sample_claims.py` before round six graded anything; round six then graded `24` claims under
+the old frame anyway and reported `23` of `144`. The tool's constant said `5` / `120` / `20` for a
+full round after the record file said otherwise. It now says `6` / `144` / `23`, and a test pins the
+two copies to each other.
 
-The replacement is [`tools/sample_claims.py`](../tools/sample_claims.py): a **churn-weighted
-stratified** draw from the claim-shaped numbers in this repository's scanned documents that no arming
-rule backs, partitioned by how recently their file was touched.
+**And this page cited the wrong record for round three.** The transcription line above used to read
+*D-068, D-082, `D-100`, D-107, D-115*. `D-100` is about the cost of provenance construction and
+contains no sampled-verification content whatsoever — searching it for *sampled*, *not true* and
+*R15* returns nothing. Round three is **`D-088`**, which carries *"Round three is `6` of `24`
+not-true"* and names that round's seed. A single wrong token, inside a fenced block, in the sentence
+that tells a reader where the evidence is. **The frame that was supposed to catch this class of error
+could not see the line at all**, for the reason the next subsection gives.
 
-**It measures a different quantity, and the five-round figure may not be carried across.** Different
-unit — a number in a file, against a sentence a workstream submitted. Different population — the
-whole scanned tree, against one round's self-reports. Different inclusion probabilities — an unequal
-allocation across strata, against a uniform draw. A series silently redefined mid-flight is the worst
-outcome available here, so **the new series starts at `n = 0`**, the tool prints the closed figure
-beside every draw with the words *it does not carry across*, and no pooled rate may span the change.
+**And the same error was made again, in this paragraph's own commit.** The corrected transcription
+line first read *"and D-123"* for round six. `D-123` is the pre-registration ledger and carries no
+not-true figure; round six is **`D-122`**, which states `23` of `144` in its own title. **Two wrong
+record citations in one fenced line, one of them introduced by the person fixing the other**, inside
+the section that exists to price this project's reporting error. It was caught by grepping the two
+records rather than by reading them, which is the only method that has worked here.
 
-**And the direction of the change is the opposite of the one it was commissioned under.** The brief
-that ordered this described the old series as estimating *the rate of claims in this repository* and
-the successor as estimating *the rate of claims about work just done*. Checked against the record
-rather than accepted: D-068 draws `24` of `187` **submitted** claims, D-115 draws `24` of `36` across
-three workstreams, and R15's rule is that each workstream submits twelve sentences *about its own
-round*. **The old frame was already the narrow one.** The successor is the WIDER of the two — it
-reaches numbers nobody chose to submit, which is the actual gap, because a self-selected pool is the
-weakest sampling frame available and D-115 records that `11` of one round's `24` came from a single
-summary, so the draws were not independent either.
+**The interval is still moving about as fast as it shrinks.** A sixth point moved the half-width from
+`6.64` to `5.97` — a fall of `0.67` — while moving the estimate by `0.69`. *(A published figure of
+`0.70` for that move is the difference of two already-rounded percentages; the rounded difference of
+the exact values is `0.69`. The finding survives either reading and is marginally stronger at
+`0.69`.)* Re-derived rather than quoted: a half-width of `3` points needs about `600` draws — `25`
+rounds of `24` **in total**. Pooling further draws of `24` is not a route to a usable number.
 
-### What the frame actually looks like here, measured rather than assumed
+### Why the churn-weighted successor is retired, and why this is a proof rather than a sample
+
+The replacement shipped last round drew *claim-shaped numbers* from `check_claims`' residue,
+partitioned by how recently their file had been touched. **It never graded a single claim**, so
+retiring it discards no data and re-bases no rate. It is retired because **its population cannot
+contain this project's claims, by construction**:
+
+> `check_claims.prose_of()` masks Markdown fenced blocks and then masks every inline code span —
+> `_mask_fenced_blocks` followed by `_mask_spans(..., _INLINE_CODE)`. Claims are collected from that
+> masked text. **This page, and every other, writes real figures inside inline code spans.**
+> Therefore the set of house-style figures and the set of frame items are *disjoint*.
 
 ```
-$ python tools/sample_claims.py --frame --base HEAD~1        # at 5a268cd
-        command output, not a benchmark measurement. Re-run it; it moves with the tree.
+$ python tools/sample_claims.py --audit-old-frame
+        command output, pasted rather than transcribed. Re-run it; it moves with the tree.
 
-  frame: 2054 unbacked claim-shaped number(s) in the scan set
-  stratum   N     share    drawn per round of 24
-  round       59    2.9 %   12       (files this round's own diff touched)
-  recent    1564   76.1 %    8       (files touched in the last 20 commits)
-  cold       431   21.0 %    4       (everything else)
-
-  the same frame, moving only the window that defines `recent`:
-    last  5 commits    cold  1008 of 2054     design effect 2.14
-    last 20 commits    cold   431 of 2054     design effect 2.01
-    last 40 commits    cold    14 of 2054     design effect 2.79
-  and moving only the base, at a 20-commit window:
-    base HEAD~4        round 1046 of 2054     design effect 1.02
+  population as it shipped                     2139  across 54 file(s)
+  the same residue before its year filter      2270
+  of it, one- and two-digit integers            666  (31.1 %)
+  backticked figures in unfenced Markdown      3279
+  of those, reachable by the retired frame        0   <- zero by construction, not by chance
+  residue items that came from unmasked prose  2139 of 2139
+  ... and 0 whose file moved under the read, a shared-checkout race, not a masking result
+  Markdown hidden inside fences                8.5 %  (243190 of 2870779 chars)
 ```
 
-**This repository has almost no cold text, which is the premise the change rests on and it is
-weak here.** Widen the window to `40` commits and `14` of `2054` numbers sit in a file nobody has
-touched; move the round base back four commits and the round stratum covers `1046` of `2054`. **A
-round here touches half the tree**, so `round`, `recent` and `cold` is a coarse partition of a
-population that is almost entirely churn. De-weighting cold text saves little when there is little.
+**Only one figure in that block is stable, and it is the one the argument rests on.** `0` reachable
+is a consequence of `prose_of`, not a count, so it does not drift. Every other row moved while this
+section was being written — the population went from `2095` across `53` files to `2139` across `54`
+as a sibling agent added source files to the same checkout and as this section added prose of its
+own. The last row of the block exists because the first attempt to check the masking claim compared
+`collect_claims`' reads against a second read of the same files and went red on ten items whose file
+had changed in between. **A mismatch there cannot mean "masked"** — the collector only ever reads
+masked prose — **so it means the file moved**, and it is counted as that rather than failing a build.
 
-**The price is a number and it is printed on every draw.** The design effect of the `12`/`8`/`4`
-allocation — the ratio of the design-weighted estimator's variance to a uniform draw's, under the
-null that every stratum carries the same rate — measures `1.02` to `2.79` across the rows above and
-`2.01` at the shipped default. **Above `1.00` the churn-weighted draw is _less_ precise about the
-repository than a uniform draw of the same size.** Stratification beats simple random sampling only
-when the strata differ in what is being measured; if churned and cold text carry the same not-true
-rate, this design has bought relevance and paid for it in precision. That is the honest summary of
-the change and the tool refuses to print the pooled rate without it.
+**A reported count of `15` backticked items in that population was an artefact, and so was this
+round's first reproduction of it at `18`.** Both used the same naive test — *does the claim's text
+occur inside a span somewhere on this line* — which matches the digits of `3.9` inside a
+`>=3.9` span while the claim is a bare `3.8` further along the line. Checked against the masked text
+the collector actually reads, all `18` came from unmasked prose. **The true figure is `0`, and it is
+`0` structurally.**
 
-**One frame refinement was made after the first exploratory draw, and this is the only moment it was
-free.** That draw put two bare years in front of a grader — `check_claims`' own docstring says the
-unarmed residue is *"mostly years, defaults and rank cutoffs"* — so a four-digit integer in
-`1900`–`2199` with no arming rule on it is now excluded as a date. The frame falls from `2182` to
-`2054`, `128` numbers. It is narrow deliberately: `628` of the frame is one- and two-digit integers
-and many of those *are* claims, so no blanket small-integer rule is applied, and the `2` year-shaped
-numbers on the **deferred** ledger are kept, because a figure armed by a metric unit is a measurement
-that happens to look like a year and dropping it would hide a real debt. **A frame edited after a
-graded round would invalidate that round.** This series stands at `n = 0`, so it does not.
+**Every figure in this section is inside a code span or a fence, and that is not an accident.** §1
+already says this page's own counts are written where the claims gate cannot read them. The retired
+frame inherited that blindness wholesale: a page that hides its numbers from the gate also hides them
+from any sampler built on the gate's leftovers. The frame that replaces it reads code spans and
+fences deliberately, which means **this section is now inside its own frame** for the first time.
 
-### Pre-registered: what would make the discontinuity worth it
+### The three observed misses, re-derived — and two of the three published reasons were wrong
 
-Written before the first draw, so a later round cannot decide after seeing the numbers.
+Round six reported that its three not-true verdicts fell outside the frame, and gave three reasons.
 
-1. **The strata must separate.** The `round` stratum's rate must differ from the `cold` stratum's by
-   more than either interval's half-width, in at least two rounds. If they measure the same rate, the
-   design effect above is the argument against the change and the frame should revert to a uniform
-   draw over the same wider population.
-2. **The repository-wide estimate must survive.** The design-weighted figure must remain computable,
-   which is why the `cold` stratum keeps a non-zero allocation rather than being dropped. A frame
-   that can only answer the narrow question has *removed* a measurement.
-3. **Five rounds must beat five rounds.** The interval on the `round` stratum after five rounds of
-   this must be narrower than the closed series' `6.64`-point half-width was on its own quantity. If
-   it is not, the change was a rename.
+| verdict | the reason as published | re-derived here |
+|---|---|---|
+| claim 1 | "lives in no document at all" | **false.** `2.01` and `2.79` are in this file at four sites — two inside the fenced window table, two in code spans in the paragraph under it |
+| claim 15 | outside `SCAN_GLOBS` | **correct** — `.github/gates.toml` — and the figure is inside a code span there too |
+| claim 10 | a wrong clause around a right digit | **correct**, and its digits `4,215` are backticked, so they are masked as well |
 
-**How this fails.** The `round` stratum is `12` draws a round, so its own interval after one round is
-wider than anything published here; three of the four conditions §6 has listed as unmet since D-082
-are unmet still, and the tool fixes only two of them — the boundary rule is now in code
-(`NOT_TRUE`, `VERDICTS`, with `UNCHECKABLE` in the denominator and not the numerator) and the draw is
-reproducible from a seed on any machine, which is what makes **a second grader on the same sample**
-possible for the first time. Nobody has run one. And the frame is built from `check_claims`' residue,
-so a claim with no number in it — most of a workstream's twelve — is **outside this frame entirely**;
-that is a population the old series reached and this one does not, and it is the one thing genuinely
-lost in the change.
+**So one of the three lived outside the scanned file set, not two, and all three were invisible for
+one shared reason.** That matters for what the repair had to be: widening the file set — the obvious
+move, and the one the brief for this round proposed — would have reached **one** of the three.
+Reading code spans and fences reaches **two**. Changing the unit from a number to a sentence reaches
+the **third**.
+
+### What ships instead
+
+[`tools/sample_claims.py`](../tools/sample_claims.py) now draws **claim-bearing sentences** —
+anything carrying a digit and at least four tokens — from four **channels**, because the errors this
+project makes are located by *where a sentence was written*, not by how recently its file moved.
+Nothing is masked; armed figures are **in**, because claim 10's digit was correct and its clause was
+not, and a gate that re-derives a number says nothing about the sentence around it.
+
+```
+$ python tools/sample_claims.py --frame
+        command output, pasted rather than transcribed. Re-run it; it moves with the tree.
+
+  frame: 8439 claim-bearing sentence(s) across 39 file(s)
+    submitted  N   111  (  1.3 % of the frame)  draw 8
+    register   N   388  (  4.6 % of the frame)  draw 4
+    document   N  4791  ( 56.8 % of the frame)  draw 8
+    record     N  3149  ( 37.3 % of the frame)  draw 4
+    design effect at equal rates: 1.82
+```
+
+`submitted` is committed run summaries, `register` is `.github/gates.toml` and the workflows,
+`document` is live prose, `record` is `docs/DECISIONS.md` and is append-only.
+
+**This block reports a frame that contains this block, so the figure in it is stale by
+construction and cannot be edited into agreement.** Writing this section moved `document` by about
+twenty sentences. The first correction was pasted as `8312`; the paragraph making that correction was
+one sentence longer than the one it replaced, so the number moved again. The second correction moved
+it a third time, for the same reason. **A page that reports the size of a population it belongs to
+cannot quote a converged value**, and three passes chasing one were three passes wasted — the digits
+below are the reading taken last, and the only correct instruction is the one already printed above
+the block: re-run it.
+
+**Two edit shapes, both measured rather than reasoned about, because the first attempt to state this
+rule got it wrong.** Changing a digit inside a line that already carried one moves the count by `0` —
+that is what the two fenced corrections above did. Giving a digit to a sentence that had none moves
+it by `+1`, which is what replacing a lettered placeholder with `8312` in the paragraph above did.
+The rule as first drafted here — *a digit-only edit does not move the count* — was true of the first
+shape and false of the second, and it was written before either was checked.
+
+**The largest movement was not subtle and it was not this section's doing.** While these paragraphs
+were being written a sibling agent added `220` lines to `docs/EVALUATION.md`, which is in the
+`document` channel; the frame moved by `46` items between two consecutive readings taken minutes
+apart with no edit of this page in between. **A count published about a shared working tree is a
+statement about a moment**, and this round demonstrated that live rather than asserting it. The
+figures in the block above were synchronised once, last, and are stale by however much the tree has
+moved since.
+
+**The reading has also flickered by one item more than once, unattributed.** `8293` then `8292`, then
+stable at `8292` over three runs and a stash cycle; later `8314` three times running and `8313`
+immediately afterwards from both the CLI and an in-process call on a tree whose `docs/` had not
+moved. Throughout, a sibling agent was adding files to the same checkout — four untracked ones
+appeared while this section was being written — and none of them is in any channel. **No mechanism is
+offered here.** A previous round reported the same one-item flutter on the old frame under the same
+conditions, and the honest reading is that a count taken on a shared working tree is a statement
+about a moment.
+
+**The price is `1.82` and it is printed on every draw.** Above `1.00` this allocation is *less*
+precise about the repository than a uniform draw of the same size, because `submitted` holds `1.3` %
+of the population and takes a third of the sample. That is deliberate — proportional allocation would
+give `submitted` zero draws, and `submitted` is where errors are made — and it is the honest cost of
+the change rather than a footnote.
+
+### Containment: the coverage claim is a command, not a sentence
+
+```
+$ python tools/sample_claims.py --containment
+        command output, pasted rather than transcribed.
+
+  [yes] round six       docs/CLAIMS-LEDGER.md  (document, 2 item(s))
+  [yes] round six       .github/gates.toml     (register, 1 item(s))
+  [yes] round six       docs/ARCHITECTURE.md   (document, 1 item(s))
+  [yes] round this one  docs/CLAIMS-LEDGER.md  (document, 2 item(s))
+  4 of 4 reachable
+```
+
+The same four sites against the retired frame: **`0` of `4`.** That is the whole measured case for
+the change, and it is a **floor rather than evidence of generality** — the design was fitted to these
+four, so reaching them is the least it can do and says nothing about the next three errors.
+
+### What no frame can do, and which problem is being solved
+
+**A better frame does not buy precision.** The `600`-draw wall is a property of a binomial rate near
+`16` % at `24` draws a round, and it is unchanged here. What changes is *what the estimate is of*:
+from "the rate at which unbacked residue numbers are wrong", which nobody asked, to "the rate at
+which this project's written claims are wrong", which is the question every round has been trying to
+answer. **Precision unchanged, estimand different.** Anybody hoping a frame change narrows the
+interval should stop reading here.
+
+Four things this frame still cannot reach, stated rather than asserted away:
+
+1. **A claim with no digit.** Round two's worst catch was an identifier that had never existed in any
+   revision. No sentence-shaped rule reaches that; it needs a symbol resolver.
+2. **A self-report nobody committed.** `submitted` is `111` sentences from three files, and most
+   workstreams file to a scratch directory. The forty-first gate already records that nothing in this
+   repository writes those files for a real round.
+3. **A number that is in no file at all.** If a figure is computed, stated in an uncommitted report
+   and never re-derived, no document-scanning frame reaches it and this one does not either.
+4. **The next error.** `15` of the `23` not-true verdicts across six rounds are attributable to a
+   sentence, and three of those `15` drove the file set. A frame fitted to observed misses is fitted
+   to observed misses.
+
+### Pre-registered: what would make THIS discontinuity worth it
+
+Written before the first draw. **This is the second restart inside two rounds, and that is recorded
+as a bad sign about the instrument rather than as a fresh start.** The only defence available is
+narrow: the frame being retired never graded a claim, so nothing is being discarded. A third restart
+should be refused on this record alone.
+
+1. **The channels must separate.** `submitted` and `record` must differ by more than either
+   interval's half-width in at least two rounds. If every channel carries the same rate, the `1.82`
+   design effect is the argument against this design and it should revert to a uniform draw over the
+   same wider population.
+2. **Containment must survive contact with errors it was not fitted to.** Every not-true verdict a
+   future round returns must be added to `KNOWN_ERROR_SITES` **before** the next frame change, and
+   the containment figure must be reported including the sites that were *not* used to design the
+   frame. A coverage number computed only over the fitting set is worthless.
+3. **A second grader on the same sample.** The draw is reproducible from a seed on any machine, which
+   makes this possible for the first time. It has been listed as unmet since D-082 and nobody has run
+   one. If five rounds pass without one, the rate is one reader's opinion measured six ways.
+
+### How the closure and its second replacement fail
+
+**The corrections in it were found by reading, not by any instrument this page describes.** The
+`D-100` citation, the five-versus-six closure and the `0.70`-versus-`0.69` rounding were all caught by
+a human-shaped pass over the section, and the frame that would now contain them did not exist when
+they were made. **The new frame's ability to reach them is a retrodiction.**
+
+**`15` attributable verdicts is not `23`, and the first draft of this sentence said `17`.** Round
+three's six failures are not itemised in `D-088`, and round four's two are given in `D-107` as
+counts with no description at all — a shape that was assumed rather than checked until the number
+was challenged. So the channel distribution behind this design rests on rounds one, two, five and
+six: `15` of `23`, with **over a third of the evidence missing**, and the design was chosen anyway.
+
+**Nothing gates any of it.** No CI job runs the sampler; `--containment` returning `0 of 4` would
+turn nothing red outside `tests/test_sample_claims.py`, and the four conditions this section has
+listed as unmet since D-082 are three-quarters unmet still.
 
 ---
 

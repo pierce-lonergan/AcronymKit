@@ -9,6 +9,874 @@ Newest first.
 
 ---
 
+**Mandate III Phase D round two — D-127 through D-136, and they are in ASCENDING order**, like the
+two blocks below them. D-127 frames the round. D-128 to D-131 are the four workstreams in dependency
+order, D-132 to D-135 are the instruments that read them, and D-136 is the quota. Read them down the
+page rather than up.
+
+---
+
+## D-127 — **The failure D-119 recorded did not recur, and the round was told to look for it.** `origin/main` was current for every party, the one red gate was fixed by its own author before hand-off, and the two reports still naming it red were filed *before* the summary that settled it
+
+**Status:** measured by the recorder on the hand-off tree ·
+**Amends:** the `ruff format --check` verdict in D3's and D6's reports ·
+**Evidence:** `git fetch`; `git rev-list --left-right --count HEAD...origin/main` gives `0 0`; the
+ten gates below; the six summary mtimes ·
+**No experiment number spent — experiment eleven is still free**
+
+Four workstreams, one cold read and one sampled-verification round. **All ten gates are green and no
+merge was needed**, which is the first thing this block has to say, because D-119 is the record of a
+round that spent three parties' attention on a checkout nobody had brought forward.
+
+```
+the ten gates, run by the recorder on the hand-off tree plus this round's own four migrations.
+Command output, not a benchmark measurement. CPython 3.13.4 on win32, one quiet checkout.
+  python -m pytest tests                      6187 passed, 10 skipped, 3 xfailed  rc=0
+  python -m ruff check src tests tools bench  All checks passed!                  rc=0
+  python -m ruff format --check ...           186 files already formatted         rc=0
+  python -m mypy                              no issues in 124 source files       rc=0
+  python tools/check_claims.py                unbacked 0 | deferred 185 | vm 64   rc=0
+  python tools/splits.py --check              splits manifest OK                  rc=0
+  python tools/gates.py --check               CARRYING IN-SITU EVIDENCE 21 of 42  rc=0
+  python tools/second_reader.py --check       findings open 5, fixed 10           rc=0
+  python tools/run_summary.py --check         2 rounds, 2 filed, 0 gaps           rc=0
+  python tools/run_summary.py --check-agent-summary  3 dirs, 3 crashes, 0 unattr  rc=0
+```
+
+**`6,187` passed against D-119's baseline of `6,027`, and the rise decomposes exactly.** `62` from
+`tests/test_selective.py`, `3` from widening `GUARANTEE_FILES` from five files to eight, `2` from the
+boundary gate parametrising over the new `core` module, `36` from `tests/test_unicode_properties.py`
+(`34` passed and `2` strict xfails), `25` from `tests/test_governed_deferral.py` and `34` from
+`tests/test_sample_claims.py` going `35` to `69`. `62 + 3 + 2 + 34 + 25 + 34 = 160`, and
+`6,027 + 160 = 6,187`; the `2` xfails carry the xfailed count `1` to `3`. **Every workstream's own
+collected-count arithmetic reproduces**, including the two that measured it in isolated worktrees.
+
+**Two of the ten fired on the recorder's own work, which is the only honest answer this block has to
+*could this check have failed here?*** The prose rule D2 widened from five files to eight — a
+paragraph stating a bound beside propagation must name it **joint** — fired on the recorder's
+`CHANGELOG.md` entry about `selective=`, which described the joint rate correctly and never used the
+word. And `--render --dry-run` fired on three of the four citations this round paid, because the
+`<!--claim:-->` comment form is the rendered citation for **Markdown** and `bench/splits.toml` takes
+the `{{claim:...=value}}` brace form. Both were repaired by rewording and re-forming rather than by
+narrowing either rule. **A gate that has only ever been demonstrated by mutation is weaker evidence
+than one that has caught its author**, and these two have now done both.
+
+**Ten, not the nine every brief lists.** `CONTRIBUTING.md` line `88` says *"Ten commands. All ten
+must be green before you push, and CI runs all ten"*, and the standing brief omits
+`python tools/run_summary.py --check`, which `.github/workflows/ci.yml:190` runs. Cold read seven
+found this independently as `F-7-06`. It is recorded here because it is the frame every other record
+in this block is measured in, and because it decides the schema question four parties raised.
+
+### The red gate, and why it is not D-119 a second time
+
+D3's and D6's reports both hand over with `ruff format --check` **red** on `tests/test_selective.py`,
+`1` file of `186`. It is green. The file is D2's, and D2 formatted it. The summary mtimes settle the
+order and they exonerate everybody: `m3pd2-zero-copy-spans.json` `20:45`,
+`m3pd2-unicode-metamorphic.json` `20:50`, `m3pd2-sampling-frame.json` `20:58`,
+`m3pd2-selective-risk.json` `21:17`, `cold-read-7.json` `21:47`,
+`m3pd2-r15-round-seven.json` `21:54`. **The two parties that reported it red filed before the file
+was formatted, and the summary recording it green was written an hour after both of them.** No
+summary went unread. This is worth writing down precisely because the cheap reading of "two reports
+say red, the tree is green" is that somebody failed to read, and the timestamps say nobody did.
+
+Both parties also refused to format a sibling's in-flight file, citing D-110. **That refusal was
+correct and it produced a stale report, and both of those are true at once.** The available repair is
+not "read harder": it is a hand-off ordering the launcher owns, which is the same
+party-outside-the-round conclusion as D-113, D-119 and D-121.
+
+### What each party read before diagnosing
+
+All six say they ran `git fetch` and read the shared directory before attributing a failure, and two
+mid-round reds were diagnosed correctly against a sibling's uncommitted work rather than against a
+stale checkout: D4's `26` failures in `tests/test_sample_claims.py` (D6's in-flight rewrite of
+`tools/sample_claims.py`) and D6's `test_every_residue_item_came_from_unmasked_prose` at
+`2118 != 2131` (a sibling rewriting `src/acronymkit/nlp/propagation.py` between two reads). **D6
+refused to relax its own red test and fixed the double-read design instead**, which is the behaviour
+D-119's finding was asking for.
+
+**`13` run ids were added to `bench/results.json`, `0` changed and `0` removed**, re-derived by the
+recorder against `HEAD:bench/results.json`: `7` under `selective.*` from D2 and `6` under
+`governed_perf.*.{deferral,reads}` from D3. Both workstreams' own counts are right.
+
+---
+
+## D-128 — **The selective bound is not controlled at every alpha. It is controlled in `8` of `18` cells, and all `10` cells that fail answer `0.00` %.** The shipped report says `12` certified cells; the field it names counts cells *evaluated*
+
+**Status:** re-derived from `bench/results.json` by the recorder; the `12` is corrected to `8` ·
+**Amends:** D2's report; D-104's guarantee is unchanged and untightened ·
+**Evidence:** `selective.modes.ltt`, `selective.sdu21.ltt`, `selective.modes.catalog_stratum`,
+`selective.identity` ·
+**Depends on D-127**
+
+`acronymkit.core.selective` ships Learn-Then-Test for selective risk: an exact binomial-tail p-value
+per candidate threshold, Bonferroni over a `21`-point grid, and per-stratum certificates that are
+first-class objects when they FAIL. `propagate(text, pairs, selective=...)` consumes it at the A2
+seam. It is a **second** bound beside `gate=` and not a repair of it; the `4.38` x joint-to-selective
+figure D-104 recorded is unchanged and still shipped.
+
+### The brief asked whether the bound holds at every alpha in `[0.01, 0.20]`, with the answer rate beside it. It does not
+
+```
+re-derived by the recorder from bench/results.json, not copied from the report.
+Every (arm x alpha) cell across both corpora. Command output, not a benchmark measurement.
+  arm                alpha    bound?   answer rate   selective error   error/alpha
+  pooled (MED1250)   0.01      no          0.00 %         --              --
+  pooled             0.02      no          0.00 %         --              --
+  pooled             0.05      YES        99.95 %        2.38 %         0.4754
+  pooled             0.10      YES        99.95 %        2.38 %         0.2377
+  pooled             0.15      YES        99.95 %        2.38 %         0.1585
+  pooled             0.20      YES        99.95 %        2.38 %         0.1189
+  mondrian by mode   0.01      no          0.00 %         --              --
+  mondrian by mode   0.02      no          0.00 %         --              --
+  mondrian by mode   0.05      YES        78.13 %        1.59 %         0.3179
+  mondrian by mode   0.10      YES        99.95 %        2.38 %         0.2377
+  mondrian by mode   0.15      YES        99.95 %        2.38 %         0.1585
+  mondrian by mode   0.20      YES        99.95 %        2.38 %         0.1189
+  SDU-21 AD dev      all six   no          0.00 %         --              --
+  CELLS 18 | CARRY A BOUND 8 | ANSWER 0.00 % 10
+```
+
+**`8` of `18`, and the `10` that fail are the refusal this mechanism was built to replace.** A bound
+achieved at an answer rate of zero is the old abstention with better mathematics, and the honest
+headline is the fraction rather than the best cell.
+
+**The `12` in the report is `cells_evaluated`, not `cells_with_a_bound`.** `selective.modes.ltt`'s
+own abort block reads `cells_with_a_bound: 8` of `cells_evaluated: 12`, and `selective.sdu21.ltt`
+reads `0` of `6`. The report's *"12 certified cells, worst ratio 0.4754"* takes the right ratio from
+the right block and the wrong integer from the field beside it. **That is the second adjacent-field
+conflation from this workstream in one round** — R15 round seven's single FALSE verdict is the other,
+`3,882` where `conformal_path_records_compared` is `3,846` — and D-132 records that both errors live
+only in uncommitted claim lists and nowhere in the tree.
+
+### Why `0.01` and `0.02` are unreachable here, which is arithmetic and not tuning
+
+Bonferroni over `21` candidates puts the per-candidate level at `0.00238095`. The accepted-with-zero-
+losses floor is then `602`, `299`, `118`, `58`, `38` and `28` at the six alphas, against `873` pooled
+calibration units — so `0.05` upward is reachable and `0.01` and `0.02` are not, because reaching
+them needs `602` and `299` accepted units with **zero** errors while the calibration half carries
+`22` errors in `873`. At `0.01` the smallest p-value is `0.4866` and at `0.02` it is `0.0394`, both
+against `0.00238095`. More data moves this and a coarser grid moves it; nothing about the corpus
+does.
+
+### SDU-21 refuses, and the refusal is a statement about the classifier rather than about the grid
+
+`0` of `21` thresholds certify at any of the six alphas, and the smallest p-value anywhere at
+`alpha=0.20` is `0.3220`. **The diagnosis separates the two candidate causes rather than pooling
+them**: it is not a small calibration set (`3,094` units) but a **selection-family floor** — the
+lowest selective risk any threshold reaches at `50` or more accepted is `17.53` % (threshold `0.40`,
+`97` accepted, `17` errors), over a base disambiguator that is `40.82` % accurate answering
+everything. The workstream also established that the conformal singleton rule it inherited is a
+*worse* selection function than a confidence threshold and is non-monotone in the threshold, so the
+refusal survives the obvious objection. **This is the corpus the `4.38` x defect was measured on, and
+the remedy refuses on it.**
+
+### Mondrian by mode separates nothing, and the commissioning premise was the casualty
+
+The premise — *propagated definitions must not dilute the threshold high-confidence inline ones
+earn* — is **false on this corpus, and the workstream killed it.** Under the pooled threshold at
+`alpha=0.05` both strata are already under alpha: inline `3.51` % (`0.70` x) and propagated `1.94` %
+(`0.39` x). Splitting `873` calibration units into `471` and `402` buys a tighter threshold in each
+and **costs `21.82` points of answer rate — `78.13` % against `99.95` % — for no risk separation.**
+Arity transferred from D-104; extraction mode did not. The pooled gate is the one to ship.
+
+### The third stratum is unknown rather than bounded, and that is the answer
+
+`catalog` has `8` answered positions against `28` required at the loosest alpha and
+`calibratable: false`. Its selective risk is **unknown**, not bounded, and `1` abbreviated position is
+correct across two folds. Three strata shipped as two plus a measured refusal.
+
+**R19:** `selective.identity` compares `3,882` records over `1,252` documents with `selective=`
+absent, `None`, and a gate certified at a non-binding threshold — `0` differences on all three — plus
+`3,846` records over the pre-existing `gate=` path, also `0`. The first two arms **could not have
+failed**; the third caught a real harness defect, because a gate built from units scored `0.0`
+certifies at threshold `0.0` and admits only confidence exactly `1.0`, so it was binding rather than
+permissive. That is why the arm exists.
+
+### The prose rule that guards this guarantee has two holes, and one of them opened this round
+
+`tests/test_conformal.py`'s `GUARANTEE_FILES` was widened from five files to eight so the new bound
+sits under the SAME prose rule rather than a second copy of it, and it fired on its author's own
+module twice. **That is the right move and the sibling rule beside it is now narrower than the tree.**
+`tests/test_propagation.py`'s rule — a paragraph stating a bound beside propagation must name it
+`joint` — reads `CLAIM_FILES`, which is four files: `src/acronymkit/nlp/propagation.py`,
+`docs/EVALUATION.md`, `README.md` and `CHANGELOG.md`.
+
+**Hole one, measured: `docs/DECISIONS.md` is not among them, and it is the file where a statement
+like this survives permanently.** Re-deriving the rule against the unscanned documents finds `3`
+offending paragraphs in `docs/DECISIONS.md` and `1` in `docs/DEFINITION-OF-DONE.md`. Two of the four
+are this record's own, and one predates it by a round. **The rule caught the recorder in
+`CHANGELOG.md` and would not have caught the same sentence one file over.**
+
+**Hole two, and it is the more interesting one: the rule's requirement is now partly obsolete
+because this workstream shipped.** `joint` was the right word to demand when the joint rate was the
+only bound the library had. A paragraph that correctly states the **selective** bound beside
+propagation — which is what half of this record does — trips the rule and has to say `joint` to
+satisfy it. Widening `CLAIM_FILES` without widening the accepted vocabulary to `selective` would
+therefore buy false positives, and narrowing the rule is what sent D-104's predecessor inert.
+**Neither is done here**: the measurement is published so the next round decides with a number
+instead of a preference.
+
+**No gate was registered and nothing in CI runs `bench/run_selective_risk.py`.** The abort condition
+is checked by `tests/test_selective.py` against the shipped results file and by nobody against a
+future run. Declined against an in-situ debt already at its ceiling, which is D-136's territory.
+
+---
+
+## D-129 — **The zero-copy span deferral is rejected on counts, the roadmap asked for the clock, and the override cost nothing because both units point the same way.** Where deferral is possible it is even to the digit; where it is not it costs `3.20` to `18.02` x
+
+**Status:** verified against `bench/results.json` by the recorder; the workstream is retired ·
+**Amends:** nothing; it prices a refusal ·
+**Evidence:** `governed_perf.{socrata.empty,sec_xbrl.empty,fixture_schema.fixture}.{deferral,reads}`
+·
+**Depends on D-127**
+
+**Nothing shipped into `src/acronymkit`.** The instrument is committed in `bench/` and
+`tests/test_governed_deferral.py` so the next round re-derives the rejection instead of
+re-litigating it.
+
+### The override, and its reason
+
+The roadmap's abort conditions were **wall-clock down `25` % and memory high-water down `40` %**.
+Both were overridden for **machine-independent object counts** under R18, naming D-013 as the record
+of this project making the wall-clock error once. `docs/EVALUATION.md:4700` states the two roadmap
+conditions, says R18 forbids both, and arms nothing.
+
+**The override cost nothing, and that is the strongest form it could have taken.** The wall-clock and
+memory numbers point the *same* way as the counts — the deferred route is `1.4621`, `1.4207` and
+`1.3494` x slower and peaks at `2.1950`, `2.9708` and `5.8475` x traced Python allocation, on
+`20,000` identifiers per corpus, on `Python 3.13.4 on Windows AMD64; AMD64 Family 26 Model 68`. So
+**R18 was load-bearing on admissibility and not on the answer.** A round that overrides the specified
+metric and then reports a different verdict is asking to be doubted; this one is not.
+
+### The counts, and there is no win in either unit
+
+```
+re-derived by the recorder from bench/results.json. Objects per arm, eager against deferred.
+Command output, not a benchmark measurement.
+  socrata     phrase_only / gate_only     325,837 -> 325,837   1.0000 x   difference 0
+  sec_xbrl    phrase_only / gate_only     176,433 -> 176,433   1.0000 x   difference 0
+  fixture     phrase_only / gate_only      40,118 ->  40,121   1.0001 x   difference +3
+  socrata     to_json_shared              325,837 -> 1,043,348 3.2021 x
+  sec_xbrl    to_json / to_dict           176,433 -> 1,556,842 8.8240 x
+  fixture     to_json / to_dict            40,118 ->   722,880 18.0188 x
+  4 cells are EXACTLY 1.0000. The worst is 18.0188.
+```
+
+The cause is structural: the shipped token memo hands one `TokenExpansion` to every occurrence of a
+token — `78.20` % of Socrata resolutions and `98.12` % of SEC XBRL's — and a span is per-occurrence,
+so a deferred route cannot share. **The `+3` on the fixture arm is not noise**; it is the same three
+records the identity check caught, carried in a side table.
+
+**"Cheaper work rather than less work" — neither.** `0` objects of `325,837` are removed where the
+deferral is possible. The only cheapening the round measured is a byte-identical construction route
+`5.3` % cheaper per record (`212.71` ns against `224.54`, `5` repeats of `200,000`, minimum taken,
+one machine) which R18 disarms, which costs the instance dict its key sharing, whose memory price was
+not measured, and which was **not taken**.
+
+**The recorder nearly attributed a count-measured win to that route and withdrew it before
+publishing.** `governed_perf.*.construction_ab` carries `22` machine-independent work counts with
+`23.06` % of Python calls and `1,852,757` field writes removed on Socrata — which would have made the
+refused route a count win in exactly the unit R18 requires. It is written by
+`bench/run_governed_perf.py`, it is a **pre-existing** run id from D-100's round measuring the
+provenance toggle, and it has nothing to do with this workstream. Four documents already cite it.
+Caught by asking where the premise came from. **This is the fourth instance of D-124's
+broken-refutation shape in three rounds and the first by the recorder.**
+
+### The read census is bimodal, which kills a phrasing rather than a design
+
+Executions, not call sites: `100.00` % forcing on the three consumer shapes that exist in this tree
+(`audit`, `to_json`, `to_dict`) and `0.00` % on the two that do not (`phrase_only`, `gate_only`),
+with `0` records never read on any of the `15` (corpus x shape) arms. **"Most callers read
+provenance" is a phrasing tighter than the measurement** — the rate is `100` % or `0` %, never
+between — and the two `0` % shapes read `.phrase` and `.is_fully_known`, both functions of every
+token's resolution, so a deferral postpones the object and never the work.
+
+**R19 fired once, on the first representation.** `_rejoin_digit_tokens` makes `AMT_1_MM` yield the
+token `1MM`, which is not a substring of its own identifier, so `raw` cannot be addressed by any pair
+of offsets: `3` of `20,000` fixture records, `0` on both real corpora **because both run an empty
+catalog, which is every published governed arm.** A span IR would have passed R19 everywhere this
+project measures and dropped a character on the first customer with a real vocabulary. The incidence
+is published rather than hidden by the repair.
+
+**No gate was added, and that is a deviation from the brief**, which asked for a register entry in
+the top third of the cost ranking. Enforcement rides `gates.suite` through
+`tests/test_governed_deferral.py` (`25` tests) instead. Reasons in order: nothing shipped into
+`src/`, so there is no behaviour for an R19 gate to protect; the in-situ debt is `21` at a ceiling of
+`21`; and a sibling was editing `.github/gates.toml` in the same tree, which is D-119's lost-update
+shape. `provenance_population` is named for the next round.
+
+**Found and not fixed:** `audit_identifiers` aborts a whole corpus audit on the first unreadable
+character — `2,041` of `155,272` Socrata identifiers, `1.3145` % — spawned as its own task, because
+the fix is a contract decision owing its own R19 pass.
+
+---
+
+## D-130 — **A second idempotence class, `26` code points wide and disjoint from the known `1,050`, and this record is the D-record it did not have.** `to_physical_name` emits, for `26` of `26`, a physical name that `normalize` refuses to read back
+
+**Status:** re-derived independently by the recorder over all `1,114,112` code points ·
+**Amends:** nothing; `docs/GOVERNED_NAMING.md` still publishes `1050` and says nothing about the
+`26`, and that is this record's standing item ·
+**Evidence:** the recorder's own exhaustive walk, `2,503,638` verb calls, no helper from the
+workstream imported ·
+**Depends on D-127**
+
+`tests/test_unicode_properties.py` holds three invariants over `normalize`, `to_physical_name` and
+`Tokenizer.tokenize`, exercised by **exhaustive enumeration rather than by a draw**: `1,114,112` code
+points x `4` contexts, `18,927,448` invariant calls in the census, `4,456,448` verb calls in the
+in-test full-space sweep, and the breaking set asserted as an **equality** with the union of the two
+classes rather than as an absence.
+
+```
+re-derived by the recorder in a fresh process, importing only the library. Unicode 15.1.0,
+CPython 3.13.4. Command output, not a benchmark measurement.
+  code points walked                                    1,114,112
+  verb calls                                            2,503,638
+  normalize breaks idempotence on                            1,050
+  to_physical_name breaks idempotence on                     1,076
+  union                                                      1,076
+  naming-breaking MINUS the upper-case-expansion class        1,050
+  the two classes are disjoint                                True
+  1,050 + 26                                                 1,076
+  to_physical_name emitted a name for 26 of 26, normalize REFUSED all 26
+  U+01F0 upper-cases to U+004A U+030C (J + COMBINING CARON)
+```
+
+**Every figure in the workstream's report reproduces exactly, from a second party on a second walk.**
+The `26` are precisely those code points whose `str.upper()` is longer than one character *and*
+introduces a non-alphanumeric one — a combining mark, in all `26`. `102` code points upper-case to
+more than one character, so `76` are benign.
+
+### The sharp form, which is a governed round trip disagreeing with itself
+
+`normalize` was taught to refuse a name carrying an unaccounted character — the fix
+`docs/GOVERNED_NAMING.md` records under *"A character no token can hold"*. **The reverse verb was
+not.** So for these `26` inputs one half of the round trip produces a name the other half will not
+read: pass one reports `unaccounted=()`, pass two drops the caron. That is a report claiming clean
+while a character is lost, which is criterion `7`'s class, and D-135 records it there as a second
+live instance.
+
+### The disposition the brief asked for: xfail, not fixed, and it self-retires
+
+**Both classes are `xfail(strict=True)`**, each naming class, count, mechanism, incidence and record
+— the `1,050`-wide ordinal-indicator class and the `26`-wide upper-case-expansion class — **plus
+positive tests pinning what the tree does today**, so neither class is represented only by an absence
+and a partial repair reddens rather than passes. The workstream demonstrated that rather than
+asserting it: mutation `M4` applied a *plausible repair* (strip combining marks from the emitted
+name), the strict xfail XPASSED and the positive pin beside it went red, `2` failed. **The
+disposition retires itself when the defect is fixed.** Five mutations were run in an isolated
+worktree at `1e0d6d5` and all five fired: `M1` the class-size constant (`1` failed), `M2` silent
+character loss in `catalog/tokenizer.py` (`6` failed), `M3` a one-character span truncation in
+`nlp/tokenizer.py` (`8` failed), `M4` above, `M5` quietly widening the exclusion set by
+`range(0x2100, 0x2150)` (`1` failed).
+
+Incidence re-measured over `285,839` distinct strings in `data/governed_gold/`: ordinal class
+`0`/`12`/`0`/`0` across Socrata field names, Socrata captions, SEC XBRL element names and SEC XBRL
+labels; expansion class `0` on all four. **The `12` independently reproduces a figure D-120 carried
+on one party's word**, and R15 round seven reproduced it a third time from the snapshot files.
+
+### Three of the brief's own premises were measured false, and that is the round's pattern
+
+The brief asserted that raw token slices *concatenate back* to the original — false on `10,148` of
+`10,716` measured inputs, because the tokenizer's own docstring says punctuation-only runs are
+discarded; the partition form holds on all `10,716`. It asserted the idempotence property *"will
+fire on all 1,050 within the first hundred examples"* — `2` of `20` seeds at `100`, `14` of `20` at
+`1,000`, which is why the primary instrument here is a loop and not a draw. And invariant `1` as the
+brief states it is **false of the documented contract**: `normalize('_')` returns `''` and raises
+nothing, so a test asserting otherwise would have violated the rule that a test must honour the
+contract of the function it tests.
+
+**The five named blocks the brief aimed at were not where the class was.** Of those `800` code
+points, `13` carry any break, all `13` in Letterlike Symbols and all `13` already known; the `26`
+live in Latin Extended-B and Greek Extended. **The targeting bought coverage, and the walk bought
+the finding.**
+
+**No forty-third gate.** `gates.suite`'s `detects`/`blind_to` were rewritten instead, replacing a
+stale `4,734` with `6,074` at `1e0d6d5` and recording the marker-expression hole: if `gates.suite`
+were ever narrowed with `-m "not slow"` the full-space sweep would stop running and nothing would
+report it. The file refuses a `skipif` in its own source, which closes the skip route and leaves the
+deselect route open.
+
+---
+
+## D-131 — **The sampling frame has now been replaced twice in two rounds and neither successor has graded a single claim.** The closed submitted-sentence series stands at `23` of `144` = `15.97` %, and the reason the frame kept missing was masking rather than the file set
+
+**Status:** re-derived by the recorder with the shipped `wilson()` and `--containment` ·
+**Amends:** `CLOSED_SERIES`, which the tree shipped at `5`/`120`/`20` against a record that said
+otherwise; D-122 left this to this round and it is paid ·
+**Evidence:** `tools/sample_claims.py --audit-old-frame`, `--containment`, `--frame`; `wilson(23,144)`
+·
+**Depends on D-127**
+
+### Two restarts, both at `n = 0`, and the honest count of graded draws under either is zero
+
+**Restart one**, last round: D-121's churn-weighted successor replaced the submitted-sentence frame
+and correctly started at `n = 0`. It never graded a claim. **Restart two**, this round: that
+successor is **retired UNGRADED** and replaced by a channel-stratified sentence frame, which also
+starts at `n = 0`. `8,439` claim-bearing sentences over `39` files in four channels — `submitted`
+`111`, `register` `388`, `document` `4,791`, `record` `3,149` — allocated `8`/`4`/`8`/`4` of `24`,
+design effect `1.82`, **as the workstream measured it.**
+
+**Every population figure this tool prints is a figure about a moment, and the recorder is the
+largest single mover of it.** D6 recorded the frame moving `8,292` to `8,439` while it worked. Run
+again after this block was written it reads **`8,918` across `40` files** — `submitted` `111`,
+`register` `388`, `document` `5,013`, `record` `3,406`, design effect `1.83` — because writing ten
+decision records added `257` sentences to the `record` channel and amending
+`docs/DEFINITION-OF-DONE.md` and `CHANGELOG.md` added `222` to `document`. The retired frame's own
+population reads `2,162` across `55` files against the workstream's `2,095` across `53`, and the
+backticked-figure count reads `3,938` against `3,279`. **`479` of the movement is mine and none of it
+is error.** What is invariant is the thing the retirement rests on: **`0` reachable, still, by
+construction.** A frame whose `N` is a function of the tree at read time cannot carry a stable
+sampling probability across a round, and the honest form of a population figure from this tool is
+one with a timestamp on it.
+
+**Nothing in the tree pools across either redefinition, and that is the only defence available.** The
+retired frame graded nothing, so nothing was discarded when it went. **A third restart should be
+refused on this record alone**, and the workstream's own pre-registered condition `2` forbids the next
+frame change until sites the frame was not fitted to are added.
+
+### The closed series' final figure, re-derived
+
+```
+re-derived by the recorder with the shipped wilson(), not copied from either report.
+Command output, not a benchmark measurement.
+  six rounds   5,5,6,2,2,3    23 of 144 = 15.97 %   Wilson [10.89, 22.83]   half-width 5.971
+  five rounds  5,5,6,2,2      20 of 120 = 16.67 %   Wilson [11.06, 24.35]   half-width 6.645
+  CLOSED_SERIES now carries rounds 6, draws 144, not_true 23, per_round (5,5,6,2,2,3)
+```
+
+D-122 recorded that the tree shipped the series `closed` at five rounds while a sixth had already run
+under it, and left the constant to this round. **It is corrected, with five sibling test assertions
+updated in the same commit**, and no figure in this file was touched to do it. D-132 records why the
+correction is one round short again.
+
+### Why the frame kept missing, which is a proof rather than three observations
+
+The brief's framing — *the file set must reach beyond `SCAN_GLOBS`* — is **wrong, and the workstream
+killed it before it could benefit from it.** `check_claims.prose_of()` masks fenced blocks *and then
+every inline code span* before claims are collected, and this project writes every real figure inside
+a code span. So house-style figures and the retired frame's population are **disjoint by
+construction**: `3,279` backticked figures in unfenced Markdown, `0` reachable. Widening the file set
+could not have touched it.
+
+**Two reported facts were false and both were killed by their own author.** The *"`15` backticked
+items"* figure — and the workstream's own first reproduction at `18` — are the same detector
+artefact: checked against the masked text the collector actually reads, all `18` came from unmasked
+prose and the true count is `0`. And round six's claim `1` does **not** *"live in no document at
+all"*: `2.01`/`2.79` sit in `docs/CLAIMS-LEDGER.md` at four sites. **So one of three misses was
+outside `SCAN_GLOBS`, not two, and all three were invisible for one reason: masking.** Widening
+reaches `1` of `3`, unmasking reaches `2`, and a sentence unit reaches the third.
+
+`--containment` makes coverage a command rather than a claim. **The recorder ran it and verified one
+half of the comparison**: the shipped frame reaches `4` of `4` `KNOWN_ERROR_SITES`, with the
+`135 passed` site landing in the `register` channel. The retired frame's `0` of `4` is **not**
+re-derivable from this tree — the retired frame resolves its root from its own location and has to be
+rebuilt in a clean worktree — and it is carried from R15 round seven, which did rebuild it and is
+therefore a second party to D6's figure rather than a repetition of it. **The tool labels the `4` of
+`4` a FLOOR and it is computed entirely over the fitting set**, which is why D-132's independent `0`
+of `2` matters more than it does. `--audit-old-frame` is the half that IS re-derivable here, and it
+reads `0` reachable of `3,938`.
+
+**Three live citation errors were found and fixed by reading**, in the round about publishing
+unchecked numbers: `D-100` cited for R15 round three (it is `D-088`), the workstream's own first
+correction citing `D-123` for round six (it is `D-122`), and *"17 attributable verdicts"* corrected to
+`15` in three places. **Every one was caught by a human-shaped pass and not by the instrument the
+round built**, which the workstream published as its own weakness.
+
+**Nothing gates the sampler.** No CI job runs it, and `--containment` falling to `0 of 4` would redden
+only pytest.
+
+---
+
+## D-132 — **Round seven ran under the closed frame's rule and its own unit, and by D-122's rule it belongs to the series it declined to join.** Seven rounds is `25` of `168` = `14.88` %; the tree ships `23` of `144` labelled closed, which is D-122's defect one round later
+
+**Status:** measured by the recorder; both arithmetics re-derived with the shipped `wilson()` ·
+**Amends:** the "no seventh point" verdict in R15 round seven's report, and `CLOSED_SERIES` for a
+second consecutive round ·
+**Evidence:** `wilson(2,24)`, `wilson(25,168)`; round seven's own method section ·
+**Depends on D-131**
+
+**Round seven returns `2` of `24` not true = `8.33` %, Wilson `[2.32, 25.85]`** — `1` FALSE, `1`
+MISLEADING, `0` UNCHECKABLE, `22` TRUE. By workstream: D2 `1` of `6`, D3 `0` of `4`, D4 `1` of `7`,
+D6 `0` of `7`, spread `16.67` points. Sensitivities, pre-registered and neither the headline: TIGHT
+`5` of `24` = `20.83` % (Wilson `[9.24, 40.47]`) with a fourth marginal verdict giving `25.00` %;
+LOOSE unchanged at `8.33` % because `UNCHECKABLE = 0`.
+
+### The seventh point, and why it counts
+
+Round seven published no seventh point, on the grounds that it was *"drawn from a different
+population again"*. **The population definition is identical.** The closed frame is *"uniform draw
+from workstream-submitted `claims_for_sampling` sentences"*; round seven drew `24` submitted
+`claims_for_sampling` sentences, graded under round five's `B1`–`B5` and
+`headline = (FALSE+MISLEADING)/24` adopted verbatim via round six. What differs is the **sampling
+fraction** — `24` of `24` in round six against `24` of `48` here — and a fraction is `n`, not a frame.
+
+**D-122's own rule decides this and it is the rule this project wrote down**: *closing a series
+prospectively does not un-run a round performed under it.* Applying it to round six and withholding
+it from the round that produced it is the redefinition D-122 exists to refuse.
+
+```
+re-derived by the recorder with the shipped wilson(). Command output, not a benchmark measurement.
+  SIX rounds   5,5,6,2,2,3     23 of 144 = 15.97 %   Wilson [10.89, 22.83]  half-width 5.971
+  SEVEN rounds 5,5,6,2,2,3,2   25 of 168 = 14.88 %   Wilson [10.29, 21.04]  half-width 5.379
+  per-round rates 20.83, 20.83, 25.00, 8.33, 8.33, 12.50, 8.33
+```
+
+**The record's verdict: the submitted-sentence series is CLOSED AT `25` of `168` = `14.88` %, Wilson
+`[10.29, 21.04]`, over SEVEN rounds.** A seventh point moved the estimate `1.09` points and the
+half-width `0.59`, which is round five's finding for the third consecutive time: **this instrument's
+interval moves faster than it shrinks.** `CLOSED_SERIES` is one round short again and this record
+does not rewrite it a second time in one phase — that is named here, in `CHANGELOG.md` and in D-135's
+criterion `13` verdict, and it is the next round's to close.
+
+### The round's own finding, which is about a channel and not a unit
+
+**Neither error exists in any tracked file.** `git grep` puts `3,882` in `docs/EVALUATION.md` only
+where it is correct (line `1283`, citing `records_compared`, with the conformal path correctly at
+`3,846` on line `1286`), finds no tracked occurrence of *"either verb"*, and `docs/GATES.md:1803`
+plus the test file's own docstring both state the correct narrower form. **Both errors were introduced
+by the act of summarising, downstream of documents that are right.** One is a wrong number and one is
+a wrong clause around a right number (`3,342,298` is exact; `to_physical_name` returns an empty
+`.physical` without raising on `976,377` of them, signalling through `.unaccounted`, so `0` are
+silent and *"either verb"* is the defect). **Zero claims carried no number at all.**
+
+**Would the frame as it now stands have drawn them? `0` of `2`.** The shipped frame reaches `4` of `4`
+on its own fitting set and `0` of `2` here, because `submitted` globs
+`.github/run-summaries/**/*.json`, which resolves to `3` committed files and `111` sentences all from
+*prior* rounds, while this round's six summaries sit uncommitted in a scratch directory. **The blind
+spot the tool's own docstring names at line `108` swallowed both errors.** The actionable fix is a
+launcher change and not a frame edit — routing summaries into `.github/run-summaries/` before grading
+— which is the fourth party-outside-the-round conclusion in this block.
+
+**Round seven caught its own broken refutation before publishing**: a containment probe read a
+`.text` attribute `FrameItem` does not define, guaranteeing `0` of `4` by construction; re-run
+against `.sentence`/`.line` the answer is genuinely `0` of `4`. D-124's shape, third instance, and
+D-129 records the fourth.
+
+**Its weakest point, stated by itself:** it ran no mutations, so *"could this check have failed
+here?"* is answered for the two frames and for none of the `25` or `62` tests it merely ran green.
+And **a second grader on the same sample is unmet for the seventh consecutive round**, which is now
+the longest-standing unmet condition in `docs/CLAIMS-LEDGER.md` §6.
+
+---
+
+## D-133 — **The seventh cold read's ten findings, and its headline is an obsolete caveat that the round created in the same file, `1,762` lines below the section that supersedes it.** Two findings were verified line by line and both stand; the distance figure inside one of them does not
+
+**Status:** verified in part; nothing applied ·
+**Amends:** nothing — the read is read-only and no finding was fixed ·
+**Evidence:** `docs/EVALUATION.md:2853-2854` and `:4602` read in this checkout;
+`governed_perf.*.reads.*.records` re-derived ·
+**Depends on D-127 through D-132**
+
+Ten findings, `F-7-01` to `F-7-10`, each carrying the file, the line, the sentence quoted exactly,
+the command run in this checkout and its output, and exact replacement text, in
+`docs/notes/cold-read-7-findings.md`. Trigger A served three files; trigger B served
+`docs/SECOND-READER.md` for the **second consecutive read**, because the cursor is followed rather
+than chosen.
+
+**`F-7-01` HIGH, verified.** `docs/EVALUATION.md:2853-2854` still reads *"Bounding the selective rate
+needs risk-controlled selective classification, which is not implemented; when it lands, this gate
+tightens."* It is implemented, in this working tree, by the workstream that wrote that file's other
+section. **The sentence is wrong twice**: the mechanism landed, and it did **not** tighten `gate=` —
+D-128 records it as a second bound beside the first. The twin copy at
+`src/acronymkit/nlp/propagation.py:80-83` **was** rewritten and now says so in terms. One stale copy
+of two, found by diffing them.
+
+**And one number inside that finding is wrong, which is the third figure this round to fail against
+the tree.** `docs/notes/cold-read-7-findings.md:85` says the superseding section sits *"`1,105` lines
+earlier"*. It is at line `1091`, the stale caveat is at `2853`, and the distance is **`1,762`** —
+`657` out. The finding is unaffected and the arithmetic beside it is not checkable by any gate,
+because it is a distance between two line numbers and no run id can hold one. **It is the cheapest
+possible instance of the class this round exists to measure**, and it sits in the document whose job
+is catching exactly that.
+
+**`F-7-02` HIGH, verified.** `docs/EVALUATION.md:4602` says SEC XBRL and the fixture schema *"give
+the same five rows to the digit"*. `forcing_pct` and `never_read` are identical across all three
+corpora; `records` is `123,675` / `82,546` / `20,000`, a difference of `41,129` between the two real
+corpora. **An R17 work count inside an identity claim**, and the sentence is one word from being
+true.
+
+The remaining eight, unverified by the recorder and carried on the reader's commands: `F-7-03`
+MED-HIGH, the expectation qualifier (*expected share*) present at `selective.py:39` and dropped by
+the runtime `guarantee()` string and by `EVALUATION:1097`, while `selective.py:34-36` claims the
+method *"re-state[s]"* the docstring's sentence and it states a stronger one — **the reader labelled
+this the finding most likely to be judged pedantry and let the module's disagreement with itself
+carry it**; `F-7-04` MED, *"on both corpora and both splits"* where SDU-21 certified nothing at any
+of six alphas, which D-128 measures; `F-7-05` MED, `docs/SECOND-READER.md` saying twice the eighth
+gate is not in CI against `ci.yml:129`; `F-7-06` MED, the nine-versus-ten gate count D-127 adopts;
+`F-7-07` HIGH structural, below; `F-7-08` MED, four stale structural counts, one saying `40` where
+the tree says `65`; `F-7-09` LOW, *"all three parts"* of a function returning three or five;
+`F-7-10` MED, an entry guard in `tests/test_claims_gate_coverage.py:192-198` that fails on sight
+where `:252-253` waits ten seconds for the same condition.
+
+### The structural finding, which is about the clock that measures the reads
+
+`F-7-07`: **the anti-rot clock counts ledger rows, not reads.** Both the cursor check and
+`OPEN_READ_LIMIT` count rows in `docs/cold-reads.toml`, and the only agent with the information to
+write one is forbidden by section `5` from writing it. `--check` prints `cold reads: 4 recorded` over
+seven that have run and `OPEN AND AT THE LIMIT: 0 of 5`, and it prints `rc=0`. **Five consecutive
+reads have now written no row**, and five findings from read five still carry `reviewed_in` from read
+five. The reader inferred the mechanism from the coupling rather than from a mutation and said so.
+
+**Four of the ten findings re-affirm cold read six's** (`F-6-03`, `F-6-04`, `F-6-05`, `F-6-10`).
+**That is the policy working and it is also the measurement: fourteen defects written down across two
+rounds, none repaired.** D-124 adjudicated read six's ten and eight stood; nothing was applied
+between then and now.
+
+**What the read could not do.** R19 is unverifiable in this checkout — the governed corpora are
+absent and re-running either harness writes to the tree, which section `5` forbids the reader — so
+the `3,882` and the three deferral arms are carried on two workstreams' word, exactly as read six
+carried the `3,619,227`-record claim. **No mutation was run in situ**, and the one negative control
+the read has (`F-7-10`) arrived unbidden rather than by method.
+
+---
+
+## D-134 — **Every pre-registration this round wrote, against what happened.** Six parties state a falsifier count, `48` between them, and `20` fired; three commissioning premises were killed by the workstreams they were handed to, and the recorder's lead finding was killed by its own first falsifier
+
+**Status:** recorded ·
+**Amends:** nothing; it prices D-127 to D-133 and D-136 ·
+**Evidence:** the six pre-registration files in the round's scratch directories, all written before
+the edits they bind ·
+**Depends on D-127**
+
+| party | falsifiers | fired | the one that mattered |
+|---|---|---|---|
+| D2, selective risk | `F1`–`F8` | `F1`, `F2`, `F4`, `F5`, `F6` | `F1`: the bound is bought with refusal — `0.00` % at all six alphas on SDU-21 |
+| D3, zero-copy spans | `F1`–`F6` | `F1`, `F2`, `F3`, `F4` | `F4`: R19 killed the first span representation, `3` of `20,000` |
+| D4, unicode | `F1`–`F9` | `F2`, `F3`, `F4`, `F5`, `F6` | `F4`: a second idempotence class exists, `26` code points |
+| D6, sampling frame | `F1`–`F8`, `P1`–`P5` | `F8` partially; `P2`, `P3`, `P5` wrong | `P5`: it pre-registered a concession it then proved unnecessary |
+| R15 round seven | eight, adopted from round five | the brief's own premise | round five's and round six's prereg files are BOTH on disk |
+| cold read seven | on disk before the read | — | `F-7-10`'s negative control arrived unbidden |
+| **the recorder** | `V1`–`V9`, `P1`–`P5` | `V1`, `V3`, `V5`, `V6`, `V8`; `P4` wrong | **`V1` fired and took the headline with it** |
+
+**Three commissioning premises died in front of the workstreams they were handed to.** D2's *"propagated
+definitions must not dilute the threshold inline ones earn"* — measured false, and by-mode
+stratification therefore costs `21.82` points for nothing. D6's *"the file set must reach beyond
+`SCAN_GLOBS`"* — false, and the real cause is masking, which no widening reaches. D4's three premises
+about span concatenation, the non-vanishing invariant and *"the first hundred examples"* — all three
+measured false. **That is six consecutive rounds in which the mechanism produced at least one
+withdrawal, and the first in which the brief was the thing most often wrong.**
+
+**The recorder's own bets, verbatim from the file and against the outcome.**
+
+`V1` — *"the `39` gate-able deferred numbers outside `docs/DECISIONS.md` resolve to fewer than `12`
+unambiguously citable fields. Then the quota is not payable out of them either, four waivers were NOT
+avoidable on this ledger, and my headline is wrong and D-126's stands as written."* **FIRED**, and it
+was predicted to. `37` of the `39` are AMBIGUOUS, `2` are UNIQUE; the run-id probe adds `2` more.
+`4` payable, against a quota of `12`. **The headline the recorder entered with — "four rounds walked
+one file of ten and the quota was payable all along" — is wrong in its second half and D-136 publishes
+the negative result.**
+
+`V2` — *"`RECORD_FILE_FLOOR`'s `12` is payable out of `docs/DECISIONS.md`."* **Did not fire**, as
+predicted. `0` citable via a named run; `5` UNIQUE by global value matching and all five are a
+millisecond or microsecond import attribution matched against a percentage. D-126's verdict confirmed
+by a stronger method than D-126 used.
+
+`V3` — *"a run-id-naming-prose probe reaches `>= 12` numbers the value-matching probe calls
+AMBIGUOUS."* Predicted to fire partially. **Fired**: it reaches `2`, both in `bench/splits.toml`.
+
+`V4` — *"any of the nine gates is red when I hand off, from my cause."* **Did not fire.** Ten of ten
+green.
+
+`V5` — *"the six sibling machine summaries disagree with the six prose reports on a load-bearing
+number."* **Fired, and the mechanism worked anyway** — the disagreement is a red gate two reports name
+and a third summary records green, and D-127's timestamps show no summary went unread.
+
+`V6` — *"a load-bearing claim from a workstream report fails against running code."* **Fired three times, and `1` of the `3` is in the document whose job is catching them.** D2's
+`12` certified cells is `8`; cold read seven's *"`1,105` lines earlier"* is `1,762`; and R15
+round seven's *"a different population again"* is a different sampling fraction rather than a
+different population, which D-132 adjudicates. **Every load-bearing claim survived** — the
+`325,837`, the `1,050`+`26`, the `23`/`144`, the `2`/`24`, `F-7-01` and `F-7-02` all reproduce
+exactly — and three secondary figures beside them did not.
+
+`V7` — *"D6's series arithmetic is wrong."* **Did not fire.** `wilson(23,144)` returns
+`[10.89, 22.83]` and `(5,5,6,2,2,3)` sums to `23`.
+
+`V8` — *"a document pools across a redefinition."* Predicted not to fire on the tree and to fire on
+the risk. **That is what happened**: nothing pools, and two successors have graded nothing.
+
+`V9` — *"criterion `7` should MOVE on D4's finding."* **Did not fire**, because criterion `7` is
+already open; what moved is its instance count.
+
+Magnitudes: `P1` correct (`10` records against `8`–`10`). `P2` correct (`1` verdict moved against
+`1`–`2`), and it is the first time this page's own magnitude prediction has been right. **`P3` WRONG,
+on the branch that applied**: it predicted a fall of `2`–`14` *if* `V1` missed and `0`–`2` *if* `V1`
+fired. `V1` fired and the fall is `4`, outside the fired branch — because the run-id probe that
+supplied `2` of the `4` did not exist when the range was written, so both branches were wrong about
+which instrument would find what. `P4` correct in range (`0`–`1`, actual `0`), and D-126's `1` turns
+out to be in `docs/notes/pydantic-cost.md` rather than in the record file it was attributed to. **`P5` right on the letter and wrong on the shape** — `6` of `6` load-bearing claims survived
+verification, and `3` figures standing next to them did not, which the prediction had no slot
+for.
+
+**What this table is worth.** The recorder's `V1` was written to catch exactly the error the recorder
+was about to make, and it caught it — which is the first time in this project's record that a
+recorder's falsifier has killed a recorder's headline **before** the record was written rather than
+after. `V3` was the falsifier the round most needed and it moved the answer by `2`.
+
+---
+
+## D-135 — **The definition of done, tenth sweep: one verdict moved, and it moved on a payment rather than on a re-reading.** `19` of `20` are unchanged and the met-count stays at `11` of `20`
+
+**Status:** swept, criterion by criterion, against the tree D-127 describes ·
+**Amends:** criterion `13`'s verdict; the evidence cells of `1`, `3`, `7`, `9`, `14` and `18` ·
+**Evidence:** the ten gates in D-127; the per-criterion checks in
+[`docs/DEFINITION-OF-DONE.md`](DEFINITION-OF-DONE.md) ·
+**Depends on D-127 through D-134**
+
+Twenty criteria, checked rather than assumed. **`1` verdict moved. `19` did not.** The recorder
+predicted `1`–`2` and that magnitude was right, which is the first time this page's own magnitude
+prediction has been.
+
+**The one that moved is criterion `13`** again, and it moved in the opposite direction from the ninth
+sweep: the trajectory recorded its **first non-zero movement in five rounds**, `189` to `185` by four
+citations, so the narrowing D-126 established — *the trajectory has been measuring the ledger that
+cannot move* — is now measured rather than inferred, and it is measured over all ten files instead of
+one. **The verdict is still `met`, and the criterion's meaning changed again**, which is what the
+verdict column now says.
+
+**Six rows had their evidence corrected without their verdicts moving.** Criterion `1` records a
+second refusal mechanism with a distribution-free selective guarantee that holds in `8` of `18` cells.
+Criterion `3` records the ledger falling for the first time since `201` and the `4`-of-`189` payable
+measurement behind it. **Criterion `7` gains a second live instance** — D-130's `26`-code-point class
+is a report claiming `unaccounted=()` while a combining mark is lost — and stays NOT met. Criterion
+`9` records `21` of `42` unchanged, debt `21` at a ceiling of `21`, and **four workstreams that each
+declined to register a gate and each argued the refusal from the same debt**. Criterion `14` records
+a fifth consecutive cold read with no ledger row and the mechanism `F-7-07` names for it. Criterion
+`18` records the rule's fourth and fifth instances and **the first R19 arm in this project's history
+to catch a real defect** (`3` of `20,000`), together with the first control probe shipped beside one.
+
+**The criteria that close by narrowing say so in the verdict column**, which is the standing
+instruction. Three do, and criterion `13` is now the second one to have narrowed twice.
+
+**Re-derivation, tenth sweep: seven of twenty were re-derived by running the check** — `3`, `7`, `9`,
+`13`, `14`, `17` and `18` — and thirteen were carried. `2`, `5`, `6`, `10`, `11`, `12`, `19` and `20`
+have now been carried for at least two sweeps, and `2`, `5` and `6` for seven.
+
+**What the sweep could not check, and it is the same thing as last time.** The `3,619,227`-record
+byte-identity result underwriting criterion `18` is still not reproducible in this checkout, and
+`git ls-files` still matches no snapshot harness. **Unmeasurable here, and that is recorded as the
+answer** rather than a verdict taken on trust. Criterion `19` (W11) is not started for the fourth
+consecutive sweep and was assigned to nobody again.
+
+---
+
+## D-136 — **The quota is paid for the first time in five rounds, and the payment is `4` of a payable population of `4`.** Three walks measured one file of ten; the tenth walk measured all ten and the answer is the same verdict with a bigger denominator — and the floor is still unpayable, so the waiver stands with an arithmetic attached
+
+**Status:** paid in part and escalated with the measurement the previous four escalations lacked ·
+**Amends:** D-126's *"the payable population in this file is `1`"* — it is `0` in that file and `4`
+across the ledger the quota actually reads ·
+**Evidence:** `tools/check_claims.py --classify`, `--migrate`; the run-id probe below; the four
+citations in the tree ·
+**Depends on D-127 through D-135**
+
+D-097, D-109, D-118 and D-126 each walked the residue and each took a waiver. This round's brief said
+a fifth silent waiver is the policy ceasing to exist, and told the recorder to pay it or state plainly
+that the mechanism is broken. **Both, in that order.**
+
+### The fact four walks missed, and it is about scope rather than about the residue
+
+**`MIGRATION_QUOTA` is a floor on `fall = previous.deferred - entry.deferred`, computed over the
+whole deferred ledger. Only `RECORD_FILE_FLOOR` is about `docs/DECISIONS.md`.** All four previous
+walks resolved that one file's `42` and concluded terminal — correctly — and then wrote the waiver
+against a quota that reads ten files. `147` of the `189` had never been probed by anybody, and D-126
+named the largest of those populations (`docs/notes/pydantic-cost.md`'s `70`) as *"never probed by
+anybody"* and assigned it to nobody for a fourth round.
+
+```
+the tenth walk, and the FIRST over all ten files. python tools/check_claims.py --classify,
+deferred ledger only. Command output, not a benchmark measurement.
+  gate-able      56    a measurement with this value exists
+  blocked       129    reads as a metric and no run supplies it
+  not-a-claim     4
+  ALL           189
+  of the 56 gate-able:  bench/splits.toml 28 | docs/DECISIONS.md 17
+                        docs/EVALUATION.md 10 | docs/notes/pydantic-cost.md 1
+```
+
+### And the answer is still no, which is the negative result this record leads with
+
+`gate-able` is the weakest signal in this tool and it is not a backing. Resolved one number at a
+time, the `56` give **`7` UNIQUE, `0` REPLICATED and `49` AMBIGUOUS** — and a second, stronger probe
+was built for this round, restricting the candidate set to run ids the surrounding prose **names**,
+which is how this project's documents actually attribute figures.
+
+```
+the run-id-naming probe, built by the recorder, over all 189 deferred numbers.
+A +/- 12-line window; candidates restricted to fields under a run-id prefix the window names.
+  CITABLE, one field under a named run          9
+    of which in CHANGELOG.md (whole-file blocked, D-109)   6
+    of which payable                                       3
+  run id named, no field under it has this value 97
+  no run id named nearby                         55
+  named run, several fields                       28
+  ALL                                            189
+```
+
+**The payable population across the entire deferred ledger is `4`, and all four are paid in this
+commit.** `bench/splits.toml:872` `2.14` to
+`shortform.sdu22_ae_legal_dev.corpus.gold_short_form_spans_multi_token_pct`; `:1153` `0.27` and
+`:1154` `2.62` to `governed_gold.socrata.gold_conflict.contested_identifiers_pct` and
+`.contested_occurrences_pct` — a sentence that already named `governed_gold.socrata.gold_conflict` in
+prose and lacked only the machine-readable form; and `docs/notes/pydantic-cost.md:68` `128.1` to
+`micro.import.cold_import_engine_ms`, in the sentence **whose whole subject is what
+`bench/results.json` records**, so `--render` keeping it current is the point rather than the hazard.
+`DEFERRED_BASELINE` falls `32` to `29` and `70` to `69`; the ledger stands at `185`; the
+`DEBT_JUDGEMENTS` entry that flagged the `128.1` as gate-able is deleted in the same edit.
+
+**`docs/notes/pydantic-cost.md`'s `70` is now probed: `1` payable, `69` blocked.** D-126's forecast
+about that file was right and nobody had checked it.
+
+### The record file's `42`, walked a fourth time and by a better method
+
+`17` are gate-able. Resolved individually, `12` are AMBIGUOUS and **`5` are UNIQUE — and every one of
+the five is a unit mismatch, which is what "coincidence" means stated as evidence rather than as a
+count**: `30.09` **ms** of pydantic import time against a PMC OA Jaccard of `30.09`; `89.08` **ms**
+against a conformal minimum coverage of `89.08` %; `25.50` **µs** against a definitional-at-caps gold
+share; `56.80` **µs** against a scispaCy overlap recall; and `29.73` **%** of MED1250 gold long forms
+occurring more than once against a PLOD Jaccard, in a record whose very next sentence names
+`shortform.med1250_all.legend_exposure` as the gated field. **`0` of `42` citable. D-126's verdict is
+confirmed, and this is the first walk to name the five and show the mismatch instead of reporting a
+total.**
+
+### The plain statement the brief asked for
+
+`fall` is `4` against `MIGRATION_QUOTA = 12`. `from_record_file` is `0` against
+`RECORD_FILE_FLOOR = 12`. **A waiver is therefore still required, and it is required by arithmetic:
+the quota is a floor of `12` per round on a population this round measured at `4` across all ten
+files, `0` of them in the file the floor is written against.** That is not a policy that is hard to
+satisfy and it is not a discipline failure; it is unsatisfiable, permanently, and the only remaining
+payment shapes are deletion — refused four times, because deleting a number from a closed decision
+record to satisfy a gate is the gaming this policy exists to stop — and fencing, which
+`trajectory_problems` correctly refuses to count toward the floor.
+
+**The two questions for the maintainer, and the second one is new.** D-126 asked whether
+`MIGRATION_QUOTA` and `RECORD_FILE_FLOOR` should count movement on the value-matched ledger, where
+`13` are unambiguously citable today and the schema turns the build red for recording them honestly.
+That question stands unanswered and is re-asked. **The second: both floors are set to `12` against a
+measured payable population of `4`, so they should be re-set to a number the ledger can supply or
+replaced by D-109's first escalated replacement — a per-file `closed` disposition backed by the
+probe.** Four measurements now say the same thing and the fifth is this one; what has never happened
+is an answer.
+
+**What the payment does not buy.** `4` numbers is `2.12` % of the ledger and it does not lift the
+waiver, change the quota, or make the next round's position better. **It buys one thing: the
+trajectory row now records a movement, so the burn-down's terminal state is a measured `0`-remaining
+rather than an asserted one.** `docs/notes/pydantic-cost.md`'s `70` is closed; `bench/splits.toml`'s
+`32` is walked and `29` remain, `27` of them AMBIGUOUS and `2` blocked; `docs/EVALUATION.md`'s `10`
+are all AMBIGUOUS and none is payable.
+
+**And a schema question four parties raised and none would touch, settled here.** `GATE_KEYS` in
+`tools/run_summary.py` carries eight keys with a comment saying *"The key lands when the brief lists
+nine."* **The brief lists nine and `CONTRIBUTING.md` lists ten**, so the trigger as written is met
+and is *itself wrong by one*: the schema needs **two** more keys (`run_summary` and
+`run_summary_agent`), not one, and a party adding one would have shipped a schema that is still short.
+That is why four consecutive parties correctly declined, each reporting the ninth gate in prose in the
+`second_reader` field. **It is not changed here either, and the reason is mechanical rather than
+cautious**: six summaries validated against the eight-key schema already sit in this round's shared
+directory, and adding a required key invalidates all six retroactively. It lands in the commit that
+also fixes the brief's list, and that commit belongs to whoever writes the brief.
+
+---
+
 **Mandate III Phase D — D-119 through D-126, and they are in ASCENDING order**, like the block below
 them. D-119 frames the round and carries its lead finding, because every other record in this block
 depends on which tree its evidence was taken from. D-120 and D-121 are the two workstreams in

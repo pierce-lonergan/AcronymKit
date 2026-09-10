@@ -1300,12 +1300,31 @@ The broadest behaviour check here, across fifteen matrix cells. Inert, a wrong a
 looks like a right one. Partly duplicated: `installed-suite` and `air-gap` run the same tests on
 one cell each, which is why this is not `sole` despite being the largest.
 """
-detects = "Everything 4,734 tests assert, across fifteen matrix cells."
+detects = """
+Everything the suite asserts, across fifteen matrix cells. 6,074 collected at 1e0d6d5 plus
+tests/test_unicode_properties.py; the figure here was 4,734 for several rounds and is written with
+its tree because it moves every round and a bare count in this file is checked by nothing.
+
+FIFTEEN CELLS IS NOT A REDUNDANCY HERE, IT IS THE INSTRUMENT, and one file depends on it.
+tests/test_unicode_properties.py derives two defect classes from str.islower, str.upper and
+unicodedata.combining on the RUNNING INTERPRETER -- 1,050 code points that stay lower-case under
+upper-casing, and 26 whose upper-cased form introduces a combining mark -- and asserts both sizes as
+equalities. The quantity at risk is an interpreter's Unicode data, so a single-cell copy of that
+file in `lint` would be strictly weaker than this entry already is. That is why no forty-third gate
+was registered for it; docs/GATES.md carries the argument and the four hand-run mutations.
+"""
 blind_to = """
 Anything that needs a fetched corpus, which is the whole of `data/`. Also, on
 the author's machine, anything that needs `data/` to be ABSENT -- which is how
 three controls asserting on a resolved corpus path went green locally and red
 on every runner.
+
+AND A MARKER EXPRESSION WOULD SILENTLY NARROW IT. No job here passes `-m`, so `slow` runs. If one
+ever did, tests/test_unicode_properties.py's full-space sweep -- 1,114,112 code points, 4,456,448
+calls, the only check in the tree that establishes the idempotence-breaking set as an EQUALITY
+rather than as an absence -- would stop running and nothing would report it. The file refuses a
+`@pytest.mark.skipif` in its own source, which closes the skip route and leaves the deselect route
+open.
 """
 [gates.suite.mutation]
 kind = "automated"
