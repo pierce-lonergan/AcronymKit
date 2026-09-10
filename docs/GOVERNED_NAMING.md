@@ -1330,16 +1330,33 @@ Its size is bounded and its incidence is measured: `1050` code points are lower-
 lower-case under `str.upper`, and every one breaks the premise the same way.
 
 **That figure is a property of the interpreter's Unicode data, not of this library, and it moves.**
-Measured on real interpreters rather than interpolated: `977` on Unicode `14.0` (CPython 3.11),
-`1050` on `15.0` and `15.1` (3.12, 3.13), and `1048` on `16.0` (3.14) — the class *shrinks* again at
-16. So `1050` is true of two Unicode versions and of no others, and it was published as though it
-were a fact about the defect.
+Measured on every Unicode version this project's CI matrix runs, none interpolated:
+
+```
+Unicode 13.0  (CPython 3.9, 3.10)   890
+Unicode 14.0  (CPython 3.11)        977
+Unicode 15.0  (CPython 3.12)       1050
+Unicode 15.1  (CPython 3.13)       1050
+Unicode 16.0  (CPython 3.14)       1048
+```
+
+The class grows and then *shrinks*. So `1050` is true of two Unicode versions and of no others, and
+it was published as though it were a fact about the defect.
+
+**And measuring all five separated two things that looked alike.** The ordinal class moves with the
+interpreter; the expansion class is `26` at every one of the five. One of the two counts this page
+carries is a property of the defect and the other is a property of the runner, and nothing short of
+running all five would have told you which.
 
 It reddened five CI cells before anybody noticed, because the test asserting it was a bare equality.
 The counts now live in a version-keyed table in `tests/test_unicode_properties.py`, an unrecorded
-version reports its count rather than failing, and Unicode `13.0` — CPython 3.9 and 3.10 — is
-**still unmeasured** and will report. This is R18's subject one level over from wall-clock: a number
-that changes with the runner, gated as though it belonged to the code. Distinct strings
+version reports its count rather than failing. This is R18's subject one level over from
+wall-clock: a number that changes with the runner, gated as though it belonged to the code.
+
+It took two red runs to fix, and the second is the instructive one: the first repair caught two of
+five hardcoded counts and the other three reddened the same cells again. **A defect class found in
+one assertion is a reason to sweep for the class, not to fix the assertion** — which is a sentence
+this repository has written before. Distinct strings
 carrying one, across the four published populations: `0` Socrata field names, `0` SEC XBRL element
 names, `0` SEC XBRL labels, `12` Socrata captions. `normalize` reads physical names, so the incidence
 on what this verb is handed is zero.

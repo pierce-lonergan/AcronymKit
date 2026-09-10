@@ -392,19 +392,53 @@ _CLASS_SIZES_BY_UNICODE = {
     # `1,050` the documents publish is true of 15.0 and 15.1 and of nothing
     # else. The breaking class is 26 across all three, and 102 code points
     # upper-case to more than one character throughout.
-    "16.0.0": {"ordinal": 1048, "expanding": 102, "breaking": 26},  # CPython 3.14
-    "15.1.0": {"ordinal": 1050, "expanding": 102, "breaking": 26},  # CPython 3.13
-    "15.0.0": {"ordinal": 1050, "expanding": 102, "breaking": 26},  # CPython 3.12
-    "14.0.0": {"ordinal": 977},  # CPython 3.11, from the run that reddened five cells
-    # 13.0.0 (CPython 3.9 and 3.10) is UNMEASURED. Those cells will print their
-    # counts and pass; the NOTE lines in a green run are how this row gets
-    # filled, which is deliberate -- a number nobody has run is not a number.
+    "16.0.0": {"ordinal": 1048, "expanding": 102, "breaking": 26, "combining": 934},  # 3.14
+    "15.1.0": {"ordinal": 1050, "expanding": 102, "breaking": 26, "combining": 922},  # 3.13
+    "15.0.0": {"ordinal": 1050, "expanding": 102, "breaking": 26, "combining": 922},  # 3.12
+    # CPython 3.11. ordinal and combining read off the two runs that reddened
+    # five cells; breaking is 26 because that run reported the union as 1003,
+    # which is 977 + 26.
+    "14.0.0": {"ordinal": 977, "breaking": 26, "combining": 912},
+    # CPython 3.9 and 3.10, read off the run that reddened them a second time:
+    # ordinal 890, combining 872, union 916 -- so breaking is 26 here too.
+    "13.0.0": {"ordinal": 890, "breaking": 26, "combining": 872},
+    # EVERY VERSION THE MATRIX RUNS IS NOW MEASURED, none interpolated. The
+    # ordinal count grows and then shrinks -- 890, 977, 1050, 1050, 1048 across
+    # 13.0 to 16.0 -- while `breaking` is 26 at every one of the five. So the
+    # class this project treated as a constant has two different shapes: one
+    # genuinely stable and one that moves with the interpreter, and only
+    # measuring all five showed which was which.
+    #
+    # `expanding` is recorded only where an interpreter was to hand; the 13.0
+    # and 14.0 cells will print it and pass, and that NOTE is how the row gets
+    # filled. A number nobody has run is not a number.
 }
 
 
 def _expected(name: str) -> int | None:
     """The published size for this interpreter's Unicode version, or ``None``."""
     return _CLASS_SIZES_BY_UNICODE.get(unicodedata.unidata_version, {}).get(name)
+
+
+def _expect_size(name, observed, description, derived=None):
+    """Assert a Unicode-derived size against the version table, or report it.
+
+    Every count in this module is a property of the interpreter's Unicode data.
+    Five were written as bare equalities and five CI cells went red; two were
+    repaired and three were missed, which reddened them a second time. Routing
+    every one through here is what stops a sixth.
+    """
+    expected = _expected(name) if derived is None else derived()
+    if not expected:  # pragma: no cover - an unrecorded Unicode version
+        print(
+            f"NOTE: {len(observed)} {description} on Unicode "
+            f"{unicodedata.unidata_version}, unrecorded in _CLASS_SIZES_BY_UNICODE."
+        )
+        return
+    assert len(observed) == expected, (
+        f"{len(observed)} {description} on Unicode {unicodedata.unidata_version}, "
+        f"against {expected} in _CLASS_SIZES_BY_UNICODE"
+    )
 
 
 def test_the_ordinal_indicator_class_is_exactly_1050_code_points() -> None:
@@ -544,8 +578,9 @@ def test_today_the_whole_ordinal_indicator_class_moves_a_name_twice() -> None:
     # BOTH verbs, and the counts are separate because the sibling class below
     # moves only one of them. Stating them together is how the two defects
     # would get confused for one.
-    assert len(moved_by_normalize) == len(members) == 1050
-    assert len(moved_by_naming) == 1050
+    _expect_size("ordinal", members, "the class the record names")
+    assert len(moved_by_normalize) == len(members)
+    assert len(moved_by_naming) == len(members)
 
     ordinal = "º"
     once = normalize(f"{ordinal}a", NDS)
@@ -732,7 +767,8 @@ def test_the_combining_mark_and_surrogate_populations_are_the_size_this_file_say
     A test that walks ``len(...)`` code points and asserts nothing about
     ``len(...)`` is a test whose coverage can silently fall to zero.
     """
-    assert len(combining_marks()) == 922, (
+    _expect_size("combining", combining_marks(), "combining marks")
+    assert True, (
         f"{len(combining_marks())} combining marks on Unicode {unicodedata.unidata_version}"
     )
     assert len(SURROGATE_ADJACENT) == 64
@@ -839,7 +875,12 @@ def test_across_the_whole_space_the_only_idempotence_breaks_are_the_two_classes(
             broken.add(code_point)
 
     known = ordinal_indicator_class() | upper_case_expansion_class()
-    assert len(known) == 1076
+    _expect_size(
+        "known",
+        known,
+        "the union of the two classes",
+        derived=lambda: (_expected("ordinal") or 0) + (_expected("breaking") or 0),
+    )
     assert broken == known, (
         f"{len(broken - known)} code points break idempotence and are in neither class; "
         f"{len(known - broken)} are in a class and do not break it"
