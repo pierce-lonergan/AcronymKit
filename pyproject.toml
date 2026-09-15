@@ -2,7 +2,7 @@
 # setuptools >= 77 is required, not merely preferred: it is the first release
 # that understands PEP 639's `license = "<SPDX expression>"`, and PyPI now
 # REJECTS what older setuptools emits. See the `license` field below.
-requires = ["setuptools>=77.0.0", "wheel"]
+requires = ["setuptools>=84.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
