@@ -9,14 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0] — 2026-09-15
 
-Three mandates' work. **Three breaking changes -- two in the governed naming subsystem, one in the
-capability report -- and the change that sounds breaking is not one.** Read the three bullets below,
+Three mandates' work. **Three breaking changes — two in the governed naming subsystem, one in the
+capability report — and the change that sounds breaking is not one.** Read the three bullets below,
 the paragraph after them, and the known-open defects under that, before you upgrade; everything else
 in this section is additive, opt-in, or documentation.
 
 **The three breaking changes.** This paragraph said *two* until the tag, counting only the
 governed-naming pair while a third change carried its own `BREAKING` label two screens down under
-**Removed** -- so the first screen contradicted the section, and it did so in the direction of
+**Removed** — so the first screen contradicted the section, and it did so in the direction of
 **understating** what breaks, which is the harder error to catch by reading and the worse one to
 ship. Corrected here rather than in the next release. `docs/DECISIONS.md` D-142 F-1.
 
@@ -42,7 +42,7 @@ ship. Corrected here rather than in the next release. `docs/DECISIONS.md` D-142 
   `capabilities()` no longer returns a `data_packs` key, `acronymkit doctor --format json` no longer
   emits `.data_packs`, the text `doctor` report loses its `data packs : none` line, and
   `acronymkit.diagnostics.DATA_PACK_GROUP` no longer exists. **What you lose is nothing that ever
-  worked** -- `acronymkit.data` was declared as an entry-point group that no code in this library has
+  worked** — `acronymkit.data` was declared as an entry-point group that no code in this library has
   ever loaded through, so the key could only ever report an empty list. It is a break anyway: "the
   value was always `[]`" is a reason the break is cheap, not a reason it is not a break, and a
   pipeline doing an exact key-set comparison fails on upgrade. `acronymkit.__all__` is unchanged --
@@ -65,13 +65,13 @@ its full entry below, under **Notes** unless said otherwise.
   A CSV row whose key or whose value is blank is skipped with no warning, no count and **no member on
   the returned `GovernedDictionary` saying anything was dropped**: a five-data-row file with one
   blank-key row and one blank-value row loads as `3` entries and `0` warnings. It serves all three
-  CSV entry points -- `load_csv`, `load_long_to_short_csv` and `load_term_index_csv`. **Not fixed in
+  CSV entry points — `load_csv`, `load_long_to_short_csv` and `load_term_index_csv`. **Not fixed in
   this release**, and it is listed first because the five defects under it are reached by a caller who
   is already deep in the governed subsystem tuning thresholds or auditing a proof, while this one is
   reached by loading a CSV, which is the first thing somebody building a governed catalog does. A
   defect list that discloses the deep ones and omits the shallow one is ordered backwards, and this
   section shipped that way until the tag. Unlike the two Unicode defects below, **no incidence figure
-  is attached** -- nobody has measured how many callers reach these loaders, so the rank above is an
+  is attached** — nobody has measured how many callers reach these loaders, so the rank above is an
   argument and not a measurement. `docs/DECISIONS.md` D-139 item `7`, `docs/DEFINITION-OF-DONE.md`
   criterion `7`.
 - **The two halves of the governed round trip disagree on `26` code points, and one of them reports
@@ -111,7 +111,7 @@ its full entry below, under **Notes** unless said otherwise.
 **What else to read before upgrading.** **Positioning** changes no code and is the most important
 entry this project has written: what this library says it is for has changed, and if you adopted it
 for something else you should know that before the next release. **Removed** carries the third
-breaking change in full -- the one summarised in the third bullet at the top of this section.
+breaking change in full — the one summarised in the third bullet at the top of this section.
 **Changed** also carries three reports that get *stricter* rather than different — one will newly
 flag identifiers a pipeline previously waved through, and one changes what a digit run resolves to —
 and one entry that makes governed expansion substantially faster while proving, over millions of

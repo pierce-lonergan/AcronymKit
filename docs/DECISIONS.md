@@ -759,9 +759,24 @@ the mutation was demonstrated.
 ### What the claims gate is provably blind to here, stated rather than implied
 
 **None of F-7 to F-10 could have been caught by any gate in this repository, and that is structural
-rather than a tuning gap.** Each figure is either spelled as an English word (`seven`, `sixteen`,
-`fourteen`, `forty-one`) or sits inside a code span that `prose_of()` masks before the collector runs.
-`python tools/check_claims.py` exits `0` on the tree before these fixes and on the tree after them.
+rather than a tuning gap. It is also TWO mechanisms and not one**, which matters because a gate aimed
+at either half would still miss the other. Fed through the collector's own `prose_of()`:
+
+```
+prose_of(text, ".md") on the four stale sentences, run at the release commit.
+  "seven of the sixteen CLI commands"   ->  survives VERBATIM   no numeral to find
+  "the fourteen criteria"               ->  survives VERBATIM   no numeral to find
+  "`0` of `36` gates carry ..."         ->  "    of     gates"  code spans blanked
+  "`23` of `144`, Wilson `[10.89 ...`"  ->  "    of     , Wilson"   same
+```
+
+**The first two are not masked at all** — nothing hides them; the collector recognises digits and
+these are English words, so there is no token to arm on. **The second two are masked**, by the rule
+that stops the gate arming on code. A collector reading word-spelled numerals would catch the first
+pair and still not the second; unmasking code spans would catch the second pair and flood on every
+identifier in ten files. `python tools/check_claims.py` exits `0` on the tree after these fixes,
+verified; it was **not** run on a pre-fix tree in isolation, so the honest statement is the masking
+measurement above and not an exit code.
 **Three cold reads have now found this class and no round has proposed a gate for it, including this
 one**: a collector that read word-spelled numerals would arm on ordinary prose across ten files, and
 nobody has measured that false-positive rate. Recorded as an open instrument gap with a named cost,
