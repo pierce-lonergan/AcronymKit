@@ -1,0 +1,23 @@
+# The roster for the 0.4.0 release round.
+#
+# WRITTEN BY A WORKSTREAM, WHICH IS STILL THE FLAW D-113 AND D-127 RECORD.
+# A roster belongs to whoever spawned the round; nothing that spawned this one
+# writes files here.
+
+round = "mandate-iii-release-040"
+roster_written_by = "the release-artifacts workstream of the 0.4.0 release round"
+
+# FALSE, and this round can prove it false rather than merely suspect it: at
+# 16:52 local a sibling wrote the `## [0.4.0]` section into CHANGELOG.md while
+# this workstream was mid-run, in a tree `git status` reported clean at start.
+# That sibling exists and is not named below, because naming it would be a
+# guess. The absences here are a LOWER BOUND.
+roster_complete = false
+
+expected = ["release-artifacts"]
+
+note = """
+NO `exits.toml`. Same reason as mandate-iii-phase-d: an exit status is produced
+by whatever ran the round, and an agent filing its own is predicting its own
+exit. UNATTRIBUTED, printed by --check-agent-summary, never a build failure.
+"""

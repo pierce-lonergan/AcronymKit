@@ -101,25 +101,28 @@ def _frame(counts: Dict[str, int], missing: tuple = ()) -> object:
 class TestTheClosedSeries:
     """The number the predecessor is closed at, recomputed rather than quoted."""
 
-    def test_the_series_is_closed_at_six_rounds_not_five(self) -> None:
-        # THE BOOKKEEPING DEFECT THIS ROUND WAS HANDED. The constant said 5 /
-        # 120 / 20 while the record file said 6 / 144 / 23; the sixth round
-        # graded 24 claims under a frame this module had declared closed.
-        assert sc.CLOSED_SERIES["rounds"] == 6
-        assert sc.CLOSED_SERIES["draws"] == 144
-        assert sc.CLOSED_SERIES["not_true"] == 23
+    def test_the_series_is_closed_at_seven_rounds_not_five_and_not_six(self) -> None:
+        # THE BOOKKEEPING DEFECT, TWICE, ONE ROUND APART AND BOTH IN THE SAME
+        # DIRECTION. The constant first said 5 / 120 / 20 while the record file
+        # said 6 / 144 / 23; it was corrected to six, and a SEVENTH round had
+        # already graded 24 claims under the same frame, unit and rules. Both
+        # closures were declared over a round that was already running, which is
+        # why this asserts the round COUNT and not only the arithmetic.
+        assert sc.CLOSED_SERIES["rounds"] == 7
+        assert sc.CLOSED_SERIES["draws"] == 168
+        assert sc.CLOSED_SERIES["not_true"] == 25
 
     def test_the_pooled_rate_is_what_the_constant_says(self) -> None:
         counts = sc.CLOSED_SERIES["per_round"]
-        assert sum(counts) == sc.CLOSED_SERIES["not_true"] == 23
-        assert len(counts) * 24 == sc.CLOSED_SERIES["draws"] == 144
-        assert round(100 * sum(counts) / 144, 2) == 15.97
+        assert sum(counts) == sc.CLOSED_SERIES["not_true"] == 25
+        assert len(counts) * 24 == sc.CLOSED_SERIES["draws"] == 168
+        assert round(100 * sum(counts) / 168, 2) == 14.88
 
     def test_the_wilson_interval_reproduces_to_two_decimals(self) -> None:
         # The figures are TRANSCRIBED into the constant on purpose; an
         # independent implementation has to land on them or the series is being
         # closed at somebody's recollection.
-        low, high = sc.wilson(23, 144)
+        low, high = sc.wilson(25, 168)
         assert (round(low, 2), round(high, 2)) == sc.CLOSED_SERIES["wilson_pct"]
 
     def test_the_five_round_figure_still_reproduces(self) -> None:
@@ -144,6 +147,27 @@ class TestTheClosedSeries:
         assert round((high5 - low5) / 2, 2) == 6.64
         assert round((high6 - low6) / 2, 2) == 5.97
         assert round(((high5 - low5) - (high6 - low6)) / 2, 2) == 0.67
+
+    def test_the_seventh_point_did_it_again_and_that_is_the_retirement_argument(self) -> None:
+        # THE SAME FINDING FOR THE THIRD CONSECUTIVE ROUND, which is what turns
+        # it from an observation into the reason the instrument is retired
+        # rather than extended: a seventh point moved the estimate 1.09 and the
+        # half-width 0.59, so the interval is still moving FASTER than it
+        # shrinks. Recomputed here, not quoted from the record.
+        low6, high6 = sc.wilson(23, 144)
+        low7, high7 = sc.wilson(25, 168)
+        half6 = (high6 - low6) / 2
+        half7 = (high7 - low7) / 2
+        assert round(half7, 2) == 5.38
+        assert round(half6 - half7, 2) == 0.59
+        assert round(100 * 23 / 144 - 100 * 25 / 168, 2) == 1.09
+        assert (half6 - half7) < abs(100 * 23 / 144 - 100 * 25 / 168)
+
+    def test_the_six_round_figure_still_reproduces(self) -> None:
+        # Same reason the five-round one is kept: it is INCOMPLETE, not wrong,
+        # and CHANGELOG.md published it as the closure for a release cycle.
+        # A reader will meet it in the git history.
+        assert round(100 * 23 / 144, 2) == 15.97
         assert round(100 * 20 / 120 - 100 * 23 / 144, 2) == 0.69
         assert round(round(100 * 20 / 120, 2) - round(100 * 23 / 144, 2), 2) == 0.70
 
@@ -589,7 +613,12 @@ class TestThisCheckout:
         # WHOLE SECTION EXISTS TO PREVENT: a reader pooling the new rate into
         # the old one because nothing on the page said not to.
         rendered = sc._render_frame(_frame(dict.fromkeys(sc.CHANNELS, 5)), {}, 24)
-        assert "15.97" in rendered
+        # Asserted against the CONSTANT rather than a literal: this test failed
+        # on the seven-round correction, which is the right outcome for the
+        # constant's own tests and the wrong one here -- what this checks is
+        # that the closure is printed, not what the closure is.
+        assert f"{sc.CLOSED_SERIES['rate_pct']:.2f}" in rendered
+        assert "14.88" in rendered
         assert "DOES NOT CARRY ACROSS" in rendered
         assert "n = 0" in rendered
 

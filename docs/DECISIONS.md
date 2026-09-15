@@ -9,6 +9,829 @@ Newest first.
 
 ---
 
+**Mandate III — the `0.4.0` release, D-137 through D-145, and they are in ASCENDING order**, like the
+three blocks below them. D-137 frames the round and re-derives one load-bearing claim per workstream.
+D-138 is the version decision, D-139 the known-broken list and D-140 the one-way door — the three a
+reader in a year needs and cannot reconstruct. D-141 to D-143 are the instruments that read the round,
+D-144 is the quota, and **D-145 is what the cold read's findings cost to actually fix** — the record
+the previous nine rounds would have deferred. Read them down the page rather than up.
+
+---
+
+## D-137 — **A release-preparation round on a tree two parties were writing at once, and the ten gates reproduce the pre-round baseline to the digit.** The one premise every party was handed — that `pyproject.toml` still read `0.3.0` — was already false when the first of them looked, and nothing was tagged, released, uploaded or committed
+
+**Status:** measured by the recorder on the hand-off tree, after both workstreams and the cold read
+filed ·
+**Amends:** nothing in the tree; it corrects the round brief's premise about `pyproject.toml` and the
+brief's arithmetic on the Unicode class ·
+**Evidence:** the ten gates below; the four re-derivations in this record, each run in a fresh
+process ·
+**No experiment number spent — experiment eleven is still free**
+
+```
+the ten gates, run by the recorder on the hand-off tree before a word of this block was written.
+Command output, not a benchmark measurement. CPython 3.13.4 on win32, one quiet checkout.
+  python -m pytest tests                      6187 passed, 10 skipped, 3 xfailed  rc=0
+  python -m ruff check src tests tools bench  All checks passed!                  rc=0
+  python -m ruff format --check ...           186 files already formatted         rc=0
+  python -m mypy                              no issues in 124 source files       rc=0
+  python tools/check_claims.py                unbacked 0 | deferred 185 | vm 64   rc=0
+  python tools/splits.py --check              splits manifest OK                  rc=0
+  python tools/gates.py --check               CARRYING IN-SITU EVIDENCE 21 of 42   rc=0
+  python tools/second_reader.py --check       findings open 5, fixed 10            rc=0
+  python tools/run_summary.py --check-agent-summary  4 dirs, 3 crashes, 0 unattr   rc=0
+  python tools/render_figures.py --check      figures OK: 2 x 2 byte-identical     rc=0
+```
+
+**Every figure matches the verified baseline at `6d44002` exactly** — `6187` passed, `10` skipped,
+`3` xfailed; value-matched `64` of `64`; deferred `185` of `185`; in-situ `21` of `42`. This is the
+first round in this project's history in which no gate figure moved at all, and the reason is that
+**no party changed a line of `src/`**: the whole round's diff is `CHANGELOG.md` (`+155`/`-55`) and one
+line of `pyproject.toml`. A release round whose gate figures move is a release round that shipped
+code it did not mean to.
+
+**What this round did NOT do, stated first because a record read in a year will assume otherwise.**
+No tag, no GitHub release, no upload, no commit, no TestPyPI dry run, no offline bundles, no SPDX
+SBOM. The version bump and the entire `[0.4.0]` section are **uncommitted** at the moment this record
+is written, and `.github/workflows/ci.yml` triggers on `push`, `pull_request` and `workflow_dispatch`
+and **on no tag**, so the green tick that matters does not yet exist for the commit that will carry
+this work.
+
+### One load-bearing claim per workstream, re-derived by the recorder rather than read
+
+**(a) The release-notes workstream said the checklist's "`pyproject.toml` is the only place the
+version is written" is false. It is false three times.** Re-derived by reading the tree:
+`src/acronymkit/__init__.py:198` `_FALLBACK_VERSION = "0.3.0"`, `src/acronymkit/engine.py:157`
+`_FALLBACK_VERSION = "0.1.0"`, `tools/build_gold_corpus.py:143`
+`USER_AGENT = "acronymkit-bench/0.3.0 ..."`. The two fallbacks already disagreed with each other
+before this release existed, and `docs/RELEASE_CHECKLIST.md` §5's statement that an un-installed
+checkout answers `0.1.0` is true only of `engine.py`'s copy.
+
+**(b) The artifact workstream said PyPI already holds `0.3.0`, so this is the second upload ever.**
+Re-derived against the live index: `https://pypi.org/pypi/acronymkit/json` lists releases `['0.3.0']`
+and nothing else; `0.3.0` serves both `acronymkit-0.3.0-py3-none-any.whl` and
+`acronymkit-0.3.0.tar.gz`; `https://pypi.org/pypi/acronymkit/0.4.0/json` answers `404`. The artifacts
+in `dist/` are `679,669` B and `2,949,455` B, matching that workstream's bytes exactly, and the
+sdist's `296` entries include all five files CI checks for by name.
+
+**(c) The cold read said the release notes omit one recorded open defect, and it is a loader.**
+Re-derived in a fresh process with a five-data-row CSV holding one blank-key and one blank-value row:
+`loaders.load_csv` returns a `GovernedDictionary` with `3` entries, `0` warnings, and **no member on
+the returned object naming a drop** — `dir()` offers nothing matching `drop`, `skip`, `count` or
+`warn`. The behaviour is documented in `_read_pairs`' own docstring and nowhere a caller can reach at
+run time. It is the class criterion `7` grades, it is recorded in this file, and **it is the one
+known-open defect the `[0.4.0]` section does not carry.** D-142 F-3; D-139 item `7`.
+
+**(d) The brief's own arithmetic, killed by the recorder's first falsifier.** The brief asked for
+"the `1,076` idempotence breaks". Re-derived exhaustively over all `1,114,112` code points in a fresh
+process, `2,503,638` verb calls, importing only the library: **`normalize` breaks idempotence on
+`1,050`; `to_physical_name` breaks on `1,076`; the union is `1,076`; the two classes are disjoint and
+`1,050 + 26 = 1,076`.** Of the `26`, `to_physical_name` emitted a name for `26` of `26` while
+reporting `unaccounted=()`, and `normalize` refused all `26`. D-130 reproduces for a third time from
+a third party, and the release notes say `1,050` of `normalize` rather than the brief's number.
+
+### The finding no party in this round had, and it is about how a release gets verified
+
+**A real, non-editable `acronymkit 0.3.0` is installed in this machine's user site-packages.**
+`python -m pip show acronymkit` reports `Version: 0.3.0` at
+`...\AppData\Roaming\Python\Python313\site-packages`. So from the repository root,
+`python -c "import acronymkit; print(acronymkit.__version__)"` — the command
+`docs/RELEASE_CHECKLIST.md` §8 gives for verifying an upload — answers **`0.3.0`**, the *previous*
+release, out of site-packages rather than out of the tree. With `src/` on `sys.path` the same import
+answers **`0.4.0`**, out of the stale `src/acronymkit.egg-info` whose `PKG-INFO` reads
+`Version: 0.4.0`. **Neither `_FALLBACK_VERSION` is reachable on this machine**, so §5's `0.1.0` cannot
+be reproduced here at all, and the two answers differ by nothing but `sys.path`.
+
+The suite is unaffected and that is not luck: `tests/conftest.py:20` inserts `src` at `sys.path[0]`,
+so `python -m pytest tests` reads the working tree. Every test that touches the version compares
+`__version__` against itself, so a disagreement between the tree and site-packages cannot redden a
+gate — **which is exactly why nothing in the ten gates would have told anybody.** Clear
+`dist`, `build` and `src/*.egg-info` before building, and verify an upload in a throwaway venv and
+never from the checkout.
+
+### The tree had two writers and the recorder measured that rather than assuming quiet
+
+`pyproject.toml` was bumped by a sibling at `16:41:41` and the `0.4.0` wheel built at `16:41:55`,
+before the release-notes party reached the file; the `[0.4.0]` heading was written at `16:52`. One
+workstream reported a single intermediate suite run of `4 failed, 6183 passed` between four runs that
+all returned `6187 passed, 10 skipped, 3 xfailed`, with the four names unrecoverable because
+`addopts` carries `-q`. **The recorder reproduced the class on its own machine and the mechanism is
+now named rather than hypothesised**, which is the one thing this record has that the reports did not.
+
+```
+reproduced by the recorder, by accident and then read. Command output, not a benchmark measurement.
+  run 1 (recorder, quiet checkout)        6187 passed, 10 skipped, 3 xfailed   rc=0
+  run 2 (recorder, after the edits)       6187 passed, 10 skipped, 3 xfailed   rc=0
+  run 3 (recorder, one other pytest running against the same checkout)
+                                          2 failed, 6185 passed, 10 skipped, 3 xfailed   rc=1
+  the two:  tests/test_second_reader_policy.py
+              ::test_the_rotation_reaches_every_user_facing_file_in_this_repository
+              ::test_every_command_the_policy_page_tells_a_reader_to_run_exits_zero
+  both assertion messages name the same file:  docs/zz-gate-mutation-probe.md
+```
+
+**`tests/test_check_external.py:340` writes a real file into `docs/` and deletes it again.** It is a
+deliberate design — its own docstring argues the probe-file form against in-place mutation, because an
+in-place mutation window *loses another process's writes* and a probe file cannot — and the docstring
+names the cost it expected: a concurrent `check_external.py` would report *"one extra appeal"*, which
+is cosmetic, plus *"a reason not to read a count taken while a suite is running."* **What no document
+names is that the same window makes two tests in a different file FAIL**, because
+`tests/test_second_reader_policy.py` enumerates the user-facing documents in `docs/` and the probe is
+one, reachable by no rotation trigger. A documented cosmetic window is therefore also an undocumented
+`rc=1`.
+
+### And the second probe is worse, because its residue is a fabricated accuracy claim in the file PyPI renders
+
+**`tests/test_claims_gate_coverage.py:162` writes a probe into `README.md`**, and the probe is a
+sentence asserting a governed-expansion accuracy this project has never measured, under a comment
+that reads *"a leftover of this line is a bug"*. The recorder stopped a suite mid-run for wall-clock
+reasons and that sentence was left behind — in the file that renders as the PyPI description, `746`
+lines into a page whose subject is honest scope.
+
+```
+the residue of a killed suite, and the gate's answer to it.
+Command output, not a benchmark measurement.
+  git status --short                     M README.md         (3 lines added, the probe)
+  python tools/check_claims.py           UNBACKED, the probe's figure named and quoted
+                                         under "Every performance or accuracy number must
+                                         be traceable"
+  git checkout -- README.md              restored
+  python tools/check_claims.py           green, unbacked 0
+```
+
+**The claims gate catches it, which is the one piece of good news and is exactly what the probe
+exists to prove.** So the gate is a real defence against a fabricated release claim, `git status` is
+a second one, and the only reason this record can say so is that somebody looked. Two probes, two
+shapes of residue: one that reddens two tests in another file for as long as it exists, and one that
+survives a killed run and leaves a false accuracy figure on the front page.
+
+**So the workstream's `4 failed, 6183 passed` is very probably the first probe, and the release is
+not implicated.**
+Two parties shared one checkout; the probe window is real; the failure count differs because the
+collision point differs. **The suite is not safe to run concurrently with itself or with another party
+in the same checkout**, and nothing warns anybody at the moment it happens. **CI runs the steps
+sequentially, so the window does not exist there** — which is also why the green tick that decides is
+the one on the commit being tagged, taken by a runner with the checkout to itself.
+
+---
+
+## D-138 — **The version is `0.4.0` and not `0.3.1` or `1.0.0`, and the load-bearing half of that is that the package split was made non-breaking ON PURPOSE.** Two breaking changes in a `0.x` line take the minor; `19` identity-preserving shims are what kept the third change out of the reckoning
+
+**Status:** decided before this round and recorded here, because the reasoning is not recoverable from
+the number ·
+**Amends:** nothing ·
+**Evidence:** the two breaking changes in `[0.4.0]`; the `19` shims re-imported in a fresh process;
+`pyproject.toml:10` ·
+**Depends on D-137**
+
+`0.3.0` shipped `2026-08-11`. What landed since is three mandates of work, and exactly three changes
+of it bear on the number.
+
+**The two that take the minor.** `catalog.normalize` raises `TokenizationError` where it returned a
+`str`, and `is_compliant` suppresses a `fix` it used to emit. Both are breaking by the ordinary test —
+code that worked stops working — and under Semantic Versioning's `0.x` clause a breaking change takes
+the **minor**. `0.3.1` is therefore excluded by the changes themselves and not by preference.
+
+**The third change sounds breaking and is not, and that is a decision somebody made.** The package
+split into `acronymkit.core`, `acronymkit.nlp` and `acronymkit.catalog` could have been released as a
+rename, which would have been a breaking change and, in a `0.x` line, would have taken the same minor
+at no extra cost. It was not. **All `19` pre-split import paths were kept as same-*object* shims for
+the whole of the `0.x` line**, re-derived in a fresh process: `19` of `19` import,
+`governed.expand_identifier is catalog.expand_identifier` answers `True`,
+`exceptions.ConfigurationError is core.exceptions.ConfigurationError` answers `True`,
+`propagation.propagate is nlp.propagation.propagate` answers `True`, and `acronymkit.__all__` is
+unchanged at `49` entries. What moved is `__module__`, which now reads
+`acronymkit.core.exceptions`, so a traceback string changed and nothing an importer holds did.
+
+**Why a reader in a year needs that sentence.** The shims cost real surface — `19` paths that must
+keep resolving until a major release, and a `DeprecationWarning` owed one minor before removal — and
+the cheapest moment to have refused that cost was this one, inside a minor bump that was already
+breaking for two other reasons. **Nobody will be able to tell from the version number that the split
+was a choice**, and a later round looking at `0.4.0` and seeing `acronymkit.governed` still importable
+could reasonably conclude the split was simply never finished. It was finished; the paths are a
+promise. Removal needs a major version.
+
+**And `1.0.0` is excluded, deliberately and on this project's own evidence.** `1.0.0` is a claim about
+stability made to strangers, and the release it would be attached to ships `7` known-open defects
+(D-139), `2` empty headline rows, `0` uncontaminated held-out corpora for either task the library
+leads with, and a `21`-of-`42` in-situ gate debt. A `1.0.0` here would be the positioning failure
+`docs/POSITIONING.md` was written to end, committed on the version number instead of in prose.
+
+`pyproject.toml` `[project] version` is the place the number is written and `pyproject.toml:10` reads
+`0.4.0`. The heading is `## [0.4.0] — 2026-09-15` with an em dash matching `[0.3.0]`, both footer links
+are present, `## [Unreleased]` is empty, and **the tag must be exactly `v0.4.0`** — D-140 gives the
+arithmetic and the spellings that fail.
+
+---
+
+## D-139 — **What `0.4.0` ships known-broken, in one place: `7` defects, `6` of them on the release notes' first screen and the seventh nowhere in the section at all.** The one the notes omit is the one a first-time caller reaches first
+
+**Status:** assembled by the recorder from the round's four records and re-derived where a verb could
+be called ·
+**Amends:** nothing; it collects what is already recorded and names the one omission ·
+**Evidence:** D-128, D-130, D-111, the `splits.py --check` notes, the recorder's own reproductions ·
+**Depends on D-137**
+
+This is the release's most honest artifact and it is assembled here because it exists nowhere else as
+a list. `docs/POSITIONING.md`'s thesis is that an instrument's first obligation is to report what it
+cannot account for; a release that buried this would refute the thesis on the page a stranger reads
+first. **Items `1` to `6` are on the first screen of the `[0.4.0]` section. Item `7` is not in the
+section anywhere.**
+
+**`1`. The governed round trip disagrees with itself on `26` code points, and one half reports
+nothing was lost.** `to_physical_name` emits, for `26` of `26`, a physical name `normalize` then
+refuses, while reporting `unaccounted=()`. Re-derived by the recorder this round over the whole code
+space. Incidence `0` across the `285,839` distinct strings in the two published governed corpora.
+Strict `xfail` plus positive pins, so a partial repair reddens. D-130.
+
+**`2`. `1,050` code points break `normalize` idempotence, and the count is a property of the
+interpreter.** `890` at Unicode `13.0`, `977` at `14.0`, `1050` at `15.0` and `15.1`, `1048` at
+`16.0` — it grows and then shrinks, while the `26` above are `26` at all five. The two classes are
+disjoint and their union is `1,076`, which is also what `to_physical_name` breaks on. No character is
+lost, so refusing would refuse a name that lost nothing. Same disposition. D-130.
+
+**`3`. A2's `5.95` x coverage multiple is withdrawn as a claim about scored data.** The scored gain is
+`+3.07` short-form exact recall points against a pre-registration that required ten; the multiple
+survives only as an occurrence count. No corpus in this project can score a document-scoped rule at
+article scope. D-111.
+
+**`4`. Selective risk certifies on MED1250 and refuses on SDU-21, and more data cannot fix the
+refusal.** It is controlled in `8` of `18` cells and all `10` that fail answer `0.00` %; on SDU-21 AD
+dev not one of `21` candidate thresholds certifies at any of six alphas, and the cause is a `17.53` %
+floor in the selection family rather than a small calibration set. It is a second bound beside the
+existing **joint** one and tightens nothing. The shipped report's *"`12` certified cells"* is
+`cells_evaluated`, not `cells_with_a_bound`. D-128.
+
+**`5`. Both headline rows are empty.** `python tools/splits.py --check` prints, per task, that no
+uncontaminated corpus carries `role='held_out'` for `extraction` (`3` declared, `0` in that role) or
+for `disambiguation` (`1` declared, `0`), so **no extraction or disambiguation figure in this project
+satisfies the headline rule** and the flagship extraction number is a tuning figure. Re-derived this
+round by running the check.
+
+**`6`. The byte-identity proof behind the split cannot be re-run from this repository.** The harness
+behind the `3,619,227`-record comparison is uncommitted and the governed corpora are not distributed,
+so the strongest claim the release makes about the split rests on one party's word. **Three
+consecutive parties have now been unable to reproduce it**, the cold read being the third.
+
+**`7`. AND THE ONE THE RELEASE NOTES DO NOT CARRY: `loaders._read_pairs` silently drops rows.** It
+serves `load_csv`, `load_long_to_short_csv` and `load_term_index_csv`. A five-data-row CSV with one
+blank-key row and one blank-value row yields `3` entries, `0` warnings and **no member on the returned
+`GovernedDictionary` saying two rows were dropped** — re-derived by the recorder this round. It is
+recorded in this file, it is a live instance under criterion `7`, and it is **absent from the
+`[0.4.0]` section**, which is the only gap between that section and this list.
+
+**Why item `7` being the omission is the worst case rather than a tidy one.** Items `1` to `6` are
+reached by a caller who is already deep in the governed subsystem, tuning thresholds, or auditing a
+proof. Item `7` is reached by **loading a CSV**, which is the first thing somebody building a governed
+catalog does. A defect list that discloses six deep defects and omits the shallow one is ordered
+exactly backwards for a first-time reader. `CHANGELOG.md` was frozen for the cold read and owned by a
+sibling, so this record reports it rather than fixing it; the fix is one bullet in the KNOWN-OPEN
+block and it is owed before the tag.
+
+---
+
+## D-140 — **The one-way door, second passage: `0.4.0` is the second version number this project will ever spend, and D-023's decisive fact expired at the first.** The argument that made a breaking change free has now been tested, and what it bought was not taken
+
+**Status:** measured against the live index by the recorder; no upload made by this round ·
+**Amends:** D-023's premise and `docs/RELEASE_CHECKLIST.md` §§1-2, which still assert this
+distribution has never been published ·
+**Evidence:** `https://pypi.org/pypi/acronymkit/json` → `['0.3.0']`; `…/0.4.0/json` → `404`;
+`.github/workflows/publish.yml`; the wheel's own imports ·
+**Depends on D-137, D-138**
+
+**The mechanism, stated once.** A version number uploaded to PyPI is spent forever: a filename cannot
+be reused, even after the file, the release or the project is deleted. Deletion frees storage and not
+the name. **Publishing a GitHub release IS the upload** — `publish.yml` triggers on
+`release: types: [published]` and there is no manual gate between the click and PyPI unless the `pypi`
+environment carries a required reviewer. And **CI does not run on tags**, so the only green tick that
+means anything is the one on the commit being tagged.
+
+**The tag, with the arithmetic.** The `build` job compares `GITHUB_REF_NAME.lstrip("v")` against the
+version parsed from the wheel filename. Simulated against this tree's wheel: `v0.4.0` → `'0.4.0'`
+**OK**; `0.4.0` → **OK**; `v0.4.1`, `release-0.4.0`, `v0.4.0.0` → **FAIL** (nothing uploaded, no
+version spent); and two asymmetric edges — **`vv0.4.0` PASSES**, because `lstrip` strips every leading
+`v`, so a one-character typo uploads `0.4.0` to PyPI while the release page and the `[0.4.0]:` footer
+link point at a tag that does not exist; **`V0.4.0` FAILS**, because `lstrip` is case-sensitive, which
+is the safe direction. `removeprefix("v")` would close the first edge, and editing the publish
+workflow inside the commit being released has its own risk. Type `v0.4.0`.
+
+### What the first passage cost, measured rather than remembered
+
+D-001 cut publishing for three releases. D-023 then decided *"migrate to dataclasses with explicit
+validation, and do it before the package is published"*, and said in as many words that **the decisive
+fact was not a measurement**: PyPI returned `404` for the name, so every breakage in that record was
+*"a cost paid by users who do not exist yet"*, rising monotonically from the first successful
+`pip install`.
+
+**That window closed on `2026-08-11` and the migration inside it was never finished.** D-027 executed
+it for `acronymkit.catalog` only. Re-derived from the artifact this round rather than from
+`pyproject.toml`: `pydantic` is imported at module top level in `4` of the `65` `.py` files in the
+`0.4.0` wheel — `cli.py`, `config.py`, `models.py`, `serialization.py` — so it is a hard runtime
+dependency of the release about to go out. **`typing_extensions` appears in `0` of the `65`**, a
+declared direct runtime dependency that no shipped module uses, reaching the SBOM transitively through
+pydantic either way.
+
+**So D-023's argument is not refuted; it is spent.** The free window existed, it was correctly
+identified, and the work it was cheap for did not land inside it. From here the `15` public classes,
+`model_dump()`, `model_validate()`, `isinstance(result, BaseModel)` and `export_model_schema()` are a
+promise to whoever installed `0.3.0`, and the cost of breaking them rises with every install of
+`0.4.0`. **A record that says "do it before publishing" and then watches two publications go past is
+the most expensive shape a decision record has**, and this is the round in which that becomes a
+sentence about the past rather than a plan.
+
+### What `0.4.0` costs in future freedom, itemised
+
+- **`0.3.1` is no longer available as a repair for `0.3.0`** in any sense that matters: the two
+  breaking changes are already in the tree and a patch release cannot carry them.
+- **`0.4.0` cannot be re-cut.** If the KNOWN-OPEN block ships missing item `7` of D-139, the fix is
+  `0.4.1` and the omission is permanent in the `0.4.0` notes on PyPI.
+- **`1.0.0` gets harder, not easier.** Every shim the `0.x` line keeps (`19` of them, D-138) is a
+  removal owed a `DeprecationWarning` one minor ahead, and the `0.x` line now has two published
+  points of reference instead of one.
+- **The release-event path to PyPI has never once succeeded for this project.** `publish.yml`'s own
+  comment records that `0.3.0` reached PyPI by `workflow_dispatch` after two release-event attempts
+  failed. The operator would be exercising that path for the first time on a number that cannot be
+  reclaimed, which is the strongest argument in this round for spending an hour on the TestPyPI dry
+  run first. It was not done.
+- **One guard did not exist when the checklist was written and changes the failure mode for the
+  better.** `publish.yml` now queries PyPI on every trigger shape and aborts the `build` job if the
+  index already holds the version: a stale `pyproject.toml` is now an aborted release rather than a
+  spent number. Measured live: `0.4.0` is `404` and safe; `0.3.0` **EXISTS with both files**.
+
+**`docs/RELEASE_CHECKLIST.md` is the operator's largest reading hazard and it is nobody's file in this
+round.** Line `3` asserts *"This distribution has never been published. `pip install acronymkit`
+returns 404 today"*, which is false; §2's whole pending-publisher premise is obsolete rather than
+pending; §§1-5, 9 and 10 carry `0.3.0` literals; and §10's named false changelog bullet has already
+been fixed. It is read at eleven at night by the one person whose step cannot be undone.
+
+---
+
+## D-141 — **Every pre-registration this round wrote, against what happened.** Three parties state `19` falsifiers, `7` fired and `3` were measured FALSE against their own authors; `4` commissioning premises died, `2` of them in the round brief and `2` in `docs/RELEASE_CHECKLIST.md`
+
+**Status:** adjudicated by the recorder against the filed reports and the tree ·
+**Amends:** nothing; it prices D-137 to D-140 and D-142 ·
+**Depends on D-137 through D-140**
+
+```
+pre-registration, mandate III, the 0.4.0 release. Counted from the three filed reports.
+  party                     falsifiers   fired   measured FALSE   held
+  release-notes                      6       3                1      2
+  release-artifacts                  7       2                2      3
+  the recorder                       6       2                0      4
+  ALL                               19       7                3      9
+  the cold read filed a falsifier count of                                0
+```
+
+**The release-notes party lost its lead premise to its own first check.** It predicted
+`pyproject.toml` would read `0.3.0` and need bumping; a sibling had written `0.4.0` at `16:41:41` and
+built the wheel at `16:41:55`, its first grep saw `0.3.0`, its next saw `0.4.0`, and **its write-guard
+asserted and aborted rather than overwriting**. That is the strongest single behaviour in the round:
+a party whose premise went stale inside its own session detected it mechanically instead of writing
+over another party's work.
+
+**The artifact party lost the two falsifiers it most expected to pay off.** It predicted a hole in the
+markdown-link guard's `prune`/`exclude` modelling would bite — derived rather than asserted, by
+matching every file in the tree against the guard's own parsed patterns and intersecting with the real
+sdist file list: **`0` files are covered-by-the-parser and absent-from-the-artifact**, so the hole is
+real in the code and currently bites nothing. And it predicted at least one README or changelog link
+target missing from the sdist: `33` of `33` resolve. **Both died on measurement, and the finding that
+mattered was the one it had not pre-registered** — the PyPI-existence guard, which did not exist when
+the checklist was written and which converts a stale `pyproject.toml` from an embarrassment into an
+aborted release.
+
+**The recorder's falsifiers, stated before the measurements and adjudicated here.** `(1)` the ten
+gates would reproduce the `6d44002` baseline exactly — **held**, every figure. `(2)` the brief's
+`1,076` would be wrong about `normalize` — **fired**, it is `1,050`. `(3)` the payable deferred
+population would be `0` and every remaining citable number would sit in `CHANGELOG.md` — **held**,
+`6` of `6`. `(4)` at least one brief-named known-open defect would be missing from the release notes —
+**fired**, the CSV loader. `(5)` the definition-of-done sweep would move `0` verdicts and hold at `11`
+of `20` — **held**. `(6)` `acronymkit.__version__` in this checkout would resolve out of the stale
+`egg-info` rather than a `_FALLBACK_VERSION` — **held, and it is the falsifier that found what none of
+them predicted**: an installed `0.3.0` answering the same import from outside the checkout, D-137.
+
+**Four commissioning premises died, which is the round's pattern and the second round running it has
+been.** Two in the round brief: *"`pyproject.toml` is at `0.3.0`"* (killed independently by both
+workstreams) and *"the `1,076` idempotence breaks"* (killed by the recorder). Two in
+`docs/RELEASE_CHECKLIST.md`: *"there is no second constant to bump"* (three literals, D-137) and
+*"this distribution has never been published"* (PyPI serves `0.3.0`, D-140). **No workstream took a
+brief's premise on trust and every one of them was right not to.**
+
+**What this instrument still cannot do.** The cold read filed no falsifier count for a third
+consecutive read, and nothing requires one; `tools/run_summary.py`'s schema has no field for a
+pre-registration, so these counts live only in prose and in this record. That has now been true for
+eight rounds.
+
+---
+
+## D-142 — **The eighth cold read's eleven findings, adjudicated against the tree: `9` stand, `1` understates itself and `1` rests on judgement its author says so about.** It is the first cold read aimed at a release rather than at the library, and the first whose blocker is a `git status` rather than a sentence
+
+**Status:** adjudicated by the recorder, finding by finding, on the tree the read ran against ·
+**Amends:** F-1's severity upward ·
+**Evidence:** the line numbers below, each re-derived; `git status --short` ·
+**Depends on D-137 through D-141**
+
+The read asked four questions a stranger on `0.3.0` asks — *will this break me, what is known-broken,
+is anything here false, do the three that must agree agree* — and answered them read-only. Nothing was
+applied. Its findings document is at
+`.github/run-summaries/mandate-iii-release-040/cold-read-release-notes-040-findings.md`, placed there
+rather than in `docs/notes/` **because `docs/notes/*.md` is in `check_claims.SCAN_GLOBS` and a new file
+of figures there would push the deferred ledger past `185` and redden the gate.** That is the first
+time a party has routed around this instrument correctly and said why.
+
+```
+the eighth cold read, adjudicated. Every line number re-derived by the recorder.
+  #     verdict      what it is
+  BLK   STANDS       the version bump and the whole [0.4.0] section are UNCOMMITTED
+  F-1   STANDS +     "two breaking changes" / "everything else is additive" against 3 BREAKING labels
+  F-3   STANDS       the omitted CSV-loader defect; reproduced independently, 5 rows -> 3 entries
+  F-7   STANDS       "seven of the sixteen CLI commands"; the tree has 17 and 8
+  F-8   STANDS       the closed self-audit series at 6/144/23 where D-132 says 7/168/25
+  F-2   STANDS       three "first entry under X" pointers resolving to the wrong entry
+  F-9   STANDS       the ninth DoD sweep shown as latest; README's "fourteen criteria" for twenty
+  F-10  STANDS       docs/GATES.md in the present tense as 0 of 36 where the gate says 21 of 42
+  F-4   HALF         PhysicalName.unaccounted absent from 2 of 3 governed CLI renderers: confirmed
+  2 LOW STAND        not re-litigated here
+```
+
+**The blocker stands and it is the only one that can stop a tag.** `git status --short` reports
+`M CHANGELOG.md` and `M pyproject.toml` and nothing else. **CI does not run on tags**, so an
+uncommitted release section means the commit being tagged does not contain the release notes and the
+green tick being relied on is a tick on a tree nobody will ever have.
+
+**F-1 is more serious than the read graded it and the correction runs upward.** The lead says *"Two
+breaking changes"* and *"everything else in this section is additive, opt-in, or documentation"*.
+Counted: the `[0.4.0]` section carries `6` occurrences of `BREAKING` across **three distinct changes**
+— `normalize` at line `19`, `is_compliant` at `30`, and **`data_packs` removed from the capability
+report at `143`, labelled `BREAKING` in its own bullet** — and the same first screen separately admits
+that third one is *"a breaking change if your CI asserts on that report's key set"*. So the section
+contradicts itself twice on one screen, and it does so in the direction of **understating** what
+breaks, which is the harder error to catch by reading and the worse one to ship.
+
+**F-7, F-8, F-9 and F-10 are the same defect four times: a figure that was right when written and is
+now stale in another document's units.** Each re-derived. `CHANGELOG.md:854` says *"seven of the
+sixteen CLI commands"* — `build_cli()` offers `17` commands and `8` of them read a governed
+vocabulary (`check-name`, `expand-identifier`, `expand-token`, `governed-audit`, `governed-batch`,
+`governed-gap`, `normalize-name`, `physical-name`); `README.md:543` and `:738` carry the same sentence,
+and `:738` prints `acronymkit --help` beside it as the re-derivation command, **so the front page ships
+its own disproof**. `:1269` publishes the six-round `15.97` % closure that D-132 supersedes with a
+seven-round `25` of `168` = `14.88` %, and `tools/sample_claims.py`'s `CLOSED_SERIES` still ships
+`rounds: 6`, `draws: 144`, `not_true: 23` — confirmed by reading the constant. `:827` and `:1210` say
+*"fourteen criteria"* where `docs/DEFINITION-OF-DONE.md`'s own title says twenty and its table carries
+`20` rows; `README.md:785` repeats it, and README is what PyPI renders. `:903` describes `docs/GATES.md`
+in the present tense as `0` of `36` where `tools/gates.py --check` prints `42` gates and `21` carrying
+in-situ evidence — and `docs/GATES.md:28` itself says *"forty-one gates"*, so the page and the gate
+disagree by one independently of the changelog.
+
+**The read's own account of why a gate cannot catch any of this is correct and this record endorses
+it.** Each of those figures is either spelled as a word (`seven`, `sixteen`, `fourteen`) or sits inside
+a code span that `prose_of()` masks before the collector runs. **The claims gate is provably green over
+all four**, and that is a structural blind spot rather than a tuning gap. Nothing in this round closes
+it, and a fifth instance will appear the same way.
+
+**F-3 is the finding that matters most and its severity rests on judgement, as its author said.**
+D-139 item `7` records it. The read asserts a CSV loader is a first-contact path; nobody has measured
+how many callers reach `load_csv`, and unlike D-130's `0` of `285,839` the record carries no incidence
+figure. **The finding is true either way; its rank is an argument.**
+
+**One instrument defect, found by hitting it.** `tools/run_summary.py`'s `GATE_KEYS` carries eight
+names while the brief lists ten commands that must be green, so **three of the ten cannot be reported
+in a round's own account** and every party folds them into a neighbouring key. D-136 established that
+the fix needs two new keys rather than one and that adding them retroactively invalidates every summary
+already filed against the eight-key schema. **Five consecutive parties have now correctly declined**,
+and this round is the fifth. It belongs to the commit that fixes the brief's list.
+
+**And the read found one staleness running the other way, which is rarer and worth the line.**
+`docs/POSITIONING.md:113`-`115` says `src/acronymkit/__init__.py`'s docstring still ships the retired
+breadth pitch. **It does not** — re-derived by importing the module: the docstring now opens *"a
+governance instrument for names somebody else owns"*, and `bi-directional`, `multi-tiered` and *"One
+library for the three things"* are all absent. The positioning page understates its own success against
+the release it anchors.
+
+---
+
+## D-143 — **The definition of done, eleventh sweep: `0` verdicts moved, which is the second time a sweep has moved none — the eighth was the other — and the first time that is the right answer rather than a symptom.** `11` of `20` for the fifth sweep running, and `6` rows gain evidence a release made visible
+
+**Status:** swept, criterion by criterion, against the tree D-137 describes ·
+**Amends:** the evidence cells of `3`, `7`, `9`, `13`, `14` and `15` ·
+**Evidence:** the ten gates in D-137; the per-criterion checks in
+[`docs/DEFINITION-OF-DONE.md`](DEFINITION-OF-DONE.md) ·
+**Depends on D-137 through D-142**
+
+Twenty criteria, checked rather than assumed. **`0` verdicts moved and `20` did not.** The recorder
+predicted `0` and that is the first time this page's own magnitude prediction has been exact rather
+than merely the right order. **The eighth sweep also moved nothing**, so the count is not novel; what
+is novel is the reason.
+
+**`0` is the right answer and it needs saying why, because an unmoved page is the shape a stale page
+also has.** This round changed no line of `src/`: the whole diff is `CHANGELOG.md` and one line of
+`pyproject.toml`. A definition of done that moved on a release-preparation round would be grading the
+release notes rather than the library. **What a release does provide is a second vantage point on
+criteria that were only ever measured in the checkout**, and that is where all six evidence
+corrections come from.
+
+**Criterion `3` — every number gated, cited by run id, re-derivable offline from the sdist.** Still
+`not met`, and the sdist half is now measured rather than assumed: the `0.4.0` sdist ships
+`bench/results.json` and `bench/splits.toml` **and no bench runner at all**, while all `25` tools ship
+and `render_figures.py --check` passes inside the extracted artifact. So *re-derivable offline* is true
+of the figures and false of the measurements behind them, which is a narrower claim than the criterion
+reads. **And a new hazard the criterion did not anticipate**: the `[0.4.0]` section carries `53`
+rendered `<!--claim:-->` citations where `[0.3.0]`, `[0.2.0]` and `[0.1.0]` carry `0` between them.
+Cutting the version turns all `53` into live values resolved against `bench/results.json`, so the next
+benchmark run that moves any of those fields makes `--render` rewrite what `0.4.0` shipped.
+`--render --dry-run` says *"up to date, nothing would change"* today, which is the whole of the
+protection.
+
+**Criterion `7` — no known defect where a report claims clean while data is lost.** Still **NOT met**,
+at three live instances, and now with a release attached: **two of the three ship in `0.4.0`**, the
+notes disclose one of them (`26` code points reporting `unaccounted=()`), and the CSV-loader instance
+is disclosed nowhere a reader of the release will look. D-139 item `7`.
+
+**Criterion `9` — every CI gate has a recorded in-situ mutation test.** `21` of `42` unchanged, debt
+`21` at a ceiling of `21`, and no party registered a gate this round, correctly: nothing new was built
+to gate. **New**: `docs/GATES.md:28` publishes *"forty-one gates"* where `tools/gates.py --check`
+prints `42`, so the page describing the register disagrees with the register by one, in a figure spelled
+as a word that no gate can read.
+
+**Criterion `13` — the deferred ledger's policy and measured trajectory.** Still `met` and still
+narrowed. The eleventh walk measures the payable population at **`0`**, D-144, and the reason is
+stronger than any previous round's: all `6` remaining citable numbers are in `CHANGELOG.md`.
+
+**Criterion `14` — a second reader exists for anything user-facing.** Still `met`. **Sixth consecutive
+cold read with no ledger row**, and this one names the mechanism from the inside: it wrote its findings
+outside `docs/notes/` *because* that directory is scanned and a new file of figures there would redden
+the claims gate. The anti-rot clock counts ledger rows; the only agent that could write one is
+forbidden to; and now a read has been observed routing around the instrument correctly.
+
+**Criterion `15` — no figure ships in a document unless a committed script regenerates it.** Still
+`met`, and the release shows the rule's edge: the mechanism keeps `docs/figures/*.svg` honest and has
+nothing to say about `53` citations inside a *released* section, where staying current is the defect
+rather than the feature. The criterion is about figures; nothing in the tree distinguishes a live
+document from a frozen one.
+
+**Re-derivation, eleventh sweep: nine of twenty were re-derived by running the check** — `3`, `4`, `7`,
+`9`, `13`, `14`, `15`, `17` and `20` — and eleven were carried. That is the highest re-derivation count
+since the seventh sweep, which did ten; the eighth did seven, the ninth five and the tenth
+seven. `2`, `5` and `6` have now been carried for eight sweeps running.
+Criterion `17` was re-derived by resolving the fields themselves — `governed.throughput` at `96,532`
+identifiers a second on the schema corpus and `governed.throughput_novel` at `22,467` on the novel one
+— and criterion `20` by building the CLI and confirming `governed-gap` ships with every option
+optional, including `--dictionary`.
+
+**What the sweep could not check, for a third consecutive sweep, and the parties are now three.** The
+`3,619,227`-record byte-identity result underwriting criterion `18` is still not reproducible here; the
+harness is uncommitted and the corpora are undistributed. The cold read is the third consecutive party
+unable to adjudicate it. **Unmeasurable here, and recorded as the answer.** Criterion `19` (W11) is
+`not started` for a fifth consecutive sweep and was assigned to nobody again.
+
+---
+
+## D-144 — **The sixth waiver, and it is the first one whose payable population is `0` for a reason that is not the residue: all `6` remaining citable numbers are in `CHANGELOG.md`, and `CHANGELOG.md` is the release notes.** The walk was re-run over all ten files rather than inherited
+
+**Status:** walked, measured `0` payable, waived with the arithmetic ·
+**Amends:** nothing; it continues D-136 and re-asks its two unanswered questions ·
+**Evidence:** `tools/check_claims.py --classify`; the run-id-naming probe re-run over all `185` ·
+**Depends on D-137 through D-143**
+
+D-136 paid `4` of a measured payable population of `4` — the first non-zero movement in five rounds —
+and stated plainly that the quota is unsatisfiable by arithmetic rather than by discipline. This round
+adds records to `RECORD_FILE`, so the pin goes red and a round is owed. **The walk was re-run rather
+than inherited, because inheriting it is exactly what four consecutive waivers did wrong.**
+
+```
+the eleventh walk, and the second over all ten files. Command output, not a benchmark measurement.
+  python tools/check_claims.py --classify, deferred ledger only
+    gate-able      52    a measurement with this value exists
+    blocked       129    reads as a metric and no run supplies it
+    not-a-claim     4
+    ALL           185
+  the run-id-naming probe, re-run by the recorder over all 185. +/- 12-line window,
+  candidates restricted to fields under a run-id prefix the window NAMES.
+    CITABLE, one field under a named run           6
+      of which in CHANGELOG.md                     6
+      of which payable                             0
+    run id named, no field under it has this value 98
+    no run id named nearby                        53
+    named run, several fields                     28
+    ALL                                          185
+```
+
+**`gate-able` fell `56` to `52` and `CITABLE` fell `9` to `6`, both by exactly D-136's four payments,
+so the probe reproduces.** And the residue has reached a shape no previous round had: **every citable
+number left in the ledger is in one file, and that file is the one the quota may not touch.**
+
+**Three independent reasons block all `6`, any one of them sufficient.** `CHANGELOG.md` has been
+whole-file blocked since D-109 because `--render` would rewrite a *released* entry. This round it is
+additionally owned by a sibling workstream and frozen for the cold read. And D-143 records the new
+fact that makes the D-109 reason stronger rather than weaker: the `[0.4.0]` section already carries
+`53` live citations, so the file has more render-sensitive surface after this release than before it,
+not less. The `6` are at `:1391` `14.01`, `:1392` `85.99`, `:1454` `41.50` and `38.60`, `:1455`
+`96,532` and `:1569` `96.5` — **all six in the `0.3.0` section or earlier**, which independently
+confirms the cold read's arithmetic that the `0.4.0` section contributes `0` deferred numbers and that
+a bare new number there would be the `186`th.
+
+**The record file, walked a fifth time.** `docs/DECISIONS.md` holds `42` deferred numbers and `0` are
+citable — the same verdict D-097, D-109, D-118, D-126 and D-136 each reached, now on a probe that names
+the failure mode rather than a total. D-136 showed the five that looked payable are each a unit
+mismatch (a millisecond or microsecond against a percentage). Nothing in this round changes any of
+them, and **the eight records added here add no citable numbers either**: every figure in this block
+is inside a code span or a fenced block, which is the convention this file has used since D-052 and is
+what keeps `docs/DECISIONS.md`'s deferred count at `42` while the file grows.
+
+**The plain statement, unchanged and now measured twice.** `fall` is `0` against
+`MIGRATION_QUOTA = 12`. `from_record_file` is `0` against `RECORD_FILE_FLOOR = 12`. **A floor of `12`
+per round on a payable population of `0` is not a policy that is hard to satisfy; it is one that
+cannot be satisfied by any round, and the sixth waiver is arithmetic rather than judgement.** The only
+remaining payment shapes are deletion — refused five times, because deleting a number from a closed
+decision record to satisfy a gate is the gaming this policy exists to stop — and fencing, which
+`trajectory_problems` correctly refuses to count toward the floor.
+
+**The two questions for the maintainer, re-asked for a third round because neither has been answered.**
+`(1)` Should `MIGRATION_QUOTA` and `RECORD_FILE_FLOOR` count movement on the **value-matched** ledger,
+where `13` numbers in `docs/DECISIONS.md` are unambiguously citable today and the schema turns the
+build red for recording them honestly and green for recording them as zero? `(2)` Both floors should be
+re-set to a number the ledger can supply, or replaced by D-109's first escalated replacement — a
+per-file `closed` disposition backed by the probe. **Five measurements now say the same thing and the
+sixth is this one. What has never happened is an answer**, and the waiver text is the only place
+either question is written down where a gate will make somebody read it.
+
+**What this round's row buys, stated so nobody reads it as progress.** Nothing was migrated and the
+trajectory does not move: `185` to `185`, `by_citation=0`. It buys one fact, and it is the fact the
+previous ten rows could not state: **the burn-down's terminal state has now been measured twice, over
+all ten files, by two different rounds, and the second measurement is `0` payable rather than a small
+number.** That is what a finished burn-down looks like, and the policy has no way to say so.
+
+---
+
+## D-145 — **The cold read's ten findings are fixed rather than filed, and the one that mattered most was graded MEDIUM: the release notes understated what breaks.** Nine of the ten were a figure that was true when written; the tenth was a defect list ordered backwards
+
+**Status:** every finding re-derived, fixed, and the fix re-derived ·
+**Amends:** `CHANGELOG.md`'s `[0.4.0]` lead and six of its entries, `README.md` ×3,
+`docs/GATES.md:28`, `docs/POSITIONING.md`, `docs/SUPPORT_MATRIX.md`,
+`docs/DEFINITION-OF-DONE.md` criterion `9`, `tools/sample_claims.py`'s `CLOSED_SERIES` and its tests ·
+**Evidence:** the commands quoted below, each run on the tree being tagged ·
+**Depends on D-137 through D-144**
+
+**This is the round that pays instead of recording.** D-139 named item `7` and said *"the fix is one
+bullet in the KNOWN-OPEN block and it is owed before the tag"*. D-142 graded ten findings STANDS and
+handed them forward. D-143 recorded `docs/GATES.md:28` as new. **Nine consecutive rounds have filed
+findings against `CHANGELOG.md` while a sibling owned it; this round owns it.** What follows is what
+each fix actually took, because the honest surprise is that the cheapest-looking finding was the only
+one needing a code change and a mutation test.
+
+### F-1 was graded MEDIUM and it is the most serious thing the cold read found
+
+The lead said *"Two breaking changes"* and *"everything else in this section is additive, opt-in, or
+documentation"*, while `data_packs` carried its own `BREAKING` label under **Removed**. **The
+direction is what makes it the worst of the ten**: every other finding overstates or lags, and this
+one *understates what breaks*, on the first screen, in the one paragraph a reader consults before
+deciding whether to upgrade. The lead now says three, the third has its own bullet carrying both the
+"nothing that ever worked" argument and the "cheap is not the same as absent" answer to it, and the
+paragraph records that it said two until the tag.
+
+### F-3 is the only finding that needed more than an edit, and the reproduction corrected my own probe first
+
+`loaders._read_pairs` dropping blank-key and blank-value rows. **The first reproduction attempt failed
+with `TypeError: load_csv() missing 2 required keyword-only arguments`** — the probe was written
+against a signature the library does not have. That is worth recording rather than quietly retrying:
+a probe that fails because the prober guessed the API is the cheapest possible instance of the defect
+class this whole discipline exists for, and it happened while *reproducing a defect about silent
+failure*. Re-run correctly:
+
+```
+5 data rows (one blank key, one blank value) -> len(cat.entries) == 3, 0 warnings,
+no member on the returned GovernedDictionary saying anything was dropped
+```
+
+It now leads the KNOWN-OPEN block, on D-139's argument that the five defects under it are reached by
+somebody already deep in the governed subsystem while this one is reached by loading a CSV. **The
+bullet states that no incidence figure is attached and that its ordering is therefore an argument and
+not a measurement** — unlike D-130's `0` of `285,839`, nobody has measured how many callers reach
+these loaders, and the rank must not borrow authority it has not earned.
+
+### F-7 through F-10 are one defect four times, and sweeping for the class found two more
+
+Each was a count that was right when written and stale in another document's units. Re-derived and
+fixed at every live site:
+
+```
+re-derived on the tree being tagged. Command output, not a benchmark measurement.
+  17 commands, 8 governed   <- re.findall on @group.command( ; CHANGELOG:854, README:543, README:738
+  20 criteria, 11 met       <- the page's own title and table ; README:785, docs/POSITIONING.md:491
+  21 of 42 in-situ          <- python tools/gates.py --check  ; docs/GATES.md:28
+  25 of 168 = 14.88 %       <- wilson(25,168) = [10.29, 21.04]; CHANGELOG:1269, CLOSED_SERIES
+```
+
+**The sweep found two instances the read had not listed**, which is the reason a class is swept rather
+than an assertion fixed — a sentence this repository has now written about itself three times in four
+commits. The split-proof entry said *"Two parties have now been unable to reproduce it"* where D-139
+records three, the cold read being the third; and `docs/SUPPORT_MATRIX.md` had a `17`-item list sitting
+directly above the words *"nine of sixteen"*.
+
+**And `docs/GATES.md` was not merely stale — it contradicted itself.** `:28` said *"forty-one gates"*
+while its own section titled *"The forty-second gate"*, two screens down, said
+`gates.architecture_boundaries` *"is ranked `40` of `42`"*. **A page that disagrees with itself about
+its own subject is worse than one that lags, because either half can be quoted in good faith.** Both
+halves now read `42`, and the page records having been wrong by exactly one round, twice, on the
+number its own first line tells the reader to check with a command.
+
+### The self-audit constant is corrected at a release commit, for the second time in two rounds, and both deferrals ran in the same direction
+
+`CLOSED_SERIES` said `6` rounds / `144` draws / `23` not true. D-132 measured `7` / `168` / `25` and
+**declined to rewrite a sibling's constant and its tests at the end of a round** — the same reason the
+round before it declined, one round earlier, for the five-to-six correction. Deferring twice would
+have shipped release notes printing `15.97` % beside a record in the same tree saying `14.88` %.
+
+Corrected here, and the test pins the round **count** rather than only the arithmetic, because both
+failures were closures declared over a round that was already running. Mutation-verified: setting
+`rounds` back to `6` fails
+`test_the_series_is_closed_at_seven_rounds_not_five_and_not_six` at `tests/test_sample_claims.py:111`.
+A new test re-derives the retirement argument instead of quoting it — a seventh point moved the
+estimate `1.09` and the half-width `0.59`, so **the interval is still moving faster than it shrinks,
+for the third consecutive round**, which is why the instrument is retired rather than extended.
+
+**One test was corrected in the other direction, and the distinction is the point.**
+`test_the_render_always_names_the_predecessor_series` reddened on the constant's change. It asserts
+that the closure is *printed* beside a draw, not what the closure *is*, so it now reads the constant
+rather than a literal. **A test that fails when its subject is legitimately updated is a test
+asserting the wrong thing.** The constant's own tests are where a literal belongs, and they are where
+the mutation was demonstrated.
+
+### What the claims gate is provably blind to here, stated rather than implied
+
+**None of F-7 to F-10 could have been caught by any gate in this repository, and that is structural
+rather than a tuning gap.** Each figure is either spelled as an English word (`seven`, `sixteen`,
+`fourteen`, `forty-one`) or sits inside a code span that `prose_of()` masks before the collector runs.
+`python tools/check_claims.py` exits `0` on the tree before these fixes and on the tree after them.
+**Three cold reads have now found this class and no round has proposed a gate for it, including this
+one**: a collector that read word-spelled numerals would arm on ordinary prose across ten files, and
+nobody has measured that false-positive rate. Recorded as an open instrument gap with a named cost,
+not as a TODO — the honest position is that the fifth instance will appear the same way.
+
+### What this round did NOT fix, with dispositions
+
+- **F-4 (HALF): `PhysicalName.unaccounted` is absent from `2` of `3` governed CLI renderers.**
+  A change to output surfaces on the release commit, for a field whose incidence is `0` across the
+  `285,839` distinct strings in the two published governed corpora. **Deferred to `0.4.1`
+  deliberately**: the release-blocking question is whether the notes are true, and they are.
+- **`tools/run_summary.py`'s `GATE_KEYS` carries eight names against a brief listing ten.** Sixth
+  consecutive round to decline, and correctly. D-136 established the fix invalidates every summary
+  already filed against the eight-key schema; it belongs to the commit that fixes the brief's list,
+  not to a release commit.
+- **The `[0.4.0]` section's historical entries are marked superseded rather than rewritten.** Three
+  sentences were true when written and false at the tag — fourteen criteria, the ninth DoD sweep,
+  `docs/GATES.md` opening at `0` of `36`. **A release section covering three mandates will always
+  contain its own history**, and deleting it would hide that the figures moved at all. Each now names
+  what supersedes it and where the live number is.
+
+### The cold-read register says four reads where eight have run, and the gate cannot see it
+
+`python tools/second_reader.py --check` prints *"cold reads: `4` recorded; newest `2026-09-08`"* and
+exits `0`. **Eight cold reads have happened**, the eighth being the one whose findings this record
+fixes. Reads three, six, seven and eight are absent from `docs/cold-reads.toml` entirely, so the
+register's *"findings: open `5`, fixed `10` (of `15`)"* is a count of the reads somebody filed and not
+of the reads that ran. **The gate is green because it validates the ledger against itself**: it checks
+that the cursor is derivable, that dispositions exist and that open findings are re-affirmed. Nothing
+in it can know a read happened and was never entered. **That is this repository's signature defect
+found in the instrument written to prevent it**, and it is the third round in which a record survived
+while the account of it did not.
+
+**Registering the eighth read was attempted and refused, and the mechanism is worth stating because
+it is a schema gap rather than laziness.** `_validate_findings` requires every `open` finding's
+`reviewed_in` to name the newest read — the rule that keeps a finding nobody applies from rotting.
+Appending a read dated `2026-09-15` therefore forces `reviewed_in = "2026-09-15"` onto all five open
+findings, which **asserts that the eighth read re-affirmed them.** It did not: it was scoped by the
+release brief to the release notes, and four of the five subjects are `.github/gates.toml`'s ranking,
+`docs/SECOND-READER.md`'s trigger rule, `tools/gate_sdist_files.py` and `tools/render_figures.py`.
+Entering that field would be filing a review that never happened, in the register whose entire
+purpose is that nothing rots without a name against it.
+
+**So the five were re-verified here instead, by the applier, and all five stand:**
+
+```
+re-derived at the release commit. Command output, not a benchmark measurement.
+  F-5-3  gates.figures is cost_rank 3 and README.md embeds 0 figures      STANDS
+  F-5-5  docs/SECOND-READER.md has no trigger-B skip rule                STANDS
+  F-5-6  tools/gate_sdist_files.py still prints per-entry reasons         STANDS
+  F-5-7  tools/render_figures.py -- PROBE TOO CRUDE to confirm "two
+         allowlists"; one reference found, the claim is about a second
+         list inside the module under test                          NOT RE-DERIVED
+  F-5-8  docs/GATES.md still carries "verbatim" in 4 places               STANDS
+```
+
+**F-5-7 is recorded as not re-derived rather than as standing**, because a grep that counts one
+occurrence of a word does not test a claim about two lists. Saying "verified" of it would have been
+the error this whole record is about, one level up.
+
+**The disposition, named so the next round does not re-discover it.** The register needs one field the
+schema does not have: a distinction between *re-affirmed by the reader* and *re-affirmed by the
+applier*, or a notion of a **scoped** read that re-affirms only what it covered. Either is a policy
+change to the cursor and disposition rules, which is not a thing to land in the commit being tagged.
+**It is owed to the round that makes it, and it is the fourth policy question this register has
+escalated without an answer.** What this record buys is that the gap is now measured — four filed
+against eight run — rather than invisible behind a green tick.
+
+---
+
 **Mandate III Phase D round two — D-127 through D-136, and they are in ASCENDING order**, like the
 two blocks below them. D-127 frames the round. D-128 to D-131 are the four workstreams in dependency
 order, D-132 to D-135 are the instruments that read them, and D-136 is the quota. Read them down the

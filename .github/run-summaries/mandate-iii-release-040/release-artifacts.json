@@ -1,0 +1,55 @@
+{
+  "label": "release-artifacts",
+  "status": "complete",
+  "headline": "The 0.4.0 artifacts are releasable and the SBOM landmine is cold, but pyproject shipped this round at 0.3.0 and PyPI ALREADY HOLDS 0.3.0 -- so the release as handed over would have aborted in the build job. One line changed. The extracted sdist runs green at 5,721 passed / 210 skipped / 3 xfailed, and it verifies 466 fewer things than the checkout: 266 tests never collected, 200 newly skipped.",
+  "shipped": [
+    "acronymkit-0.4.0-py3-none-any.whl (679,669 B, 86.4% of the 786,432 B budget, 106,763 B headroom) and acronymkit-0.4.0.tar.gz (2,949,455 B, 261 files), both twine check PASSED",
+    "pyproject.toml [project] version 0.3.0 -> 0.4.0; the only repository file this workstream changed, and the release cannot happen without it",
+    "publish.yml build-job tag assertion simulated on the real wheel: v0.4.0 OK, 0.4.0 OK, v0.4.1 FAILS, release-0.4.0 FAILS -- plus vv0.4.0 OK, which is lstrip(v) stripping every leading v",
+    "publish.yml PyPI-existence guard simulated live: 0.4.0 -> HTTP 404 (safe to upload); 0.3.0 -> EXISTS, both files",
+    "the SBOM assertion re-run on a real CycloneDX 1.6 document from a real --without-pip venv: root component acronymkit, 5 components, pydantic + pydantic-core + typing-extensions all present, PASSES",
+    "the extracted sdist own suite: 5,721 passed, 210 skipped, 3 xfailed, 0 failed, 0 errors, rc=0",
+    "four repo gates re-run INSIDE the extracted sdist -- gates.py --check, splits.py --check, check_claims.py, render_figures.py --check -- all rc=0",
+    "every relative link out of README.md (24) and the release notes (9) derived and resolved against the real sdist: 24 of 24 and 9 of 9 present"
+  ],
+  "run_ids": [],
+  "files_changed": [
+    "pyproject.toml",
+    ".github/run-summaries/mandate-iii-release-040/release-artifacts.json",
+    ".github/run-summaries/mandate-iii-release-040/round.toml"
+  ],
+  "pre_registration": "Seven expectations, written before building. (1) pyproject would still read 0.3.0 and the bump would be nobody's filed work -- FIRED. (2) RELEASE_CHECKLIST sections 1-2 premise, that this distribution has never been published, would be false, because publish.yml own comment says 0.3.0 reached PyPI by workflow_dispatch -- FIRED, PyPI serves both 0.3.0 files. (3) twine check PASSED on both -- held. (4) the sdist suite would run green but verify materially less than the checkout -- held, 466 fewer passes, decomposed exactly. (5) all three SBOM components present, because pydantic is still declared and pulls the other two -- held; the landmine is NOT armed. (6) the markdown-link guard would have a hole in prune/exclude modelling -- MEASURED FALSE: 0 files are covered-by-the-parser and absent-from-the-artifact. (7) at least one README or CHANGELOG link target would be missing from the real sdist -- MEASURED FALSE: 33 of 33 resolve. Two of seven predictions were killed by the measurement.",
+  "how_it_fails": "A locally built sdist is built by CPython 3.13.4 on win32 with this machine setuptools; the runner is Python 3.12 on ubuntu-latest with its own. Everything here is evidence only about defects deterministic in the FILE LIST and in code that does not branch on platform. Four named blind spots. (a) sdist_files, link and manifest findings transfer; a setuptools version difference in PKG-INFO generation, license-file handling or default-include behaviour does not, and PEP 639 metadata is exactly where this project has already been bitten. (b) 210 of the sdist suite 5,934 outcomes are skips, and 71 of them skip on 'not a source checkout' or 'bench/ is not in this checkout' -- the artifact cannot test those paths anywhere, not just here. (c) The SPDX half of the SBOM check is UNVERIFIED: syft is a Go binary the action fetches and it cannot run here. Its input (the six dist-info directories it would scan) and the CycloneDX half were verified with publish.yml own assertion code; the rest is inference. (d) the offline-bundle step, the attestation and gh release upload were not exercised at all; they are the long pole and the only steps that need a working index.",
+  "not_done": [
+    "The SPDX SBOM was never generated. syft is not installable here; only its input set and the CycloneDX half were verified.",
+    "The seven offline bundles, the attest job and release-assets were not exercised. tools/make_offline_bundle.py was not run.",
+    "TestPyPI dry run (checklist section 6) not performed; it is the only cheap test of the trusted-publisher configuration and it is still untested for 0.4.0.",
+    "docs/RELEASE_CHECKLIST.md was NOT corrected. Sections 1-5, 9 and 10 are written for 0.3.0 and sections 1-2 assert the package has never been published, which PyPI contradicts. Not this workstream file to rewrite; flagged as the operator largest reading hazard.",
+    "The four dangling markdown links were not fixed; three are broken in the checkout too and none is in the release notes or README.",
+    "CODE_OF_CONDUCT.md is not shipped in the sdist and is not in MANIFEST.in. Nothing links to it, so no guard fires. Left alone."
+  ],
+  "gates": {
+    "pytest": "6187 passed, 10 skipped, 3 xfailed  rc=0 (checkout); 5721 passed, 210 skipped, 3 xfailed  rc=0 (extracted sdist)",
+    "ruff": "All checks passed!  rc=0",
+    "ruff_format": "186 files already formatted  rc=0",
+    "mypy": "Success: no issues found in 124 source files  rc=0",
+    "claims": "unbacked 0 | deferred 185 of 185 | value-matched 64 of 64  rc=0 (re-run after the sibling CHANGELOG edit; the deferred register did not grow)",
+    "splits": "splits manifest OK  rc=0",
+    "gates": "CARRYING IN-SITU EVIDENCE 21 of 42; gate manifest OK  rc=0",
+    "second_reader": "findings open 5, fixed 10, blocked 0, permanent 0 (of 15); OPEN AND AT THE LIMIT 0 of 5  rc=0"
+  },
+  "claims_for_sampling": [
+    "PyPI serves acronymkit 0.3.0 today: acronymkit-0.3.0-py3-none-any.whl and acronymkit-0.3.0.tar.gz, and /pypi/acronymkit/json lists exactly ['0.3.0'].",
+    "docs/RELEASE_CHECKLIST.md line 3 asserts that this distribution has never been published and that pip install acronymkit returns 404 today, and that is false.",
+    "pyproject.toml read version = 0.3.0 when this round handed over; this workstream changed it to 0.4.0 and that is the only repository file it edited for the release.",
+    "python -m twine check dist/* prints exactly: Checking dist/acronymkit-0.4.0-py3-none-any.whl: PASSED / Checking dist/acronymkit-0.4.0.tar.gz: PASSED",
+    "The wheel is 679,669 bytes, 86.4% of the 786,432-byte budget, with 106,763 bytes of headroom; lexicon_en.txt is 205,920 of those bytes compressed.",
+    "publish.yml tag assertion accepts vv0.4.0, because GITHUB_REF_NAME.lstrip('v') strips every leading v rather than one.",
+    "typing_extensions is imported by 0 of the 65 .py files in the built wheel; it is a declared direct runtime dependency that nothing in the shipped code uses, and it reaches the SBOM transitively through pydantic.",
+    "pydantic is imported at module top level (indent 0) in 4 of the 65 wheel modules: cli.py, config.py, models.py, serialization.py.",
+    "The real CycloneDX 1.6 document names 5 components -- annotated-types, pydantic, pydantic-core, typing-extensions, typing-inspection -- and publish.yml own assertion code run against it PASSES.",
+    "The extracted sdist collects 5,934 tests against the checkout 6,200: 266 are never collected and 200 more are skipped, and 266 + 200 = 466 = 6,187 - 5,721 exactly.",
+    "All 79 files under tests/ ship in the sdist; the collection gap is entirely collection-time, not a missing test file.",
+    "docs/EVALUATION.md links to bench/run_governed_perf.py, which the sdist does not ship, and neither manifest guard fires because bench is whitelisted whole in _LINKS_NOT_SHIPPED."
+  ]
+}

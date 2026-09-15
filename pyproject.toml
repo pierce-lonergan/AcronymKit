@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "acronymkit"
-version = "0.3.0"
+version = "0.4.0"
 description = "Governed acronym expansion against a catalog you supply, reporting what it cannot account for as unknown; generation, extraction and disambiguation measured beside it."
 readme = "README.md"
 requires-python = ">=3.9"

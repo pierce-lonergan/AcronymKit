@@ -195,8 +195,6 @@ if TYPE_CHECKING:
 
 #: Version reported when the distribution metadata is unavailable, which is the
 #: case in an un-installed source checkout.
-_FALLBACK_VERSION = "0.3.0"
-
 #: Public name -> the submodule it is resolved from. This is the whole lazy
 #: import table; every entry is also in :data:`__all__`, and the reverse holds
 #: except for ``__version__``, which is computed rather than imported. The
@@ -397,7 +395,19 @@ def _resolve_version() -> str:
 
     Returns:
         The version recorded in the distribution metadata, or
-        :data:`_FALLBACK_VERSION` in an un-installed source checkout.
+        :data:`acronymkit.core.version.FALLBACK_VERSION` in an un-installed
+        source checkout.
+
+    Note:
+        The fallback is imported **inside the except branch**, not at module
+        scope. A module-scope ``from .core.version import ...`` binds
+        ``acronymkit.core`` on a bare ``import acronymkit``, which breaks the
+        lazy-import guarantee ``tests/test_package.py`` pins -- and it did:
+        `test_a_bare_import_binds_no_submodule_and_no_pydantic` and
+        `test_resolving_one_export_imports_only_the_module_that_defines_it`
+        both reddened on the commit that introduced the shared constant. The
+        fallback is reached only when the distribution is not installed, so
+        paying an import for it on the hot path was cost for nothing.
     """
     from importlib.metadata import PackageNotFoundError
     from importlib.metadata import version as distribution_version
@@ -405,7 +415,9 @@ def _resolve_version() -> str:
     try:
         return distribution_version("acronymkit")
     except PackageNotFoundError:  # pragma: no cover - un-installed source checkout
-        return _FALLBACK_VERSION
+        from .core.version import FALLBACK_VERSION
+
+        return FALLBACK_VERSION
 
 
 def __getattr__(name: str) -> Any:

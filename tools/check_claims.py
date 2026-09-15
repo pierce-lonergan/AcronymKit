@@ -2911,6 +2911,133 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
             "FIFTH IS THIS ONE; WHAT HAS NEVER HAPPENED IS AN ANSWER."
         ),
     ),
+    LedgerRound(
+        label="M3-R040 (the release, payable 0)",
+        deferred=185,
+        value_matched=64,
+        note=(
+            "Mandate III, the 0.4.0 release. 8 records were added, D-137 through D-144, so the "
+            "pin went red at 144 against 136 before a word of migration was written -- the ninth "
+            "consecutive round in which the binding did its job. THE WALK WAS RE-RUN OVER ALL TEN "
+            "FILES RATHER THAN INHERITED, because inheriting it is what four consecutive waivers "
+            "before D-136 did wrong. --classify puts the 185 at gate-able 52, blocked 129, "
+            "not-a-claim 4; the run-id-naming probe, re-run over all 185 with the same +/- "
+            "12-line window and the same restriction to fields under a run-id prefix the window "
+            "NAMES, returns CITABLE 6, run-id-named-but-no-field 98, no-run-id-nearby 53, "
+            "named-run-several-fields 28. gate-able fell 56 to 52 and CITABLE fell 9 to 6, both "
+            "by exactly D-136's four payments, so the probe reproduces. AND THE RESIDUE HAS "
+            "REACHED A SHAPE NO PREVIOUS ROUND HAD: ALL 6 REMAINING CITABLE NUMBERS ARE IN ONE "
+            "FILE AND IT IS CHANGELOG.md. They are :1391 14.01, :1392 85.99, :1454 41.50 and "
+            "38.60, :1455 96,532 and :1569 96.5 -- all six in the 0.3.0 section or earlier, which "
+            "independently confirms that the new [0.4.0] section contributes 0 deferred numbers "
+            "and that a bare new number there would be the 186th. Three independent reasons block "
+            "all 6, any one sufficient: CHANGELOG.md is whole-file blocked since D-109 because "
+            "--render would rewrite a RELEASED entry; this round it is owned by a sibling "
+            "workstream and frozen for the cold read; and the [0.4.0] section now carries 53 "
+            "rendered claim citations where [0.3.0], [0.2.0] and [0.1.0] carry 0 between them, so "
+            "the file has MORE render-sensitive surface after this release than before it. The "
+            "record file was walked a fifth time and is 0 of 42, the same verdict D-097, D-109, "
+            "D-118, D-126 and D-136 each reached. The 8 records added this round add no citable "
+            "numbers either: every figure in them is inside a code span or a fenced block, which "
+            "is the convention this file has used since D-052 and is what keeps docs/DECISIONS.md "
+            "at 42 deferred while the file grows. Trajectory: 316, 262, 231, 213, 201, 189, 189, "
+            "189, 189, 189, 185, 185. D-144."
+        ),
+        waiver=(
+            "SIXTH WAIVER, AND THE FIRST WHOSE PAYABLE POPULATION IS 0 FOR A REASON THAT IS NOT "
+            "THE RESIDUE. fall is 0 against MIGRATION_QUOTA 12; from_record_file is 0 against "
+            "RECORD_FILE_FLOOR 12. The payable population across the entire deferred ledger is "
+            "0, measured and not inherited, because every citable number left in the ledger is in "
+            "CHANGELOG.md and CHANGELOG.md is the release notes -- whole-file blocked since "
+            "D-109, owned by another workstream this round, and frozen for a cold read of the "
+            "release. A floor of 12 per round on a payable population of 0 is not a policy that "
+            "is hard to satisfy; it cannot be satisfied by any round, and this waiver is "
+            "arithmetic rather than judgement. The only remaining payment shapes are deletion -- "
+            "refused five times, because deleting a number from a CLOSED decision record to "
+            "satisfy a gate is precisely the gaming this policy exists to stop -- and fencing, "
+            "which trajectory_problems already refuses to count toward the floor, correctly. TWO "
+            "QUESTIONS FOR THE MAINTAINER, RE-ASKED FOR A THIRD ROUND BECAUSE NEITHER HAS BEEN "
+            "ANSWERED. (1) Should MIGRATION_QUOTA and RECORD_FILE_FLOOR count movement on the "
+            "VALUE-MATCHED ledger, where 13 numbers in docs/DECISIONS.md are unambiguously "
+            "citable today and the schema turns the build red for recording them honestly and "
+            "green for recording them as zero? (2) Both floors should be re-set to a number the "
+            "ledger can supply, or replaced by D-109's first escalated replacement -- a per-file "
+            "closed disposition backed by the probe. FIVE MEASUREMENTS NOW SAY THE SAME THING AND "
+            "THE SIXTH IS THIS ONE; WHAT HAS NEVER HAPPENED IS AN ANSWER. WHAT THIS ROW BUYS, "
+            "STATED SO NOBODY READS IT AS PROGRESS: nothing was migrated, the trajectory does not "
+            "move, and 185 stands. It buys one fact the previous ten rows could not state -- the "
+            "terminal state of the burn-down has now been measured TWICE, over all ten files, by "
+            "two different rounds, and the second measurement is 0 payable rather than a small "
+            "number. That is what a finished burn-down looks like and the policy has no way to "
+            "say so."
+        ),
+    ),
+    LedgerRound(
+        label="M3-R041 (the cold-read fixes, payable 0 and now WHY)",
+        deferred=185,
+        value_matched=64,
+        note=(
+            "Mandate III, the commit being tagged as 0.4.0. One record added, D-145, so the pin "
+            "went red at 145 against 144 -- the tenth consecutive round in which the binding did "
+            "its job, and the first in which the round it forced was a round that FIXED things "
+            "rather than recording them. THE WALK WAS RE-RUN, NOT INHERITED, and it reproduces "
+            "D-144 to the digit: --classify puts the 185 at gate-able 52, blocked 129, "
+            "not-a-claim 4; docs/DECISIONS.md holds 42 on the ledger against a "
+            "DEFERRED_BASELINE of 42; deferred is 185 unchanged, which independently confirms "
+            "that D-145 contributes 0 deferred numbers -- every figure in it is inside a code "
+            "span or a fenced block, the convention this file has kept since D-052. "
+            "AND THIS ROUND MEASURED SOMETHING THE PREVIOUS SIX WALKS DID NOT: WHY THE RECORD "
+            "FILE'S 42 CANNOT BE CITED, PER FIGURE RATHER THAN IN AGGREGATE. All 42 sit in six "
+            "closed records -- D-023 (20 of them), D-048 (5), D-013 (4), D-051, D-026, D-007 -- "
+            "the newest of which predates this phase entirely. 25 of the 42 are reported by the "
+            "gate itself as NO MEASUREMENT MATCHES, so no citation exists to write. The other 17 "
+            "value-match, and value matching is not a citation: it verifies that some "
+            "measurement somewhere happens to equal the number. The only run in bench/results.json "
+            "that could plausibly source D-023's import-cost table is micro.import, whose four "
+            "fields are cold_first_result_ms 196.0, cold_import_engine_ms 128.1, cold_import_ms "
+            "2.3 and iterations 9 -- and NOT ONE of D-023's twenty figures (84.6, 2.1, 139.60, "
+            "30.09, 87.96, 21.55, 89.08, 9.21, 347.60, 269.80, 422.80, 298.70, 0.26, 0.35, 7.6, "
+            "30, 44) equals any of them. Greps for pydantic, timing, latency and plural across "
+            "all 730 runs return 0. THE RESIDUE IS UNPAYABLE BECAUSE THE INSTRUMENTS THAT "
+            "PRODUCED IT WERE RETIRED, not because the policy is demanding. That is a different "
+            "claim from 'payable 0' and it is the first time this ledger has been able to make "
+            "it. Trajectory: 316, 262, 231, 213, 201, 189, 189, 189, 189, 189, 185, 185, 185. "
+            "D-145."
+        ),
+        waiver=(
+            "SEVENTH WAIVER, AND THE FIRST TO NAME A MECHANISM RATHER THAN A COUNT. fall is 0 "
+            "against MIGRATION_QUOTA 12; from_record_file is 0 against RECORD_FILE_FLOOR 12. "
+            "D-144's waiver rested on three blocks over the CHANGELOG.md residue and TWO OF THE "
+            "THREE HAVE NOW EXPIRED -- the file is no longer frozen for a cold read and no longer "
+            "owned by a sibling workstream; this round wrote 11 edits into it. So the waiver was "
+            "re-argued rather than re-quoted, and what survives is D-109's whole-file block: "
+            "--render would rewrite a RELEASED changelog entry, and all 6 remaining citable "
+            "numbers are in the 0.3.0 section or earlier. That block is stronger after this "
+            "release, not weaker: the [0.4.0] section now carries rendered claim citations where "
+            "[0.3.0], [0.2.0] and [0.1.0] carry none between them. "
+            "FOR THE RECORD FILE THE ARGUMENT IS NO LONGER ARITHMETIC BUT PHYSICAL. Citation is "
+            "impossible for 25 of 42 because the gate reports no measurement matches, and "
+            "impossible for the other 17 because the harness that produced them is retired and "
+            "the surviving 730 runs carry no field with those values -- checked, not assumed, "
+            "against micro.import field by field. Deletion is refused for the seventh time: "
+            "removing a number from a CLOSED decision record to satisfy a gate is exactly the "
+            "gaming this policy exists to stop, and it would destroy the only surviving evidence "
+            "for a decision the project still depends on. Fencing is refused by "
+            "trajectory_problems toward the floor, correctly. "
+            "THE TWO QUESTIONS FOR THE MAINTAINER ARE RE-ASKED FOR A FOURTH ROUND, AND THE FIRST "
+            "ONE NOW HAS A SHARPER EDGE. (1) Should the floors count movement on the VALUE-MATCHED "
+            "ledger, where 13 numbers in docs/DECISIONS.md are unambiguously citable today and the "
+            "schema turns the build red for recording them honestly and green for recording them "
+            "as zero? (2) Both floors should be re-set to a number the ledger can supply, or "
+            "replaced by D-109's escalated alternative -- a per-file closed disposition backed by "
+            "the probe. WHAT THIS ROW BUYS, STATED SO NOBODY READS IT AS PROGRESS: nothing was "
+            "migrated, the trajectory does not move, and 185 stands for a third consecutive round. "
+            "What it buys is the retirement argument for the policy itself -- a burn-down whose "
+            "remaining items are measurements from decommissioned instruments is FINISHED, and a "
+            "floor of 12 per round against it is a permanent red light on a closed task. Seven "
+            "rows now say so and none has been answered."
+        ),
+    ),
 )
 
 #: How many records :data:`RECORD_FILE` held when the newest round was appended.
@@ -2936,7 +3063,9 @@ LEDGER_TRAJECTORY: Tuple[LedgerRound, ...] = (
 #: the gate reads, and ``label`` puts the words "which round paid for this"
 #: into the diff. It is a deterrent, not a mechanism, and calling it a mechanism
 #: would be the same overclaim this policy exists to stop.
-RECORD_FILE_PIN = RecordPin(label="M3-PD2 (the first walk over all ten files)", records=136)
+RECORD_FILE_PIN = RecordPin(
+    label="M3-R041 (the cold-read fixes, payable 0 and now WHY)", records=145
+)
 
 
 def count_records(text: str) -> int:

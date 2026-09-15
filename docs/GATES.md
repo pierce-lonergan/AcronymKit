@@ -25,10 +25,19 @@ paragraph.
 
 ## Read this before the table
 
-**The register holds forty-one gates and twenty-one of them carry in-situ evidence.** Run
+**The register holds forty-two gates and twenty-one of them carry in-situ evidence.** Run
 `python tools/gates.py --check` rather than trusting that sentence; it is the number this page has
 got wrong most often, and it was wrong here by a whole round until somebody adding the forty-first
 gate noticed.
+
+**And then it was wrong by a round again, and this time the page disagreed with itself.** This
+paragraph read *"forty-one gates"* through the `0.4.0` release preparation while
+[the section on the forty-second](#the-forty-second-gate-the-package-boundary-and-two-of-its-three-edges-are-tautologies)
+sat further down the same page and its own prose said `gates.architecture_boundaries` *"is ranked `40`
+of `42`"*. **A page that contradicts itself about its own subject two screens apart is worse than a
+page that is merely stale**, because either half can be quoted in good faith. The count above is now
+the register's, re-derived at the tag: `21 of 42`. The lesson this page keeps failing to apply to
+itself is the one in its own first line — **run the command**.
 
 The count moved twice in two rounds and neither move is flattering. `M3-PB` registered `figures`
 and `memo_identity` owing evidence forward; they were demonstrated on a runner two days later and

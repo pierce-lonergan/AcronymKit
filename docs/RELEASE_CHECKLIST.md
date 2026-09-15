@@ -1,9 +1,24 @@
 # Release checklist
 
-This distribution has never been published. `pip install acronymkit` returns 404 today, which is why
-[D-001](DECISIONS.md) could cut publishing and why [D-023](DECISIONS.md) could call a breaking change
-free. The first upload ends both of those, so this file is written for the person doing it at
-eleven at night with nobody to ask.
+**CORRECTED 2026-09-15: THIS DISTRIBUTION HAS BEEN PUBLISHED, AND THIS PAGE SAID OTHERWISE WHILE
+BEING THE PAGE YOU READ TO PUBLISH IT.** The opening paragraph read *"This distribution has never
+been published. `pip install acronymkit` returns 404 today, which is why [D-001] could cut publishing
+and why [D-023] could call a breaking change free. The first upload ends both of those."*
+
+`0.3.0` reached PyPI on 2026-08-11 — `pypi.org/pypi/acronymkit/json` lists it, and
+`.github/workflows/publish.yml`'s own comment records that it went by `workflow_dispatch` after two
+`release`-event attempts failed. So the first upload already happened, D-001 and D-023's freedom is
+already spent, and **every downstream section written on the never-published premise is stale**:
+section 2's pending-publisher setup, the `0.3.0` literals through sections 5 to 9, and section 10's
+warning about a changelog bullet that has since been fixed.
+
+The correction is left visible rather than swapped, because of where it was: **a procedure whose own
+first sentence is false, read by somebody at eleven at night with nobody to ask.** That is this
+page's own description of its reader, and it is the argument for fixing the sentence rather than
+remembering it.
+
+This file is still written for that reader. Treat the `0.3.0` literals below as worked examples of
+the shape, not as the version you are cutting.
 
 Read section 1 before you start. It is the list of things that cannot be undone.
 
@@ -152,9 +167,20 @@ it. Section 1 says why: the tag will not run it for you.
 
 ## 4. Version, changelog, tag — the three that must agree
 
-`pyproject.toml` `[project] version` is the only place the version is written. `__version__` is
-resolved at runtime from installed distribution metadata, so there is no second constant to bump and
-no risk of the two drifting.
+`pyproject.toml` `[project] version` is the version of record, and `__version__` resolves at
+runtime from installed distribution metadata.
+
+**This paragraph used to say it was "the only place the version is written ... so there is no second
+constant to bump and no risk of the two drifting". There were two more, and they had already
+drifted.** `acronymkit/__init__.py` held `"0.3.0"` and `acronymkit/engine.py` held `"0.1.0"` as
+fallbacks for an un-installed checkout — disagreeing with each other before `0.4.0` existed, and
+invisible because the metadata path wins in every checkout and every CI cell, so neither was ever
+read. `tests/test_engine.py` asserts the two agree and could not fail.
+
+There is now one constant, `acronymkit.core.version.FALLBACK_VERSION`, read by both;
+`tests/test_version_fallback.py` drives the path with the metadata removed and fails the release
+commit that bumps `pyproject.toml` and forgets it. **So the claim is true again — but it is true
+because it was made true, not because it was ever checked.**
 
 Three things must line up, and `publish.yml` enforces one of the three:
 

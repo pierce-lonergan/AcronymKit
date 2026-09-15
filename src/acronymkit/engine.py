@@ -125,6 +125,7 @@ from .backronym import BackronymGenerator
 from .batch import arun_batch, run_batch
 from .config import Config
 from .core.exceptions import EmptyPhraseError, NoCandidateError
+from .core.version import FALLBACK_VERSION
 from .disambiguation import ExpansionDictionary, LexicalDisambiguator
 from .enums import EngineTier
 from .generator import ForwardGenerator
@@ -154,7 +155,7 @@ _MS_PER_SECOND = 1000.0
 
 #: Reported as ``library_version`` when the distribution metadata is absent
 #: (running straight from a source checkout that was never installed).
-_FALLBACK_VERSION = "0.1.0"
+_FALLBACK_VERSION = FALLBACK_VERSION
 
 #: :attr:`~acronymkit.nlp.heuristic.HeuristicBackend.name`. A resolved backend
 #: with this name means no Tier 1 runtime was used.

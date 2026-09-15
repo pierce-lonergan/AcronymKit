@@ -7,40 +7,128 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Read this first: one governed verb now raises where it used to return a string.**
-`normalize()` refuses a name holding a character it cannot account for, instead of deleting the
-character and handing you the rest. If you call it on machine-generated schema exports, see the first
-entry under **Changed** — it names who this reaches, measured on two real corpora before the design
-was chosen, and it names two public pre-checks that do not raise. Two entries under **Changed** are
-marked BREAKING and both are in the governed naming subsystem.
+## [0.4.0] — 2026-09-15
 
-Nothing else here changes what the library computes. Read three more sections before upgrading.
-**Positioning** does not change any code and is the most important entry this project has written:
-what this library says it is for has changed, and if you adopted it for something else you should
-know that before the next release. **Removed** takes a key out of the capability report, which is a
-breaking change if your CI asserts on that report's key set. **Changed** also carries three reports
-that get *stricter* rather than different, one of which will newly flag identifiers a pipeline
-previously waved through, and one entry that makes governed expansion substantially faster while
-proving, over millions of records, that not one byte of output moved.
+Three mandates' work. **Three breaking changes -- two in the governed naming subsystem, one in the
+capability report -- and the change that sounds breaking is not one.** Read the three bullets below,
+the paragraph after them, and the known-open defects under that, before you upgrade; everything else
+in this section is additive, opt-in, or documentation.
+
+**The three breaking changes.** This paragraph said *two* until the tag, counting only the
+governed-naming pair while a third change carried its own `BREAKING` label two screens down under
+**Removed** -- so the first screen contradicted the section, and it did so in the direction of
+**understating** what breaks, which is the harder error to catch by reading and the worse one to
+ship. Corrected here rather than in the next release. `docs/DECISIONS.md` D-142 F-1.
+
+- **BREAKING: `catalog.normalize` raises `TokenizationError` where it returned a `str`.** A name
+  holding a character that belongs to no token and to none of the accounted separators is refused,
+  rather than handed back with the character deleted:
+  `normalize('TXN_©_ID', GovernedDictionary({}))` returned `'TXN_ID'` and `normalize('㎡', ...)`
+  returned `''`, a token gone and then a whole name gone, with no signal either time. **Who this
+  reaches, measured on two real corpora before the design was chosen:** `0.4664` % of distinct
+  Socrata field names and `0.0000` % of distinct SEC XBRL element names; per row rather than per
+  distinct value the Socrata figure is `1.3145` %, and every hit is the portal's own
+  `:@computed_region_…` family. **Two public pre-checks do not raise** — `is_compliant`, which
+  returns the finding, and `split_identifier_parts`, which returns the accounting. Full entry under
+  **Changed**.
+- **BREAKING: `is_compliant` reports `UNREADABLE_CHARACTER` and stops offering a `fix` that would
+  delete one.** The new whole-name `FAIL` finding carries `token=None` and **no** `fix`, and the
+  `fix` is suppressed on the three whole-name reason codes that would otherwise have carried the
+  deletion: `NOT_UPPER_SNAKE` used to answer `TXN_©_ID` with `fix='TXN_ID'`, which is a
+  machine-readable instruction to delete part of a name nobody approved. `compliant` never changes
+  value. Breaking if you exhaustively match the code set, or consume a whole-name finding's `fix`
+  without checking for `unreadable_character` first. Full entry under **Changed**.
+- **BREAKING for anyone who asserts on the capability report's key set: `data_packs` is gone.**
+  `capabilities()` no longer returns a `data_packs` key, `acronymkit doctor --format json` no longer
+  emits `.data_packs`, the text `doctor` report loses its `data packs : none` line, and
+  `acronymkit.diagnostics.DATA_PACK_GROUP` no longer exists. **What you lose is nothing that ever
+  worked** -- `acronymkit.data` was declared as an entry-point group that no code in this library has
+  ever loaded through, so the key could only ever report an empty list. It is a break anyway: "the
+  value was always `[]`" is a reason the break is cheap, not a reason it is not a break, and a
+  pipeline doing an exact key-set comparison fails on upgrade. `acronymkit.__all__` is unchanged --
+  the constant was never a top-level export. Full entry under **Removed**.
+
+**And the change that sounds breaking and is not: the package is split into three.**
+`acronymkit.core`, `acronymkit.nlp` and `acronymkit.catalog`. **All `19` pre-split import paths
+still work and resolve to the SAME OBJECTS** — identity, not equality — and they are kept **for the
+whole of the `0.x` line**: removal needs a major version, and a `DeprecationWarning` announced a
+minor release ahead of it. No warning is emitted today, deliberately. Every output is
+byte-identical. What *did* move is `__module__` on every moved class, so an uncaught traceback now
+prints `acronymkit.core.exceptions.ConfigurationError`; if you match on that string, read the full
+entry under **Changed**.
+
+**KNOWN-OPEN DEFECTS IN `0.4.0`.** They are listed here rather than only in `docs/`, because a
+reader of a release must be able to find what is known-broken without reading the source. Each has
+its full entry below, under **Notes** unless said otherwise.
+
+- **`loaders._read_pairs` silently drops rows, and it is the shallowest defect in this list.**
+  A CSV row whose key or whose value is blank is skipped with no warning, no count and **no member on
+  the returned `GovernedDictionary` saying anything was dropped**: a five-data-row file with one
+  blank-key row and one blank-value row loads as `3` entries and `0` warnings. It serves all three
+  CSV entry points -- `load_csv`, `load_long_to_short_csv` and `load_term_index_csv`. **Not fixed in
+  this release**, and it is listed first because the five defects under it are reached by a caller who
+  is already deep in the governed subsystem tuning thresholds or auditing a proof, while this one is
+  reached by loading a CSV, which is the first thing somebody building a governed catalog does. A
+  defect list that discloses the deep ones and omits the shallow one is ordered backwards, and this
+  section shipped that way until the tag. Unlike the two Unicode defects below, **no incidence figure
+  is attached** -- nobody has measured how many callers reach these loaders, so the rank above is an
+  argument and not a measurement. `docs/DECISIONS.md` D-139 item `7`, `docs/DEFINITION-OF-DONE.md`
+  criterion `7`.
+- **The two halves of the governed round trip disagree on `26` code points, and one of them reports
+  that nothing was lost.** `to_physical_name()` emits, for those `26`, a physical name that
+  `normalize()` then refuses to read back — `str.upper()` returns a base letter plus a combining
+  mark, and a combining mark is a character no governed token can hold — while reporting
+  `unaccounted=()`. **Not fixed in this release.** Pinned by a strict `xfail` plus positive tests,
+  so a partial repair reddens rather than passes, and its incidence is `0` across the `285,839`
+  distinct strings in the two published governed corpora.
+- **`1,050` code points break `normalize` idempotence, and that count is a property of your
+  interpreter rather than of this library.** `º` and its relatives stay lower-case under
+  `str.upper()`, which manufactures a camelCase boundary the splitter then places on the second
+  pass. No character is lost, so refusing would refuse a name that lost nothing. The class size
+  moves with the Unicode data your interpreter carries — `890` at Unicode `13.0`, `977` at `14.0`,
+  `1050` at `15.0` and `15.1`, `1048` at `16.0`, so it grows and then shrinks — while the `26` above
+  are `26` at all five. The two classes are disjoint and their union is `1,076` on Unicode `15.1`.
+  Also not fixed, pinned the same way.
+- **A2's `5.95` x coverage multiple is withdrawn as a claim about scored data.** The scored gain is
+  `+3.07` short-form exact recall points on PLOD-CW against a pre-registration that required ten,
+  and the multiple survives only as an occurrence count on PMC-OA. No corpus in this project can
+  score a document-scoped rule at article scope. See the `propagate()` entry under **Added**.
+- **Selective risk certifies on MED1250 and refuses on SDU-21**, and the refusal is published rather
+  than footnoted. `selective=` is a second bound beside the existing joint one and tightens nothing.
+  On SDU-21 AD dev not one of `21` candidate thresholds certifies at any of six alphas, and the
+  cause is not a small calibration set but a floor in the selection family — `17.53` % — which more
+  data will not move. See the `selective=` entry under **Added**.
+- **Both headline rows are still empty.** `python tools/splits.py --check` reports, per task, that
+  this project has **no** uncontaminated held-out corpus for extraction and none for
+  disambiguation — the two tasks the library leads with. The flagship extraction figure is a tuning
+  figure and every page that prints it says so.
+- **The byte-identity proof behind the package split cannot be re-run from this repository.** The
+  harness that produced the `3,619,227`-record comparison is not committed and the two governed
+  corpora are not distributed with the package, so the strongest claim this release makes about the
+  split rests on one party's word. **Three consecutive parties have now been unable to reproduce it**,
+  the release's cold read being the third.
+
+**What else to read before upgrading.** **Positioning** changes no code and is the most important
+entry this project has written: what this library says it is for has changed, and if you adopted it
+for something else you should know that before the next release. **Removed** carries the third
+breaking change in full -- the one summarised in the third bullet at the top of this section.
+**Changed** also carries three reports that get *stricter* rather than different — one will newly
+flag identifiers a pipeline previously waved through, and one changes what a digit run resolves to —
+and one entry that makes governed expansion substantially faster while proving, over millions of
+records, that not one byte of output moved.
 
 **And if you are here to decide whether a governed catalog is worth building**, read the entry under
 **Documentation** headed *what a governed catalog is worth on a real schema*. It is the only
 measurement anybody has of that question and it says less than its headline sounds like it says.
 
 **And A2 shipped.** `acronymkit.propagation.propagate()` extends a confirmed definition across a
-document, opt-in, changing no output you already had — see the first entry under **Added**, which
+document, opt-in, changing no output you already had — see the `propagate()` entry under **Added**, which
 also says what it is worth on the one corpus that can score it and why that is less than the round
 that commissioned it expected.
 
 **If you call `expand_identifier` in a hot loop, or you were hoping for a second-opinion verifier
 on `extract()`**, the first three **Documentation** entries are the ones for you. Neither changes
 any behaviour; both change what you should expect next.
-
-**And the package has been split into three, with every old import path kept.** `acronymkit.core`,
-`acronymkit.nlp` and `acronymkit.catalog` — see the first entry under **Changed**. **This is not a
-breaking change and it is not a deprecation**: every import you have written still works, still
-resolves to the same objects, and every output is byte-identical. What to read is the paragraph
-naming how long the old paths are kept and what would end that.
 
 ### Positioning
 
@@ -146,9 +234,13 @@ naming how long the old paths are kept and what would end that.
   - **What it buys, on the only corpus that can score it.** Short-form span exact recall on PLOD-CW
     moves from `36.53<!--claim:spans.plod.all.tight.acronymkit.high_precision.native.short_form.exact_recall:.2f-->` %
     to `39.60<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_recall:.2f-->` %
-    at `HIGH_PRECISION`, and precision does not fall:
+    at `HIGH_PRECISION`. **Precision holds in that cell and does not hold everywhere, and the
+    narrower sentence is the true one:**
     `93.66<!--claim:spans.plod.all.tight.acronymkit.high_precision.native.short_form.exact_precision:.2f-->` %
-    to `93.73<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_precision:.2f-->` %.
+    to `93.73<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_precision:.2f-->` %
+    on the `tight` arm, where propagation gains up to `0.21` points — while on the `spaced` arm it
+    costs up to `0.29`. It adds false positives in all six profile-by-convention cells; precision
+    holds in the `tight` arm only because true positives grow faster.
     That is `88<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_true_positives_new_from_propagation:,-->`
     gold spans reached that were not reached before, and `0<!--claim:spans.plod.all.tight.acronymkit.high_precision.propagated.short_form.exact_true_positives_lost_versus_definitions:,-->`
     lost. **It is three points and the round pre-registered ten**, so the coverage multiple this was
@@ -574,12 +666,16 @@ naming how long the old paths are kept and what would end that.
     9.68<!--claim:one_sense.pmc_oa.a2.high_precision.wrong_ceiling_correctness_pct_of_licensed:.2f--> %
     of what it licenses.
   - **Read the comparator before reading that as cheap.** The mechanism it would replace is wrong on
-    **none** of those occurrences, because it declines to answer them at all. This would buy coverage
-    and pay in correctness, and **it is still not shipping** — not because of the verifier result, but
-    because of that trade and because it would change what `extract()` returns on almost every
-    biomedical document, which republishes every recall figure this project has ever printed as a
-    figure about a different system. **The decision is the maintainer's and nothing in the library has
-    changed.** Run ids `one_sense.*`; `docs/DECISIONS.md` D-092, and the retirement note in D-085.
+    **none** of those occurrences, because it declines to answer them at all. This buys coverage and
+    pays in correctness. Run ids `one_sense.*`; `docs/DECISIONS.md` D-092, and the retirement note in
+    D-085.
+  - **SUPERSEDED IN THIS SAME RELEASE, and read this before the paragraph above.** When that
+    correction was written the mechanism was **not shipping**, and it said so. **It ships in
+    `0.4.0`** — as `acronymkit.propagation.propagate()`, its own entry under **Added**. The trade
+    that was the reason against it is unchanged and is answered by *where* it ships rather than by a
+    new measurement: `propagate()` is a separate opt-in module that no engine, `Config` field or
+    default path calls, so `extract()` returns exactly what it returned before and no published
+    recall figure is republished as a figure about a different system.
 
 - **The extraction harness has been checked against the original implementation's own published
   output, and it agrees on every document.** If you have ever wondered whether this project's
@@ -647,13 +743,15 @@ naming how long the old paths are kept and what would end that.
   have seen a sentence from this project saying that claims needing a derivation fail about five
   times as often as claims settled by a lookup, that sentence is withdrawn.
   `docs/CLAIMS-LEDGER.md` §6; `docs/DECISIONS.md` D-088.
-  - **Follow the second pointer, not the first, until §6 is fixed.** A cold read found that
-    `docs/CLAIMS-LEDGER.md` §6 still says the audit has run **twice** and still attaches its headline
+  - ~~**Follow the second pointer, not the first, until §6 is fixed.**~~ **Fixed before this
+    release, and the mechanism that produced it is not.** A cold read had found that
+    `docs/CLAIMS-LEDGER.md` §6 still said the audit had run **twice** and still attached its headline
     to "both rounds", while D-088 — written the same round, and naming §6 in its own **Status** line
-    as a site of this correction — records **three** rounds and says in terms that reading the same
-    percentage off the third one compares a false-only row against two not-true rows. **The correction
-    named its own destination and did not arrive there.** `docs/DECISIONS.md` D-088 is the copy to
-    read; the fix to §6 is owed by whoever owns that page. `docs/DECISIONS.md` D-096.
+    as a site of this correction — recorded **three** rounds. **The correction named its own
+    destination and did not arrive there.** §6 has since been rewritten, twice, and now carries the
+    closed series rather than a round count; what is unfixed is that nothing made the correction
+    arrive, and the same page took two further rounds to reach its own closing figure.
+    `docs/DECISIONS.md` D-088 and D-096.
 
 - **What a governed catalog is worth on a real schema, measured for the first time — and the answer
   is "a little, in a place the pooled figure cannot see".** If you are deciding whether to build or
@@ -754,7 +852,8 @@ naming how long the old paths are kept and what would end that.
 - **`README.md` corrects five things a reader could have been misled by**, each found by a cold read
   against the code rather than against the previous draft: the governed limits bullet now says no
   catalog is in the published figures; the definition-of-done link says fourteen criteria rather than
-  eight; the structural counts a reader can re-derive are named individually with their commands
+  eight — a correction that was itself overtaken inside this release, and the link says **twenty** at
+  the tag; the structural counts a reader can re-derive are named individually with their commands
   rather than summarised as one; the monoculture roster is five implementations at seven operating
   points rather than seven implementations; and the two independent proposers are named.
 - **[`docs/DEFINITION-OF-DONE.md`](docs/DEFINITION-OF-DONE.md) is swept a fourth time.** No verdict
@@ -780,7 +879,7 @@ naming how long the old paths are kept and what would end that.
   the reference gate it still wins on three-way and four-way candidate sets. Read it before choosing a
   threshold.
 - **The README now leads with governed naming.** It is a little over a third of the source, close to
-  half the public symbols, seven of the sixteen CLI commands, and the only half with a streaming batch
+  half the public symbols, eight of the seventeen CLI commands, and the only half with a streaming batch
   mode another runtime can drive. Ordering and framing only — no API changed. Three sentences that had
   quietly become false were retired in the process, and `docs/DECISIONS.md` D-037 names them.
 - **The `SF = LF` legend flag now has a published cost, and the safety check it shipped under has been
@@ -829,8 +928,10 @@ naming how long the old paths are kept and what would end that.
 
 - **Three new pages, and one of them exists to say the project cannot yet do what it claims.**
   [`docs/GATES.md`](docs/GATES.md) lists every CI gate, what it checks, and — the point of the page —
-  what it is blind to; it opens by reporting that `0` of `36` gates carry recorded evidence of having
-  actually failed on purpose in the environment they guard. [`docs/CLAIMS-LEDGER.md`](docs/CLAIMS-LEDGER.md)
+  what it is blind to; **it opened by reporting that `0` of `36` gates carried recorded evidence of
+  having actually failed on purpose in the environment they guard.** That opening figure is
+  historical: `python tools/gates.py --check` prints `21 of 42` at the tag, and the register is the
+  authority on the live count rather than this sentence or that page's own prose. [`docs/CLAIMS-LEDGER.md`](docs/CLAIMS-LEDGER.md)
   is the written policy for paying down figures the claims gate can see but cannot check.
   [`docs/SECOND-READER.md`](docs/SECOND-READER.md) is a cold-read protocol for user-facing pages, with
   the defects that motivated each of its six checks named beside them. `docs/DECISIONS.md` D-059,
@@ -866,11 +967,19 @@ naming how long the old paths are kept and what would end that.
   trip disagree about these inputs and one of them tells you nothing was lost.** It is **not fixed**
   in this release; it is written down, pinned by a strict test so a future fix cannot land silently,
   and its incidence is measured: `0` occurrences across the `285,839` distinct identifiers, captions,
-  element names and labels in the two published governed corpora. The pre-existing `1,050`-code-point
-  ordinal-indicator class (`º` and its relatives) is unchanged and pinned the same way; it occurs
-  `12` times in those `285,839`. Both classes were found by walking **all `1,114,112` code points**
-  rather than by sampling, so the counts are exhaustive on Unicode `15.1.0` and will be re-derived
-  against whatever Unicode data your interpreter carries. `docs/DECISIONS.md` D-130.
+  element names and labels in the two published governed corpora. The pre-existing
+  ordinal-indicator class (`º` and its relatives), which breaks `normalize` idempotence rather than
+  the round trip, is unchanged and pinned the same way; it occurs `12` times in those `285,839`.
+  Both classes were found by walking **all `1,114,112` code points** rather than by sampling.
+  - **One of the two counts is a property of the defect and the other is a property of your
+    interpreter, and nothing short of running all five Unicode versions would have said which.** The
+    ordinal class is `890` at Unicode `13.0`, `977` at `14.0`, `1050` at `15.0` and `15.1`, and
+    `1048` at `16.0` — it grows and then *shrinks* — so the `1050` this project published was true
+    of two Unicode versions and of no others, and was published as though it were a fact about the
+    defect. The round-trip class is `26` at all five. On Unicode `15.1` the two are disjoint and
+    their union is `1,076`. **If you read a single class size off this project, read it off your own
+    interpreter**; the shipped test carries a version-keyed table and reports rather than fails on a
+    version it does not know. `docs/DECISIONS.md` D-130.
 
 - **No faster governed expansion is coming from deferred provenance, and this is the measurement that
   closes that avenue.** The obvious optimisation — hand back span offsets and build the provenance
@@ -924,11 +1033,16 @@ naming how long the old paths are kept and what would end that.
   for the second consecutive read.** Three shipped documents state that a source distribution omits
   two files it now ships; a policy page's own trajectory figures are two rounds stale, including the
   column that page instructs readers to treat as the stable one; and one page says an internal audit
-  has run twice where two documents written the same round say three. **The register the policy keeps
-  was not written**, so the rotation cursor has not advanced for two reads and the findings live only
-  in a note no rule reaches. `python tools/second_reader.py --check` stays green throughout, **because
-  it cannot tell "no read happened" from "a read happened and could not record it"**.
-  `docs/DECISIONS.md` D-096.
+  has run twice where two documents written the same round say three. **As filed, the register the
+  policy keeps was not written**, so the rotation cursor had not advanced for two reads and the
+  findings lived only in a note no rule reaches. `python tools/second_reader.py --check` stays green
+  throughout, **because it cannot tell "no read happened" from "a read happened and could not record
+  it"**. `docs/DECISIONS.md` D-096.
+  - **PARTLY SUPERSEDED IN THIS SAME RELEASE, and the half that is fixed is the smaller half.** That
+    fourth read is now in `docs/cold-reads.toml` with its findings and its disposition, and the
+    cursor advanced past it. **The mechanism is not fixed**: later reads have shipped their findings
+    as notes under `docs/notes/` without reaching the register, so the gate is still green over a
+    read it cannot see, which is the sentence above rather than a new one.
 
 - **The claims-migration quota took its first waiver, and the waiver is a measurement.** Every one of
   the `42` unadjudicated numbers left in the decision log was resolved against every field in
@@ -1007,9 +1121,13 @@ naming how long the old paths are kept and what would end that.
   shared task than a frequency table would be, and the measurement is a contaminated tuning split. It
   is a precision instrument for a caller who knows what a wrong answer costs them, not an accuracy
   fix, and it stays off by default. `docs/DECISIONS.md` D-044.
-- **The published MED1250 extraction headline is stale in this working tree.** The trim fix above
+- ~~**The published MED1250 extraction headline is stale in this working tree.** The trim fix above
   moved it, and the results file and the eleven prose sites that quote it have to move in one change.
-  Do not cut a release until that has happened.
+  Do not cut a release until that has happened.~~ **Done, and that is why this release could be
+  cut.** `bench/results.json` and every prose site that quotes the figure moved together, and every
+  one of those sites now names the run id it came from, so the next drift fails the build rather
+  than sitting there. The note is retired in place rather than deleted, because a release section
+  that had carried it unqualified would have told a reader not to cut the release they are reading.
 - **The governed accuracy runs still record `splits_declaration = UNDECLARED`.** The corpora are now
   declared, but that string is written when a run is saved and nothing rewrites a saved entry. The
   re-save is deliberately queued behind the tokenizer work, because one of the two corpora is a live
@@ -1074,10 +1192,17 @@ naming how long the old paths are kept and what would end that.
   The pilot's verdicts are that the substrate does not carry the agency-authored legends the plan was
   costed on, that every available extractor to pool with is a descendant of the same algorithm, and
   that the sample is too small to distinguish a nearly complete pool from one missing as much as it
-  holds. **No corpus was registered, no figure was published and no run id was created.** The artifact
-  is a single-annotator reference set adjudicated by the author of the extractor that proposed most of
-  its pool, and `tools/splits.py` has no role that says so — filing it as held out would have made it
-  headline-eligible, which is the one standing it must never have. `docs/DECISIONS.md` D-056.
+  holds. **No figure was published and no run id was created**, and neither has changed.
+  - **SUPERSEDED IN THIS SAME RELEASE on the registration half.** As filed, this entry read *"no
+    corpus was registered"* and gave the reason: the artifact is a single-annotator reference set
+    adjudicated by the author of the extractor that proposed most of its pool, and `tools/splits.py`
+    had no role that said so — filing it as held out would have made it headline-eligible, which is
+    the one standing it must never have. **A role that says so now exists.** The corpus is declared
+    in `bench/splits.toml` under `role = "single_annotator_reference"`, which `tools/splits.py`
+    lists in `NEVER_HEADLINE_ROLES` and excludes from the headline arithmetic rather than by
+    convention, and `--check` prints the reason beside it on every run. Registering it raised the
+    declared count for `extraction` **without moving the gap**, which is the thing a declared count
+    read as coverage would have hidden, and `--check` says that too. `docs/DECISIONS.md` D-056.
 - **One definition-of-done criterion was closed by making it smaller, and it says so.** "Every shipped
   subsystem carries an accuracy number" now reads "four of five do; the fifth carries properties and
   cannot carry accuracy, because scoring a backronym needs a judge this project does not have". If you
@@ -1112,10 +1237,11 @@ naming how long the old paths are kept and what would end that.
   at `36.4 %`."* A second round re-took that split and it inverted — `25.0 %` against `18.8 %` — so
   the decomposition is withdrawn and the headline rate is not. `docs/DECISIONS.md` D-082 measured it;
   `docs/CLAIMS-LEDGER.md` section 6 carries the retirement and what a third round would need.
-- **The definition of done is now fourteen criteria and the page has been renumbered.** Six were
-  added; what four documents cite as "criterion 9" is criterion `10` from now on. Nine of fourteen
-  read met, which is the highest that page has ever read, and the page says in its own words why that
-  is not straightforwardly good news. `docs/DEFINITION-OF-DONE.md`, `docs/DECISIONS.md` D-069.
+- **Superseded within this release: the definition of done went to fourteen criteria here and the
+  page was renumbered.** Six were added; what four documents cited as "criterion 9" became criterion
+  `10`. Nine of fourteen read met at the time. **Both figures are historical** — this section covers
+  three mandates, and by the tag the page carries **twenty** criteria with `11` met; see the
+  tenth-sweep entry under **Notes**. `docs/DEFINITION-OF-DONE.md`, `docs/DECISIONS.md` D-069.
 
 - **CI now fails the build on an invented latency or duration figure, and it did not before.**
   `tools/check_claims.py` arms a number when a metric keyword sits near it or a unit follows it, and
@@ -1150,8 +1276,12 @@ naming how long the old paths are kept and what would end that.
     summary and the register reports `1`, because the roster naming who was expected was written by one
     of the workstreams instead of by whoever launched them. D-113.
 
-- **The claims-migration quota has now taken a fourth consecutive waiver, and the fourth one comes
-  with the measurement that explains the other three: the quota has been counting the wrong ledger.**
+- **Superseded within this release, and the successor is a payment rather than a fifth waiver:
+  the quota was paid, against the register the three previous walks had never read.** Read
+  `docs/DECISIONS.md` D-136 before the paragraph below; the floor is still unpayable, so a waiver
+  still stands beside the payment, and the reason below is why. **As filed: the claims-migration
+  quota has taken a fourth consecutive waiver, and the fourth one comes with the measurement that
+  explains the other three: the quota has been counting the wrong ledger.**
   `docs/DECISIONS.md` carries `42` numbers the gate defers on *and*, separately, `42` it backs only by
   value coincidence. Three independent walks all resolved the first population and all three correctly
   measured it terminal. `13` of the second population are unambiguously citable **today**, with named
@@ -1167,22 +1297,25 @@ naming how long the old paths are kept and what would end that.
   evidence about the residue; it is evidence that this project has no channel to a decision-maker.**
   `docs/DECISIONS.md` D-118.
 
-- **The measured not-true rate of this project's own reporting is `15.97` % pooled over `SIX` rounds
-  — `23` of `144`, Wilson `[10.89, 22.83]` — and that series is now closed.** A sixth seeded sample of
-  `24` claims returned `3` not true. **Read the round count carefully, because the tree briefly
-  disagreed with itself about it.** The series was declared closed at `16.67` % over five rounds while
-  a sixth round was already in flight under the same rules; closing a series prospectively does not
-  un-run a round performed under it, so the closing figure is the six-round one. A replacement sampling
-  frame draws from a different population and **starts at `n = 0`**; no pooled figure spans the two,
-  and one internal constant still prints the five-round number beside the successor. Pooling a sixth
-  round moved the interval's half-width from `6.64` to `5.97` while the estimate moved `0.70`, so
-  **the interval is still moving about as fast as it is shrinking**. Quote it as six graders' pooled
-  rate and not as this project's. **Nothing about the library's
-  measured behaviour is implicated** — every published accuracy figure is gated against
-  `bench/results.json`. `docs/DECISIONS.md` D-115.
+- **The measured not-true rate of this project's own reporting is `14.88` % pooled over `SEVEN`
+  rounds — `25` of `168`, Wilson `[10.29, 21.04]` — and that series is now closed.**
+  **Read the round count carefully, because the tree disagreed with itself about it twice, in the same
+  direction, one round apart.** The series was first declared closed at `16.67` % over five rounds
+  while a sixth round was already in flight under the same rules; the correction to `15.97` % over six
+  was then published while a *seventh* round was in flight under the same frame, unit and grading
+  rules, and that round returned `2` of `24`. **Closing a series prospectively does not un-run a round
+  performed under it** — the rule this project wrote down to settle the first instance, applied to the
+  second. Per-round rates are `20.83, 20.83, 25.00, 8.33, 8.33, 12.50, 8.33`. A replacement sampling
+  frame draws from a different population and **starts at `n = 0`**; no pooled figure spans the two.
+  Pooling the seventh round moved the interval's half-width from `5.97` to `5.38` while the estimate
+  moved `1.09`, so **the interval is still moving faster than it is shrinking** — the third
+  consecutive round in which that has held, and the reason this instrument is retired rather than
+  extended. Quote it as seven graders' pooled rate and not as this project's. **Nothing about the
+  library's measured behaviour is implicated** — every published accuracy figure is gated against
+  `bench/results.json`. `docs/DECISIONS.md` D-115, corrected by D-122 and then by D-132.
 
-- **The definition of done stands at twenty criteria, `11` of them met, and the ninth sweep moved
-  exactly one verdict — by narrowing it rather than by progress.** The deferred-ledger criterion is
+- **Superseded by the tenth sweep: the definition of done stands at twenty criteria, `11` of them
+  met, and the ninth sweep moved exactly one verdict — by narrowing it rather than by progress.** The deferred-ledger criterion is
   still met as written, and what its trajectory measures turned out to be narrower than the criterion
   reads. Four more rows had their evidence corrected without their verdicts moving, including one that
   had gone stale in two of its three closing clauses. **The one thing this sweep could not check at all
@@ -1625,7 +1758,8 @@ Initial public release. Delivers roadmap **Phase 1** (Tier 0 engine and extracti
 - The Tier 2 neural disambiguation engine (Phase 3) and the `acronym4j` Java port (Phase 4) are not
   part of this release.
 
-[Unreleased]: https://github.com/pierce-lonergan/AcronymKit/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/pierce-lonergan/AcronymKit/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/pierce-lonergan/AcronymKit/releases/tag/v0.4.0
 [0.3.0]: https://github.com/pierce-lonergan/AcronymKit/releases/tag/v0.3.0
 [0.2.0]: https://github.com/pierce-lonergan/AcronymKit/releases/tag/v0.2.0
 [0.1.0]: https://github.com/pierce-lonergan/AcronymKit/releases/tag/v0.1.0

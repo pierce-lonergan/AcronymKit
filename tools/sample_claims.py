@@ -131,22 +131,32 @@ WHAT THIS FRAME STILL CANNOT DO, STATED RATHER THAN ASSERTED AWAY
 THE SERIES, AND THE BOOKKEEPING THAT WAS LEFT OPEN
 ===================================================
 :data:`CLOSED_SERIES` used to record ``5`` rounds, ``120`` draws, ``20`` not
-true. **Six rounds ran.** The closure was declared by this module before the
+true. **Seven rounds ran.** The closure was declared by this module before the
 sixth round graded anything, and the sixth round then graded ``24`` claims under
 the old frame anyway. The record file already carries the corrected arithmetic;
 the constant here did not, and the round that found the mismatch declined to
 change a sibling's constant and its tests at the end of a round and named it for
-the next one instead. **This is that round**, so the constant now matches the
-record: ``23`` of ``144`` = ``15.97`` %, Wilson ``[10.89, 22.83]``.
+the next one instead.
 
-That series is closed **at six rounds, not five**, and this frame starts at
+**And then it happened again, one round later, in the same direction.** The
+six-round correction was written while a SEVENTH round was in flight under the
+same frame, the same unit and the same grading rules; it returned ``2`` of
+``24``. That round declined to publish a seventh point on the grounds that it
+was drawn from a different population, which is **not** what differed -- the
+population definition is identical and what changed was the sampling fraction,
+``24`` of ``24`` against ``24`` of ``48``, and a fraction is ``n``, not a frame.
+Twice now the closure has been declared over a round that was already running.
+**The constant is corrected here, at the release commit, to the seven-round
+figure**: ``25`` of ``168`` = ``14.88`` %, Wilson ``[10.29, 21.04]``.
+
+That series is closed **at seven rounds, not five and not six**, and this frame starts at
 ``n = 0`` for the second time in two rounds. **A second restart inside two
 rounds is a bad sign about the instrument and it is recorded as one.** The
 defence is narrow and it is the only one available: the frame being retired
 never graded a claim, so no draw is being discarded and no rate is being
 re-based. The R15 series is not reopened -- its unit was a sentence a workstream
 volunteered about its own round, and a self-selected pool is the weakest frame
-available -- but its ``144`` draws are the evidence this design was fitted to,
+available -- but its ``168`` draws are the evidence this design was fitted to,
 and its ``submitted`` channel is the nearest successor to it.
 
 Nothing here is imported by the library and nothing here touches the network.
@@ -289,17 +299,20 @@ MIN_UNIT_TOKENS = 4
 #: :func:`wilson` and requires agreement to two decimals. A constant derived
 #: from the function it is checked against would check nothing.
 CLOSED_SERIES: Dict[str, Any] = {
-    "rounds": 6,
-    "draws": 144,
-    "not_true": 23,
-    "rate_pct": 100.0 * 23 / 144,
-    "wilson_pct": (10.89, 22.83),
-    "per_round": (5, 5, 6, 2, 2, 3),
+    "rounds": 7,
+    "draws": 168,
+    "not_true": 25,
+    "rate_pct": 100.0 * 25 / 168,
+    "wilson_pct": (10.29, 21.04),
+    "per_round": (5, 5, 6, 2, 2, 3, 2),
     "frame": "uniform draw from workstream-submitted claims_for_sampling sentences",
     "closed_at_five_until": (
-        "this rewrite. The constant said 5 rounds / 120 draws / 20 not true while the record "
-        "file said 6 / 144 / 23; the sixth round graded 24 claims under a frame this module "
-        "had already declared closed."
+        "the 0.4.0 release commit, in TWO corrections one round apart and both in the same "
+        "direction. The constant first said 5 rounds / 120 draws / 20 not true while the "
+        "record file said 6 / 144 / 23; it was corrected to six, and a SEVENTH round had "
+        "already graded 24 claims under the same frame, unit and rules, returning 2 not "
+        "true. Closing a series prospectively does not un-run a round performed under it, "
+        "so the closing figure is the seven-round one: 25 of 168 = 14.88 %."
     ),
 }
 

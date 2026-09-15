@@ -540,7 +540,7 @@ pip install "acronymkit[cli]"
 
 ### Governed naming from the command line
 
-Seven of the sixteen commands read a governed vocabulary. `expand-token`, `expand-identifier`,
+Eight of the seventeen commands read a governed vocabulary. `expand-token`, `expand-identifier`,
 `physical-name`, `check-name` and `normalize-name` answer one subject each — `check-name` exits 1 when the name does
 not conform, so it works as a gate. Two answer a whole schema in one process:
 
@@ -735,7 +735,7 @@ python tools/fetch_data.py --verify      # re-check every checksum
   **counts and publishes** rather than ignoring — `python tools/check_claims.py` prints the
   unrecognised residue on every run, and `--residue` names it line by line. **Three structural counts
   are left in this README**, none of them a benchmark result and each re-derivable from the tree:
-  seven of the sixteen CLI commands read a governed vocabulary (`acronymkit --help`); the bundled
+  eight of the seventeen CLI commands read a governed vocabulary (`acronymkit --help`); the bundled
   English lexicon's entry count (`grep -cv '^#\|^$' src/acronymkit/resources/lexicon_en.txt`); and
   the size of the textbook-initialism corpus the default preset reproduces
   (`len(conftest.CANONICAL_ACRONYMS)`). **The claims gate arms none of the three**, so none of them
@@ -782,7 +782,7 @@ python tools/fetch_data.py --verify      # re-check every checksum
   generation recall@k, disambiguation against a trivial baseline, and the abstention curve scored
   against that same baseline on its own answered subset
 - [Decisions](docs/DECISIONS.md) — what was tried and rejected, and why
-- [Definition of done](docs/DEFINITION-OF-DONE.md) — the fourteen criteria this library is held to,
+- [Definition of done](docs/DEFINITION-OF-DONE.md) — the twenty criteria this library is held to,
   swept and verdicted: which are met, which are not, what evidence each rests on, and the criterion
   renumbered this round from the ninth to the tenth — that neither the flagship extraction figure
   nor the disambiguation figure has a corpus that could adjudicate it

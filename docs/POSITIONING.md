@@ -488,6 +488,6 @@ sentence, and that sentence is the load-bearing one on this page.
 
 **See also:** [`README.md`](../README.md) · [`docs/EVALUATION.md`](EVALUATION.md) — the measured
 numbers, each with its losing comparison · [`docs/DEFINITION-OF-DONE.md`](DEFINITION-OF-DONE.md) — the
-fourteen criteria and which are open · [`docs/DECISIONS.md`](DECISIONS.md) — what was tried and
+twenty criteria and which are open · [`docs/DECISIONS.md`](DECISIONS.md) — what was tried and
 rejected, newest first · [`docs/AUDIT-2026-08.md`](AUDIT-2026-08.md) — the audit, and the section on
 what did not survive it.
