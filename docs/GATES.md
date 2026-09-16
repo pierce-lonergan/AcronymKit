@@ -25,7 +25,7 @@ paragraph.
 
 ## Read this before the table
 
-**The register holds forty-two gates and twenty-one of them carry in-situ evidence.** Run
+**The register holds forty-two gates and twenty-three of them carry in-situ evidence.** Run
 `python tools/gates.py --check` rather than trusting that sentence; it is the number this page has
 got wrong most often, and it was wrong here by a whole round until somebody adding the forty-first
 gate noticed.
@@ -36,8 +36,17 @@ paragraph read *"forty-one gates"* through the `0.4.0` release preparation while
 sat further down the same page and its own prose said `gates.architecture_boundaries` *"is ranked `40`
 of `42`"*. **A page that contradicts itself about its own subject two screens apart is worse than a
 page that is merely stale**, because either half can be quoted in good faith. The count above is now
-the register's, re-derived at the tag: `21 of 42`. The lesson this page keeps failing to apply to
-itself is the one in its own first line — **run the command**.
+the register's, re-derived at the tag: `23 of 42`.
+
+**And that sentence read `21 of 42` when it was written, hours earlier in the same round, which is
+the third time this page has been wrong about this integer and the first time it was wrong about a
+figure it had just corrected.** The count moved because the round then found
+`gates.architecture_boundaries` demonstrated in Actions run `34418093244` six days before, on the
+very commit that registered it owing the evidence forward, and unrecorded through two further green
+runs. Nothing on this page could have caught that, and nothing caught this sentence either — the
+figure sits in a code span `prose_of()` masks. **The lesson this page keeps failing to apply to
+itself is the one in its own first line — run the command — and the reason it keeps failing is that
+one register integer is restated in at least five places no gate reads.**
 
 The count moved twice in two rounds and neither move is flattering. `M3-PB` registered `figures`
 and `memo_identity` owing evidence forward; they were demonstrated on a runner two days later and

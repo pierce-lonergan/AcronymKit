@@ -704,6 +704,76 @@ IN_SITU_TRAJECTORY: Tuple[InSituRound, ...] = (
             "statement about one edge and a silence about two."
         ),
     ),
+    InSituRound(
+        label="M3-R041 (the release, and a promise that was kept by the runner)",
+        gates=42,
+        in_situ=23,
+        run="34418093244",
+        commit="1e0d6d5",
+        owed_forward=0,
+        added_gates=(),
+        waiver=(
+            "THE QUOTA IS 3, TWO WERE PAID, AND THE THIRD IS UNPAYABLE FOR A REASON THAT IS NEW "
+            "TO THIS COLUMN. Debt 21 -> 19 against a ceiling of 21. Both payments are real "
+            "in-situ demonstrations and NEITHER WAS PRODUCED BY THIS ROUND ON PURPOSE, which is "
+            "the honest shape of the row: one was six days old and unread, the other was an "
+            "accident. "
+            "WHY A THIRD COULD NOT BE PAID. `demonstrable_without_evidence()` is empty again: "
+            "every gate `gate-mutation.yml` can mutate now carries evidence. What remains is 5 "
+            "inline, 12 manual and 2 control refusals. The M3-PC-operator waiver said the only "
+            "currency left was extracting an inline gate into a script, and THIS ROUND REFUTES "
+            "THAT NARROWLY -- `gates.installed_expected_non_passing` is `manual` and now carries "
+            "in-situ evidence, because it fired for real on a defect this round wrote. But that "
+            "currency CANNOT BE SPENT ON DEMAND: it requires a genuine failure in the job the "
+            "gate guards, and manufacturing one to satisfy a quota would be gaming a coverage "
+            "count with a deliberate defect, which is the precise behaviour this register "
+            "exists to make visible. "
+            "SO THE THIRD PAYMENT WOULD HAVE HAD TO BE AN INLINE EXTRACTION, and that is a "
+            "change to a CI job's implementation on the commit being tagged as a release. "
+            "Refused on that ground alone, and named for the next round rather than deferred "
+            "silently. A release commit is the worst possible place to rewrite a gate. "
+            "WHAT THIS ROW BUYS AND WHAT IT DOES NOT. It buys 2 of 3 and a second currency "
+            "nobody knew the register had. It does NOT buy any growth in coverage: both "
+            "payments correct a count that was wrong rather than record work done, and the "
+            "honest reading of 50.00 % -> 54.76 % is that the register has been "
+            "under-reporting itself, once for six days and once for the length of an afternoon. "
+            "THE FIRST DRAFT OF THIS SENTENCE SAID `50 % -> 55 %`. 23/42 is 54.76 % and 55 % is a "
+            "rounding presented as a measurement, in the column whose whole subject is figures "
+            "that drifted from what was measured. Caught in the round's own audit of its own "
+            "diff, and left visible here rather than quietly fixed."
+        ),
+        note=(
+            "THE OWED-FORWARD DEBT M3-PD RECORDED IS PAID, AND IT WAS PAID SIX DAYS BEFORE THIS "
+            "ROW WAS WRITTEN. 42 -> 42 gates, in-situ 21 -> 22, debt 21 -> 20 against a ceiling "
+            "of 21, owed_forward 1 -> 0. No gate was added and none was withdrawn. "
+            "M3-PD's waiver said the push landing the package split would be the run that owed "
+            "the demonstration, and that IF IT DID NOT LAND the row was the record of a promise. "
+            "It landed that night: gate-mutation.yml run 34418093244 on 1e0d6d5, 2026-09-09 "
+            "23:42, printed `architecture_boundaries  DEMONSTRATED  mutated rc=1, restored "
+            "rc=0`. Both directions. THE PROMISE WAS KEPT BY THE RUNNER AND BROKEN BY THE "
+            "BOOKKEEPING, which is worse than the promise failing, because a failed promise is "
+            "visible in this column and an unread log is not. "
+            "IT WAS DEMONSTRATED TWICE MORE BEFORE ANYBODY LOOKED -- runs 34431412867 (761066d) "
+            "and 34825025584 (6d44002) -- so the register under-reported its own coverage for "
+            "six days across three consecutive green runs. FIFTH INSTANCE OF THIS EXACT "
+            "PATTERN: D-106, D-113 and D-119 are the earlier three and each was found by "
+            "somebody looking for something else, which is how this one was found too, during "
+            "release preparation while chasing a different question entirely. "
+            "The evidence is dated to the FIRST run that demonstrated it and not to the most "
+            "recent one. Dating it 2026-09-14 would have understated the gap by five days, and "
+            "the gap is the finding. "
+            "WHAT THIS ROW DOES NOT BUY, stated so nobody reads it as progress: no gate was "
+            "demonstrated by this round. The count moves because a count was wrong, not because "
+            "coverage grew, and the honest reading of `50 % -> 52 %` is that the register has "
+            "been reporting 50 % while holding 52 % since 2026-09-09. "
+            "AND THE FIX IS NAMED RATHER THAN MADE. gate-mutation.yml could fail when a gate it "
+            "has just demonstrated carries no evidence in the register; that would have turned "
+            "all three of those green runs red, which is the correct behaviour and is a workflow "
+            "change a release commit is the wrong place for. Recorded in docs/DECISIONS.md D-145 "
+            "as an unclosed instrument gap with that cost attached, for the fifth time with a "
+            "named mechanism for the first time."
+        ),
+    ),
 )
 
 

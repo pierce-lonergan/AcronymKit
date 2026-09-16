@@ -540,7 +540,32 @@ expect = "fail"
 expect_failure_matching = "architecture boundary crossed"
 artifact = "lint/architecture-boundaries.log"
 verified_locally_on = 2026-09-09
+verified_in_situ_on = 2026-09-09
+verified_in_situ_run = "34418093244"
+verified_in_situ_commit = "1e0d6d5"
 note = """
+THE WAIVER PREDICTED THE EXACT RUN THAT WOULD PAY THIS AND THAT RUN LANDED THE SAME NIGHT. The
+M3-PD row said *"the push that lands this work is the run that owes the demonstration"* and *"IF
+THAT RUN DOES NOT LAND, THIS ROW IS THE RECORD OF A PROMISE and the next round is entitled to say
+so."* `gate-mutation.yml` run 34418093244, on 1e0d6d5 -- the seam commit itself, 2026-09-09 23:42
+-- printed `architecture_boundaries  DEMONSTRATED  mutated rc=1, restored rc=0`. Both directions,
+which is the complete demonstration. **The promise was kept by the runner and broken by the
+bookkeeping**, which is a worse finding than the promise failing would have been.
+
+IT WAS THEN DEMONSTRATED TWICE MORE AND STILL NOT RECORDED: runs 34431412867 (761066d,
+2026-09-10) and 34825025584 (6d44002, 2026-09-14). So the register reported `21 of 42` for SIX
+DAYS across THREE consecutive green demonstrations. **This is the fifth time this page has
+recorded a gate demonstrated on a runner while the register printed a lower number** -- D-106,
+D-113 and D-119 are the earlier accounts, and each was found the same way this one was: by
+somebody looking for something else. A cross-check of run 34825025584 against the register found
+22 gates demonstrated and 21 recorded, and the gap was this gate and only this gate.
+
+NOTHING INSTALLED BY THE ROUND THAT RECORDED THIS MAKES THE NEXT ROUND READ THE LOG. The obvious
+fix -- have `gate-mutation.yml` fail when a gate it demonstrated carries no evidence in the
+register -- would have turned every one of those three green runs red, which is the right
+behaviour and a change to the workflow that a release commit is the wrong place for. D-145
+carries it as an unclosed instrument gap with that cost named.
+
 THE PROBE IS DELIBERATELY THE SHAPE A GREP WOULD MISS. It adds
 `import acronymkit.nlp.tokenizer as _probe` to src/acronymkit/core/spans.py -- an aliased import,
 one of the two shapes a grep for `from acronymkit.nlp` does not see at all. A probe written as a
@@ -1752,6 +1777,9 @@ did not shrink.
 """
 [gates.installed_expected_non_passing.mutation]
 kind = "manual"
+verified_in_situ_on = 2026-09-15
+verified_in_situ_run = "35035117790"
+verified_in_situ_commit = "410ef6c"
 reason = """
 The gate is a five-step sequence -- build an sdist, install it, lay out a run
 directory from the artifact, assert the import resolves to site-packages, then
@@ -1760,6 +1788,46 @@ that sequence in its `packaging-gates` job, and a reproduction is not the gate:
 the two can drift and nothing would say so. Recorded as manual rather than
 automated for that reason, and the drift risk is the honest cost of covering it
 at all.
+
+IT IS STILL `manual` AND IT NOW CARRIES IN-SITU EVIDENCE, BECAUSE IT FIRED FOR
+REAL. This is the first `manual` gate in the register to carry any. The
+demonstration was not injected: the 0.4.0 release commit added
+`tests/test_version_fallback.py::test_the_constant_lives_in_exactly_one_place`,
+which reads `src/acronymkit/__init__.py`, and a wheel does not ship `src/`. CI
+run 35035117790 on 410ef6c printed this gate's own first branch verbatim --
+`INSTALLED SUITE GATE FAILED: these failed against the INSTALLED distribution
+and pass in a checkout` -- on an instance of exactly the defect class `detects`
+names. It fired again on 35035710919 (e48a938), so the demonstration replicates.
+
+WHAT THIS REFUTES, STATED NARROWLY. It does NOT refute the M3-PC-operator
+waiver's claim that no manual gate can be mutated *by this harness in any
+environment it can build*; that claim is about `gate-mutation.yml` and it
+stands. What it refutes is the sentence after it -- *"the only currency left is
+extracting an inline gate into a script"*. There is a second currency: capturing
+a real in-situ failure when one occurs. It cannot be scheduled, which is why it
+was never counted, and it is worth more than an injected mutation when it
+arrives, because the defect was real and the gate caught it unprompted.
+
+WHAT IS LOCAL RATHER THAN IN SITU, SO NOBODY HAS TO GUESS. The FAILURE is in
+situ, twice, which is what R11 requires. The RESTORATION was first taken locally
+by laying out a run directory from the sdist and invoking
+`tools/gate_installed_suite.py` on the log: exit 1 with one unaccounted node
+before the guard, exit 0 after, reporting *"4736 tests passed from the installed
+distribution, 231 skipped, 6 checkout-only entries accounted for exactly."*
+
+THE RESTORATION IS NOW IN SITU TOO, so this gate has both directions on a
+runner: FAIL at run 35035117790 on 410ef6c, PASS at run 35039140987 on 293c6cd,
+where the job `The suite runs from the installed distribution` reports
+`success`. That is the same red-then-green pair `gate-mutation.yml` prints as
+`mutated rc=1, restored rc=0` for the automated gates, assembled from two real
+pushes instead of one injected edit.
+
+AND THIS SENTENCE WAS WRONG ONCE, WHICH IS WORTH LEAVING IN. It first read "CI
+confirmed the restoration" while that run was still in flight -- a tick nobody
+had seen, asserted in the register whose subject is unverified coverage claims.
+It was corrected to say the run was pending, and is corrected again here now
+that the run has reported. Third claim in this round written ahead of its
+measurement, and the only one that reached a file before being caught.
 """
 
 

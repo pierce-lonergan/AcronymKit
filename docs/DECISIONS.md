@@ -827,6 +827,70 @@ minutes and silence was indistinguishable from a run still going. **Three instru
 reported green or nothing while the subject was red**: the pre-flight suite in a checkout, the
 mutation-verified test that could not fail where it ran, and the monitor watching for the result.
 
+### The gate register has been under-reporting its own coverage for six days, and the waiver that predicted it was right about the run and wrong about the outcome
+
+**Found while looking for something else, which is how all four previous instances were found.** The
+in-situ count moves `21` to `23` of `42` in this commit and **not one gate was demonstrated by this
+round on purpose.** Both payments correct a count that was wrong.
+
+**Payment one, and it is the worse finding.** D-121's M3-PD row registered
+`gates.architecture_boundaries` owing its evidence forward, and its waiver said: *"the push that
+lands this work is the run that owes the demonstration"* and *"IF THAT RUN DOES NOT LAND, THIS ROW IS
+THE RECORD OF A PROMISE and the next round is entitled to say so."*
+
+```
+gate-mutation.yml, architecture_boundaries. Command output, not a benchmark measurement.
+  34418093244  1e0d6d5  2026-09-09 23:42   DEMONSTRATED  mutated rc=1, restored rc=0
+  34431412867  761066d  2026-09-10 02:56   DEMONSTRATED  mutated rc=1, restored rc=0
+  34825025584  6d44002  2026-09-14 08:53   DEMONSTRATED  mutated rc=1, restored rc=0
+  register, all three days: CARRYING IN-SITU EVIDENCE: 21 of 42
+```
+
+**The run landed the same night, on the seam commit itself.** The promise was kept by the runner and
+broken by the bookkeeping — which is **worse than the promise failing**, because a failed promise is
+visible in the trajectory column and an unread log is not. It was then demonstrated twice more. A
+cross-check of run `34825025584` against the register found `22` gates demonstrated and `21`
+recorded, and the gap was this gate and only this gate.
+
+**The evidence is dated to the first run, not the most recent.** Dating it `2026-09-14` would have
+understated the gap by five days, and the gap is the finding. One consequence worth stating:
+`--evidence-provenance` now reports `architecture_boundaries` as the **only** one of `23` whose
+evidence *describes HEAD*; the other `22` predate a change to a file the gate is made of. **The
+freshest evidence in the register is the entry that sat unrecorded for six days.**
+
+**Payment two came from this round's own defect, and it is the first `manual` gate in the register to
+carry in-situ evidence.** `gates.installed_expected_non_passing` fired for real on `410ef6c`, printing
+its own first branch verbatim — *"INSTALLED SUITE GATE FAILED: these failed against the INSTALLED
+distribution and pass in a checkout"* — on an instance of exactly the defect class its `detects`
+clause names, and again on `e48a938`, so it replicates.
+
+**Both directions are now on a runner.** FAIL at run `35035117790` on `410ef6c`, PASS at run
+`35039140987` on `293c6cd`, where the job reports `success` — the same red-then-green pair
+`gate-mutation.yml` prints as `mutated rc=1, restored rc=0` for the automated gates, assembled from
+two real pushes instead of one injected edit.
+
+**What that refutes, stated narrowly, because the obvious phrasing is too strong.** It does **not**
+refute the M3-PC-operator waiver's claim that no manual gate can be mutated *by this harness in any
+environment it can build*. That claim is about `gate-mutation.yml` and **it stands.** What it refutes
+is the sentence immediately after it — *"the only currency left is extracting an inline gate into a
+script"*. There is a second currency: **capturing a real in-situ failure when one occurs.** It is
+worth more than an injected mutation when it arrives, because the defect was real and the gate caught
+it unprompted.
+
+**And that currency cannot be spent on demand, which is why the quota is waived at 2 of 3.**
+Manufacturing a failure in the job a gate guards, in order to satisfy a coverage quota, would be
+gaming a count with a deliberate defect — the precise behaviour this register exists to make visible.
+The only payable third was an inline extraction, which is **a change to a CI job's implementation on
+the commit being tagged as a release.** Refused on that ground and named rather than deferred
+silently.
+
+**The fix for the unread-log pattern is named and not made, for the fifth time — but with a mechanism
+for the first time.** `gate-mutation.yml` could fail when a gate it has just demonstrated carries no
+evidence in the register. **That would have turned all three of those green runs red**, which is the
+correct behaviour, and it is a workflow change a release commit is the wrong place for. Previous
+rounds recorded *"nothing installed this round makes the next round read the log"* without saying what
+would; this one says what would, and what it costs.
+
 ### What this round did NOT fix, with dispositions
 
 - **F-4 (HALF): `PhysicalName.unaccounted` is absent from `2` of `3` governed CLI renderers.**
