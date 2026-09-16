@@ -40,6 +40,18 @@ PYPROJECT = REPO_ROOT / "pyproject.toml"
 
 _NO_PARSER = sys.version_info < (3, 11) and importlib.util.find_spec("tomli") is None
 
+#: The two modules the one-constant guard reads, as source text.
+#:
+#: They exist in a checkout and **not** in an installed distribution, where
+#: ``src/`` is not shipped and the run directory holds only ``tests/``. The
+#: guard below is a `skipif` rather than an entry in
+#: ``tools/gate_installed_suite.py``'s ``EXPECTED_NON_PASSING``, because that
+#: gate's own rule is to guard the test and reserve the list for tests that
+#: cannot be guarded -- and D-058 measured what listing costs: while an entry
+#: sat on the list the job could not see a second defect in the same file.
+_SOURCE_MODULES = ("src/acronymkit/__init__.py", "src/acronymkit/engine.py")
+_NO_SOURCES = not all((REPO_ROOT / relative).is_file() for relative in _SOURCE_MODULES)
+
 
 def _declared_version() -> str:
     """``pyproject.toml``'s ``[project] version``, parsed rather than grepped."""
@@ -107,7 +119,7 @@ def test_the_two_fallback_paths_report_the_same_version(
 
 
 @pytest.mark.skipif(_NO_PARSER, reason="tomllib is 3.11+; tomli not installed")
-@pytest.mark.skipif(not PYPROJECT.is_file(), reason="not a source checkout")
+@pytest.mark.skipif(not PYPROJECT.is_file(), reason="no pyproject.toml beside the tests")
 def test_the_fallback_agrees_with_the_version_being_released() -> None:
     """The fallback must equal ``pyproject.toml``, or a release drifts from it.
 
@@ -119,6 +131,15 @@ def test_the_fallback_agrees_with_the_version_being_released() -> None:
 
     It fails on the release commit that forgets the bump, which is the only
     moment it can be useful.
+
+    **This one runs against an installed distribution too, and the reason is
+    worth knowing.** `ci.yml`'s `installed-suite` job copies the sdist's
+    `pyproject.toml` into the run directory beside the tests, because that file
+    *is* this suite's pytest configuration. So the guard above does not fire
+    there and the comparison is made against **the artifact's own declared
+    version** -- a stronger check than the checkout one, and the reason the
+    skip reason says "beside the tests" rather than "not a source checkout",
+    which is what it said until it was measured.
     """
     from acronymkit.core.version import FALLBACK_VERSION
 
@@ -130,6 +151,7 @@ def test_the_fallback_agrees_with_the_version_being_released() -> None:
     )
 
 
+@pytest.mark.skipif(_NO_SOURCES, reason="reads src/; not shipped in a distribution")
 def test_the_constant_lives_in_exactly_one_place() -> None:
     """No module may carry its own version literal again.
 
@@ -137,8 +159,14 @@ def test_the_constant_lives_in_exactly_one_place() -> None:
     shape. A grep would miss a literal spelled differently; this reads the
     source of the two modules that used to hold one and requires the shared
     name.
+
+    **Why it is skipped against an installed distribution.** It reads `src/`,
+    which a wheel does not ship, and it reddened the `installed-suite` job on
+    the first release commit -- the fourth test in this repository to reach
+    outside the artifact it was meant to test. The two tests above were written
+    with their guards; this one was not, which is the whole difference.
     """
-    for relative in ("src/acronymkit/__init__.py", "src/acronymkit/engine.py"):
+    for relative in _SOURCE_MODULES:
         source = (REPO_ROOT / relative).read_text(encoding="utf-8")
         assert "FALLBACK_VERSION" in source, f"{relative} no longer references the constant"
         assert '_FALLBACK_VERSION = "' not in source, (

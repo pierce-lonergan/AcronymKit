@@ -782,6 +782,51 @@ one**: a collector that read word-spelled numerals would arm on ordinary prose a
 nobody has measured that false-positive rate. Recorded as an open instrument gap with a named cost,
 not as a TODO — the honest position is that the fifth instance will appear the same way.
 
+### And the round's own release commit reddened CI, with the defect it had just written a record about
+
+**`410ef6c` and `e48a938` both failed the `installed-suite` job, and the cause was a test this round
+added.** `tests/test_version_fallback.py::test_the_constant_lives_in_exactly_one_place` reads
+`src/acronymkit/__init__.py` and `src/acronymkit/engine.py` to assert that neither module carries its
+own version literal. A wheel does not ship `src/`, and the job lays out a run directory that is
+deliberately not a checkout, so the test hit
+`FileNotFoundError: /home/runner/work/_temp/run/src/acronymkit/__init__.py`.
+
+**This is the fourth test in this repository to reach outside the artifact it was written to test**,
+and the honest detail is that the other two tests in the same file, written in the same sitting,
+*were* guarded. The pre-flight before the push was run in a checkout, where the missing guard cannot
+fail — **the exact structure this record spends four sections on, committed by the party writing
+them.**
+
+```
+the installed-suite gate, invoked locally on a run directory laid out from the sdist.
+  before the guard   5 failed, 2 errors, 4,736 passed   gate exit 1, 1 node unaccounted
+  after  the guard   4 failed, 2 errors, 4,736 passed   gate exit 0
+  verdict: "4736 tests passed from the installed distribution, 231 skipped,
+            6 checkout-only entries accounted for exactly."
+```
+
+**The fix is a `skipif`, not a list entry, and the gate itself says which.** `tools/gate_installed_suite.py`
+prints *"guard the test -- adding a name to `EXPECTED_NON_PASSING` is only correct when the test
+structurally cannot run without a source checkout"*, and D-058 measured what listing costs: while an
+entry sat on that list the job could not see a second defect anywhere in the same file. The guard was
+then **demonstrated capable of firing** rather than assumed, by running the module from a tree with no
+`src/` against the installed wheel: `1 passed, 2 skipped`. The one that still passes is the behaviour
+test, which is the right split — the artifact is still asked whether its two fallback paths agree.
+
+**One imprecision was found by that exercise and corrected.** The middle test's guard read
+`reason="not a source checkout"`, and it is not what it guards: `ci.yml` copies the sdist's
+`pyproject.toml` into the run directory beside the tests, because that file *is* this suite's pytest
+configuration. So that test **does** run against an installed distribution, comparing the fallback
+against the **artifact's own declared version** — a stronger check than the checkout one. The reason
+now says *"no pyproject.toml beside the tests"*, which is the condition that actually fires.
+
+**What this cost, stated plainly: two CI runs and the tag.** The first was spent on the defect and the
+second on a docs commit pushed before the first result was read — and the watch set on the second run
+was itself broken, filtering on a workflow name that never matched, so it reported nothing for thirty
+minutes and silence was indistinguishable from a run still going. **Three instruments in one round
+reported green or nothing while the subject was red**: the pre-flight suite in a checkout, the
+mutation-verified test that could not fail where it ran, and the monitor watching for the result.
+
 ### What this round did NOT fix, with dispositions
 
 - **F-4 (HALF): `PhysicalName.unaccounted` is absent from `2` of `3` governed CLI renderers.**
